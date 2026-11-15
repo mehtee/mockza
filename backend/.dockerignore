@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+**/dist
+.turbo
+coverage
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+*.log
+.git
+.gitignore
+Dockerfile
+Containerfile
+docker-compose.yml
+compose.yaml

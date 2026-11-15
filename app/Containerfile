@@ -1,0 +1,76 @@
+# syntax=docker/dockerfile:1.7
+# Multi-stage Containerfile for Mockza Flutter Web & CI Checker (pinned SDK, low-RAM guarded)
+
+ARG FLUTTER_VERSION=3.47.9
+
+# Stage 1: Pinned Flutter Linux SDK with Web toolchain & SQLite test runtime (no Android/iOS bloat)
+FROM debian:bookworm-slim AS sdk
+ARG FLUTTER_VERSION
+ENV DEBIAN_FRONTEND=noninteractive \
+    FLUTTER_HOME="/opt/flutter" \
+    PUB_CACHE="/opt/pub-cache" \
+    DART_VM_OPTIONS="--old_gen_heap_size=1280" \
+    PATH="/opt/flutter/bin:/opt/flutter/bin/cache/dart-sdk/bin:$PATH"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      curl \
+      git \
+      libglu1-mesa \
+      libsqlite3-0 \
+      libsqlite3-dev \
+      unzip \
+      xz-utils \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz" \
+      -o /tmp/flutter.tar.xz \
+    && mkdir -p /opt \
+    && tar -xJf /tmp/flutter.tar.xz -C /opt \
+    && rm -f /tmp/flutter.tar.xz \
+    && git config --global --add safe.directory /opt/flutter \
+    && flutter config --no-analytics --enable-web \
+    && flutter precache --web
+
+WORKDIR /app
+
+# Stage 2: Resolve Dart/Flutter packages & generate l10n using lockfile + ARB cache
+FROM sdk AS deps
+COPY pubspec.yaml pubspec.lock l10n.yaml analysis_options.yaml ./
+COPY lib/l10n ./lib/l10n
+RUN flutter pub get
+
+# Stage 3: Copy application source and ensure l10n codegen is up to date
+FROM deps AS source
+COPY lib ./lib
+COPY test ./test
+COPY web ./web
+RUN flutter gen-l10n
+
+# Stage 4: Containerized Flutter CI checker (format, analyze, unit & widget tests)
+FROM source AS checker
+CMD ["sh", "-c", "dart format --output=none --set-exit-if-changed lib test && flutter analyze --fatal-infos && flutter test --test-randomize-ordering-seed random --reporter expanded"]
+
+# Stage 5: Release Web bundle (JS/CanvasKit, SkWasm dry-run skipped and -O1 for 8 GiB RAM safety)
+FROM source AS web-builder
+ARG MOCKZA_EDITION=global
+ARG MOCKZA_API_BASE_URL=
+RUN TARGET_FILE="lib/main_${MOCKZA_EDITION}.dart"; \
+    flutter build web --release \
+      -t "$TARGET_FILE" \
+      --no-wasm-dry-run \
+      -O1 \
+      --no-source-maps \
+      --dart-define="MOCKZA_API_BASE_URL=${MOCKZA_API_BASE_URL}"
+
+# Stage 6: Unprivileged Nginx runtime serving static Flutter Web SPA + /v1/ API reverse proxy
+FROM nginx:1.27-alpine AS web-runtime
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=web-builder /app/build/web /usr/share/nginx/html
+RUN chown -R nginx:nginx /var/cache/nginx /var/log/nginx /etc/nginx/conf.d /usr/share/nginx/html \
+    && touch /run/nginx.pid \
+    && chown nginx:nginx /run/nginx.pid
+USER nginx
+EXPOSE 8080
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+  CMD ["wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+CMD ["nginx", "-g", "daemon off;"]

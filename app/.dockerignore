@@ -1,0 +1,17 @@
+.dart_tool
+build
+coverage
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.idea
+*.iml
+.DS_Store
+.git
+.gitignore
+Containerfile
+Dockerfile
+.containerignore
+.dockerignore
+android/.gradle
+ios/Pods

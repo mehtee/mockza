@@ -1,0 +1,275 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:mockza/features/evaluation_review/presentation/evaluation_review_screen.dart';
+import 'package:mockza/features/home/presentation/home_screen.dart';
+import 'package:mockza/features/listening_sim/presentation/listening_sim_screen.dart';
+import 'package:mockza/features/micro_drills/presentation/micro_drills_screen.dart';
+import 'package:mockza/features/onboarding/presentation/onboarding_screen.dart';
+import 'package:mockza/features/paywall/presentation/paywall_screen.dart';
+import 'package:mockza/features/practice_hub/presentation/full_mock_screen.dart';
+import 'package:mockza/features/practice_hub/presentation/practice_hub_screen.dart';
+import 'package:mockza/features/practice_hub/presentation/practice_setup_screen.dart';
+import 'package:mockza/features/progress/presentation/progress_attempts_screen.dart';
+import 'package:mockza/features/progress/presentation/progress_screen.dart';
+import 'package:mockza/features/progress/presentation/progress_skill_screen.dart';
+import 'package:mockza/features/reading_sim/presentation/reading_sim_screen.dart';
+import 'package:mockza/features/settings/presentation/settings_screen.dart';
+import 'package:mockza/features/speaking_sim/presentation/speaking_sim_screen.dart';
+import 'package:mockza/features/vocabulary/presentation/vocab_review_screen.dart';
+import 'package:mockza/features/vocabulary/presentation/vocab_word_detail_screen.dart';
+import 'package:mockza/features/vocabulary/presentation/vocabulary_screen.dart';
+import 'package:mockza/features/writing_sim/presentation/writing_sim_screen.dart';
+import 'package:mockza/l10n/app_localizations.dart';
+import 'package:mockza/providers.dart';
+import 'package:mockza/routing/routes.dart';
+import 'package:mockza/theme/app_colors.dart';
+import 'package:mockza/theme/app_icons.dart';
+import 'package:mockza/theme/app_typography.dart';
+import 'package:mockza/theme/components/app_scaffold_shell.dart';
+import 'package:mockza/theme/components/mz_buttons.dart';
+import 'package:mockza/theme/components/mz_scaffold.dart';
+import 'package:mockza/theme/primitives.dart';
+
+/// Streams whether initial learner onboarding has completed (`null` while loading).
+final StreamProvider<bool?> _onboardingGateProvider = StreamProvider<bool?>((
+  ref,
+) async* {
+  final repo = ref.watch(profileRepositoryProvider);
+  final identity = ref.watch(secureIdentityServiceProvider);
+  try {
+    final idRes = await identity.getOrCreateDeviceId();
+    await repo.loadOrInitializePrimary(
+      fallbackDeviceId: idRes.valueOrNull ?? 'anonymous-device',
+    );
+  } on Object {
+    // Ignore when running isolated tests without platform storage.
+  }
+  await for (final profile in repo.watchPrimaryProfile()) {
+    yield profile?.onboardingCompleted ?? false;
+  }
+});
+
+class _RouterRefreshNotifier extends ChangeNotifier {
+  new(Ref ref) {
+    _sub = ref.listen<AsyncValue<bool?>>(
+      _onboardingGateProvider,
+      (_, _) => notifyListeners(),
+      fireImmediately: true,
+    );
+  }
+
+  late final ProviderSubscription<AsyncValue<bool?>> _sub;
+
+  @override
+  void dispose() {
+    _sub.close();
+    super.dispose();
+  }
+}
+
+/// Root application [GoRouter] instance (sole router in the codebase per ADR-005).
+final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
+  final refreshListenable = _RouterRefreshNotifier(ref);
+
+  final router = GoRouter(
+    initialLocation: AppRoutes.home,
+    refreshListenable: refreshListenable,
+    redirect: (context, state) {
+      final completed = ref.read(_onboardingGateProvider).asData?.value;
+      if (completed == null) return null;
+      final loc = state.matchedLocation;
+      if (!completed && loc != AppRoutes.onboarding) {
+        return AppRoutes.onboarding;
+      }
+      return null;
+    },
+    routes: <RouteBase>[
+      StatefulShellRoute.indexedStack(
+        builder:
+            (
+              context,
+              state,
+              navigationShell,
+            ) => AppScaffoldShell(
+              currentIndex: navigationShell.currentIndex,
+              onSelectTab: (index) => navigationShell.goBranch(
+                index,
+                initialLocation: index == navigationShell.currentIndex,
+              ),
+              onOpenSettings: () => context.push(AppRoutes.settings),
+              child: navigationShell,
+            ),
+        branches: <StatefulShellBranch>[
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: AppRoutes.home,
+                builder: (context, state) => const HomeScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: AppRoutes.practice,
+                builder: (context, state) => const PracticeHubScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: AppRoutes.vocabulary,
+                builder: (context, state) => const VocabularyScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: AppRoutes.progress,
+                builder: (context, state) => const ProgressScreen(),
+              ),
+            ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: AppRoutes.onboarding,
+        builder: (context, state) => const OnboardingScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.settings,
+        builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.paywall,
+        builder: (context, state) => const PaywallScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.practiceSetup,
+        builder: (context, state) => PracticeSetupScreen(
+          skill: state.pathParameters['skill'] ?? 'speaking',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.practiceFullMock,
+        builder: (context, state) => FullMockScreen(
+          mockId: state.pathParameters['mockId'] ?? 'mock-acad-01',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.speakingSim,
+        builder: (context, state) => SpeakingSimScreen(
+          examId: state.pathParameters['examId'] ?? 'ielts-speaking-seed-01',
+          isExamMode: state.uri.queryParameters['mode'] != 'study',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.writingSim,
+        builder: (context, state) => WritingSimScreen(
+          taskId: state.pathParameters['taskId'] ?? 'ielts-writing-seed-01',
+          isExamMode: state.uri.queryParameters['mode'] != 'study',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.readingSim,
+        builder: (context, state) => ReadingSimScreen(
+          packId:
+              state.pathParameters['packId'] ?? 'ielts-acad-reading-seed-01',
+          isExamMode: state.uri.queryParameters['mode'] != 'study',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.listeningSim,
+        builder: (context, state) => ListeningSimScreen(
+          packId: state.pathParameters['packId'] ?? 'ielts-listening-seed-01',
+          isExamMode: state.uri.queryParameters['mode'] != 'study',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.microDrill,
+        builder: (context, state) => MicroDrillsScreen(
+          drillId: state.pathParameters['drillId'] ?? 'ielts-micro-drill-01',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.microDrills,
+        builder: (context, state) => const MicroDrillsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.attemptReview,
+        builder: (context, state) => EvaluationReviewScreen(
+          attemptId: state.pathParameters['attemptId'] ?? 'unknown',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.vocabReview,
+        builder: (context, state) => VocabReviewScreen(
+          reviewAhead: state.uri.queryParameters['mode'] == 'ahead',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.vocabWordDetail,
+        builder: (context, state) => VocabWordDetailScreen(
+          wordId: state.pathParameters['wordId'] ?? 'unknown',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.progressSkill,
+        builder: (context, state) => ProgressSkillScreen(
+          skill: state.pathParameters['skill'] ?? 'speaking',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.progressAttempts,
+        builder: (context, state) => const ProgressAttemptsScreen(),
+      ),
+    ],
+    errorBuilder: (context, state) {
+      final l10n = AppLocalizations.of(context);
+      final colors = AppColors.of(context);
+      final typography = AppTypography.of(context);
+
+      return MzScaffold(
+        appBar: AppBar(title: Text(l10n.routeNotFoundTitle)),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsetsDirectional.all(SpacingTokens.xl),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                const AppIcon(LucideGlyph.info, size: 48),
+                const SizedBox(height: SpacingTokens.lg),
+                Text(
+                  'Screen Not Found',
+                  style: typography.cardTitle.copyWith(
+                    color: colors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: SpacingTokens.sm),
+                Text(
+                  'The requested route does not exist or has been moved.',
+                  textAlign: TextAlign.center,
+                  style: typography.body.copyWith(color: colors.textSecondary),
+                ),
+                const SizedBox(height: SpacingTokens.xl),
+                PrimaryButton(
+                  label: l10n.backToHome,
+                  onPressed: () => context.go(AppRoutes.home),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+
+  ref.onDispose(() {
+    refreshListenable.dispose();
+    router.dispose();
+  });
+  return router;
+});

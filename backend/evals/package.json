@@ -1,0 +1,18 @@
+{
+  "name": "@mockza/evals",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "eval": "tsx --conditions=development src/run-evals.ts",
+    "eval:prod": "node dist/run-evals.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@mockza/ai": "workspace:*",
+    "@mockza/contracts": "workspace:*",
+    "@mockza/domain": "workspace:*"
+  }
+}

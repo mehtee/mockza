@@ -1,0 +1,27 @@
+{
+  "name": "@mockza/ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@langchain/core": "^1.4.1",
+    "@langchain/langgraph": "^1.7.4",
+    "@langchain/openrouter": "^0.4.25",
+    "@mockza/contracts": "workspace:*",
+    "@mockza/domain": "workspace:*",
+    "langfuse": "^3.37.2",
+    "zod": "^3.25.0"
+  }
+}

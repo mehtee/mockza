@@ -1,0 +1,110 @@
+name: Mockza Container-First CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  static_gates:
+    name: Monorepo Architecture, Boundary & Secret Gates
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run static architecture & security gates
+        run: ./scripts/check_all.sh all
+
+  backend_container:
+    name: Backend Container Build & Toolchain Suite
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build & verify backend toolchain (Biome, tsc, Vitest)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Containerfile
+          target: toolchain
+          load: true
+          tags: mockza-backend-toolchain:ci
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+
+      - name: Run containerized backend lint, typecheck & unit tests
+        run: docker run --rm mockza-backend-toolchain:ci
+
+      - name: Build production backend images (api, worker, migrator, cli)
+        run: |
+          docker build -f backend/Containerfile --target api -t mockza-api:ci backend
+          docker build -f backend/Containerfile --target worker -t mockza-worker:ci backend
+          docker build -f backend/Containerfile --target migrator -t mockza-migrator:ci backend
+          docker build -f backend/Containerfile --target cli -t mockza-cli:ci backend
+
+  flutter_container:
+    name: Flutter Container Build & 4-Tier Test Suite
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build Flutter SDK & checker stage (pinned .flutter-version)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./app
+          file: ./app/Containerfile
+          target: checker
+          load: true
+          tags: mockza-app-checker:ci
+          cache-from: type=gha,scope=flutter
+          cache-to: type=gha,scope=flutter,mode=max
+
+      - name: Run containerized format, analyze & 4-tier test suite
+        run: |
+          docker run --rm mockza-app-checker:ci \
+            sh -c "dart format --output=none --set-exit-if-changed lib test && flutter analyze --fatal-infos && flutter test --test-randomize-ordering-seed random --reporter expanded"
+
+      - name: Build release Flutter Web Nginx image
+        run: docker build -f app/Containerfile --target web-runtime -t mockza-web:ci app
+
+  content_and_evals_gate:
+    name: Clean-Room Content Verification & Golden Evals Gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build CLI tools container
+        run: docker build -f backend/Containerfile --target cli -t mockza-cli:ci backend
+
+      - name: Run Content Pipeline Pack & Checksum Validator (ADR-008)
+        run: docker run --rm mockza-cli:ci node /app/content-pipeline/dist/validate-pack.js
+
+      - name: Run Golden IELTS Rubric Calibration Benchmark (>= 80% ±0.5 band)
+        run: docker run --rm mockza-cli:ci node /app/evals/dist/run-evals.js
+
+  openapi_parity_gate:
+    name: OpenAPI Contract Parity Gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+          cache-dependency-path: backend/pnpm-lock.yaml
+
+      - name: Install backend dependencies & export OpenAPI spec
+        run: |
+          cd backend
+          pnpm install --frozen-lockfile
+          pnpm --filter @mockza/contracts test
+
+      - name: Verify zero uncommitted OpenAPI schema drift
+        run: |
+          git status --porcelain
+          test -z "$(git status --porcelain)"

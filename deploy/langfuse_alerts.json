@@ -1,0 +1,47 @@
+{
+  "name": "Mockza Production Langfuse Observability & Alerting Rules",
+  "version": "1.0.0",
+  "alerts": [
+    {
+      "id": "alert-pii-leakage",
+      "name": "PII / Student Contact Leakage in Evaluation Graph",
+      "metric": "trace.metadata.piiDetected",
+      "condition": "count > 0",
+      "window": "5m",
+      "severity": "CRITICAL",
+      "channels": ["pagerduty", "slack-security"],
+      "description": "Triggered when an evaluation prompt or completion contains unmasked email, phone number, or government ID."
+    },
+    {
+      "id": "alert-evaluation-latency-spike",
+      "name": "Evaluation Graph P95 Latency Spike",
+      "metric": "trace.duration",
+      "aggregation": "p95",
+      "condition": "> 4000",
+      "window": "15m",
+      "severity": "WARNING",
+      "channels": ["slack-ops"],
+      "description": "Triggered when LangGraph multi-step evaluation P95 latency exceeds 4,000ms."
+    },
+    {
+      "id": "alert-rubric-score-anomaly",
+      "name": "Rubric Score Out of Bounds / NaN",
+      "metric": "score.overallBand",
+      "condition": "value < 0.0 OR value > 9.0 OR value IS NULL",
+      "window": "5m",
+      "severity": "CRITICAL",
+      "channels": ["pagerduty", "slack-quality"],
+      "description": "Triggered when an LLM evaluation returns an invalid score outside the canonical 0.0..9.0 IELTS band scale."
+    },
+    {
+      "id": "alert-model-fallback-burst",
+      "name": "High Rate of Primary Model Fallback",
+      "metric": "trace.tags.modelFallback",
+      "condition": "rate > 0.05",
+      "window": "10m",
+      "severity": "WARNING",
+      "channels": ["slack-ai"],
+      "description": "Triggered when primary DeepSeek/Gemini model errors exceed 5% and trigger backup provider fallbacks."
+    }
+  ]
+}

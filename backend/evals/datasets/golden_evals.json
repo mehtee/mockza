@@ -1,0 +1,574 @@
+[
+  {
+    "sampleId": "W-GOLD-01",
+    "skill": "writing",
+    "targetOverallBand": 5.0,
+    "groundTruthCriteria": {
+      "TA": 5.0,
+      "CC": 5.0,
+      "LR": 5.0,
+      "GRA": 5.0
+    },
+    "prompt": "Should public transport be free?",
+    "submission": "Many people think buses and trains should be free. In my opinion, this has good things and bad things. First, poor people can travel easily. But government will spend too much money and taxes will go high. So maybe not completely free."
+  },
+  {
+    "sampleId": "W-GOLD-02",
+    "skill": "writing",
+    "targetOverallBand": 5.5,
+    "groundTruthCriteria": {
+      "TA": 5.5,
+      "CC": 5.5,
+      "LR": 5.5,
+      "GRA": 5.5
+    },
+    "prompt": "Is technology making people lonely?",
+    "submission": "Nowadays, everyone uses mobile phones and internet. Some people say this makes us lonely. I partly agree with this statement. On the one hand, people chat online instead of meeting face to face. On the other hand, we can connect with family far away. Therefore, technology has both advantages and disadvantages."
+  },
+  {
+    "sampleId": "W-GOLD-03",
+    "skill": "writing",
+    "targetOverallBand": 5.0,
+    "groundTruthCriteria": {
+      "TA": 5.0,
+      "CC": 5.0,
+      "LR": 5.0,
+      "GRA": 5.0
+    },
+    "prompt": "Bar chart of car sales.",
+    "submission": "The bar chart shows car sales in three countries between 2010 and 2015. In 2010, Country A sold 200 cars and Country B sold 150 cars. In 2015, all countries sold more cars. Overall, sales increased."
+  },
+  {
+    "sampleId": "W-GOLD-04",
+    "skill": "writing",
+    "targetOverallBand": 5.5,
+    "groundTruthCriteria": {
+      "TA": 5.5,
+      "CC": 6.0,
+      "LR": 5.0,
+      "GRA": 5.5
+    },
+    "prompt": "Should university be compulsory?",
+    "submission": "Education is very important in modern society. Some people argue that going to university should be compulsory for every high school graduate. However, not all jobs require degree. Vocational training is also useful for practical jobs like plumbers and electricians."
+  },
+  {
+    "sampleId": "W-GOLD-05",
+    "skill": "writing",
+    "targetOverallBand": 6.0,
+    "groundTruthCriteria": {
+      "TA": 6.0,
+      "CC": 6.0,
+      "LR": 6.0,
+      "GRA": 6.0
+    },
+    "prompt": "Should plastic packaging be banned?",
+    "submission": "In recent decades, plastic packaging has caused severe environmental degradation in rivers and oceans. While plastic is convenient and inexpensive for supermarkets, its non-biodegradable nature poses long-term hazards. Governments should ban unnecessary single-use plastics and subsidize biodegradable paper alternatives."
+  },
+  {
+    "sampleId": "W-GOLD-06",
+    "skill": "writing",
+    "targetOverallBand": 6.5,
+    "groundTruthCriteria": {
+      "TA": 6.5,
+      "CC": 6.5,
+      "LR": 6.5,
+      "GRA": 6.5
+    },
+    "prompt": "Impact of remote working on urban life.",
+    "submission": "The widespread adoption of telecommuting has fundamentally altered metropolitan dynamics. On the one hand, employees enjoy greater schedule flexibility and reduced transit stress. On the other hand, inner-city hospitality businesses that rely on office foot traffic face declining revenues. In my view, hybrid working represents the most sustainable compromise."
+  },
+  {
+    "sampleId": "W-GOLD-07",
+    "skill": "writing",
+    "targetOverallBand": 6.0,
+    "groundTruthCriteria": {
+      "TA": 6.0,
+      "CC": 6.0,
+      "LR": 6.0,
+      "GRA": 6.0
+    },
+    "prompt": "Line graph of renewable power.",
+    "submission": "The line graph illustrates renewable energy production in gigawatt-hours across four European nations from 2010 to 2020. Overall, all four countries exhibited upward trends, with Germany recording the most pronounced increase, while Sweden maintained steady, moderate growth throughout the period."
+  },
+  {
+    "sampleId": "W-GOLD-08",
+    "skill": "writing",
+    "targetOverallBand": 6.5,
+    "groundTruthCriteria": {
+      "TA": 7.0,
+      "CC": 6.5,
+      "LR": 6.5,
+      "GRA": 6.0
+    },
+    "prompt": "Fast food advertising targeting children.",
+    "submission": "Childhood obesity has reached alarming proportions in industrialized countries, largely fueled by aggressive marketing of hyper-processed snacks during children television hours. Banning commercial advertisements of foods high in saturated fat and refined sugars before nine in the evening would encourage healthier dietary habits among youngsters."
+  },
+  {
+    "sampleId": "W-GOLD-09",
+    "skill": "writing",
+    "targetOverallBand": 6.5,
+    "groundTruthCriteria": {
+      "TA": 6.5,
+      "CC": 6.5,
+      "LR": 6.5,
+      "GRA": 6.5
+    },
+    "prompt": "Table of tourism expenditures.",
+    "submission": "The table compares tourist spending across five major destinations in 2018. The United States recorded the highest aggregate revenue at over 200 billion dollars, whereas Thailand experienced the highest per-capita spending per visitor day."
+  },
+  {
+    "sampleId": "W-GOLD-10",
+    "skill": "writing",
+    "targetOverallBand": 7.0,
+    "groundTruthCriteria": {
+      "TA": 7.0,
+      "CC": 7.0,
+      "LR": 7.0,
+      "GRA": 7.0
+    },
+    "prompt": "Technological innovation vs individual lifestyle changes.",
+    "submission": "The dilemma of mitigating environmental degradation has polarized academic discourse between technocentric optimists and proponents of individual conservation. While engineering breakthroughs in grid-scale battery storage and passive cooling coatings are indispensable for structural decarbonization, they cannot succeed in isolation. Consumer demand for fast fashion, single-use consumer electronics, and carbon-intensive air transit continues to outpace technological efficiency gains. Therefore, a holistic approach combining rigorous statutory environmental standards with conscious cultural shifts in personal consumption is imperative."
+  },
+  {
+    "sampleId": "W-GOLD-11",
+    "skill": "writing",
+    "targetOverallBand": 7.5,
+    "groundTruthCriteria": {
+      "TA": 7.5,
+      "CC": 7.5,
+      "LR": 7.5,
+      "GRA": 7.5
+    },
+    "prompt": "Artificial intelligence in clinical diagnosis.",
+    "submission": "The integration of machine learning diagnostic algorithms into healthcare systems promises unprecedented diagnostic precision alongside substantial ethical complications. Deep convolutional networks routinely match or surpass board-certified radiologists in detecting early-stage pulmonary nodules and retinal pathologies. Furthermore, automated triage can dramatically truncate emergency room wait times in underfunded regional clinics. Nevertheless, algorithmic opacity and potential demographic biases in training datasets present formidable risks. Consequently, autonomous artificial intelligence should serve as an augmentative diagnostic tool under human clinical oversight rather than an unchecked substitute for medical practitioners."
+  },
+  {
+    "sampleId": "W-GOLD-12",
+    "skill": "writing",
+    "targetOverallBand": 7.0,
+    "groundTruthCriteria": {
+      "TA": 7.0,
+      "CC": 7.0,
+      "LR": 7.0,
+      "GRA": 7.0
+    },
+    "prompt": "Process diagram of biochar water filtration.",
+    "submission": "The provided schematic outlines the multi-stage industrial procedure involved in converting organic agricultural biomass into porous biochar for municipal wastewater decontamination. Initially, agricultural residues undergo high-temperature anaerobic pyrolysis within a sealed kiln. The resultant carbonized material is subsequently pulverized and blended into multi-layered filtration beds that effectively sequester heavy metal ions through chemical adsorption."
+  },
+  {
+    "sampleId": "W-GOLD-13",
+    "skill": "writing",
+    "targetOverallBand": 7.5,
+    "groundTruthCriteria": {
+      "TA": 8.0,
+      "CC": 7.5,
+      "LR": 7.5,
+      "GRA": 7.0
+    },
+    "prompt": "Preservation of endangered indigenous languages.",
+    "submission": "Linguistic homogenization accelerated by planetary digital media threatens thousands of indigenous idioms with extinction. Language serves as an irreplaceable cognitive repository of ethnobotanical classification, cultural cosmology, and community identity. When a language vanishes, humanity forfeits unique epistemological frameworks. While globalization undeniably demands shared lingua francas for commercial exchange, national governments must institutionalize bilingual curricula and allocate digital archiving subsidies to ensure linguistic diversity endures."
+  },
+  {
+    "sampleId": "W-GOLD-14",
+    "skill": "writing",
+    "targetOverallBand": 8.0,
+    "groundTruthCriteria": {
+      "TA": 8.0,
+      "CC": 8.0,
+      "LR": 8.0,
+      "GRA": 8.0
+    },
+    "prompt": "Universal Basic Income and automation.",
+    "submission": "The relentless progression of robotic automation and generative artificial intelligence has rekindled debate regarding the viability of a universal basic income (UBI). Advocates contend that an unconditional fiscal floor decouples human survival from precarious labor markets, fostering entrepreneurial innovation and civic participation. Conversely, fiscal conservatives caution that funding universal disbursements would necessitate prohibitive corporate tax burdens and might engender societal labor disincentives. On balance, a targeted negative income tax combined with public retraining endowments offers a more prudent fiscal transition mechanism."
+  },
+  {
+    "sampleId": "W-GOLD-15",
+    "skill": "writing",
+    "targetOverallBand": 8.5,
+    "groundTruthCriteria": {
+      "TA": 8.5,
+      "CC": 8.5,
+      "LR": 8.5,
+      "GRA": 8.5
+    },
+    "prompt": "Space exploration expenditure vs terrestrial welfare.",
+    "submission": "Critics frequently decry astronomical expenditures on interplanetary exploration, arguing that resource allocation should be strictly circumscribed to pressing terrestrial exigencies such as systemic poverty and climate mitigation. However, this dichotomy is fundamentally flawed. Technological spin-offs from aerospace engineering\u2014including photovoltaic cells, water purification membranes, and global satellite environmental surveillance\u2014have yielded transformative socio-economic dividends that vastly exceed initial public research capital. Furthermore, scientific inquiry into extraterrestrial biosphere limits deepens our comprehension of Earth fragility, underpinning long-term civilizational resilience."
+  },
+  {
+    "sampleId": "W-GOLD-16",
+    "skill": "writing",
+    "targetOverallBand": 8.0,
+    "groundTruthCriteria": {
+      "TA": 8.0,
+      "CC": 8.0,
+      "LR": 8.0,
+      "GRA": 8.0
+    },
+    "prompt": "Bar chart comparing renewable energy generation.",
+    "submission": "The bar chart delineates renewable electricity output across four European nations in 2010 alongside projected figures for 2025. It is immediately discernible that all surveyed nations exhibit upward trajectories over the fifteen-year epoch. Most striking is Germany, whose generation is projected to more than triple from 42 TWh to 142 TWh, eclipsing Spain, which held the preeminent position in 2010 at 64 TWh. Meanwhile, the United Kingdom records a quadrupling in output, while Sweden experiences moderate yet consistent growth from 48 to 78 TWh."
+  },
+  {
+    "sampleId": "W-GOLD-17",
+    "skill": "writing",
+    "targetOverallBand": 8.5,
+    "groundTruthCriteria": {
+      "TA": 8.5,
+      "CC": 8.5,
+      "LR": 8.5,
+      "GRA": 8.5
+    },
+    "prompt": "State censorship of scientific disinformation.",
+    "submission": "The proliferation of digital disinformation regarding public health and climatological science has compelled sovereign regulators to contemplate statutory speech interventions. While safeguarding democratic debate demands vigilant resistance against state-sponsored censorship, algorithmic amplification of demonstrably fabricated medical claims presents immediate, tangible hazards to public welfare. The optimal regulatory remedy entails enforcing transparency mandates on platform recommendation algorithms and empowering independent scientific adjudication bodies rather than conferring punitive editorial censorship upon executive authorities."
+  },
+  {
+    "sampleId": "W-GOLD-18",
+    "skill": "writing",
+    "targetOverallBand": 6.0,
+    "groundTruthCriteria": {
+      "TA": 6.0,
+      "CC": 6.0,
+      "LR": 6.0,
+      "GRA": 6.0
+    },
+    "prompt": "Urban green spaces.",
+    "submission": "Public parks furnish essential recreational amenities in crowded metropolises. Incorporating vegetation cools urban microclimates and mitigates psychological stress among residents."
+  },
+  {
+    "sampleId": "W-GOLD-19",
+    "skill": "writing",
+    "targetOverallBand": 6.5,
+    "groundTruthCriteria": {
+      "TA": 6.5,
+      "CC": 6.5,
+      "LR": 6.5,
+      "GRA": 6.5
+    },
+    "prompt": "Compulsory voting.",
+    "submission": "Mandatory civic participation enhances democratic legitimacy by ensuring that electoral outcomes reflect the broader populace rather than vocal partisan extremes."
+  },
+  {
+    "sampleId": "W-GOLD-20",
+    "skill": "writing",
+    "targetOverallBand": 7.0,
+    "groundTruthCriteria": {
+      "TA": 7.0,
+      "CC": 7.0,
+      "LR": 7.0,
+      "GRA": 7.0
+    },
+    "prompt": "Heritage preservation.",
+    "submission": "Historic architectural preservation underpins municipal identity and communal continuity, preventing modern metropolises from degenerating into sterile, homogenized glass canyons."
+  },
+  {
+    "sampleId": "W-GOLD-21",
+    "skill": "writing",
+    "targetOverallBand": 7.5,
+    "groundTruthCriteria": {
+      "TA": 7.5,
+      "CC": 7.5,
+      "LR": 7.5,
+      "GRA": 7.5
+    },
+    "prompt": "Circular economy policies.",
+    "submission": "Transitioning to a circular industrial economy mandates statutory extended producer responsibility laws, ensuring manufacturers internalize the post-consumer lifecycle costs of their goods."
+  },
+  {
+    "sampleId": "W-GOLD-22",
+    "skill": "writing",
+    "targetOverallBand": 8.0,
+    "groundTruthCriteria": {
+      "TA": 8.0,
+      "CC": 8.0,
+      "LR": 8.0,
+      "GRA": 8.0
+    },
+    "prompt": "Genetic engineering ethics.",
+    "submission": "Somatic gene therapy offers unprecedented hope for eradicating debilitating monogenic disorders, yet germline genome editing demands stringent multilateral moratoria to prevent dystopian eugenic stratification."
+  },
+  {
+    "sampleId": "S-GOLD-01",
+    "skill": "speaking",
+    "targetOverallBand": 5.0,
+    "groundTruthCriteria": {
+      "FC": 5.0,
+      "LR": 5.0,
+      "GRA": 5.0,
+      "PR": 5.0
+    },
+    "prompt": "Describe your hometown.",
+    "submission": "My hometown is small city in north. It is very quiet place. There is not many shopping malls but people are friendly. I like living there because air is clean."
+  },
+  {
+    "sampleId": "S-GOLD-02",
+    "skill": "speaking",
+    "targetOverallBand": 5.5,
+    "groundTruthCriteria": {
+      "FC": 5.5,
+      "LR": 5.5,
+      "GRA": 5.5,
+      "PR": 5.5
+    },
+    "prompt": "Describe an environmental project.",
+    "submission": "I want to talk about tree planting event in my school. Last year, our teacher organized this event. Many students came on Saturday morning. We planted fifty trees near playground. It was hard work but very rewarding for everyone."
+  },
+  {
+    "sampleId": "S-GOLD-03",
+    "skill": "speaking",
+    "targetOverallBand": 5.0,
+    "groundTruthCriteria": {
+      "FC": 5.0,
+      "LR": 5.5,
+      "GRA": 5.0,
+      "PR": 4.5
+    },
+    "prompt": "How can cities reduce traffic?",
+    "submission": "Cities must build more bus lanes. If bus is cheap and on time, people will leave cars at home. Also cycling is good for health."
+  },
+  {
+    "sampleId": "S-GOLD-04",
+    "skill": "speaking",
+    "targetOverallBand": 5.5,
+    "groundTruthCriteria": {
+      "FC": 5.5,
+      "LR": 6.0,
+      "GRA": 5.5,
+      "PR": 5.0
+    },
+    "prompt": "Do you use public transport frequently?",
+    "submission": "Yes, I take subway every day to university. It is fast and avoids traffic jams during peak rush hours, although sometimes it gets very crowded."
+  },
+  {
+    "sampleId": "S-GOLD-05",
+    "skill": "speaking",
+    "targetOverallBand": 6.0,
+    "groundTruthCriteria": {
+      "FC": 6.0,
+      "LR": 6.0,
+      "GRA": 6.0,
+      "PR": 6.0
+    },
+    "prompt": "Describe an important historic building.",
+    "submission": "I would like to describe the ancient fortress in our regional capital. It was erected in the seventeenth century to guard the river crossing. The stone architecture is remarkably intact, and it now houses a museum detailing traditional crafts. Visitors get a vivid glimpse into medieval daily life."
+  },
+  {
+    "sampleId": "S-GOLD-06",
+    "skill": "speaking",
+    "targetOverallBand": 6.5,
+    "groundTruthCriteria": {
+      "FC": 6.5,
+      "LR": 6.5,
+      "GRA": 6.5,
+      "PR": 6.5
+    },
+    "prompt": "Should governments regulate artificial intelligence?",
+    "submission": "I believe statutory regulation is absolutely essential because AI technologies develop faster than conventional legislation. Without clear boundaries, deepfake videos and automated algorithmic bias could undermine democratic elections and financial fairness."
+  },
+  {
+    "sampleId": "S-GOLD-07",
+    "skill": "speaking",
+    "targetOverallBand": 6.0,
+    "groundTruthCriteria": {
+      "FC": 6.0,
+      "LR": 6.5,
+      "GRA": 6.0,
+      "PR": 5.5
+    },
+    "prompt": "What do you like about digital communication?",
+    "submission": "Instant messaging applications have made remote collaboration very seamless. I can share research notes and video-call colleagues across different time zones without incurring high telephone fees."
+  },
+  {
+    "sampleId": "S-GOLD-08",
+    "skill": "speaking",
+    "targetOverallBand": 6.5,
+    "groundTruthCriteria": {
+      "FC": 7.0,
+      "LR": 6.5,
+      "GRA": 6.0,
+      "PR": 6.5
+    },
+    "prompt": "Describe a difficult journey you made.",
+    "submission": "Two years ago, I embarked on a mountain hiking trip during unpredictable weather. A sudden torrential downpour rendered the steep trail extremely slick and dangerous. We had to navigate carefully using compass landmarks and assist each other until reaching the mountain shelter safely."
+  },
+  {
+    "sampleId": "S-GOLD-09",
+    "skill": "speaking",
+    "targetOverallBand": 6.5,
+    "groundTruthCriteria": {
+      "FC": 6.5,
+      "LR": 6.5,
+      "GRA": 6.5,
+      "PR": 6.5
+    },
+    "prompt": "How does tourism impact local cultures?",
+    "submission": "Tourism provides vital economic income for remote communities, but commercialization often dilutes authentic cultural rituals into superficial stage performances designed solely for tourists."
+  },
+  {
+    "sampleId": "S-GOLD-10",
+    "skill": "speaking",
+    "targetOverallBand": 7.0,
+    "groundTruthCriteria": {
+      "FC": 7.0,
+      "LR": 7.0,
+      "GRA": 7.0,
+      "PR": 7.0
+    },
+    "prompt": "To what extent should green building codes be mandatory?",
+    "submission": "Municipal authorities ought to enforce stringent bioclimatic building mandates on all commercial developers. While developers often object to elevated upfront capital expenditures, passive design interventions such as green roofs and thermal insulation drastically reduce operational energy consumption over the building lifecycle."
+  },
+  {
+    "sampleId": "S-GOLD-11",
+    "skill": "speaking",
+    "targetOverallBand": 7.5,
+    "groundTruthCriteria": {
+      "FC": 7.5,
+      "LR": 7.5,
+      "GRA": 7.5,
+      "PR": 7.5
+    },
+    "prompt": "Describe a community initiative that solved a local problem.",
+    "submission": "I would like to talk about a grassroots urban wetland restoration project in my metropolitan borough. An abandoned industrial canal had degenerated into a contaminated drainage ditch. Local university ecologists partnered with resident volunteers to dredge debris and plant native reeds that bio-filter storm runoff. Today, the revived canal functions as an ecological corridor teeming with waterfowl and dragonflies."
+  },
+  {
+    "sampleId": "S-GOLD-12",
+    "skill": "speaking",
+    "targetOverallBand": 7.0,
+    "groundTruthCriteria": {
+      "FC": 7.0,
+      "LR": 7.0,
+      "GRA": 7.0,
+      "PR": 7.0
+    },
+    "prompt": "How has your hometown changed over the last decade?",
+    "submission": "My hometown has experienced rapid economic densification. The conversion of derelict rail yards into high-density transit-oriented lofts has attracted young professionals, revitalizing local culinary and arts scenes, although housing affordability has become a contentious issue."
+  },
+  {
+    "sampleId": "S-GOLD-13",
+    "skill": "speaking",
+    "targetOverallBand": 7.5,
+    "groundTruthCriteria": {
+      "FC": 7.5,
+      "LR": 8.0,
+      "GRA": 7.5,
+      "PR": 7.0
+    },
+    "prompt": "What role should universities play in regional economic growth?",
+    "submission": "Academic institutions should serve as intellectual engines and technology incubators for regional economies. By establishing collaborative science parks and offering patent licensing to local spin-offs, universities can bridge the gap between abstract laboratory research and commercial enterprise."
+  },
+  {
+    "sampleId": "S-GOLD-14",
+    "skill": "speaking",
+    "targetOverallBand": 8.0,
+    "groundTruthCriteria": {
+      "FC": 8.0,
+      "LR": 8.0,
+      "GRA": 8.0,
+      "PR": 8.0
+    },
+    "prompt": "How might future hyper-dense cities mitigate social isolation?",
+    "submission": "The psychological malaise of urban alienation in hyper-dense metropolises necessitates intentional spatial re-engineering. Modern urban planners must deliberately intersperse residential towers with pedestrianized civic commons, rooftop community gardens, and communal workshop spaces that organically stimulate serendipitous neighborly interaction and rebuild communal solidarity."
+  },
+  {
+    "sampleId": "S-GOLD-15",
+    "skill": "speaking",
+    "targetOverallBand": 8.5,
+    "groundTruthCriteria": {
+      "FC": 8.5,
+      "LR": 8.5,
+      "GRA": 8.5,
+      "PR": 8.5
+    },
+    "prompt": "Describe an academic mentor who significantly influenced your intellectual journey.",
+    "submission": "I should like to recount the profound influence exerted by my undergraduate environmental chemistry professor. Rather than delivering pedantic didactic lectures, she cultivated relentless analytical skepticism and taught us to scrutinize empirical methodologies with painstaking rigor. Her intellectual mentorship permanently instilled a commitment to evidence-based scientific integrity that continues to guide my professional inquiries."
+  },
+  {
+    "sampleId": "S-GOLD-16",
+    "skill": "speaking",
+    "targetOverallBand": 8.0,
+    "groundTruthCriteria": {
+      "FC": 8.0,
+      "LR": 8.0,
+      "GRA": 8.0,
+      "PR": 8.0
+    },
+    "prompt": "Should international patents on life-saving pharmaceuticals be relaxed during epidemics?",
+    "submission": "From both an ethical and epidemiological perspective, intellectual property monopolies on critical medicines must be conditionally waived during global public health emergencies. Pathogens recognize no sovereign borders; withholding vaccine technology from impoverished nations merely prolongs transmission cycles and invites virulent viral mutations that jeopardize the entire planet."
+  },
+  {
+    "sampleId": "S-GOLD-17",
+    "skill": "speaking",
+    "targetOverallBand": 8.5,
+    "groundTruthCriteria": {
+      "FC": 8.5,
+      "LR": 8.5,
+      "GRA": 8.5,
+      "PR": 8.5
+    },
+    "prompt": "Is economic growth compatible with planetary environmental boundaries?",
+    "submission": "Conventional neoclassical growth models premised on infinite throughput of raw physical materials are manifestly incompatible with planetary ecological boundaries. Genuine long-term prosperity necessitates decoupling economic value creation from carbon extraction through radical circular manufacturing, renewable energy transitions, and redefining civic success beyond raw gross domestic product."
+  },
+  {
+    "sampleId": "S-GOLD-18",
+    "skill": "speaking",
+    "targetOverallBand": 6.0,
+    "groundTruthCriteria": {
+      "FC": 6.0,
+      "LR": 6.0,
+      "GRA": 6.0,
+      "PR": 6.0
+    },
+    "prompt": "Hobbies.",
+    "submission": "I have taken up photography recently because it encourages me to explore urban architecture from novel visual angles during weekends."
+  },
+  {
+    "sampleId": "S-GOLD-19",
+    "skill": "speaking",
+    "targetOverallBand": 6.5,
+    "groundTruthCriteria": {
+      "FC": 6.5,
+      "LR": 6.5,
+      "GRA": 6.5,
+      "PR": 6.5
+    },
+    "prompt": "Work-life balance.",
+    "submission": "Technological ubiquity has blurred the boundary between professional obligations and personal leisure, mandating strict digital disconnection boundaries."
+  },
+  {
+    "sampleId": "S-GOLD-20",
+    "skill": "speaking",
+    "targetOverallBand": 7.0,
+    "groundTruthCriteria": {
+      "FC": 7.0,
+      "LR": 7.0,
+      "GRA": 7.0,
+      "PR": 7.0
+    },
+    "prompt": "Public speaking experience.",
+    "submission": "I once delivered an impromptu presentation at an academic symposium when our team lead was delayed, which challenged my composure and communicative clarity under pressure."
+  },
+  {
+    "sampleId": "S-GOLD-21",
+    "skill": "speaking",
+    "targetOverallBand": 7.5,
+    "groundTruthCriteria": {
+      "FC": 7.5,
+      "LR": 7.5,
+      "GRA": 7.5,
+      "PR": 7.5
+    },
+    "prompt": "Space privatization.",
+    "submission": "While private aerospace ventures accelerate technological breakthroughs, outer space must remain an international commons governed by multilateral treaties rather than corporate extraction rights."
+  },
+  {
+    "sampleId": "S-GOLD-22",
+    "skill": "speaking",
+    "targetOverallBand": 8.0,
+    "groundTruthCriteria": {
+      "FC": 8.0,
+      "LR": 8.0,
+      "GRA": 8.0,
+      "PR": 8.0
+    },
+    "prompt": "Artificial intelligence in arts.",
+    "submission": "While generative algorithms produce technically sophisticated visual mimicry, authentic artistic expression remains rooted in lived human vulnerability and existential consciousness."
+  }
+]

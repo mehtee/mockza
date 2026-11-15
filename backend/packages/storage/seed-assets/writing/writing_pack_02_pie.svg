@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 460" style="background:#0c0f19;font-family:Inter,system-ui,sans-serif">
+  <title>Household Energy Consumption by Source (1990 vs 2020)</title>
+  <text x="40" y="42" fill="#fff" font-size="20" font-weight="700">Household Energy Consumption by Source (1990 vs 2020)</text>
+  <text x="220" y="88" fill="#66dbb5" font-size="15" font-weight="600" text-anchor="middle">1990</text>
+  <text x="580" y="88" fill="#9580ff" font-size="15" font-weight="600" text-anchor="middle">2020</text>
+  <circle cx="220" cy="220" r="105" fill="#191d2d" stroke="#70beff" stroke-width="2"/>
+  <path d="M220,220 L220,115 A105,105 0 1,1 135,282 Z" fill="#9580ff"/>
+  <path d="M220,220 L135,282 A105,105 0 0,1 168,129 Z" fill="#70beff"/>
+  <path d="M220,220 L168,129 A105,105 0 0,1 220,115 Z" fill="#66dbb5"/>
+  <circle cx="580" cy="220" r="105" fill="#191d2d" stroke="#70beff" stroke-width="2"/>
+  <path d="M580,220 L580,115 A105,105 0 0,1 670,275 Z" fill="#66dbb5"/>
+  <path d="M580,220 L670,275 A105,105 0 0,1 482,258 Z" fill="#70beff"/>
+  <path d="M580,220 L482,258 A105,105 0 0,1 580,115 Z" fill="#9580ff"/>
+  <text x="220" y="362" fill="#d7e1ef" font-size="13" text-anchor="middle">Coal &amp; Oil 62% | Natural Gas 26% | Renewables 12%</text>
+  <text x="580" y="362" fill="#d7e1ef" font-size="13" text-anchor="middle">Renewables 42% | Natural Gas 36% | Coal &amp; Oil 22%</text>
+</svg>

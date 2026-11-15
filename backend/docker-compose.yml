@@ -1,0 +1,39 @@
+# Standalone backend infrastructure compose file (full stack lives at repo root ../compose.yaml)
+# Non-colliding default ports avoid conflicts with existing Postgres/MinIO containers on the host.
+name: mockza-backend-infra
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mockza}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mockza_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-mockza}
+    ports:
+      - "127.0.0.1:${MOCKZA_PG_PORT:-45432}:5432"
+    volumes:
+      - mockza_pgdata:/var/lib/postgresql/data
+    mem_limit: 512m
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mockza} -d ${POSTGRES_DB:-mockza}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  seaweedfs:
+    image: chrislusf/seaweedfs:3.79
+    restart: unless-stopped
+    command: "server -s3 -s3.port=8333 -master.port=9333 -volume.max=16 -dir=/data"
+    ports:
+      - "127.0.0.1:${MOCKZA_S3_PORT:-45833}:8333"
+      - "127.0.0.1:${MOCKZA_S3_MASTER_PORT:-45933}:9333"
+    volumes:
+      - mockza_s3data:/data
+    mem_limit: 512m
+    cpus: 1.0
+
+volumes:
+  mockza_pgdata:
+  mockza_s3data:

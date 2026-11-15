@@ -1,0 +1,135 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mockza/core/vocab/sm2_scheduler.dart';
+import 'package:mockza/data/repositories/vocab_repository.dart';
+import 'package:mockza/providers.dart';
+
+/// Immutable UI state for SRS vocabulary flashcard sessions.
+@immutable
+class VocabularyState {
+  /// Creates a [VocabularyState].
+  const new({
+    required this.reviewedCount,
+    required this.showAnswer,
+    this.activeCardIndex = 0,
+    this.sessionCards = const <VocabDeckCard>[],
+    this.isLoading = true,
+    this.isReviewAhead = false,
+  });
+
+  /// Number of cards rated during the active session.
+  final int reviewedCount;
+
+  /// Whether the active card definition is revealed.
+  final bool showAnswer;
+
+  /// Index of the current card within the frozen [sessionCards] list.
+  final int activeCardIndex;
+
+  /// Immutable snapshot of cards loaded for the current review workout.
+  final List<VocabDeckCard> sessionCards;
+
+  /// Whether the initial card snapshot is still loading from Drift.
+  final bool isLoading;
+
+  /// Whether this session was launched in "Review Ahead" mode.
+  final bool isReviewAhead;
+
+  /// Returns a copy with updated session flags.
+  VocabularyState copyWith({
+    int? reviewedCount,
+    bool? showAnswer,
+    int? activeCardIndex,
+    List<VocabDeckCard>? sessionCards,
+    bool? isLoading,
+    bool? isReviewAhead,
+  }) => VocabularyState(
+    reviewedCount: reviewedCount ?? this.reviewedCount,
+    showAnswer: showAnswer ?? this.showAnswer,
+    activeCardIndex: activeCardIndex ?? this.activeCardIndex,
+    sessionCards: sessionCards ?? this.sessionCards,
+    isLoading: isLoading ?? this.isLoading,
+    isReviewAhead: isReviewAhead ?? this.isReviewAhead,
+  );
+}
+
+/// Coordinates vocabulary card reveal, frozen queue snapshot & SM-2 schedule persistence.
+class VocabularyNotifier extends Notifier<VocabularyState> {
+  DateTime? _cardStartedAt;
+  bool _isDisposed = false;
+
+  @override
+  VocabularyState build() {
+    _isDisposed = false;
+    ref.onDispose(() => _isDisposed = true);
+    return const VocabularyState(
+      reviewedCount: 0,
+      showAnswer: false,
+    );
+  }
+
+  /// Loads a frozen snapshot of due (or ahead) cards so Drift updates do not shift indices.
+  Future<void> loadSession({required bool reviewAhead}) async {
+    if (_isDisposed) return;
+    state = VocabularyState(
+      reviewedCount: 0,
+      showAnswer: false,
+      isReviewAhead: reviewAhead,
+    );
+
+    final vocabRepo = ref.read(vocabRepositoryProvider);
+    final cards = reviewAhead
+        ? await vocabRepo.getAheadCards()
+        : await vocabRepo.getDueCards();
+
+    if (_isDisposed) return;
+    _cardStartedAt = ref.read(clockProvider).now();
+    state = state.copyWith(
+      sessionCards: cards,
+      isLoading: false,
+      activeCardIndex: 0,
+      showAnswer: false,
+    );
+  }
+
+  /// Reveals or hides the card meaning before grading.
+  void toggleReveal() {
+    state = state.copyWith(showAnswer: !state.showAnswer);
+  }
+
+  /// Submits a recall [quality] rating for [card], logs study activity & advances queue.
+  Future<void> rateCard({
+    required VocabDeckCard card,
+    required ReviewQuality quality,
+  }) async {
+    final now = ref.read(clockProvider).now();
+    final elapsedSec = _cardStartedAt != null
+        ? now.difference(_cardStartedAt!).inSeconds.clamp(5, 120)
+        : 15;
+    _cardStartedAt = now;
+
+    await ref
+        .read(vocabRepositoryProvider)
+        .recordReview(card: card, quality: quality);
+
+    await ref
+        .read(progressRepositoryProvider)
+        .logTodayActivity(studySeconds: elapsedSec, completedItems: 1);
+
+    if (_isDisposed) return;
+    state = state.copyWith(
+      reviewedCount: state.reviewedCount + 1,
+      showAnswer: false,
+      activeCardIndex: state.activeCardIndex + 1,
+    );
+  }
+
+  /// Resets review session pointers.
+  void resetSession() {
+    state = const VocabularyState(
+      reviewedCount: 0,
+      showAnswer: false,
+      isLoading: false,
+    );
+  }
+}

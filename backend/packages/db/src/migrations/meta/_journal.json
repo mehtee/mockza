@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1794748800919,
+      "tag": "0000_wakeful_proudstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794756085963,
+      "tag": "0001_vengeful_the_santerians",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794772412694,
+      "tag": "0002_thick_karma",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@mockza/storage",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node -e \"import('node:fs').then(fs=>{if(fs.existsSync('seed-assets'))fs.cpSync('seed-assets','dist/seed-assets',{recursive:true})})\"",
+    "typecheck": "tsc --noEmit",
+    "init-buckets": "node dist/init-buckets.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.821.0",
+    "@aws-sdk/s3-request-presigner": "^3.821.0",
+    "@mockza/config": "workspace:*",
+    "@mockza/db": "workspace:*",
+    "@mockza/domain": "workspace:*",
+    "drizzle-orm": "^0.43.1",
+    "postgres": "^3.4.5"
+  }
+}

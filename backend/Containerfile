@@ -1,0 +1,89 @@
+# syntax=docker/dockerfile:1.7
+# Multi-stage Containerfile for Mockza Backend (API, Worker, Migrator, CLI, CI Toolchain)
+
+FROM node:24-alpine AS base
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+    PNPM_HOME="/pnpm" \
+    PATH="/pnpm:$PATH"
+WORKDIR /app
+
+# Stage with pnpm enabled via corepack for dependency resolution & builds
+FROM base AS pnpm-base
+RUN corepack enable && corepack prepare pnpm@12.8.1 --activate
+
+# Stage 1: Install production-only dependencies + workspace symlinks
+FROM pnpm-base AS deps-prod
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY apps/api/package.json ./apps/api/
+COPY apps/worker/package.json ./apps/worker/
+COPY packages/config/package.json ./packages/config/
+COPY packages/contracts/package.json ./packages/contracts/
+COPY packages/domain/package.json ./packages/domain/
+COPY packages/db/package.json ./packages/db/
+COPY packages/storage/package.json ./packages/storage/
+COPY packages/ai/package.json ./packages/ai/
+COPY content-pipeline/package.json ./content-pipeline/
+COPY evals/package.json ./evals/
+RUN pnpm install --frozen-lockfile --prod
+
+# Stage 2: Install full dependencies (prod + dev) and compile all workspaces
+FROM pnpm-base AS builder
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml biome.json tsconfig.base.json ./
+COPY apps/api/package.json ./apps/api/
+COPY apps/worker/package.json ./apps/worker/
+COPY packages/config/package.json ./packages/config/
+COPY packages/contracts/package.json ./packages/contracts/
+COPY packages/domain/package.json ./packages/domain/
+COPY packages/db/package.json ./packages/db/
+COPY packages/storage/package.json ./packages/storage/
+COPY packages/ai/package.json ./packages/ai/
+COPY content-pipeline/package.json ./content-pipeline/
+COPY evals/package.json ./evals/
+RUN pnpm install --frozen-lockfile
+COPY . .
+RUN pnpm run build
+
+# Stage 3: Full CI/developer toolchain container (Biome, tsc, Vitest, drizzle-kit, content-pipeline, evals)
+FROM builder AS toolchain
+CMD ["sh", "-c", "pnpm exec biome check . && pnpm typecheck && pnpm test"]
+
+# Stage 4: Shared slim non-root production runtime base (pure Node 24, zero devDependencies/tsx)
+FROM node:24-alpine AS runtime-base
+ENV NODE_ENV=production
+WORKDIR /app
+RUN addgroup -S mockza && adduser -S mockza -G mockza
+COPY --from=deps-prod --chown=mockza:mockza /app /app
+COPY --from=builder --chown=mockza:mockza /app/packages/config/dist ./packages/config/dist
+COPY --from=builder --chown=mockza:mockza /app/packages/contracts/dist ./packages/contracts/dist
+COPY --from=builder --chown=mockza:mockza /app/packages/domain/dist ./packages/domain/dist
+COPY --from=builder --chown=mockza:mockza /app/packages/db/dist ./packages/db/dist
+COPY --from=builder --chown=mockza:mockza /app/packages/storage/dist ./packages/storage/dist
+COPY --from=builder --chown=mockza:mockza /app/packages/ai/dist ./packages/ai/dist
+COPY --from=builder --chown=mockza:mockza /app/apps/api/dist ./apps/api/dist
+COPY --from=builder --chown=mockza:mockza /app/apps/worker/dist ./apps/worker/dist
+COPY --from=builder --chown=mockza:mockza /app/content-pipeline/dist ./content-pipeline/dist
+COPY --from=builder --chown=mockza:mockza /app/evals/dist ./evals/dist
+
+# Stage 5: HTTP API service (Hono + Node 24)
+FROM runtime-base AS api
+USER mockza
+EXPOSE 8787
+HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=5 \
+  CMD ["node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 8787) + '/v1/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+CMD ["node", "/app/apps/api/dist/server.js"]
+
+# Stage 6: Background grading & audio cleanup worker (pg-boss + FFmpeg)
+FROM runtime-base AS worker
+RUN apk add --no-cache ffmpeg
+USER mockza
+CMD ["node", "/app/apps/worker/dist/index.js"]
+
+# Stage 7: Idempotent PostgreSQL Drizzle schema migrator
+FROM runtime-base AS migrator
+USER mockza
+CMD ["node", "/app/packages/db/dist/migrate.js"]
+
+# Stage 8: One-shot S3 bucket initializer & compiled ops CLI
+FROM runtime-base AS cli
+USER mockza
+CMD ["node", "/app/packages/storage/dist/init-buckets.js"]

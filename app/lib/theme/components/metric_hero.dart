@@ -1,0 +1,123 @@
+import 'package:flutter/material.dart';
+import 'package:mockza/theme/app_colors.dart';
+import 'package:mockza/theme/app_icons.dart';
+import 'package:mockza/theme/app_typography.dart';
+import 'package:mockza/theme/components/mz_buttons.dart';
+import 'package:mockza/theme/components/mz_card.dart';
+import 'package:mockza/theme/components/mz_chip.dart';
+import 'package:mockza/theme/components/score_meter.dart';
+import 'package:mockza/theme/primitives.dart';
+
+/// Hero score card displayed prominently on dashboard (design.md Sec. 4.3 & 5, Screenshot 01).
+/// Honest data: displays "Not yet estimated" + diagnostic CTA when insufficient history exists.
+class MetricHero extends StatelessWidget {
+  /// Creates a [MetricHero].
+  const new({
+    this.estimatedScore,
+    this.targetScore = 7.5,
+    this.scoreDeltaText,
+    this.scaleLabel = 'Estimated Band',
+    this.onTapDiagnostic,
+    this.onTapCard,
+    super.key,
+  });
+
+  /// Evaluated score, or null if no attempts exist yet.
+  final double? estimatedScore;
+
+  /// Target band score (e.g. 7.5).
+  final double targetScore;
+
+  /// Optional change pill text (e.g. "+0.5 this month").
+  /// Rule #6: ONLY show when supported by sufficient attempts.
+  final String? scoreDeltaText;
+
+  /// Scale metric label (e.g. "Estimated Band" for IELTS, "Estimated Score" for PTE/DET).
+  final String scaleLabel;
+
+  /// Callback when tapping diagnostic CTA.
+  final VoidCallback? onTapDiagnostic;
+
+  /// Optional card tap handler.
+  final VoidCallback? onTapCard;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final typography = AppTypography.of(context);
+
+    final hasScore = estimatedScore != null && estimatedScore! > 0.0;
+
+    return MzCard(
+      variant: MzCardVariant.hero,
+      onTap: onTapCard,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          // Header row: Scale label + delta pill
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  scaleLabel,
+                  style: typography.secondary.copyWith(
+                    color: colors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (hasScore && scoreDeltaText != null) ...<Widget>[
+                const SizedBox(width: SpacingTokens.sm),
+                MzChip(
+                  label: scoreDeltaText!,
+                  glyph: LucideGlyph.trendingUp,
+                  variant: MzChipVariant.positive,
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: SpacingTokens.md),
+          if (hasScore) ...<Widget>[
+            // Big 72pt tabular score
+            Text(
+              estimatedScore!.toStringAsFixed(1),
+              style: typography.heroScore.copyWith(
+                color: colors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: SpacingTokens.lg),
+            // Progress meter
+            ScoreMeter(
+              score: estimatedScore,
+              targetScore: targetScore,
+            ),
+          ] else ...<Widget>[
+            // Honest unestimated state (Rule #6)
+            Text(
+              'Not yet estimated',
+              style: typography.headline.copyWith(
+                color: colors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: SpacingTokens.xs),
+            Text(
+              'Complete your free diagnostic to calculate your baseline band score.',
+              style: typography.secondary.copyWith(
+                color: colors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: SpacingTokens.lg),
+            PrimaryButton(
+              label: 'Start Free Diagnostic',
+              trailingGlyph: LucideGlyph.arrowRight,
+              onPressed: onTapDiagnostic,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}

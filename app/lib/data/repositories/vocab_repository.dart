@@ -1,0 +1,261 @@
+import 'package:clock/clock.dart';
+import 'package:drift/drift.dart';
+import 'package:meta/meta.dart';
+import 'package:mockza/core/vocab/serial_day.dart';
+import 'package:mockza/core/vocab/sm2_scheduler.dart';
+import 'package:mockza/data/db/app_database.dart';
+
+/// Domain representation of a vocabulary flashcard paired with SRS state.
+@immutable
+class VocabDeckCard {
+  /// Creates a [VocabDeckCard].
+  const new({
+    required this.cardId,
+    required this.headword,
+    required this.ipa,
+    required this.definition,
+    required this.topicTag,
+    required this.schedule,
+    this.contextSentence,
+    this.usageNote,
+    this.sourceSkill,
+    this.sourceAttemptId,
+  });
+
+  /// Card primary identifier.
+  final String cardId;
+
+  /// Target English word or phrase.
+  final String headword;
+
+  /// Optional IPA string.
+  final String? ipa;
+
+  /// Definition + usage note.
+  final String definition;
+
+  /// Topic grouping (`environment`, `work`, `health`, etc.).
+  final String topicTag;
+
+  /// Current SM-2 scheduling state.
+  final SrsCardState schedule;
+
+  /// High-band model context sentence.
+  final String? contextSentence;
+
+  /// Register / collocation usage guidance.
+  final String? usageNote;
+
+  /// Source skill where mistake was captured.
+  final String? sourceSkill;
+
+  /// Source attempt identifier.
+  final String? sourceAttemptId;
+}
+
+/// Repository persisting SRS vocabulary cards and applying pure SM-2 transitions.
+final class VocabRepository {
+  /// Creates a [VocabRepository].
+  const new({
+    required this._db,
+    required this._clock,
+  });
+
+  final AppDatabase _db;
+  final Clock _clock;
+
+  /// Streams due vocabulary cards for the current UTC [SerialDay].
+  Stream<List<VocabDeckCard>> watchDueCards({int limit = 200}) {
+    final today = SerialDay.fromUtcDateTime(_clock.now());
+    return _db.vocabDao
+        .watchDueCards(today.value, limit: limit)
+        .map(
+          (rows) => rows
+              .map(
+                (row) => VocabDeckCard(
+                  cardId: row.cardId,
+                  headword: row.headword,
+                  ipa: row.ipa,
+                  definition: row.definition,
+                  topicTag: row.topicTag,
+                  contextSentence: row.contextSentence,
+                  usageNote: row.usageNote,
+                  sourceSkill: row.sourceSkill,
+                  sourceAttemptId: row.sourceAttemptId,
+                  schedule: SrsCardState(
+                    repetitions: row.repetitions,
+                    intervalDays: row.intervalDays,
+                    easeFactorMilli: row.easeFactorMilli,
+                    dueDay: SerialDay(row.dueDay),
+                  ),
+                ),
+              )
+              .toList(growable: false),
+        );
+  }
+
+  /// Streams all cards currently in the vocabulary bank.
+  Stream<List<VocabDeckCard>> watchAllCards({int limit = 1000}) =>
+      _db.vocabDao.watchAllCards(limit: limit).map(_mapRowsToDeckCards);
+
+  /// Streams earliest-due cards for "Review Ahead" practice regardless of today's due date.
+  Stream<List<VocabDeckCard>> watchAheadCards({int limit = 200}) =>
+      _db.vocabDao.watchAheadCards(limit: limit).map(_mapRowsToDeckCards);
+
+  /// Fetches a one-shot snapshot of due vocabulary cards for the current UTC [SerialDay].
+  Future<List<VocabDeckCard>> getDueCards({int limit = 200}) async {
+    final today = SerialDay.fromUtcDateTime(_clock.now());
+    final rows = await _db.vocabDao.getDueCards(today.value, limit: limit);
+    return _mapRowsToDeckCards(rows);
+  }
+
+  /// Fetches a one-shot snapshot of earliest-due cards for "Review Ahead" practice.
+  Future<List<VocabDeckCard>> getAheadCards({int limit = 200}) async {
+    final rows = await _db.vocabDao.getAheadCards(limit: limit);
+    return _mapRowsToDeckCards(rows);
+  }
+
+  List<VocabDeckCard> _mapRowsToDeckCards(List<VocabCardRow> rows) => rows
+      .map(
+        (row) => VocabDeckCard(
+          cardId: row.cardId,
+          headword: row.headword,
+          ipa: row.ipa,
+          definition: row.definition,
+          topicTag: row.topicTag,
+          contextSentence: row.contextSentence,
+          usageNote: row.usageNote,
+          sourceSkill: row.sourceSkill,
+          sourceAttemptId: row.sourceAttemptId,
+          schedule: SrsCardState(
+            repetitions: row.repetitions,
+            intervalDays: row.intervalDays,
+            easeFactorMilli: row.easeFactorMilli,
+            dueDay: SerialDay(row.dueDay),
+          ),
+        ),
+      )
+      .toList(growable: false);
+
+  /// Inserts newly synced vocabulary deck cards from `/v1/vocab/deck` while keeping SM-2 state.
+  Future<void> insertSyncedDeckCards(List<Map<String, dynamic>> rawCards) {
+    final now = _clock.now().toUtc();
+    final today = SerialDay.fromUtcDateTime(now);
+    final companions = rawCards
+        .map(
+          (c) => VocabCardsCompanion.insert(
+            cardId: ((c['cardId'] ?? c['wordId']) as String?) ?? '',
+            headword: (c['headword'] as String?) ?? '',
+            ipa: Value(c['ipa'] as String?),
+            definition: (c['definition'] as String?) ?? '',
+            topicTag: (c['topicTag'] as String?) ?? 'academic',
+            contextSentence: Value(c['contextSentence'] as String?),
+            easeFactorMilli: Value(
+              (c['easeFactorMilli'] as num?)?.toInt() ?? 2500,
+            ),
+            dueDay: today.value,
+            dueDaySerial: Value(today.value),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        )
+        .toList(growable: false);
+    return _db.vocabDao.insertMissingCardsBatch(companions);
+  }
+
+  /// Applies [quality] via [Sm2Scheduler] and persists the updated due date with review log.
+  Future<SrsCardState> recordReview({
+    required VocabDeckCard card,
+    required ReviewQuality quality,
+  }) async {
+    final now = _clock.now().toUtc();
+    final today = SerialDay.fromUtcDateTime(now);
+    final next = Sm2Scheduler.schedule(
+      current: card.schedule,
+      quality: quality,
+      today: today,
+    );
+
+    final logId = 'log-${card.cardId}-${now.millisecondsSinceEpoch}';
+    await _db.vocabDao.recordReviewTransaction(
+      cardId: card.cardId,
+      repetitions: next.repetitions,
+      intervalDays: next.intervalDays,
+      easeFactorMilli: next.easeFactorMilli,
+      easeFactor: next.easeFactor,
+      dueDay: next.dueDay.value,
+      reviewedDaySerial: today.value,
+      rating: quality.sm2Grade,
+      now: now,
+      logId: logId,
+    );
+    return next;
+  }
+
+  /// 1-tap capture of an exam mistake or lexical upgrade directly into the active SRS review deck.
+  Future<void> captureMistakeToDeck({
+    required String cardId,
+    required String headword,
+    required String definition,
+    required String topicTag,
+    String? ipa,
+    String? contextSentence,
+    String? usageNote,
+    String? sourceSkill,
+    String? sourceAttemptId,
+    String? sourceRefLabel,
+  }) {
+    final now = _clock.now().toUtc();
+    final today = SerialDay.fromUtcDateTime(now);
+
+    return _db.vocabDao.upsertCard(
+      VocabCardsCompanion.insert(
+        cardId: cardId,
+        headword: headword,
+        ipa: Value(ipa),
+        definition: definition,
+        topicTag: topicTag,
+        dueDay: today.value,
+        dueDaySerial: Value(today.value),
+        easeFactorMilli: const Value(2500),
+        easeFactor: const Value(2.5),
+        contextSentence: Value(contextSentence),
+        usageNote: Value(usageNote),
+        sourceSkill: Value(sourceSkill),
+        sourceAttemptId: Value(sourceAttemptId),
+        sourceRefLabel: Value(sourceRefLabel),
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+  }
+
+  /// Seeds a card into the deck if it does not yet exist.
+  Future<void> upsertSeedCard({
+    required String cardId,
+    required String headword,
+    required String definition,
+    required String topicTag,
+    String? ipa,
+    String? contextSentence,
+  }) {
+    final now = _clock.now().toUtc();
+    final today = SerialDay.fromUtcDateTime(now);
+    return _db.vocabDao.upsertCard(
+      VocabCardsCompanion.insert(
+        cardId: cardId,
+        headword: headword,
+        ipa: Value(ipa),
+        definition: definition,
+        topicTag: topicTag,
+        contextSentence: Value(contextSentence),
+        dueDay: today.value,
+        dueDaySerial: Value(today.value),
+        easeFactorMilli: const Value(2500),
+        easeFactor: const Value(2.5),
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+  }
+}

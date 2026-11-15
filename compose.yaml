@@ -1,0 +1,285 @@
+name: mockza
+
+networks:
+  mockza-net:
+    driver: bridge
+
+volumes:
+  mockza_pgdata:
+  mockza_s3data:
+
+x-backend-common: &backend-common
+  networks:
+    - mockza-net
+  environment: &backend-env
+    NODE_ENV: production
+    EDITION: ${MOCKZA_EDITION:-glb}
+    S3_ENDPOINT: http://seaweedfs:8333
+    S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://127.0.0.1:45833}
+    S3_REGION: ${S3_REGION:-us-east-1}
+    S3_BUCKET: ${S3_BUCKET:-mockza-audio-private}
+    S3_MEDIA_BUCKET: ${S3_MEDIA_BUCKET:-mockza-media}
+    S3_PUBLIC_MODE: ${S3_PUBLIC_MODE:-proxy}
+    S3_ACCESS_KEY: ${S3_ACCESS_KEY:-mockza_s3_access}
+    S3_SECRET_KEY: ${S3_SECRET_KEY:-mockza_s3_secret}
+    ADMIN_API_KEY: ${ADMIN_API_KEY:-mockza-dev-admin-key-change-me}
+    JWT_SECRET: ${JWT_SECRET:-dev-insecure-replace-before-prod-32chars}
+    APP_ATTEST_ENFORCED: ${APP_ATTEST_ENFORCED:-false}
+    OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+    LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+    LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+    LANGFUSE_HOST: ${LANGFUSE_HOST:-https://cloud.langfuse.com}
+    REVENUECAT_WEBHOOK_SECRET: ${REVENUECAT_WEBHOOK_SECRET:-}
+    CAFEBAZAAR_SECRET: ${CAFEBAZAAR_SECRET:-}
+    MYKET_SECRET: ${MYKET_SECRET:-}
+    POSTHOG_API_KEY: ${POSTHOG_API_KEY:-}
+    MAX_AUDIO_MB: ${MAX_AUDIO_MB:-5}
+    AUDIO_TTL_DAYS: ${AUDIO_TTL_DAYS:-30}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    networks:
+      - mockza-net
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mockza}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mockza_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-mockza}
+    ports:
+      - "127.0.0.1:${MOCKZA_PG_PORT:-45432}:5432"
+    volumes:
+      - mockza_pgdata:/var/lib/postgresql/data
+    mem_limit: 512m
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mockza} -d ${POSTGRES_DB:-mockza}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+  pgbouncer:
+    image: edoburu/pgbouncer:v1.24.1-p1
+    restart: unless-stopped
+    networks:
+      - mockza-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-mockza}:${POSTGRES_PASSWORD:-mockza_dev_password}@postgres:5432/${POSTGRES_DB:-mockza}
+      LISTEN_PORT: "6432"
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: "500"
+      DEFAULT_POOL_SIZE: "25"
+      AUTH_TYPE: scram-sha-256
+      IGNORE_STARTUP_PARAMETERS: extra_float_digits
+      ADMIN_USERS: ${POSTGRES_USER:-mockza}
+    ports:
+      - "127.0.0.1:${MOCKZA_PGBOUNCER_PORT:-45433}:6432"
+    mem_limit: 128m
+    cpus: 0.5
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 6432 -U ${POSTGRES_USER:-mockza} -d ${POSTGRES_DB:-mockza}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  seaweedfs:
+    image: chrislusf/seaweedfs:3.79
+    restart: unless-stopped
+    networks:
+      - mockza-net
+    command: "server -s3 -s3.port=8333 -master.port=9333 -volume.max=16 -dir=/data"
+    ports:
+      - "127.0.0.1:${MOCKZA_S3_PORT:-45833}:8333"
+      - "127.0.0.1:${MOCKZA_S3_MASTER_PORT:-45933}:9333"
+    volumes:
+      - mockza_s3data:/data
+    mem_limit: 512m
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9333/cluster/status >/dev/null && nc -z 127.0.0.1 8333"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  s3-init:
+    <<: *backend-common
+    image: mockza-backend-cli:local
+    build:
+      context: ./backend
+      dockerfile: Containerfile
+      target: cli
+    restart: "no"
+    depends_on:
+      seaweedfs:
+        condition: service_healthy
+    mem_limit: 256m
+    cpus: 0.5
+
+  migrate:
+    <<: *backend-common
+    image: mockza-backend-migrator:local
+    build:
+      context: ./backend
+      dockerfile: Containerfile
+      target: migrator
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *backend-env
+      DATABASE_URL: postgres://${POSTGRES_USER:-mockza}:${POSTGRES_PASSWORD:-mockza_dev_password}@postgres:5432/${POSTGRES_DB:-mockza}
+      PG_PGBOUNCER: "false"
+    mem_limit: 256m
+    cpus: 0.5
+
+  api:
+    <<: *backend-common
+    image: mockza-api:local
+    build:
+      context: ./backend
+      dockerfile: Containerfile
+      target: api
+    restart: unless-stopped
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      s3-init:
+        condition: service_completed_successfully
+    environment:
+      <<: *backend-env
+      PORT: "8787"
+      DATABASE_URL: postgres://${POSTGRES_USER:-mockza}:${POSTGRES_PASSWORD:-mockza_dev_password}@pgbouncer:6432/${POSTGRES_DB:-mockza}
+      PG_PGBOUNCER: "true"
+    ports:
+      - "0.0.0.0:${MOCKZA_API_PORT:-45281}:8787"
+    mem_limit: 512m
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/v1/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  worker:
+    <<: *backend-common
+    image: mockza-worker:local
+    build:
+      context: ./backend
+      dockerfile: Containerfile
+      target: worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      s3-init:
+        condition: service_completed_successfully
+    environment:
+      <<: *backend-env
+      # Worker connects directly to postgres:5432 (bypassing PgBouncer) for pg-boss LISTEN/NOTIFY & locks
+      DATABASE_URL: postgres://${POSTGRES_USER:-mockza}:${POSTGRES_PASSWORD:-mockza_dev_password}@postgres:5432/${POSTGRES_DB:-mockza}
+      PG_PGBOUNCER: "false"
+    mem_limit: 512m
+    cpus: 1.0
+
+  web:
+    image: mockza-web:local
+    build:
+      context: ./app
+      dockerfile: Containerfile
+      target: web-runtime
+      args:
+        FLUTTER_VERSION: "3.47.9"
+        MOCKZA_EDITION: ${MOCKZA_WEB_FLAVOR:-global}
+        MOCKZA_API_BASE_URL: ${MOCKZA_API_BASE_URL:-}
+    restart: unless-stopped
+    networks:
+      - mockza-net
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "0.0.0.0:${MOCKZA_WEB_PORT:-45280}:8080"
+    mem_limit: 256m
+    cpus: 0.5
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  backend-check:
+    profiles: ["tools"]
+    image: mockza-backend-toolchain:local
+    build:
+      context: ./backend
+      dockerfile: Containerfile
+      target: toolchain
+    networks:
+      - mockza-net
+    command: ["sh", "-c", "pnpm exec biome check . && pnpm typecheck && pnpm test"]
+    mem_limit: 1536m
+    cpus: 1.5
+
+  flutter-check:
+    profiles: ["tools"]
+    image: mockza-app-checker:local
+    build:
+      context: ./app
+      dockerfile: Containerfile
+      target: checker
+      args:
+        FLUTTER_VERSION: "3.47.9"
+    command: ["sh", "-c", "dart format --output=none --set-exit-if-changed lib test && flutter analyze --fatal-infos && flutter test --test-randomize-ordering-seed random --reporter expanded"]
+    mem_limit: 2048m
+    cpus: 1.5
+
+  content-validate:
+    profiles: ["tools"]
+    <<: *backend-common
+    image: mockza-backend-cli:local
+    build:
+      context: ./backend
+      dockerfile: Containerfile
+      target: cli
+    command: ["node", "/app/content-pipeline/dist/validate-pack.js"]
+    mem_limit: 512m
+    cpus: 0.5
+
+  evals:
+    profiles: ["tools"]
+    <<: *backend-common
+    image: mockza-backend-cli:local
+    build:
+      context: ./backend
+      dockerfile: Containerfile
+      target: cli
+    command: ["node", "/app/evals/dist/run-evals.js"]
+    mem_limit: 512m
+    cpus: 0.5
+
+  k6:
+    profiles: ["loadtest"]
+    image: grafana/k6:0.54.0
+    networks:
+      - mockza-net
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - ./backend/tests/k6:/scripts:ro
+    command: ["run", "/scripts/load_test.js"]
+    mem_limit: 1024m
+    cpus: 2.0

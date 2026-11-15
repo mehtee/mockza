@@ -1,0 +1,6 @@
+*.g.dart linguist-generated=true
+*.freezed.dart linguist-generated=true
+*.drift.dart linguist-generated=true
+app/lib/l10n/app_localizations*.dart linguist-generated=true
+pnpm-lock.yaml linguist-generated=true
+app/pubspec.lock linguist-generated=true

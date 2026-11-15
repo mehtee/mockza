@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 420" style="background:#0c0f19;font-family:Inter,system-ui,sans-serif">
+  <title>Continental Land Usage Breakdown (2022)</title>
+  <text x="40" y="42" fill="#fff" font-size="20" font-weight="700">Continental Land Usage Breakdown (2022, % of Total Area)</text>
+  <rect x="40" y="80" width="720" height="270" rx="8" fill="#141926" stroke="#2c3550"/>
+  <rect x="40" y="80" width="720" height="48" rx="8" fill="#1d2438"/>
+  <text x="70" y="110" fill="#70beff" font-size="13" font-weight="700">Continent</text>
+  <text x="270" y="110" fill="#66dbb5" font-size="13" font-weight="700">Arable Cropland</text>
+  <text x="460" y="110" fill="#9580ff" font-size="13" font-weight="700">Pastoral Grazing</text>
+  <text x="635" y="110" fill="#ffd166" font-size="13" font-weight="700">Protected Wilderness</text>
+  <text x="70" y="168" fill="#fff" font-size="13">Europe</text><text x="305" y="168" fill="#d7e1ef" font-size="13">29%</text><text x="495" y="168" fill="#d7e1ef" font-size="13">18%</text><text x="675" y="168" fill="#d7e1ef" font-size="13">53%</text>
+  <line x1="60" y1="190" x2="740" y2="190" stroke="#232a3f"/>
+  <text x="70" y="222" fill="#fff" font-size="13">Asia</text><text x="305" y="222" fill="#d7e1ef" font-size="13">24%</text><text x="495" y="222" fill="#d7e1ef" font-size="13">31%</text><text x="675" y="222" fill="#d7e1ef" font-size="13">45%</text>
+  <line x1="60" y1="244" x2="740" y2="244" stroke="#232a3f"/>
+  <text x="70" y="276" fill="#fff" font-size="13">North America</text><text x="305" y="276" fill="#d7e1ef" font-size="13">18%</text><text x="495" y="276" fill="#d7e1ef" font-size="13">22%</text><text x="675" y="276" fill="#d7e1ef" font-size="13">60%</text>
+  <line x1="60" y1="298" x2="740" y2="298" stroke="#232a3f"/>
+  <text x="70" y="330" fill="#fff" font-size="13">South America</text><text x="305" y="330" fill="#d7e1ef" font-size="13">12%</text><text x="495" y="330" fill="#d7e1ef" font-size="13">27%</text><text x="675" y="330" fill="#d7e1ef" font-size="13">61%</text>
+</svg>

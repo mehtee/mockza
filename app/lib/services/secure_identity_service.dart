@@ -1,0 +1,126 @@
+import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:mockza/core/result/failure.dart';
+import 'package:mockza/core/result/result.dart';
+import 'package:mockza/services/entropy_source.dart';
+import 'package:mockza/services/secure_storage_platform.dart';
+
+/// Thin gateway interface over secure OS credential storage (`Keychain`/`Keystore`).
+abstract interface class SecureStorageGateway {
+  /// Persists a secret [value] under [key].
+  Future<Result<void, Failure>> write({
+    required String key,
+    required String value,
+  });
+
+  /// Reads a stored secret value for [key], returning `null` if absent.
+  Future<Result<String?, Failure>> read({required String key});
+
+  /// Removes any secret value stored under [key].
+  Future<Result<void, Failure>> delete({required String key});
+}
+
+/// Concrete [SecureStorageGateway] wrapping [FlutterSecureStorage] with Web `localStorage` fallback.
+final class FlutterSecureStorageGateway implements SecureStorageGateway {
+  /// Creates a [FlutterSecureStorageGateway].
+  const new([
+    this._storage = const FlutterSecureStorage(),
+  ]);
+
+  static final Map<String, String> _fallbackStore = <String, String>{};
+
+  final FlutterSecureStorage _storage;
+
+  @override
+  Future<Result<void, Failure>> write({
+    required String key,
+    required String value,
+  }) async {
+    _fallbackStore[key] = value;
+    writePlatformFallbackSecret(key, value);
+    try {
+      await _storage.write(key: key, value: value);
+      return const Ok(null);
+    } on PlatformException {
+      return const Ok(null);
+    } on Object {
+      return const Ok(null);
+    }
+  }
+
+  @override
+  Future<Result<String?, Failure>> read({required String key}) async {
+    try {
+      final value = await _storage.read(key: key);
+      if (value != null && value.isNotEmpty) {
+        return Ok(value);
+      }
+    } on Object {
+      // Fall through to platform/in-memory cache.
+    }
+    return Ok(readPlatformFallbackSecret(key) ?? _fallbackStore[key]);
+  }
+
+  @override
+  Future<Result<void, Failure>> delete({required String key}) async {
+    _fallbackStore.remove(key);
+    deletePlatformFallbackSecret(key);
+    try {
+      await _storage.delete(key: key);
+      return const Ok(null);
+    } on Object {
+      return const Ok(null);
+    }
+  }
+}
+
+/// Manages pseudonymous device identity and bearer tokens backed by [SecureStorageGateway].
+final class SecureIdentityService {
+  /// Creates a [SecureIdentityService].
+  const new({
+    required this._storage,
+    required this._entropy,
+  });
+
+  static const _deviceIdKey = 'mockza_device_id_v1';
+  static const _accessTokenKey = 'mockza_access_token_v1';
+
+  final SecureStorageGateway _storage;
+  final EntropySource _entropy;
+
+  /// Returns an existing device ID or generates and stores a fresh UUIDv4.
+  Future<Result<String, Failure>> getOrCreateDeviceId() async {
+    final existing = await _storage.read(key: _deviceIdKey);
+    switch (existing) {
+      case Ok<String?, Failure>(:final value)
+          when value != null && value.isNotEmpty:
+        return Ok(value);
+      case Err<String?, Failure>(:final failure):
+        return Err(failure);
+      case Ok<String?, Failure>():
+        final freshId = _entropy.nextUuidV4();
+        final saved = await _storage.write(key: _deviceIdKey, value: freshId);
+        return saved.map((_) => freshId);
+    }
+  }
+
+  /// Reads the cached API access token if present.
+  Future<String?> readAccessToken() async {
+    final res = await _storage.read(key: _accessTokenKey);
+    return res.valueOrNull;
+  }
+
+  /// Saves a rotated API access token into secure storage.
+  Future<Result<void, Failure>> saveAccessToken(String token) =>
+      _storage.write(key: _accessTokenKey, value: token);
+
+  /// Clears stored session tokens during explicit account deletion/reset.
+  Future<Result<void, Failure>> clearCredentials() =>
+      _storage.delete(key: _accessTokenKey);
+
+  /// Clears both stored tokens and pseudonymous device UUID on full account deletion.
+  Future<Result<void, Failure>> clearAll() async {
+    await _storage.delete(key: _accessTokenKey);
+    return await _storage.delete(key: _deviceIdKey);
+  }
+}

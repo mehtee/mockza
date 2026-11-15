@@ -1,0 +1,655 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:mockza/core/exams/exam_spec.dart';
+import 'package:mockza/core/models/attempt_status.dart';
+import 'package:mockza/data/repositories/exam_catalog_repository.dart';
+import 'package:mockza/features/practice_hub/presentation/practice_hub_providers.dart';
+import 'package:mockza/routing/routes.dart';
+import 'package:mockza/theme/app_colors.dart';
+import 'package:mockza/theme/app_icons.dart';
+import 'package:mockza/theme/app_motion.dart';
+import 'package:mockza/theme/app_shapes.dart';
+import 'package:mockza/theme/app_typography.dart';
+import 'package:mockza/theme/components/icon_well.dart';
+import 'package:mockza/theme/components/mz_bottom_sheet.dart';
+import 'package:mockza/theme/components/mz_buttons.dart';
+import 'package:mockza/theme/components/mz_card.dart';
+import 'package:mockza/theme/components/mz_scaffold.dart';
+import 'package:mockza/theme/components/task_card.dart';
+import 'package:mockza/theme/primitives.dart';
+
+/// Practice Hub test catalog and simulator launcher screen (Screens 02 & 03).
+class PracticeHubScreen extends ConsumerWidget {
+  /// Creates a [PracticeHubScreen].
+  const new({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(practiceHubNotifierProvider);
+    final notifier = ref.read(practiceHubNotifierProvider.notifier);
+    final packsAsync = ref.watch(installedExamPacksProvider);
+    final drillsAsync = ref.watch(drillsCatalogProvider);
+    final colors = AppColors.of(context);
+    final typography = AppTypography.of(context);
+
+    final allPacks = packsAsync.asData?.value ?? const <InstalledExamPack>[];
+    final filteredPacks = allPacks
+        .where((pack) {
+          if (state.selectedSkill != null &&
+              pack.skill != state.selectedSkill) {
+            return false;
+          }
+          if (state.selectedTrack != 'all' &&
+              pack.track != state.selectedTrack &&
+              pack.track != 'shared') {
+            return false;
+          }
+          return true;
+        })
+        .toList(growable: false);
+
+    final drills = state.selectedSkill == null
+        ? (drillsAsync.asData?.value ?? const <MicroDrillSpec>[])
+        : const <MicroDrillSpec>[];
+
+    return MzScaffold(
+      body: Column(
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsetsDirectional.symmetric(
+              horizontal: SpacingTokens.md,
+              vertical: SpacingTokens.sm,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: <Widget>[
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text('Practice Hub', style: typography.headline),
+                      const SizedBox(height: SpacingTokens.xs),
+                      Text(
+                        'Postgres exam catalog • Download for offline',
+                        style: typography.secondary.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Sync Catalog',
+                  icon: AppIcon(
+                    state.isSyncingCatalog
+                        ? LucideGlyph.loaderCircle
+                        : LucideGlyph.refreshCw,
+                    size: 20,
+                  ),
+                  onPressed: state.isSyncingCatalog
+                      ? null
+                      : notifier.refreshCatalog,
+                ),
+                IconButton(
+                  tooltip: 'Settings',
+                  icon: const AppIcon(LucideGlyph.settings, size: 20),
+                  onPressed: () => context.push(AppRoutes.settings),
+                ),
+              ],
+            ),
+          ),
+          if (state.statusMessage != null)
+            Padding(
+              padding: const EdgeInsetsDirectional.symmetric(
+                horizontal: SpacingTokens.md,
+              ),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  state.statusMessage!,
+                  style: typography.caption.copyWith(color: colors.primary),
+                ),
+              ),
+            ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsetsDirectional.symmetric(
+                horizontal: SpacingTokens.md,
+                vertical: SpacingTokens.sm,
+              ),
+              children: <Widget>[
+                // Skill Filter Chips Strip
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: <Widget>[
+                      _FilterChip(
+                        label: 'All',
+                        isSelected: state.selectedSkill == null,
+                        onTap: () => notifier.setFilter(null),
+                      ),
+                      const SizedBox(width: SpacingTokens.xs),
+                      _FilterChip(
+                        label: 'Speaking',
+                        isSelected: state.selectedSkill == SkillKind.speaking,
+                        onTap: () => notifier.setFilter(SkillKind.speaking),
+                      ),
+                      const SizedBox(width: SpacingTokens.xs),
+                      _FilterChip(
+                        label: 'Writing',
+                        isSelected: state.selectedSkill == SkillKind.writing,
+                        onTap: () => notifier.setFilter(SkillKind.writing),
+                      ),
+                      const SizedBox(width: SpacingTokens.xs),
+                      _FilterChip(
+                        label: 'Reading',
+                        isSelected: state.selectedSkill == SkillKind.reading,
+                        onTap: () => notifier.setFilter(SkillKind.reading),
+                      ),
+                      const SizedBox(width: SpacingTokens.xs),
+                      _FilterChip(
+                        label: 'Listening',
+                        isSelected: state.selectedSkill == SkillKind.listening,
+                        onTap: () => notifier.setFilter(SkillKind.listening),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: SpacingTokens.sm),
+
+                // Track Filter Row
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: <Widget>[
+                      _FilterChip(
+                        label: 'All Tracks',
+                        isSelected: state.selectedTrack == 'all',
+                        onTap: () => notifier.setTrackFilter('all'),
+                      ),
+                      const SizedBox(width: SpacingTokens.xs),
+                      _FilterChip(
+                        label: 'Academic',
+                        isSelected: state.selectedTrack == 'academic',
+                        onTap: () => notifier.setTrackFilter('academic'),
+                      ),
+                      const SizedBox(width: SpacingTokens.xs),
+                      _FilterChip(
+                        label: 'General',
+                        isSelected: state.selectedTrack == 'general',
+                        onTap: () => notifier.setTrackFilter('general'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: SpacingTokens.lg),
+
+                // Core Skill Simulators Quick-Launch
+                if (state.selectedSkill == null ||
+                    state.selectedSkill == SkillKind.speaking)
+                  TaskCard(
+                    title: 'Speaking Simulator',
+                    subtitle: '3-Part Live Cue Card & AI Band Evaluation',
+                    glyph: LucideGlyph.mic,
+                    tint: IconWellTint.blue,
+                    durationText: '14 min',
+                    questionsText: '3 Parts',
+                    onTap: () => context.push(
+                      AppRoutes.buildSpeakingSim(),
+                    ),
+                  ),
+                if (state.selectedSkill == null ||
+                    state.selectedSkill == SkillKind.writing)
+                  TaskCard(
+                    title: 'Writing Simulator',
+                    subtitle: 'Task 1 Visual Chart & Task 2 Essay Evaluator',
+                    glyph: LucideGlyph.pencil,
+                    tint: IconWellTint.violet,
+                    durationText: '60 min',
+                    questionsText: '2 Tasks',
+                    onTap: () => context.push(
+                      AppRoutes.buildWritingSim(
+                        state.selectedTrack == 'general'
+                            ? 'ielts-writing-gt-01'
+                            : 'ielts-writing-seed-01',
+                      ),
+                    ),
+                  ),
+                if (state.selectedSkill == null ||
+                    state.selectedSkill == SkillKind.reading)
+                  TaskCard(
+                    title: 'Reading Simulator',
+                    subtitle:
+                        'Passage Highlighting, Notes & Instant Band Score',
+                    glyph: LucideGlyph.bookOpen,
+                    tint: IconWellTint.mint,
+                    durationText: '60 min',
+                    questionsText: '3 Passages',
+                    onTap: () => context.push(
+                      AppRoutes.buildReadingSim(
+                        state.selectedTrack == 'general'
+                            ? 'ielts-gt-reading-seed-01'
+                            : 'ielts-acad-reading-seed-01',
+                      ),
+                    ),
+                  ),
+                if (state.selectedSkill == null ||
+                    state.selectedSkill == SkillKind.listening)
+                  TaskCard(
+                    title: 'Listening Simulator',
+                    subtitle: '4-Section Audio Track & Synced Transcript',
+                    glyph: LucideGlyph.headphones,
+                    tint: IconWellTint.blue,
+                    durationText: '30 min',
+                    questionsText: '4 Sections',
+                    onTap: () => context.push(
+                      AppRoutes.buildListeningSim(),
+                    ),
+                  ),
+                const SizedBox(height: SpacingTokens.md),
+
+                // Featured Full Mock Exam Banner Card
+                if (state.selectedSkill == null) ...<Widget>[
+                  MzCard(
+                    variant: MzCardVariant.hero,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Row(
+                          children: <Widget>[
+                            const IconWell(
+                              glyph: LucideGlyph.target,
+                              tint: IconWellTint.blue,
+                            ),
+                            const SizedBox(width: SpacingTokens.sm),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    state.selectedTrack == 'general'
+                                        ? 'Full IELTS General Training Mock'
+                                        : 'Full IELTS Academic Mock Exam',
+                                    style: typography.cardTitle,
+                                  ),
+                                  const SizedBox(height: SpacingTokens.xs),
+                                  Text(
+                                    'All 4 skills • Listening, Reading, Writing & Speaking',
+                                    style: typography.secondary.copyWith(
+                                      color: colors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: SpacingTokens.md),
+                        PrimaryButton(
+                          label: 'Open Full Mock Planner',
+                          onPressed: () => context.push(
+                            AppRoutes.buildPracticeFullMock(
+                              state.selectedTrack == 'general'
+                                  ? 'mock-gt-01'
+                                  : 'mock-acad-01',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: SpacingTokens.lg),
+                ],
+
+                // Live Catalog Packs from Postgres
+                if (packsAsync.isLoading && allPacks.isEmpty)
+                  const Padding(
+                    padding: EdgeInsetsDirectional.all(SpacingTokens.lg),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (filteredPacks.isEmpty)
+                  MzCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          allPacks.isEmpty
+                              ? 'Catalog not synced yet'
+                              : 'No packs match this filter',
+                          style: typography.cardTitle,
+                        ),
+                        const SizedBox(height: SpacingTokens.xs),
+                        Text(
+                          allPacks.isEmpty
+                              ? 'Connect to Mockza API to fetch IELTS exams and audio/chart packs.'
+                              : 'Switch skill or track filters to see available packs.',
+                          style: typography.secondary.copyWith(
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                        if (allPacks.isEmpty) ...<Widget>[
+                          const SizedBox(height: SpacingTokens.md),
+                          SecondaryButton(
+                            label: state.isSyncingCatalog
+                                ? 'Syncing...'
+                                : 'Sync Catalog Now',
+                            onPressed: state.isSyncingCatalog
+                                ? null
+                                : notifier.refreshCatalog,
+                          ),
+                        ],
+                      ],
+                    ),
+                  )
+                else
+                  ...filteredPacks.map(
+                    (pack) => TaskCard(
+                      title: pack.title,
+                      subtitle: pack.description.isNotEmpty
+                          ? pack.description
+                          : '${pack.track.toUpperCase()} • ${pack.skill.name}',
+                      glyph: _glyphForSkill(pack.skill),
+                      tint: _tintForSkill(pack.skill),
+                      durationText: _formatDuration(pack),
+                      questionsText: _formatCountLabel(pack),
+                      badgeText:
+                          pack.accent ??
+                          (pack.track == 'general' ? 'General' : null),
+                      isDownloaded: pack.isCachedOffline,
+                      isDownloading: state.downloadingPackIds.contains(
+                        pack.packId,
+                      ),
+                      onTapDownload: () => notifier.toggleOfflineDownload(pack),
+                      onTap: () => _openTestSetupSheet(
+                        context,
+                        pack: pack,
+                      ),
+                    ),
+                  ),
+
+                // Synced 3-Minute Micro-Drills Section
+                if (drills.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: SpacingTokens.md),
+                  Text('Targeted Micro-Drills', style: typography.cardTitle),
+                  const SizedBox(height: SpacingTokens.sm),
+                  ...drills.map(
+                    (drill) => TaskCard(
+                      title: drill.title,
+                      subtitle: '${drill.weaknessCode} • ${drill.subtitle}',
+                      glyph: LucideGlyph.chartIncreasing,
+                      tint: IconWellTint.neutral,
+                      durationText:
+                          '${(drill.durationSeconds / 60).ceil()} min',
+                      questionsText: '${drill.items.length} Drills',
+                      onTap: () => context.push(
+                        AppRoutes.buildMicroDrill(drill.drillId),
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: SpacingTokens.xxl),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static LucideGlyph _glyphForSkill(SkillKind skill) => switch (skill) {
+    SkillKind.speaking => LucideGlyph.mic,
+    SkillKind.writing => LucideGlyph.pencil,
+    SkillKind.reading => LucideGlyph.bookOpen,
+    SkillKind.listening => LucideGlyph.headphones,
+    SkillKind.vocabulary => LucideGlyph.layers3,
+  };
+
+  static IconWellTint _tintForSkill(SkillKind skill) => switch (skill) {
+    SkillKind.speaking => IconWellTint.blue,
+    SkillKind.writing => IconWellTint.violet,
+    SkillKind.reading => IconWellTint.mint,
+    SkillKind.listening => IconWellTint.blue,
+    SkillKind.vocabulary => IconWellTint.neutral,
+  };
+
+  static String _formatDuration(InstalledExamPack pack) {
+    if (pack.durationSeconds <= 0) {
+      return switch (pack.skill) {
+        SkillKind.speaking => '14 min',
+        SkillKind.writing => '60 min',
+        SkillKind.reading => '60 min',
+        SkillKind.listening => '30 min',
+        SkillKind.vocabulary => '5 min',
+      };
+    }
+    final mins = (pack.durationSeconds / 60).ceil();
+    return '$mins min';
+  }
+
+  static String _formatCountLabel(InstalledExamPack pack) {
+    if (pack.questionCount > 0) {
+      return '${pack.questionCount} Questions';
+    }
+    return switch (pack.skill) {
+      SkillKind.speaking => '3 Parts',
+      SkillKind.writing => '2 Tasks',
+      SkillKind.reading => 'Passage Set',
+      SkillKind.listening => 'Audio Test',
+      SkillKind.vocabulary => 'Deck',
+    };
+  }
+
+  void _openTestSetupSheet(
+    BuildContext context, {
+    required InstalledExamPack pack,
+  }) {
+    unawaited(
+      showMzBottomSheet<void>(
+        context: context,
+        title: 'Test Setup',
+        child: Builder(
+          builder: (sheetCtx) => _TestSetupContent(
+            title: pack.title,
+            skill: pack.skill.name,
+            duration: _formatDuration(pack),
+            questions: _formatCountLabel(pack),
+            onStart: (isExamMode) {
+              Navigator.of(sheetCtx).pop();
+              final route = switch (pack.skill) {
+                SkillKind.speaking => AppRoutes.buildSpeakingSim(
+                  pack.packId,
+                  isExamMode,
+                ),
+                SkillKind.writing => AppRoutes.buildWritingSim(
+                  pack.packId,
+                  isExamMode,
+                ),
+                SkillKind.reading => AppRoutes.buildReadingSim(
+                  pack.packId,
+                  isExamMode,
+                ),
+                SkillKind.listening => AppRoutes.buildListeningSim(
+                  pack.packId,
+                  isExamMode,
+                ),
+                SkillKind.vocabulary => AppRoutes.vocabulary,
+              };
+              unawaited(context.push(route));
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  const new({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final typography = AppTypography.of(context);
+    final shapes = AppShapes.of(context);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: AppMotion.standard.microDuration,
+        padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: SpacingTokens.md,
+          vertical: SpacingTokens.xs,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? colors.surfaceAlt : colors.surface,
+          borderRadius: shapes.pillRadius,
+          border: Border.all(
+            color: isSelected ? colors.primary : colors.borderSubtle,
+          ),
+        ),
+        child: Text(
+          label,
+          style: typography.secondary.copyWith(
+            color: isSelected ? colors.primary : colors.textPrimary,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TestSetupContent extends StatefulWidget {
+  const new({
+    required this.title,
+    required this.skill,
+    required this.duration,
+    required this.questions,
+    required this.onStart,
+  });
+
+  final String title;
+  final String skill;
+  final String duration;
+  final String questions;
+  final ValueChanged<bool> onStart;
+
+  @override
+  State<_TestSetupContent> createState() => _TestSetupContentState();
+}
+
+class _TestSetupContentState extends State<_TestSetupContent> {
+  bool isExamMode = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final typography = AppTypography.of(context);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Text(widget.title, style: typography.cardTitle),
+        const SizedBox(height: SpacingTokens.xs),
+        Text(
+          '${widget.duration} • ${widget.questions}',
+          style: typography.secondary.copyWith(color: colors.textSecondary),
+        ),
+        const SizedBox(height: SpacingTokens.lg),
+        Text('Select Mode', style: typography.cardTitle),
+        const SizedBox(height: SpacingTokens.sm),
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => isExamMode = true),
+                child: MzCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: <Widget>[
+                          Text('Exam Mode', style: typography.cardTitle),
+                          AppIcon(
+                            isExamMode
+                                ? LucideGlyph.checkCircle2
+                                : LucideGlyph.circlePlay,
+                            color: isExamMode
+                                ? colors.primary
+                                : colors.textTertiary,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: SpacingTokens.xs),
+                      Text(
+                        'Strict timer, linear audio playback, no hints',
+                        style: typography.caption.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: SpacingTokens.sm),
+            Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => isExamMode = false),
+                child: MzCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: <Widget>[
+                          Text('Study Mode', style: typography.cardTitle),
+                          AppIcon(
+                            !isExamMode
+                                ? LucideGlyph.checkCircle2
+                                : LucideGlyph.circlePlay,
+                            color: !isExamMode
+                                ? colors.primary
+                                : colors.textTertiary,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: SpacingTokens.xs),
+                      Text(
+                        'Interactive playback, transcript, AI explain',
+                        style: typography.caption.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: SpacingTokens.xl),
+        PrimaryButton(
+          label: isExamMode ? 'Start Exam Mode' : 'Start Study Mode',
+          onPressed: () => widget.onStart(isExamMode),
+        ),
+        const SizedBox(height: SpacingTokens.md),
+      ],
+    );
+  }
+}

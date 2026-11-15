@@ -1,0 +1,8 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "evals"
+  - "content-pipeline"
+
+allowBuilds:
+  esbuild: true

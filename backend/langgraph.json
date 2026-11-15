@@ -1,0 +1,10 @@
+{
+  "node_version": "24",
+  "dependencies": ["."],
+  "graphs": {
+    "grade_speaking": "./packages/ai/src/graphs/grade-speaking.ts:gradeSpeakingGraph",
+    "grade_writing": "./packages/ai/src/graphs/grade-writing.ts:gradeWritingGraph",
+    "explain_question": "./packages/ai/src/graphs/explain-question.ts:explainQuestionGraph"
+  },
+  "env": ".env"
+}

@@ -1,0 +1,29 @@
+{
+  "name": "@mockza/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch --conditions=development src/server.ts",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.821.0",
+    "@hono/node-server": "^1.14.1",
+    "@hono/zod-openapi": "^0.19.6",
+    "@mockza/ai": "workspace:*",
+    "@mockza/config": "workspace:*",
+    "@mockza/contracts": "workspace:*",
+    "@mockza/db": "workspace:*",
+    "@mockza/domain": "workspace:*",
+    "@mockza/storage": "workspace:*",
+    "@scalar/hono-api-reference": "^0.9.3",
+    "hono": "^4.7.10",
+    "drizzle-orm": "^0.43.1",
+    "postgres": "^3.4.5",
+    "pg-boss": "^10.3.2"
+  }
+}

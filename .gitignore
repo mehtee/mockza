@@ -1,0 +1,59 @@
+# ==============================================================================
+# Mockza Monorepo .gitignore
+# Note: pubspec.lock, pnpm-lock.yaml, and committed generated Dart code
+# (*.g.dart, *.drift.dart, app/lib/l10n/*.dart) are intentionally TRACKED.
+# ==============================================================================
+
+# Secrets & environment
+.env
+.env.*
+!.env.example
+.dart_defines/
+*.jks
+*.keystore
+*.p8
+*.p12
+GoogleService-Info.plist
+google-services.json
+
+# OS & Editors
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# Flutter / Dart
+**/.dart_tool/
+**/.flutter-plugins-dependencies
+**/.packages
+**/build/
+**/coverage/
+**/.fvm/flutter_sdk
+*.mocks.dart
+
+# Android / iOS / Desktop ephemerals
+app/android/.gradle/
+app/android/local.properties
+app/android/app/debug/
+app/android/app/profile/
+app/android/app/release/
+app/ios/Pods/
+app/ios/.symlinks/
+app/ios/Flutter/ephemeral/
+app/macos/Flutter/ephemeral/
+app/linux/flutter/ephemeral/
+app/windows/flutter/ephemeral/
+
+# Node / TypeScript / Backend
+**/node_modules/
+**/dist/
+**/.turbo/
+**/*.tsbuildinfo
+backend/.langgraph_api/
+backend/data/
+*.log
+npm-debug.log*
+pnpm-debug.log*
