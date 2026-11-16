@@ -31,6 +31,25 @@ import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
 import 'package:mockza/theme/primitives.dart';
 
+/// Synchronous in-memory latch so onboarding completion immediately unblocks
+/// [GoRouter] redirects before Drift's stream emits on the next microtask.
+class OnboardingCompletedLatch extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  /// Updates the synchronous onboarding completion latch.
+  void setCompleted({required bool completed}) {
+    state = completed;
+  }
+}
+
+/// Provides [OnboardingCompletedLatch] to coordinate onboarding completion and account wipes.
+final NotifierProvider<OnboardingCompletedLatch, bool>
+onboardingCompletedLatchProvider =
+    NotifierProvider<OnboardingCompletedLatch, bool>(
+      OnboardingCompletedLatch.new,
+    );
+
 /// Streams whether initial learner onboarding has completed (`null` while loading).
 final StreamProvider<bool?> _onboardingGateProvider = StreamProvider<bool?>((
   ref,
@@ -76,8 +95,10 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: AppRoutes.home,
     refreshListenable: refreshListenable,
     redirect: (context, state) {
-      final completed = ref.read(_onboardingGateProvider).asData?.value;
-      if (completed == null) return null;
+      final gateValue = ref.read(_onboardingGateProvider).asData?.value;
+      final latched = ref.read(onboardingCompletedLatchProvider);
+      if (gateValue == null && !latched) return null;
+      final completed = latched || (gateValue ?? false);
       final loc = state.matchedLocation;
       if (!completed && loc != AppRoutes.onboarding) {
         return AppRoutes.onboarding;

@@ -6,6 +6,7 @@ import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/core/result/result.dart';
 import 'package:mockza/providers.dart';
+import 'package:mockza/routing/app_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 /// Immutable UI state for Settings & Account screen.
@@ -320,6 +321,9 @@ class SettingsNotifier extends Notifier<SettingsState> {
     await ref.read(authSessionServiceProvider).deleteRemoteAccount();
     await ref.read(cacheCleanupServiceProvider).clearDownloadedCaches();
     await ref.read(profileRepositoryProvider).resetAllLocalData();
+    ref
+        .read(onboardingCompletedLatchProvider.notifier)
+        .setCompleted(completed: false);
 
     if (_isDisposed) return;
     state = SettingsState(

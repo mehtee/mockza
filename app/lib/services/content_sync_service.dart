@@ -93,18 +93,6 @@ final class ContentSyncService {
         syncedCount += rawCards.length;
       }
 
-      // 4. Prefetch starter/free sample bundles so offline & diagnostic flows work immediately.
-      for (final p in rawPacks) {
-        final isFree = p['isFreeSample'] as bool? ?? false;
-        final packId = p['packId'] as String?;
-        if (isFree && packId != null && packId.isNotEmpty) {
-          final existing = await _catalogRepository.getCachedExamBundle(packId);
-          if (existing == null) {
-            await downloadExamPack(packId);
-          }
-        }
-      }
-
       return Ok(syncedCount);
     } on DioException catch (e) {
       _crashLog.info('Catalog sync skipped/offline: ${e.message}');

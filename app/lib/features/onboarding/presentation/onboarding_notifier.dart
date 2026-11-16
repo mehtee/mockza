@@ -6,6 +6,7 @@ import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/core/vocab/serial_day.dart';
 import 'package:mockza/providers.dart';
+import 'package:mockza/routing/app_router.dart';
 import 'package:mockza/routing/routes.dart';
 
 /// Immutable UI state for the 2-step onboarding wizard (23_*, 24_*).
@@ -168,26 +169,29 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
             : null,
       );
       await profileRepo.completeOnboarding(primary.deviceId);
+      ref
+          .read(onboardingCompletedLatchProvider.notifier)
+          .setCompleted(completed: true);
 
-      // Kick off anonymous JWT + catalog sync with bounded wait so content
-      // packs are populated immediately if the API is reachable, without
-      // stalling offline onboarding.
+      // Kick off anonymous JWT + lightweight catalog sync right after navigation
+      // so the UI transitions immediately without waiting on IndexedDB/SQLite writes.
       final authSession = ref.read(authSessionServiceProvider);
       final contentSync = ref.read(contentSyncServiceProvider);
       unawaited(
-        Future<void>(() async {
+        Future<void>.delayed(const Duration(milliseconds: 250), () async {
           try {
             await authSession.ensureAuthenticated();
-            await contentSync.syncAllCatalogData(forceRefresh: true);
+            await contentSync.syncAllCatalogData();
           } on Object {
             // Sync continues silently on home / reconnect.
           }
-        }).timeout(const Duration(seconds: 4), onTimeout: () {}),
+        }),
       );
 
       final destination = state.wantDiagnostic
           ? AppRoutes.buildSpeakingSim()
           : AppRoutes.home;
+      state = state.copyWith(isSaving: false);
       return destination;
     } on Object {
       state = state.copyWith(

@@ -50,6 +50,12 @@ load_env() {
 }
 
 resolve_pnpm() {
+  local pnpm_home="${PNPM_HOME:-$HOME/.local/share/pnpm}"
+  if [[ -d "$pnpm_home/bin" ]]; then
+    export PATH="$pnpm_home/bin:$PATH"
+  elif [[ -d "$pnpm_home" ]]; then
+    export PATH="$pnpm_home:$PATH"
+  fi
   if command -v pnpm >/dev/null 2>&1; then
     PNPM_CMD=(pnpm)
     return
@@ -181,20 +187,59 @@ cmd_up() {
   echo "  Stop All:  ./scripts/dev_local.sh down"
 }
 
+resolve_flutter() {
+  if command -v flutter >/dev/null 2>&1; then
+    FLUTTER_BIN="$(command -v flutter)"
+    return
+  fi
+  for candidate in \
+    "${FLUTTER_ROOT:-}/bin/flutter" \
+    "$HOME/development/flutter/bin/flutter" \
+    "$HOME/flutter/bin/flutter" \
+    "/opt/flutter/bin/flutter"; do
+    if [[ -n "$candidate" && -x "$candidate" ]]; then
+      export PATH="$(dirname "$candidate"):$PATH"
+      FLUTTER_BIN="$candidate"
+      return
+    fi
+  done
+  echo "flutter not found. Set FLUTTER_ROOT or add flutter/bin to PATH." >&2
+  exit 1
+}
+
 cmd_web() {
   load_env
-  if ! command -v flutter >/dev/null 2>&1; then
-    echo "flutter is not installed or not on PATH." >&2
-    echo "Install Flutter SDK, then run: ./scripts/dev_local.sh web" >&2
-    exit 1
-  fi
+  resolve_flutter
   cd "$APP_DIR"
   if [[ ! -d "$APP_DIR/.dart_tool" ]]; then
-    flutter pub get
+    "$FLUTTER_BIN" pub get
   fi
-  exec flutter run -d chrome \
+  local device="${MOCKZA_WEB_DEVICE:-}"
+  if [[ -z "$device" ]]; then
+    if [[ -n "${DISPLAY:-}" ]]; then
+      device="chrome"
+    else
+      device="web-server"
+    fi
+  fi
+  local web_host="${MOCKZA_WEB_HOST:-127.0.0.1}"
+  local public_host="${MOCKZA_PUBLIC_HOST:-127.0.0.1}"
+  local api_url="${MOCKZA_API_BASE_URL:-http://${public_host}:${PORT}}"
+  exec "$FLUTTER_BIN" run -d "$device" \
+    --web-hostname "$web_host" \
     --web-port "$MOCKZA_WEB_PORT" \
-    --dart-define="MOCKZA_API_BASE_URL=http://127.0.0.1:${PORT}"
+    --dart-define="MOCKZA_API_BASE_URL=${api_url}"
+}
+
+cmd_serve() {
+  load_env
+  trap 'kill 0 2>/dev/null || true' EXIT INT TERM
+  node "$BACKEND_DIR/apps/api/dist/server.js" > "$LOG_DIR/api.log" 2>&1 &
+  echo $! > "$PID_DIR/api.pid"
+  node "$BACKEND_DIR/apps/worker/dist/index.js" > "$LOG_DIR/worker.log" 2>&1 &
+  echo $! > "$PID_DIR/worker.pid"
+  wait_for_api_health
+  wait
 }
 
 cmd_down() {
@@ -247,6 +292,7 @@ EOF
 case "${1:-up}" in
   infra)  cmd_infra ;;
   up)     shift || true; cmd_up "${1:-}" ;;
+  serve)  cmd_serve ;;
   web)    cmd_web ;;
   down)   shift || true; cmd_down "${1:-}" ;;
   status) cmd_status ;;

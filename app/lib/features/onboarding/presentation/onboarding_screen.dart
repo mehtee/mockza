@@ -349,9 +349,10 @@ class _GoalSetupStep extends ConsumerWidget {
             onPressed: state.isSaving
                 ? null
                 : () async {
+                    final router = GoRouter.of(context);
                     final destination = await notifier.completeOnboarding();
-                    if (destination != null && context.mounted) {
-                      context.go(destination);
+                    if (destination != null) {
+                      router.go(destination);
                     }
                   },
           ),
