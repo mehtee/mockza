@@ -28,6 +28,8 @@ class ReadingSimScreen extends ConsumerStatefulWidget {
   const new({
     this.packId = 'ielts-acad-reading-seed-01',
     this.isExamMode = true,
+    this.mockSessionId,
+    this.mockStageKey,
     super.key,
   });
 
@@ -36,6 +38,12 @@ class ReadingSimScreen extends ConsumerStatefulWidget {
 
   /// Exam Mode (timer running, no AI hints) vs Study Mode.
   final bool isExamMode;
+
+  /// Optional parent Full Mock session ID.
+  final String? mockSessionId;
+
+  /// Optional stage key within the Full Mock session.
+  final String? mockStageKey;
 
   @override
   ConsumerState<ReadingSimScreen> createState() => _ReadingSimScreenState();
@@ -50,7 +58,12 @@ class _ReadingSimScreenState extends ConsumerState<ReadingSimScreen> {
       unawaited(
         ref
             .read(readingSimNotifierProvider.notifier)
-            .initialize(widget.packId, isExamMode: widget.isExamMode),
+            .initialize(
+              widget.packId,
+              isExamMode: widget.isExamMode,
+              mockSessionId: widget.mockSessionId,
+              mockStageKey: widget.mockStageKey,
+            ),
       );
     });
   }
@@ -129,32 +142,36 @@ class _ReadingSimScreenState extends ConsumerState<ReadingSimScreen> {
                       semanticLabel: 'Exit reading test',
                       onPressed: () => Navigator.of(context).maybePop(),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: SpacingTokens.xs),
                     if (passages.isNotEmpty)
-                      Flexible(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Container(
-                            padding: const EdgeInsetsDirectional.all(2),
-                            decoration: BoxDecoration(
-                              color: colors.surfaceAlt,
-                              borderRadius: shapes.pillRadius,
-                              border: Border.all(color: colors.borderSubtle),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: List.generate(passages.length, (i) {
-                                return _PassageTab(
-                                  label: 'Passage ${i + 1}',
-                                  isSelected: state.passageIndex == i,
-                                  onTap: () => notifier.selectPassage(i),
-                                );
-                              }),
+                      Expanded(
+                        child: Align(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Container(
+                              padding: const EdgeInsetsDirectional.all(2),
+                              decoration: BoxDecoration(
+                                color: colors.surfaceAlt,
+                                borderRadius: shapes.pillRadius,
+                                border: Border.all(color: colors.borderSubtle),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: List.generate(passages.length, (i) {
+                                  return _PassageTab(
+                                    label: 'Passage ${i + 1}',
+                                    isSelected: state.passageIndex == i,
+                                    onTap: () => notifier.selectPassage(i),
+                                  );
+                                }),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    const Spacer(),
+                      )
+                    else
+                      const Spacer(),
+                    const SizedBox(width: SpacingTokens.xs),
                     Container(
                       padding: const EdgeInsetsDirectional.symmetric(
                         horizontal: SpacingTokens.sm,
@@ -566,18 +583,21 @@ class _PassagePane extends StatelessWidget {
               children: <Widget>[
                 _HighlightColorDot(
                   color: colors.warning,
+                  label: 'Yellow highlight',
                   isSelected: activeColor == 'yellow',
                   onTap: () => onSelectColor('yellow'),
                 ),
                 const SizedBox(width: SpacingTokens.xs),
                 _HighlightColorDot(
                   color: colors.success,
+                  label: 'Green highlight',
                   isSelected: activeColor == 'green',
                   onTap: () => onSelectColor('green'),
                 ),
                 const SizedBox(width: SpacingTokens.xs),
                 _HighlightColorDot(
                   color: colors.error,
+                  label: 'Pink highlight',
                   isSelected: activeColor == 'pink',
                   onTap: () => onSelectColor('pink'),
                 ),
@@ -1200,30 +1220,41 @@ class _ViewTabButton extends StatelessWidget {
 class _HighlightColorDot extends StatelessWidget {
   const new({
     required this.color,
+    required this.label,
     required this.isSelected,
     required this.onTap,
   });
 
   final Color color;
+  final String label;
   final bool isSelected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 20,
-        height: 20,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: isSelected
-                ? colors.onPrimary
-                : colors.surface.withValues(alpha: 0),
-            width: 2,
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: label,
+      child: Tooltip(
+        message: label,
+        child: InkResponse(
+          onTap: onTap,
+          radius: 18,
+          child: Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected
+                    ? colors.onPrimary
+                    : colors.surface.withValues(alpha: 0),
+                width: 2,
+              ),
+            ),
           ),
         ),
       ),

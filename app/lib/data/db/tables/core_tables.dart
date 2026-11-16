@@ -134,6 +134,22 @@ class ExamAttempts extends Table with AuditColumns {
   BoolColumn get usedStudyMode =>
       boolean().withDefault(const Constant(false))();
 
+  /// Total scored items in this attempt (`0` for essay/speaking).
+  IntColumn get questionCount => integer().withDefault(const Constant(0))();
+
+  /// Whether this attempt satisfies official IELTS full-pack calibration (e.g. 40 items for Reading/Listening, exam mode).
+  BoolColumn get isCalibratedFullPack =>
+      boolean().withDefault(const Constant(true))();
+
+  /// Content pack version captured when the attempt was submitted.
+  TextColumn get contentVersion => text().nullable()();
+
+  /// Optional Full Mock session identifier linking child skill attempts.
+  TextColumn get mockSessionId => text().nullable()();
+
+  /// Optional stage key within a Full Mock (`listening`, `reading`, `writing_task1`, `writing_task2`, `speaking`).
+  TextColumn get mockStageKey => text().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {attemptId};
 }
@@ -398,4 +414,27 @@ class CachedDrills extends Table with AuditColumns {
 
   @override
   Set<Column<Object>> get primaryKey => {drillId};
+}
+
+/// Durable Full Mock session state replacing legacy synthetic WritingDrafts markers (`RR-11`).
+@DataClassName('MockSessionRow')
+class MockSessions extends Table with AuditColumns {
+  /// Full Mock identifier (e.g. `mock-acad-01`, `mock-gt-01`).
+  TextColumn get mockId => text()();
+
+  /// IELTS module track (`academic` or `general`).
+  TextColumn get track => text().withDefault(const Constant('academic'))();
+
+  /// UTC millisecond timestamp when this mock session was started/reset.
+  IntColumn get startedAtUtcMs => integer()();
+
+  /// Whether sections launch in timed Exam Mode.
+  BoolColumn get examMode => boolean().withDefault(const Constant(true))();
+
+  /// JSON object mapping stage keys (`listening`, `reading`, `writing_task1`, `writing_task2`, `speaking`) to attempt IDs.
+  TextColumn get stageAttemptIdsJson =>
+      text().withDefault(const Constant('{}'))();
+
+  @override
+  Set<Column<Object>> get primaryKey => {mockId};
 }

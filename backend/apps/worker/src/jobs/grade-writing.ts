@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   EvaluationModelError,
   gradeWritingGraph,
@@ -10,9 +11,10 @@ import {
   type MockzaDb,
   refundQuotaAtomic,
 } from '@mockza/db';
-import { and, eq, notInArray } from 'drizzle-orm';
+import { and, eq, isNull, lt, notInArray, or } from 'drizzle-orm';
 
 export const WRITING_JOB_QUEUE = 'evaluation.writing';
+const JOB_LEASE_DURATION_MS = 180_000;
 
 export interface WorkerRetryContext {
   attemptNumber?: number;
@@ -20,7 +22,7 @@ export interface WorkerRetryContext {
 }
 
 export async function handleGradeWritingJob(
-  payload: WritingGraphInput & { jobId: string },
+  payload: WritingGraphInput & { jobId: string; executionGeneration?: number },
   db?: MockzaDb,
   invokeOptions?: WritingInvokeOptions,
   retryCtx: WorkerRetryContext = {},
@@ -28,38 +30,53 @@ export async function handleGradeWritingJob(
   const startMs = Date.now();
   const attemptNumber = retryCtx.attemptNumber ?? 1;
   const maxAttempts = retryCtx.maxAttempts ?? 3;
+  const expectedGeneration = payload.executionGeneration ?? 1;
+  const claimToken = randomUUID();
 
   if (db && payload.jobId) {
-    // Fence deleted or already-terminal jobs (`TD-09` / `TD-15`).
-    const [existing] = await db
-      .select({ status: evaluationJobs.status, resultJson: evaluationJobs.resultJson })
-      .from(evaluationJobs)
-      .where(eq(evaluationJobs.jobId, payload.jobId))
-      .limit(1);
+    const claimExpiresAt = new Date(Date.now() + JOB_LEASE_DURATION_MS);
 
-    if (!existing) {
-      return null;
-    }
-    if (existing.status === 'completed' || existing.status === 'failed') {
-      return (
-        (existing.resultJson as Awaited<ReturnType<typeof gradeWritingGraph.invoke>> | null) ?? null
-      );
-    }
-
-    await db
+    // Atomic generation-fenced lease acquisition BEFORE invoking the paid AI model (`RR-03`).
+    const claimed = await db
       .update(evaluationJobs)
       .set({
         status: 'evaluating',
         stageDetail: 'Analyzing essay structure, lexical variety and grammar',
+        claimToken,
+        claimExpiresAt,
         attemptsCount: attemptNumber,
         updatedAt: new Date(),
       })
       .where(
         and(
           eq(evaluationJobs.jobId, payload.jobId),
+          eq(evaluationJobs.executionGeneration, expectedGeneration),
           notInArray(evaluationJobs.status, ['completed', 'failed']),
+          or(
+            isNull(evaluationJobs.claimToken),
+            lt(evaluationJobs.claimExpiresAt, new Date()),
+            eq(evaluationJobs.status, 'queued'),
+            eq(evaluationJobs.status, 'repairing'),
+          ),
         ),
-      );
+      )
+      .returning({ jobId: evaluationJobs.jobId });
+
+    if (claimed.length === 0) {
+      const [existing] = await db
+        .select({ status: evaluationJobs.status, resultJson: evaluationJobs.resultJson })
+        .from(evaluationJobs)
+        .where(eq(evaluationJobs.jobId, payload.jobId))
+        .limit(1);
+      if (existing?.status === 'completed') {
+        return (
+          (existing.resultJson as Awaited<ReturnType<typeof gradeWritingGraph.invoke>> | null) ??
+          null
+        );
+      }
+      // Absent, stale generation, failed, or actively leased by another worker.
+      return null;
+    }
   }
 
   try {
@@ -79,11 +96,15 @@ export async function handleGradeWritingJob(
             rubricVersion: result.rubricVersion,
             latencyMs,
             errorCode: null,
+            claimToken: null,
+            claimExpiresAt: null,
             updatedAt: new Date(),
           })
           .where(
             and(
               eq(evaluationJobs.jobId, payload.jobId),
+              eq(evaluationJobs.executionGeneration, expectedGeneration),
+              eq(evaluationJobs.claimToken, claimToken),
               notInArray(evaluationJobs.status, ['completed', 'failed']),
             ),
           )
@@ -108,11 +129,15 @@ export async function handleGradeWritingJob(
             status: 'repairing',
             stageDetail: `Temporary evaluator issue — automatic retry ${attemptNumber}/${maxAttempts} scheduled`,
             attemptsCount: attemptNumber,
+            claimToken: null,
+            claimExpiresAt: null,
             updatedAt: new Date(),
           })
           .where(
             and(
               eq(evaluationJobs.jobId, payload.jobId),
+              eq(evaluationJobs.executionGeneration, expectedGeneration),
+              eq(evaluationJobs.claimToken, claimToken),
               notInArray(evaluationJobs.status, ['completed', 'failed']),
             ),
           );
@@ -126,11 +151,15 @@ export async function handleGradeWritingJob(
               stageDetail: 'Evaluation failed',
               errorCode,
               attemptsCount: attemptNumber,
+              claimToken: null,
+              claimExpiresAt: null,
               updatedAt: new Date(),
             })
             .where(
               and(
                 eq(evaluationJobs.jobId, payload.jobId),
+                eq(evaluationJobs.executionGeneration, expectedGeneration),
+                eq(evaluationJobs.claimToken, claimToken),
                 notInArray(evaluationJobs.status, ['completed']),
               ),
             )

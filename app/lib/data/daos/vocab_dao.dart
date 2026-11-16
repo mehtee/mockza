@@ -53,11 +53,31 @@ class VocabDao extends DatabaseAccessor<AppDatabase> with _$VocabDaoMixin {
             ..limit(limit))
           .get();
 
-  /// Inserts newly synced deck cards while preserving any existing SM-2 user progress.
+  /// Upserts synced deck cards while preserving any existing SM-2 user progress (`RR-20`).
+  Future<void> upsertSyncedCardsPreservingSchedule(
+    List<VocabCardsCompanion> cards,
+  ) => batch((b) {
+    for (final card in cards) {
+      b.insert(
+        vocabCards,
+        card,
+        onConflict: DoUpdate(
+          (old) => VocabCardsCompanion(
+            headword: card.headword,
+            ipa: card.ipa,
+            definition: card.definition,
+            topicTag: card.topicTag,
+            contextSentence: card.contextSentence,
+            updatedAt: card.updatedAt,
+          ),
+        ),
+      );
+    }
+  });
+
+  /// Legacy alias preserving caller compatibility (`RR-20`).
   Future<void> insertMissingCardsBatch(List<VocabCardsCompanion> cards) =>
-      batch((b) {
-        b.insertAll(vocabCards, cards, mode: InsertMode.insertOrIgnore);
-      });
+      upsertSyncedCardsPreservingSchedule(cards);
 
   /// Looks up a single card by its unique identifier.
   Future<VocabCardRow?> getCardById(String cardId) => (select(

@@ -6,12 +6,13 @@ import {
   PresignUploadRequestSchema,
   PresignUploadResponseSchema,
 } from '@mockza/contracts';
-import { audioAssets, type MockzaDb } from '@mockza/db';
+import { audioAssets, devices, type MockzaDb } from '@mockza/db';
 import {
   buildAudioClipObjectKey,
   createAudioPresignUrl,
   createAudioS3Client,
   createPublicSigningS3Client,
+  deleteAudioObjects,
   putObjectBuffer,
   type SupportedAudioContentType,
   signUploadProxyParams,
@@ -130,7 +131,28 @@ export function registerUploadRoutes(
       turnId: body.turnId,
     });
 
+    let uploadGeneration = 1;
     if (db) {
+      const [dev] = await db
+        .select({
+          uploadGeneration: devices.uploadGeneration,
+          erasingAt: devices.erasingAt,
+        })
+        .from(devices)
+        .where(eq(devices.deviceId, deviceId))
+        .limit(1);
+      if (!dev || dev.erasingAt !== null) {
+        return c.json(
+          {
+            code: 'unauthorized' as const,
+            message: 'Device is missing or undergoing erasure.',
+            requestId: c.get('requestId'),
+          },
+          401,
+        );
+      }
+      uploadGeneration = dev.uploadGeneration;
+
       const existingAssets = await db
         .select({ byteLength: audioAssets.byteLength })
         .from(audioAssets)
@@ -169,11 +191,13 @@ export function registerUploadRoutes(
         objectKey,
         contentType,
         expiresAtEpochSec,
+        uploadGeneration,
       });
       const qs = new URLSearchParams({
         key: objectKey,
         contentType,
         exp: String(expiresAtEpochSec),
+        gen: String(uploadGeneration),
         sig,
       });
       return c.json(
@@ -201,11 +225,13 @@ export function registerUploadRoutes(
     return c.json(res, 200);
   });
 
-  // Same-origin signed PUT proxy writing directly into internal SeaweedFS S3
+  // Same-origin signed PUT proxy with streamed ingress byte cap (`RR-17`) and erasure fence (`RR-06`).
   app.put('/v1/uploads/signed-put', async (c) => {
     const objectKey = c.req.query('key') ?? '';
     const contentType = c.req.query('contentType') ?? 'audio/mp4';
     const expStr = c.req.query('exp') ?? '0';
+    const genQuery = c.req.query('gen');
+    const signedGen = genQuery !== undefined ? Number.parseInt(genQuery, 10) : undefined;
     const sig = c.req.query('sig') ?? '';
     const maxBytes = env.MAX_AUDIO_MB * 1024 * 1024;
 
@@ -219,7 +245,7 @@ export function registerUploadRoutes(
             message: `Audio payload must be between 1 byte and ${env.MAX_AUDIO_MB} MB.`,
             requestId: c.get('requestId'),
           },
-          400,
+          413,
         );
       }
     }
@@ -243,6 +269,7 @@ export function registerUploadRoutes(
       contentType,
       expiresAtEpochSec,
       signature: sig,
+      uploadGeneration: signedGen,
     });
     if (!valid) {
       return c.json(
@@ -255,12 +282,91 @@ export function registerUploadRoutes(
       );
     }
 
-    const arrayBuf = await c.req.arrayBuffer();
-    if (arrayBuf.byteLength === 0 || arrayBuf.byteLength > maxBytes) {
+    const parsedKey = parseClipObjectKey(objectKey);
+    if (!parsedKey) {
       return c.json(
         {
-          code: 'payload_too_large',
-          message: `Audio payload must be between 1 byte and ${env.MAX_AUDIO_MB} MB.`,
+          code: 'bad_request',
+          message: 'Invalid audio object key.',
+          requestId: c.get('requestId'),
+        },
+        400,
+      );
+    }
+
+    if (db) {
+      const [dev] = await db
+        .select({
+          uploadGeneration: devices.uploadGeneration,
+          erasingAt: devices.erasingAt,
+        })
+        .from(devices)
+        .where(eq(devices.deviceId, parsedKey.deviceId))
+        .limit(1);
+
+      if (
+        !dev ||
+        dev.erasingAt !== null ||
+        (signedGen !== undefined && dev.uploadGeneration !== signedGen)
+      ) {
+        return c.json(
+          {
+            code: 'erasure_fenced',
+            message: 'Upload rejected: device was erased or capability was revoked.',
+            requestId: c.get('requestId'),
+          },
+          410,
+        );
+      }
+    }
+
+    // Stream request body with hard running limit BEFORE buffering chunked uploads (`RR-17`).
+    let uploadBuffer: Buffer;
+    const rawBody = c.req.raw.body;
+    if (rawBody) {
+      const reader = rawBody.getReader();
+      const chunks: Uint8Array[] = [];
+      let totalBytes = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          totalBytes += value.byteLength;
+          if (totalBytes > maxBytes) {
+            await reader.cancel().catch(() => {});
+            return c.json(
+              {
+                code: 'payload_too_large',
+                message: `Audio payload exceeds maximum allowed ${env.MAX_AUDIO_MB} MB.`,
+                requestId: c.get('requestId'),
+              },
+              413,
+            );
+          }
+          chunks.push(value);
+        }
+      }
+      uploadBuffer = Buffer.concat(chunks, totalBytes);
+    } else {
+      const arrayBuf = await c.req.arrayBuffer();
+      if (arrayBuf.byteLength > maxBytes) {
+        return c.json(
+          {
+            code: 'payload_too_large',
+            message: `Audio payload exceeds maximum allowed ${env.MAX_AUDIO_MB} MB.`,
+            requestId: c.get('requestId'),
+          },
+          413,
+        );
+      }
+      uploadBuffer = Buffer.from(arrayBuf);
+    }
+
+    if (uploadBuffer.byteLength === 0) {
+      return c.json(
+        {
+          code: 'bad_request',
+          message: 'Audio payload must not be empty.',
           requestId: c.get('requestId'),
         },
         400,
@@ -272,22 +378,48 @@ export function registerUploadRoutes(
       client,
       bucket: env.S3_BUCKET,
       objectKey,
-      body: Buffer.from(arrayBuf),
+      body: uploadBuffer,
       contentType,
     });
 
-    const parsedKey = parseClipObjectKey(objectKey);
-    if (parsedKey) {
-      await upsertAudioAssetRow({
-        db,
-        objectKey,
-        deviceId: parsedKey.deviceId,
-        attemptId: parsedKey.attemptId,
-        byteLength: arrayBuf.byteLength,
-        ttlDays: env.AUDIO_TTL_DAYS,
-      });
+    // Finalize asset row & immediately rollback S3 object if device was erased concurrently (`RR-06`).
+    try {
+      if (db) {
+        const [devAfter] = await db
+          .select({ erasingAt: devices.erasingAt, uploadGeneration: devices.uploadGeneration })
+          .from(devices)
+          .where(eq(devices.deviceId, parsedKey.deviceId))
+          .limit(1);
+        if (
+          !devAfter ||
+          devAfter.erasingAt !== null ||
+          (signedGen !== undefined && devAfter.uploadGeneration !== signedGen)
+        ) {
+          throw new Error('device_erased_concurrently');
+        }
+        await upsertAudioAssetRow({
+          db,
+          objectKey,
+          deviceId: parsedKey.deviceId,
+          attemptId: parsedKey.attemptId,
+          byteLength: uploadBuffer.byteLength,
+          ttlDays: env.AUDIO_TTL_DAYS,
+        });
+      }
+    } catch {
+      await deleteAudioObjects({ client, bucket: env.S3_BUCKET, objectKeys: [objectKey] }).catch(
+        () => {},
+      );
+      return c.json(
+        {
+          code: 'erasure_fenced',
+          message: 'Upload aborted because account erasure is in progress or complete.',
+          requestId: c.get('requestId'),
+        },
+        410,
+      );
     }
 
-    return c.json({ ok: true, objectKey, byteLength: arrayBuf.byteLength }, 200);
+    return c.json({ ok: true, objectKey, byteLength: uploadBuffer.byteLength }, 200);
   });
 }

@@ -135,19 +135,22 @@ class SettingsNotifier extends Notifier<SettingsState> {
   void _watchPrimaryProfile() {
     unawaited(_profileSub?.cancel());
     try {
-      _profileSub = ref.read(profileRepositoryProvider).watchPrimaryProfile().listen(
-        (profile) {
-          if (profile == null || _isDisposed) return;
-          state = state.copyWith(
-            examModule: profile.examModule,
-            targetBand: profile.targetBand,
-            themeMode: profile.themeMode,
-            isPro: profile.isPro,
-            appUserId: profile.appUserId ?? profile.deviceId,
+      _profileSub = ref
+          .read(profileRepositoryProvider)
+          .watchPrimaryProfile()
+          .listen(
+            (profile) {
+              if (profile == null || _isDisposed) return;
+              state = state.copyWith(
+                examModule: profile.examModule,
+                targetBand: profile.targetBand,
+                themeMode: profile.themeMode,
+                isPro: profile.isPro,
+                appUserId: profile.appUserId ?? profile.deviceId,
+              );
+            },
+            onError: (_) {},
           );
-        },
-        onError: (_) {},
-      );
     } on Object {
       // Ignore in isolated widget tests without DB plugin.
     }
@@ -370,7 +373,9 @@ class SettingsNotifier extends Notifier<SettingsState> {
       return;
     }
 
-    await ref.read(cacheCleanupServiceProvider).clearDownloadedCaches();
+    final mediaCleared = await ref
+        .read(cacheCleanupServiceProvider)
+        .eraseAllLocalMediaForAccountWipe();
     await ref.read(profileRepositoryProvider).resetAllLocalData();
     ref.read(onboardingCompletedLatchProvider.notifier).completed = false;
 
@@ -385,7 +390,9 @@ class SettingsNotifier extends Notifier<SettingsState> {
       writingRemaining: 1,
       appUserId: 'reset',
       appVersionLabel: state.appVersionLabel,
-      statusMessage: 'Account and all local data wiped successfully.',
+      statusMessage: mediaCleared
+          ? 'Account and all local data wiped successfully.'
+          : 'Account records erased, but some local audio files could not be deleted.',
     );
   }
 }

@@ -159,7 +159,10 @@ void main() {
           quality: q,
           today: today,
         );
-        expect(maturePreviews[q], Sm2Scheduler.formatDays(scheduled.intervalDays));
+        expect(
+          maturePreviews[q],
+          Sm2Scheduler.formatDays(scheduled.intervalDays),
+        );
       }
     });
 

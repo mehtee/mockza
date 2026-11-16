@@ -1,10 +1,18 @@
 import { type EvaluateWritingRequestSchema, EvaluationOutputSchema } from '@mockza/contracts';
-import { computeOverallBandFromCriteria } from '@mockza/domain';
+import {
+  computeOverallBandFromCriteria,
+  WRITING_CRITERIA_TASK1,
+  WRITING_CRITERIA_TASK2,
+} from '@mockza/domain';
 import type { z } from 'zod';
 import { EvaluationModelError } from '../errors.js';
 import { OpenRouterClient } from '../models/openrouter.js';
 import { MODEL_REGISTRY } from '../models/registry.js';
 import { WRITING_RUBRIC_PROMPT } from '../prompts/rubrics.js';
+import {
+  sanitizeWritingInlineEdits,
+  validateAndExtractCriterionBands,
+} from './rubric-validation.js';
 
 export type WritingGraphInput = z.infer<typeof EvaluateWritingRequestSchema>;
 export type WritingGraphOutput = z.infer<typeof EvaluationOutputSchema>;
@@ -172,33 +180,24 @@ Evaluate strictly against IELTS standards. Return JSON adhering to:
       );
     }
 
-    const criteria = Array.isArray(parsed['criteria']) ? parsed['criteria'] : null;
-    if (!criteria || criteria.length !== 4) {
-      throw new EvaluationModelError(
-        'model_invalid_output',
-        'Writing model output must contain exactly 4 criterion scores.',
-        true,
-      );
-    }
-
-    const bands = criteria.map((c: { band?: unknown }) => Number(c?.band)) as [
-      number,
-      number,
-      number,
-      number,
-    ];
-    if (bands.some((b) => !Number.isFinite(b) || b < 0 || b > 9)) {
-      throw new EvaluationModelError(
-        'model_invalid_output',
-        'Writing model output contained invalid criterion band values.',
-        true,
-      );
-    }
+    const bands = validateAndExtractCriterionBands({
+      skill: 'writing',
+      taskType: input.taskType,
+      rawCriteria: parsed['criteria'],
+    });
+    const allowedCodes =
+      input.taskType === 'task2Essay' ? WRITING_CRITERIA_TASK2 : WRITING_CRITERIA_TASK1;
+    const groundedInlineEdits = sanitizeWritingInlineEdits(
+      parsed['inlineEdits'],
+      input.essayText,
+      allowedCodes,
+    );
 
     const overallBand = computeOverallBandFromCriteria(bands);
 
     const validated = EvaluationOutputSchema.safeParse({
       ...parsed,
+      ...(groundedInlineEdits !== undefined ? { inlineEdits: groundedInlineEdits } : {}),
       attemptId: input.attemptId,
       overallBand,
       isEstimated: true,

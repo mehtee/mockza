@@ -457,6 +457,39 @@ class MicroDrillSpec {
 
   /// Time limit in seconds (default 180s / 3m).
   final int durationSeconds;
+
+  /// Human-readable drill category label avoiding raw snake_case identifiers (`UX-17`).
+  String get displayCategoryLabel =>
+      switch (weaknessCode.trim().toLowerCase()) {
+        'speed_tfng' => 'True / False / Not Given',
+        'speed_ynng' => 'Yes / No / Not Given',
+        'summary_gap_fill' || 'gap_fill' => 'Summary Completion',
+        'complex_grammar' => 'Complex Grammar',
+        'pronunciation_rhythm' => 'Pronunciation & Rhythm',
+        'coherence_linking' => 'Coherence & Linking',
+        'lexical_precision' => 'Lexical Precision',
+        _ =>
+          weaknessCode
+              .split('_')
+              .where((part) => part.isNotEmpty)
+              .map(
+                (part) => part.length <= 3
+                    ? part.toUpperCase()
+                    : '${part[0].toUpperCase()}${part.substring(1)}',
+              )
+              .join(' '),
+      };
+
+  /// Question prompt header tailored to question format instead of hardcoded "Complete the Sentence" (`UX-17`).
+  String get itemHeaderTitle {
+    final normalized = weaknessCode.trim().toLowerCase();
+    if (normalized.contains('tfng')) return 'True / False / Not Given';
+    if (normalized.contains('ynng')) return 'Yes / No / Not Given';
+    if (normalized.contains('gap') || normalized.contains('summary')) {
+      return 'Complete the Summary';
+    }
+    return 'Choose the Best Answer';
+  }
 }
 
 /// Official IELTS timing, question count, and band rounding rules.

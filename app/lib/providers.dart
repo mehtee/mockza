@@ -58,6 +58,11 @@ final Provider<SecureIdentityService> secureIdentityServiceProvider =
       ),
     );
 
+/// Whether local SQLite had to fall back to ephemeral RAM (e.g. Web private mode) (`RR-07`).
+final Provider<bool> isDatabaseEphemeralProvider = Provider<bool>(
+  (ref) => isDatabaseEphemeral,
+);
+
 /// Root SQLite database instance managed by Riverpod lifecycle.
 final Provider<AppDatabase> appDatabaseProvider = Provider<AppDatabase>((ref) {
   final db = openProductionDatabase();

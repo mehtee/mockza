@@ -24,6 +24,8 @@ describe('@mockza/evals held-out rubric benchmark contract', () => {
       async createChatCompletion(req: { messages: Array<{ content: unknown }>; model: string }) {
         const content = req.messages[0]?.content;
         const isSpeaking = Array.isArray(content);
+        const promptStr = typeof content === 'string' ? content : '';
+        const isTask1 = promptStr.includes('Task Type: task1');
         if (isSpeaking) {
           sawAudioPart = content.some((part: { type?: string }) => part.type === 'input_audio');
         }
@@ -68,8 +70,8 @@ describe('@mockza/evals held-out rubric benchmark contract', () => {
                       ]
                     : [
                         {
-                          code: 'TR',
-                          label: 'Task Response',
+                          code: isTask1 ? 'TA' : 'TR',
+                          label: isTask1 ? 'Task Achievement' : 'Task Response',
                           band: 6.5,
                           evidenceExcerpt: 'Excerpt',
                           feedbackNote: 'Note',
@@ -104,8 +106,30 @@ describe('@mockza/evals held-out rubric benchmark contract', () => {
       },
     };
 
-    // Constant 6.5 predictions won't hit 80% on mixed anchors, confirming runner computes real MAE & rejects under-threshold runs.
-    await expect(runRubricEvals({ client })).rejects.toThrow('Calibration benchmark failed');
+    // Constant 6.5 predictions fail the >=80% threshold while exercising strict protocol contracts
+    // (explicit opt-out of real audio is permitted only with an injected offline mock client).
+    await expect(runRubricEvals({ client, requireAudioForSpeaking: false })).rejects.toThrow(
+      'Calibration benchmark failed',
+    );
     expect(sawAudioPart).toBe(true);
+  });
+
+  it('refuses speaking calibration samples that omit real audio by default', async () => {
+    const client = {
+      async createChatCompletion() {
+        return {
+          id: 'eval-contract-check',
+          choices: [
+            {
+              finish_reason: 'stop',
+              message: { role: 'assistant', content: '{}' },
+            },
+          ],
+        };
+      },
+    };
+    await expect(runRubricEvals({ client })).rejects.toThrow(
+      'without real human-rated audio recording',
+    );
   });
 });

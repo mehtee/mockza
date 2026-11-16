@@ -1,7 +1,7 @@
 import { loadEnv } from '@mockza/config';
-import { createDbClient, jobDispatchOutbox, type MockzaDb } from '@mockza/db';
+import { createDbClient, evaluationJobs, jobDispatchOutbox, type MockzaDb } from '@mockza/db';
 import { createAudioS3Client } from '@mockza/storage';
-import { and, eq, lt } from 'drizzle-orm';
+import { and, eq, inArray, lt } from 'drizzle-orm';
 import PgBoss from 'pg-boss';
 import { EXPLAIN_JOB_QUEUE, handleExplainQuestionJob } from './jobs/explain-question.js';
 import { handleGradeSpeakingJob, SPEAKING_JOB_QUEUE } from './jobs/grade-speaking.js';
@@ -10,9 +10,42 @@ import { handlePurgeAudioJob, PURGE_AUDIO_QUEUE } from './jobs/purge-audio.js';
 
 const DEFAULT_RETRY_LIMIT = 3;
 
-/** Sweeps any outbox dispatches left pending by an API crash between DB commit and enqueue (`TD-14`). */
+/** Sweeps pending outbox dispatches and crashed expired-lease jobs using one durable dispatch key (`RR-03`). */
 export async function sweepPendingDispatchOutbox(db: MockzaDb, boss: PgBoss): Promise<number> {
-  const cutoff = new Date(Date.now() - 5000);
+  const now = new Date();
+  const expiredLeaseCutoff = new Date(now.getTime() - 1000);
+  const cutoff = new Date(now.getTime() - 5000);
+
+  // Recover jobs whose worker lease expired mid-flight without deleting generation fencing.
+  const expiredJobs = await db
+    .update(evaluationJobs)
+    .set({
+      status: 'queued',
+      stageDetail: 'Recovering interrupted evaluation after worker lease timeout',
+      claimToken: null,
+      claimExpiresAt: null,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        inArray(evaluationJobs.status, ['evaluating', 'processing_audio', 'repairing']),
+        lt(evaluationJobs.claimExpiresAt, expiredLeaseCutoff),
+      ),
+    )
+    .returning({ jobId: evaluationJobs.jobId });
+
+  if (expiredJobs.length > 0) {
+    await db
+      .update(jobDispatchOutbox)
+      .set({ status: 'pending', updatedAt: cutoff })
+      .where(
+        inArray(
+          jobDispatchOutbox.jobId,
+          expiredJobs.map((j) => j.jobId),
+        ),
+      );
+  }
+
   const pending = await db
     .select()
     .from(jobDispatchOutbox)
@@ -24,8 +57,11 @@ export async function sweepPendingDispatchOutbox(db: MockzaDb, boss: PgBoss): Pr
     try {
       const payload = row.payloadJson;
       const attemptId = typeof payload['attemptId'] === 'string' ? payload['attemptId'] : row.jobId;
+      const execGen =
+        typeof payload['executionGeneration'] === 'number' ? payload['executionGeneration'] : 1;
+      const singletonKey = row.dispatchKey ?? `${attemptId}:gen:${execGen}`;
       await boss.send(row.queueName, payload, {
-        singletonKey: `${attemptId}:outbox:${row.attempts}`,
+        singletonKey,
         retryLimit: DEFAULT_RETRY_LIMIT,
         retryBackoff: true,
       });
@@ -89,7 +125,7 @@ export async function startWorker(): Promise<{ boss: PgBoss; stop: () => Promise
   // Process jobs with bounded concurrency (`batchSize: 1` per worker slot, `Promise.allSettled` if batched)
   // and `includeMetadata: true` so retries/terminal refunds synchronize cleanly (`TD-15`, `TD-51`).
   await boss.work(WRITING_JOB_QUEUE, { batchSize, includeMetadata: true }, async (jobs) => {
-    await Promise.all(
+    const outcomes = await Promise.allSettled(
       jobs.map(async (job) => {
         const meta = job as { retryCount?: number; retryLimit?: number; data: unknown };
         const attemptNumber = (meta.retryCount ?? 0) + 1;
@@ -102,10 +138,15 @@ export async function startWorker(): Promise<{ boss: PgBoss; stop: () => Promise
         );
       }),
     );
+    for (const outcome of outcomes) {
+      if (outcome.status === 'rejected') {
+        throw outcome.reason;
+      }
+    }
   });
 
   await boss.work(SPEAKING_JOB_QUEUE, { batchSize, includeMetadata: true }, async (jobs) => {
-    await Promise.all(
+    const outcomes = await Promise.allSettled(
       jobs.map(async (job) => {
         const meta = job as { retryCount?: number; retryLimit?: number; data: unknown };
         const attemptNumber = (meta.retryCount ?? 0) + 1;
@@ -120,14 +161,24 @@ export async function startWorker(): Promise<{ boss: PgBoss; stop: () => Promise
         );
       }),
     );
+    for (const outcome of outcomes) {
+      if (outcome.status === 'rejected') {
+        throw outcome.reason;
+      }
+    }
   });
 
   await boss.work(EXPLAIN_JOB_QUEUE, { batchSize }, async (jobs) => {
-    await Promise.all(
+    const outcomes = await Promise.allSettled(
       jobs.map((job) =>
         handleExplainQuestionJob(job.data as Parameters<typeof handleExplainQuestionJob>[0], db),
       ),
     );
+    for (const outcome of outcomes) {
+      if (outcome.status === 'rejected') {
+        throw outcome.reason;
+      }
+    }
   });
 
   await boss.schedule(PURGE_AUDIO_QUEUE, '0 * * * *', {});

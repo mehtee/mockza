@@ -15,6 +15,7 @@ import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
+import 'package:mockza/theme/components/status_banner.dart';
 import 'package:mockza/theme/components/timer_bar.dart';
 import 'package:mockza/theme/primitives.dart';
 
@@ -25,6 +26,8 @@ class SpeakingSimScreen extends ConsumerStatefulWidget {
   const new({
     this.examId = 'ielts-speaking-seed-01',
     this.isExamMode = true,
+    this.mockSessionId,
+    this.mockStageKey,
     super.key,
   });
 
@@ -33,6 +36,12 @@ class SpeakingSimScreen extends ConsumerStatefulWidget {
 
   /// Exam Mode (strict countdowns & single recording) vs Study Mode.
   final bool isExamMode;
+
+  /// Optional parent Full Mock session ID.
+  final String? mockSessionId;
+
+  /// Optional stage key within the Full Mock session.
+  final String? mockStageKey;
 
   @override
   ConsumerState<SpeakingSimScreen> createState() => _SpeakingSimScreenState();
@@ -50,7 +59,12 @@ class _SpeakingSimScreenState extends ConsumerState<SpeakingSimScreen> {
       unawaited(
         ref
             .read(speakingSimNotifierProvider.notifier)
-            .initialize(widget.examId, isExamMode: widget.isExamMode),
+            .initialize(
+              widget.examId,
+              isExamMode: widget.isExamMode,
+              mockSessionId: widget.mockSessionId,
+              mockStageKey: widget.mockStageKey,
+            ),
       );
     });
   }
@@ -202,7 +216,20 @@ class _SpeakingSimScreenState extends ConsumerState<SpeakingSimScreen> {
                     ),
             ),
 
-            // Privacy & Error Strip + Bottom Actions
+            // Privacy, Ephemeral Storage Warning & Error Strip + Bottom Actions
+            if (state.isEphemeralStorage || state.hasStorageWarning)
+              Padding(
+                padding: const EdgeInsetsDirectional.symmetric(
+                  horizontal: SpacingTokens.md,
+                  vertical: SpacingTokens.xs,
+                ),
+                child: StatusBanner(
+                  variant: StatusBannerVariant.offline,
+                  message: state.isEphemeralStorage
+                      ? 'Browser storage is unavailable (volatile memory mode). Submit before reloading or closing this tab.'
+                      : 'Browser storage could not durably save your clip. Submit before closing this tab.',
+                ),
+              ),
             if (state.errorMessage != null && state.prompts.isNotEmpty)
               Padding(
                 padding: const EdgeInsetsDirectional.symmetric(

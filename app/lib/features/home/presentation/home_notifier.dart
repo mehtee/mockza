@@ -205,9 +205,7 @@ class HomeNotifier extends Notifier<HomeState> {
     final nowUtcMs = now.toUtc().millisecondsSinceEpoch;
 
     final scoredAttempts = _latestAttempts
-        .where(
-          (a) => a.overallBand != null && a.skill != SkillKind.vocabulary,
-        )
+        .where((a) => a.countsTowardCalibratedBand)
         .map(
           (a) => (
             score: a.overallBand!,
@@ -225,7 +223,7 @@ class HomeNotifier extends Notifier<HomeState> {
     );
 
     final skillList = _latestAttempts
-        .where((a) => a.overallBand != null)
+        .where((a) => a.countsTowardCalibratedBand)
         .map((a) => (score: a.overallBand!, skill: a.skill))
         .toList(growable: false);
     final skillMetrics = StudyMetricsCalculator.calculateSkillMetrics(

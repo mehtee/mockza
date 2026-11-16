@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { GetObjectCommand, type S3Client } from '@aws-sdk/client-s3';
 import {
   bufferAudioStream,
@@ -13,13 +14,14 @@ import {
   type MockzaDb,
   refundQuotaAtomic,
 } from '@mockza/db';
-import { and, eq, notInArray } from 'drizzle-orm';
+import { and, eq, isNull, lt, notInArray, or } from 'drizzle-orm';
 import type { WorkerRetryContext } from './grade-writing.js';
 
 export const SPEAKING_JOB_QUEUE = 'evaluation.speaking';
+const JOB_LEASE_DURATION_MS = 180_000;
 
 export async function handleGradeSpeakingJob(
-  payload: SpeakingGraphInput & { jobId: string },
+  payload: SpeakingGraphInput & { jobId: string; executionGeneration?: number },
   db?: MockzaDb,
   s3Client?: S3Client,
   bucket?: string,
@@ -29,38 +31,52 @@ export async function handleGradeSpeakingJob(
   const startMs = Date.now();
   const attemptNumber = retryCtx.attemptNumber ?? 1;
   const maxAttempts = retryCtx.maxAttempts ?? 3;
+  const expectedGeneration = payload.executionGeneration ?? 1;
+  const claimToken = randomUUID();
 
   if (db && payload.jobId) {
-    const [existing] = await db
-      .select({ status: evaluationJobs.status, resultJson: evaluationJobs.resultJson })
-      .from(evaluationJobs)
-      .where(eq(evaluationJobs.jobId, payload.jobId))
-      .limit(1);
+    const claimExpiresAt = new Date(Date.now() + JOB_LEASE_DURATION_MS);
 
-    if (!existing) {
-      return null;
-    }
-    if (existing.status === 'completed' || existing.status === 'failed') {
-      return (
-        (existing.resultJson as Awaited<ReturnType<typeof gradeSpeakingGraph.invoke>> | null) ??
-        null
-      );
-    }
-
-    await db
+    // Atomic generation-fenced lease acquisition BEFORE S3 download & paid AI model (`RR-03`).
+    const claimed = await db
       .update(evaluationJobs)
       .set({
         status: 'processing_audio',
         stageDetail: 'Fetching audio recording from storage and preparing stream',
+        claimToken,
+        claimExpiresAt,
         attemptsCount: attemptNumber,
         updatedAt: new Date(),
       })
       .where(
         and(
           eq(evaluationJobs.jobId, payload.jobId),
+          eq(evaluationJobs.executionGeneration, expectedGeneration),
           notInArray(evaluationJobs.status, ['completed', 'failed']),
+          or(
+            isNull(evaluationJobs.claimToken),
+            lt(evaluationJobs.claimExpiresAt, new Date()),
+            eq(evaluationJobs.status, 'queued'),
+            eq(evaluationJobs.status, 'repairing'),
+          ),
         ),
-      );
+      )
+      .returning({ jobId: evaluationJobs.jobId });
+
+    if (claimed.length === 0) {
+      const [existing] = await db
+        .select({ status: evaluationJobs.status, resultJson: evaluationJobs.resultJson })
+        .from(evaluationJobs)
+        .where(eq(evaluationJobs.jobId, payload.jobId))
+        .limit(1);
+      if (existing?.status === 'completed') {
+        return (
+          (existing.resultJson as Awaited<ReturnType<typeof gradeSpeakingGraph.invoke>> | null) ??
+          null
+        );
+      }
+      return null;
+    }
   }
 
   try {
@@ -103,19 +119,27 @@ export async function handleGradeSpeakingJob(
     }
 
     if (db && payload.jobId) {
-      await db
+      const stillOwner = await db
         .update(evaluationJobs)
         .set({
           status: 'evaluating',
           stageDetail: 'Evaluating pronunciation, fluency, and spoken lexical range',
+          claimExpiresAt: new Date(Date.now() + JOB_LEASE_DURATION_MS),
           updatedAt: new Date(),
         })
         .where(
           and(
             eq(evaluationJobs.jobId, payload.jobId),
+            eq(evaluationJobs.executionGeneration, expectedGeneration),
+            eq(evaluationJobs.claimToken, claimToken),
             notInArray(evaluationJobs.status, ['completed', 'failed']),
           ),
-        );
+        )
+        .returning({ jobId: evaluationJobs.jobId });
+
+      if (stillOwner.length === 0) {
+        return null;
+      }
     }
 
     const result = await gradeSpeakingGraph.invoke(
@@ -140,11 +164,15 @@ export async function handleGradeSpeakingJob(
             rubricVersion: result.rubricVersion,
             latencyMs,
             errorCode: null,
+            claimToken: null,
+            claimExpiresAt: null,
             updatedAt: new Date(),
           })
           .where(
             and(
               eq(evaluationJobs.jobId, payload.jobId),
+              eq(evaluationJobs.executionGeneration, expectedGeneration),
+              eq(evaluationJobs.claimToken, claimToken),
               notInArray(evaluationJobs.status, ['completed', 'failed']),
             ),
           )
@@ -169,11 +197,15 @@ export async function handleGradeSpeakingJob(
             status: 'repairing',
             stageDetail: `Temporary evaluator issue — automatic retry ${attemptNumber}/${maxAttempts} scheduled`,
             attemptsCount: attemptNumber,
+            claimToken: null,
+            claimExpiresAt: null,
             updatedAt: new Date(),
           })
           .where(
             and(
               eq(evaluationJobs.jobId, payload.jobId),
+              eq(evaluationJobs.executionGeneration, expectedGeneration),
+              eq(evaluationJobs.claimToken, claimToken),
               notInArray(evaluationJobs.status, ['completed', 'failed']),
             ),
           );
@@ -187,11 +219,15 @@ export async function handleGradeSpeakingJob(
               stageDetail: 'Evaluation failed',
               errorCode,
               attemptsCount: attemptNumber,
+              claimToken: null,
+              claimExpiresAt: null,
               updatedAt: new Date(),
             })
             .where(
               and(
                 eq(evaluationJobs.jobId, payload.jobId),
+                eq(evaluationJobs.executionGeneration, expectedGeneration),
+                eq(evaluationJobs.claimToken, claimToken),
                 notInArray(evaluationJobs.status, ['completed']),
               ),
             )

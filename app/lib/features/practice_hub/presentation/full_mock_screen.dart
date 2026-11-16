@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,7 +18,7 @@ import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
 import 'package:mockza/theme/primitives.dart';
 
-/// Guided 4-skill IELTS Full Mock orchestrator screen (`/practice/full-mock/:mockId`).
+/// Guided 4-skill / 5-stage IELTS Full Mock orchestrator screen (`/practice/full-mock/:mockId`).
 class FullMockScreen extends ConsumerStatefulWidget {
   /// Creates a [FullMockScreen].
   const new({required this.mockId, super.key});
@@ -32,11 +31,11 @@ class FullMockScreen extends ConsumerStatefulWidget {
 }
 
 class _FullMockScreenState extends ConsumerState<FullMockScreen> {
+  MockSessionRecord? _session;
   int? _sessionStartedAtUtcMs;
   bool _examMode = true;
 
   bool get _isGeneral => widget.mockId.contains('gt');
-  String get _sessionStorageKey => '__mock_session_${widget.mockId}';
 
   @override
   void initState() {
@@ -46,56 +45,67 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
 
   Future<void> _loadOrInitSession() async {
     final repo = ref.read(attemptRepositoryProvider);
-    final clock = ref.read(clockProvider);
     try {
-      final draft = await repo.getWritingDraft(_sessionStorageKey);
-      if (draft != null && draft.draftText.isNotEmpty) {
-        final decoded = jsonDecode(draft.draftText);
-        if (decoded is Map<String, dynamic>) {
-          final started = (decoded['startedAtUtcMs'] as num?)?.toInt();
-          final examMode = decoded['examMode'] as bool? ?? true;
-          if (started != null && mounted) {
-            setState(() {
-              _sessionStartedAtUtcMs = started;
-              _examMode = examMode;
-            });
-            return;
-          }
-        }
+      final session = await repo.getOrCreateMockSession(
+        mockId: widget.mockId,
+        track: _isGeneral ? 'general' : 'academic',
+        defaultExamMode: _examMode,
+      );
+      if (mounted) {
+        setState(() {
+          _session = session;
+          _sessionStartedAtUtcMs = session.startedAtUtcMs;
+          _examMode = session.examMode;
+        });
       }
     } on Object {
-      // Fall through to initializing a new durable session marker.
+      if (mounted) {
+        setState(() {
+          _sessionStartedAtUtcMs = ref
+              .read(clockProvider)
+              .now()
+              .toUtc()
+              .millisecondsSinceEpoch;
+        });
+      }
     }
-    await _persistSessionState(
-      startedAtUtcMs: clock.now().toUtc().millisecondsSinceEpoch,
-      examMode: _examMode,
-    );
   }
 
   Future<void> _persistSessionState({
     required int startedAtUtcMs,
     required bool examMode,
+    bool resetStages = false,
   }) async {
+    final nextStages = resetStages
+        ? const <String, String>{}
+        : (_session?.stageAttemptIds ?? const <String, String>{});
     if (mounted) {
       setState(() {
         _sessionStartedAtUtcMs = startedAtUtcMs;
         _examMode = examMode;
+        if (resetStages && _session != null) {
+          _session = MockSessionRecord(
+            mockId: _session!.mockId,
+            track: _session!.track,
+            startedAtUtcMs: startedAtUtcMs,
+            examMode: examMode,
+          );
+        }
       });
     }
     try {
-      await ref
+      final saved = await ref
           .read(attemptRepositoryProvider)
-          .saveWritingDraft(
-            attemptId: _sessionStorageKey,
-            packId: widget.mockId,
-            taskType: 'full_mock',
-            draftText: jsonEncode(<String, Object?>{
-              'startedAtUtcMs': startedAtUtcMs,
-              'examMode': examMode,
-            }),
-            wordCount: 0,
-            timerRemainingSec: 0,
+          .saveMockSession(
+            mockId: widget.mockId,
+            track: _isGeneral ? 'general' : 'academic',
+            startedAtUtcMs: startedAtUtcMs,
+            examMode: examMode,
+            stageAttemptIds: nextStages,
           );
+      if (mounted) {
+        setState(() => _session = saved);
+      }
     } on Object {
       // Ignore in isolated widget tests without storage channel.
     }
@@ -103,6 +113,7 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
 
   List<
     ({
+      String key,
       SkillKind skill,
       String packId,
       String title,
@@ -111,52 +122,128 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
       String route,
     })
   >
-  get _stages => [
-    (
-      skill: SkillKind.listening,
-      packId: 'ielts-listening-seed-01',
-      title: '1. Listening Test',
-      subtitle: '4 sections • Audio comprehension',
-      duration: '30 min',
-      route: AppRoutes.buildListeningSim('ielts-listening-seed-01', _examMode),
-    ),
-    (
-      skill: SkillKind.reading,
-      packId: _isGeneral
-          ? 'ielts-gt-reading-seed-01'
-          : 'ielts-acad-reading-seed-01',
-      title: '2. Reading Test',
-      subtitle: _isGeneral
-          ? 'General Training workplace & societal texts'
-          : 'Academic passages & evidence questions',
-      duration: '60 min',
-      route: AppRoutes.buildReadingSim(
-        _isGeneral ? 'ielts-gt-reading-seed-01' : 'ielts-acad-reading-seed-01',
-        _examMode,
+  get _stages {
+    final readingPackId = _isGeneral
+        ? 'ielts-gt-reading-seed-01'
+        : 'ielts-acad-reading-seed-01';
+    final writingPackId = _isGeneral
+        ? 'ielts-writing-gt-01'
+        : 'ielts-writing-seed-01';
+    return [
+      (
+        key: 'listening',
+        skill: SkillKind.listening,
+        packId: 'ielts-listening-seed-01',
+        title: '1. Listening Test',
+        subtitle: '4 sections • Audio comprehension',
+        duration: '30 min',
+        route: AppRoutes.buildListeningSim(
+          'ielts-listening-seed-01',
+          _examMode,
+          widget.mockId,
+          'listening',
+        ),
       ),
-    ),
-    (
-      skill: SkillKind.writing,
-      packId: _isGeneral ? 'ielts-writing-gt-01' : 'ielts-writing-seed-01',
-      title: '3. Writing Tasks 1 & 2',
-      subtitle: _isGeneral
-          ? 'Formal/informal letter + essay'
-          : 'Academic chart report + essay',
-      duration: '60 min',
-      route: AppRoutes.buildWritingSim(
-        _isGeneral ? 'ielts-writing-gt-01' : 'ielts-writing-seed-01',
-        _examMode,
+      (
+        key: 'reading',
+        skill: SkillKind.reading,
+        packId: readingPackId,
+        title: '2. Reading Test',
+        subtitle: _isGeneral
+            ? 'General Training workplace & societal texts'
+            : 'Academic passages & evidence questions',
+        duration: '60 min',
+        route: AppRoutes.buildReadingSim(
+          readingPackId,
+          _examMode,
+          widget.mockId,
+          'reading',
+        ),
       ),
-    ),
-    (
-      skill: SkillKind.speaking,
-      packId: 'ielts-speaking-seed-01',
-      title: '4. Speaking Interview',
-      subtitle: 'Parts 1, 2 & 3 live microphone recording',
-      duration: '14 min',
-      route: AppRoutes.buildSpeakingSim('ielts-speaking-seed-01', _examMode),
-    ),
-  ];
+      (
+        key: 'writing_task1',
+        skill: SkillKind.writing,
+        packId: writingPackId,
+        title: '3. Writing Task 1',
+        subtitle: _isGeneral
+            ? 'Formal / semi-formal / informal letter'
+            : 'Academic visual data report (150+ words)',
+        duration: '20 min',
+        route: AppRoutes.buildWritingSim(
+          writingPackId,
+          _examMode,
+          widget.mockId,
+          'writing_task1',
+          0,
+        ),
+      ),
+      (
+        key: 'writing_task2',
+        skill: SkillKind.writing,
+        packId: writingPackId,
+        title: '4. Writing Task 2',
+        subtitle: 'Discursive essay — 2x Writing weight (250+ words)',
+        duration: '40 min',
+        route: AppRoutes.buildWritingSim(
+          writingPackId,
+          _examMode,
+          widget.mockId,
+          'writing_task2',
+          1,
+        ),
+      ),
+      (
+        key: 'speaking',
+        skill: SkillKind.speaking,
+        packId: 'ielts-speaking-seed-01',
+        title: '5. Speaking Interview',
+        subtitle: 'Parts 1, 2 & 3 live microphone recording',
+        duration: '14 min',
+        route: AppRoutes.buildSpeakingSim(
+          'ielts-speaking-seed-01',
+          _examMode,
+          widget.mockId,
+          'speaking',
+        ),
+      ),
+    ];
+  }
+
+  AttemptSummary? _findStageAttempt(
+    String stageKey,
+    SkillKind skill,
+    String packId,
+    List<AttemptSummary> attempts,
+    int sessionStartMs,
+  ) {
+    final linkedId = _session?.stageAttemptIds[stageKey];
+    if (linkedId != null) {
+      for (final a in attempts) {
+        if (a.attemptId == linkedId && a.status != AttemptStatus.inProgress) {
+          if (!_examMode || !a.usedStudyMode) return a;
+        }
+      }
+    }
+    for (final a in attempts) {
+      if (a.mockSessionId == widget.mockId &&
+          a.mockStageKey == stageKey &&
+          a.skill == skill &&
+          a.packId == packId &&
+          a.status != AttemptStatus.inProgress &&
+          a.effectiveCompletedAtUtcMs >= sessionStartMs &&
+          (!_examMode || !a.usedStudyMode)) {
+        return a;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _openStageRoute(String route) async {
+    await context.push(route);
+    if (!mounted) return;
+    ref.invalidate(practiceHubAttemptsProvider);
+    await _loadOrInitSession();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -167,30 +254,50 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
         const <AttemptSummary>[];
     final sessionStartMs = _sessionStartedAtUtcMs;
 
-    // Derive stage completion strictly from real persisted submissions in this mock session (`TD-34`, `BF-03`).
-    final completedBySkill = <SkillKind, AttemptSummary>{};
+    // Derive stage state strictly from real linked/session-scoped persisted submissions (`RR-11`).
+    final attemptByStageKey = <String, AttemptSummary>{};
+    final scoredByStageKey = <String, AttemptSummary>{};
     if (sessionStartMs != null) {
       for (final stage in _stages) {
-        for (final a in attempts) {
-          if (a.skill == stage.skill &&
-              a.packId == stage.packId &&
-              a.status != AttemptStatus.inProgress &&
-              a.effectiveCompletedAtUtcMs >= sessionStartMs) {
-            completedBySkill.putIfAbsent(stage.skill, () => a);
-            break;
+        final found = _findStageAttempt(
+          stage.key,
+          stage.skill,
+          stage.packId,
+          attempts,
+          sessionStartMs,
+        );
+        if (found != null) {
+          attemptByStageKey[stage.key] = found;
+          if (found.status == AttemptStatus.scored &&
+              found.overallBand != null) {
+            scoredByStageKey[stage.key] = found;
           }
         }
       }
     }
 
-    final completedCount = completedBySkill.length;
-    final scoredValues = completedBySkill.values
-        .where((a) => a.overallBand != null)
-        .map((a) => a.overallBand!)
-        .toList(growable: false);
-    final combinedBand = scoredValues.length == 4
-        ? ExamSpec.roundIeltsBand(scoredValues.reduce((a, b) => a + b) / 4.0)
-        : null;
+    final completedCount = scoredByStageKey.length;
+    final listeningBand = scoredByStageKey['listening']?.overallBand;
+    final readingBand = scoredByStageKey['reading']?.overallBand;
+    final writingTask1Band = scoredByStageKey['writing_task1']?.overallBand;
+    final writingTask2Band = scoredByStageKey['writing_task2']?.overallBand;
+    final speakingBand = scoredByStageKey['speaking']?.overallBand;
+
+    final double? combinedBand;
+    if (listeningBand != null &&
+        readingBand != null &&
+        writingTask1Band != null &&
+        writingTask2Band != null &&
+        speakingBand != null) {
+      final writingWeighted = ExamSpec.roundIeltsBand(
+        (writingTask1Band + 2.0 * writingTask2Band) / 3.0,
+      );
+      combinedBand = ExamSpec.roundIeltsBand(
+        (listeningBand + readingBand + writingWeighted + speakingBand) / 4.0,
+      );
+    } else {
+      combinedBand = null;
+    }
 
     return MzScaffold(
       appBar: AppBar(
@@ -202,7 +309,7 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
           _isGeneral ? 'Full General Training Mock' : 'Full Academic Mock',
         ),
         actions: <Widget>[
-          if (completedCount > 0)
+          if (attemptByStageKey.isNotEmpty)
             MzIconButton(
               glyph: LucideGlyph.rotateCcw,
               semanticLabel: 'Reset mock session',
@@ -214,6 +321,7 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
                       .toUtc()
                       .millisecondsSinceEpoch,
                   examMode: _examMode,
+                  resetStages: true,
                 ),
               ),
             ),
@@ -229,13 +337,13 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
               children: <Widget>[
                 Text(
                   combinedBand != null
-                      ? 'Full Mock Band ${combinedBand.toStringAsFixed(1)} (4/4 Completed)'
-                      : '$completedCount of 4 Sections Completed',
+                      ? 'Full Mock Band ${combinedBand.toStringAsFixed(1)} (5/5 Scored)'
+                      : '$completedCount of 5 Stages Scored',
                   style: typography.cardTitle,
                 ),
                 const SizedBox(height: SpacingTokens.xs),
                 Text(
-                  'Complete Listening, Reading, Writing, and Speaking in order. Sections mark completed only once submitted.',
+                  'Complete Listening, Reading, Writing Task 1, Writing Task 2, and Speaking in Exam Mode. Stages mark completed only after final scoring.',
                   style: typography.secondary.copyWith(
                     color: colors.textSecondary,
                   ),
@@ -264,21 +372,20 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
                     const SizedBox(width: SpacingTokens.sm),
                     Expanded(
                       child: PrimaryButton(
-                        label: completedCount < 4
-                            ? 'Start Next Section'
+                        label: completedCount < _stages.length
+                            ? 'Start Next Stage'
                             : 'View Progress',
                         onPressed: () async {
                           final remaining = _stages
                               .where(
-                                (s) => !completedBySkill.containsKey(s.skill),
+                                (s) => !attemptByStageKey.containsKey(s.key),
                               )
                               .toList();
                           if (remaining.isEmpty) {
                             context.go(AppRoutes.progress);
                             return;
                           }
-                          final next = remaining.first;
-                          await context.push(next.route);
+                          await _openStageRoute(remaining.first.route);
                         },
                       ),
                     ),
@@ -289,13 +396,21 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
           ),
           const SizedBox(height: SpacingTokens.lg),
           ..._stages.map((stage) {
-            final submitted = completedBySkill[stage.skill];
-            final isDone = submitted != null;
+            final submitted = attemptByStageKey[stage.key];
+            final isScored =
+                submitted != null &&
+                submitted.status == AttemptStatus.scored &&
+                submitted.overallBand != null;
+            final isFailed =
+                submitted != null &&
+                submitted.status == AttemptStatus.failedRetryable;
             final statusText = submitted == null
                 ? stage.duration
-                : submitted.overallBand != null
+                : isScored
                 ? 'Band ${submitted.overallBand!.toStringAsFixed(1)}'
-                : 'Submitted';
+                : isFailed
+                ? 'Failed — Tap to Retry'
+                : 'Grading in Progress...';
             return Padding(
               padding: const EdgeInsetsDirectional.only(
                 bottom: SpacingTokens.sm,
@@ -309,7 +424,7 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
                       ),
                     );
                   } else {
-                    unawaited(context.push(stage.route));
+                    unawaited(_openStageRoute(stage.route));
                   }
                 },
                 child: Row(
@@ -322,7 +437,11 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
                         SkillKind.speaking => LucideGlyph.mic,
                         SkillKind.vocabulary => LucideGlyph.layers3,
                       },
-                      tint: isDone ? IconWellTint.mint : IconWellTint.blue,
+                      tint: isScored
+                          ? IconWellTint.mint
+                          : isFailed
+                          ? IconWellTint.danger
+                          : IconWellTint.blue,
                     ),
                     const SizedBox(width: SpacingTokens.md),
                     Expanded(
@@ -341,10 +460,10 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
                       ),
                     ),
                     AppIcon(
-                      isDone
+                      isScored
                           ? LucideGlyph.checkCircle2
                           : LucideGlyph.chevronRight,
-                      color: isDone ? colors.success : colors.textTertiary,
+                      color: isScored ? colors.success : colors.textTertiary,
                       size: 20,
                     ),
                   ],

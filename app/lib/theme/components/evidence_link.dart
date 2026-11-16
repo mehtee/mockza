@@ -30,6 +30,9 @@ class EvidenceLink extends StatelessWidget {
     final shapes = AppShapes.of(context);
     final typography = AppTypography.of(context);
 
+    final paragraphLabel = (paragraphIndex >= 1 && paragraphIndex <= 26)
+        ? 'Paragraph ${String.fromCharCode(64 + paragraphIndex)} (Section $paragraphIndex)'
+        : 'Paragraph $paragraphIndex';
     return InkWell(
       onTap: onTapJump,
       borderRadius: shapes.controlRadius,
@@ -55,14 +58,16 @@ class EvidenceLink extends StatelessWidget {
                   color: colors.readingAccent,
                 ),
                 const SizedBox(width: SpacingTokens.xs),
-                Text(
-                  'Evidence in Paragraph $paragraphIndex',
-                  style: typography.caption.copyWith(
-                    color: colors.readingAccent,
-                    fontWeight: FontWeight.w700,
+                Expanded(
+                  child: Text(
+                    'Evidence in $paragraphLabel',
+                    style: typography.caption.copyWith(
+                      color: colors.readingAccent,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: SpacingTokens.xs),
                 Text(
                   'Jump to text →',
                   style: typography.caption.copyWith(

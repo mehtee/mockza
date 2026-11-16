@@ -12,6 +12,7 @@ part 'attempt_dao.g.dart';
     WritingDrafts,
     ReadingAnnotations,
     OutboxSyncQueue,
+    MockSessions,
   ],
 )
 class AttemptDao extends DatabaseAccessor<AppDatabase> with _$AttemptDaoMixin {
@@ -65,6 +66,24 @@ class AttemptDao extends DatabaseAccessor<AppDatabase> with _$AttemptDaoMixin {
   Future<ExamAttemptRow?> getAttemptById(String attemptId) => (select(
     examAttempts,
   )..where((t) => t.attemptId.equals(attemptId))).getSingleOrNull();
+
+  /// Returns the latest unfinished `inProgress` attempt matching [packId], [skill], and mode (`RR-07`).
+  Future<ExamAttemptRow?> findLatestInProgressAttempt({
+    required String packId,
+    required String skill,
+    required bool usedStudyMode,
+  }) =>
+      (select(examAttempts)
+            ..where(
+              (t) =>
+                  t.packId.equals(packId) &
+                  t.skill.equals(skill) &
+                  t.status.equals('inProgress') &
+                  t.usedStudyMode.equals(usedStudyMode),
+            )
+            ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)])
+            ..limit(1))
+          .getSingleOrNull();
 
   /// Updates remote job status and optional score snapshot for [attemptId].
   Future<void> updateAttemptStatus({
@@ -141,7 +160,9 @@ class AttemptDao extends DatabaseAccessor<AppDatabase> with _$AttemptDaoMixin {
           .get();
 
   /// Lists expired completed audio recordings older than [cutoffUtc] while protecting pending/retryable attempts.
-  Future<List<AudioRecordingRow>> getExpiredRecordings(DateTime cutoffUtc) async {
+  Future<List<AudioRecordingRow>> getExpiredRecordings(
+    DateTime cutoffUtc,
+  ) async {
     final candidates = await (select(
       audioRecordings,
     )..where((t) => t.createdAt.isSmallerThanValue(cutoffUtc))).get();
@@ -180,13 +201,14 @@ class AttemptDao extends DatabaseAccessor<AppDatabase> with _$AttemptDaoMixin {
     required String remoteObjectKey,
     required DateTime updatedAt,
   }) =>
-      (update(audioRecordings)..where((t) => t.recordingId.equals(recordingId)))
-          .write(
-            AudioRecordingsCompanion(
-              remoteObjectKey: Value(remoteObjectKey),
-              updatedAt: Value(updatedAt),
-            ),
-          );
+      (update(
+        audioRecordings,
+      )..where((t) => t.recordingId.equals(recordingId))).write(
+        AudioRecordingsCompanion(
+          remoteObjectKey: Value(remoteObjectKey),
+          updatedAt: Value(updatedAt),
+        ),
+      );
 
   /// Deletes an expired or uploaded audio recording row.
   Future<int> deleteAudioRecording(String recordingId) => (delete(
@@ -255,4 +277,19 @@ class AttemptDao extends DatabaseAccessor<AppDatabase> with _$AttemptDaoMixin {
   /// Deletes a completed or permanently exhausted outbox queue entry.
   Future<int> deleteOutboxItem(int id) =>
       (delete(outboxSyncQueue)..where((t) => t.id.equals(id))).go();
+
+  // --- Full Mock Sessions (RR-11) ---
+
+  /// Retrieves a persisted Full Mock session row by [mockId].
+  Future<MockSessionRow?> getMockSession(String mockId) => (select(
+    mockSessions,
+  )..where((t) => t.mockId.equals(mockId))).getSingleOrNull();
+
+  /// Inserts or updates a Full Mock session row.
+  Future<void> upsertMockSession(MockSessionsCompanion session) =>
+      into(mockSessions).insertOnConflictUpdate(session);
+
+  /// Deletes a Full Mock session row by [mockId].
+  Future<int> deleteMockSession(String mockId) =>
+      (delete(mockSessions)..where((t) => t.mockId.equals(mockId))).go();
 }

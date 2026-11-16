@@ -10,6 +10,7 @@ mixin _$AttemptDaoMixin on DatabaseAccessor<AppDatabase> {
   $ReadingAnnotationsTable get readingAnnotations =>
       attachedDatabase.readingAnnotations;
   $OutboxSyncQueueTable get outboxSyncQueue => attachedDatabase.outboxSyncQueue;
+  $MockSessionsTable get mockSessions => attachedDatabase.mockSessions;
   AttemptDaoManager get managers => AttemptDaoManager(this);
 }
 
@@ -35,4 +36,6 @@ class AttemptDaoManager {
         _db.attachedDatabase,
         _db.outboxSyncQueue,
       );
+  $$MockSessionsTableTableManager get mockSessions =>
+      $$MockSessionsTableTableManager(_db.attachedDatabase, _db.mockSessions);
 }

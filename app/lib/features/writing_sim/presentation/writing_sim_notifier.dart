@@ -9,7 +9,28 @@ import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/exams/local_objective_scorer.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/core/models/writing_evaluation.dart';
+import 'package:mockza/data/repositories/attempt_repository.dart';
 import 'package:mockza/providers.dart';
+
+final class _WritingSaveSnapshot {
+  const new({
+    required this.draftKey,
+    required this.packId,
+    required this.taskType,
+    required this.text,
+    required this.wordCount,
+    required this.remainingSeconds,
+    required this.generation,
+  });
+
+  final String draftKey;
+  final String packId;
+  final String taskType;
+  final String text;
+  final int wordCount;
+  final int remainingSeconds;
+  final int generation;
+}
 
 /// Immutable UI state for Writing Task 1 / Task 2 draft editor (Screens 06 & 07).
 @immutable
@@ -32,6 +53,7 @@ class WritingSimState {
     required this.minimumWordCount,
     required this.lastSavedText,
     required this.isSubmitting,
+    this.isEphemeralStorage = false,
     this.chartSvg,
     this.chartCaption,
     this.errorMessage,
@@ -94,6 +116,9 @@ class WritingSimState {
   /// Non-fatal load/submit error feedback.
   final String? errorMessage;
 
+  /// Whether local storage degraded to volatile RAM (`RR-07`).
+  final bool isEphemeralStorage;
+
   /// Live word count computed cleanly.
   int get wordCount => LocalObjectiveScorer.countWords(draftText);
 
@@ -121,6 +146,7 @@ class WritingSimState {
     int? minimumWordCount,
     String? lastSavedText,
     bool? isSubmitting,
+    bool? isEphemeralStorage,
     String? chartSvg,
     bool clearChartSvg = false,
     String? chartCaption,
@@ -144,6 +170,7 @@ class WritingSimState {
     minimumWordCount: minimumWordCount ?? this.minimumWordCount,
     lastSavedText: lastSavedText ?? this.lastSavedText,
     isSubmitting: isSubmitting ?? this.isSubmitting,
+    isEphemeralStorage: isEphemeralStorage ?? this.isEphemeralStorage,
     chartSvg: clearChartSvg ? null : (chartSvg ?? this.chartSvg),
     chartCaption: clearChartCaption
         ? null
@@ -162,14 +189,20 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
   bool _isDisposed = false;
   int _lastPersistedRemainingSec = -1;
   Future<void>? _pendingSave;
+  late AttemptRepository _attemptRepo;
+  String? _mockSessionId;
+  String? _mockStageKey;
 
   final Map<int, String> _draftsByIndex = <int, String>{};
   final Map<int, int> _remainingByIndex = <int, int>{};
+  final Map<String, int> _draftGenerationByKey = <String, int>{};
+  final Map<String, int> _closedGenerationByKey = <String, int>{};
 
   @override
   WritingSimState build() {
     _isDisposed = false;
     final clock = ref.read(clockProvider);
+    _attemptRepo = ref.read(attemptRepositoryProvider);
     _sessionStartTime = clock.now();
     _clockTracker = CountdownClockTracker(clock: clock);
     ref.onDispose(() {
@@ -178,11 +211,11 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
       _autosaveDebounce?.cancel();
     });
 
-    return const WritingSimState(
+    return WritingSimState(
       packId: 'ielts-writing-seed-01',
       isExamMode: true,
       isLoadingPack: false,
-      tasks: <WritingTaskSpec>[],
+      tasks: const <WritingTaskSpec>[],
       activeTaskIndex: 0,
       taskType: WritingTaskType.task2Essay,
       draftText: '',
@@ -195,6 +228,7 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
       minimumWordCount: 250,
       lastSavedText: 'Ready',
       isSubmitting: false,
+      isEphemeralStorage: ref.read(isDatabaseEphemeralProvider),
     );
   }
 
@@ -202,11 +236,18 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
   Future<void> initialize(
     String packId, {
     bool isExamMode = true,
+    String? mockSessionId,
+    String? mockStageKey,
+    int initialTaskIndex = 0,
   }) async {
+    _mockSessionId = mockSessionId;
+    _mockStageKey = mockStageKey;
     _countdownTimer?.cancel();
     _autosaveDebounce?.cancel();
     _draftsByIndex.clear();
     _remainingByIndex.clear();
+    _draftGenerationByKey.clear();
+    _closedGenerationByKey.clear();
     _sessionStartTime = ref.read(clockProvider).now();
 
     state = state.copyWith(
@@ -262,7 +303,7 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
         tasks: tasks,
         clearError: true,
       );
-      _activateTaskIndex(0);
+      _activateTaskIndex(initialTaskIndex.clamp(0, tasks.length - 1));
     } on Object catch (err) {
       if (_isDisposed) return;
       state = state.copyWith(
@@ -408,40 +449,59 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
     });
   }
 
-  /// Serializes and flushes the current writing draft + timer snapshot to SQLite (`TD-39`).
+  /// Serializes and flushes an immutable snapshot of the current writing draft + timer (`RR-08`).
   Future<void> flushAutosaveNow() async {
     _autosaveDebounce?.cancel();
     if (_isDisposed || state.tasks.isEmpty) return;
 
+    final idx = state.activeTaskIndex;
+    final remSec = _clockTracker?.currentRemaining() ?? state.remainingSeconds;
+    _remainingByIndex[idx] = remSec;
+    final draftKey = _activeDraftKey();
+    final textToSave = _draftsByIndex[idx] ?? state.draftText;
+    final nextGen = (_draftGenerationByKey[draftKey] ?? 0) + 1;
+    _draftGenerationByKey[draftKey] = nextGen;
+
+    // Close over immutable snapshot and repository BEFORE any await (`RR-08`).
+    final snapshot = _WritingSaveSnapshot(
+      draftKey: draftKey,
+      packId: state.packId,
+      taskType: state.taskType.name,
+      text: textToSave,
+      wordCount: LocalObjectiveScorer.countWords(textToSave),
+      remainingSeconds: remSec,
+      generation: nextGen,
+    );
+    final attemptRepo = _attemptRepo;
     final previous = _pendingSave;
+
     final future = () async {
       if (previous != null) {
         try {
           await previous;
         } on Object {
-          // Proceed with latest snapshot.
+          // Proceed with captured outgoing snapshot.
         }
       }
       if (_isDisposed) return;
-
-      final attemptRepo = ref.read(attemptRepositoryProvider);
-      final idx = state.activeTaskIndex;
-      final remSec = _clockTracker?.currentRemaining() ?? state.remainingSeconds;
-      _remainingByIndex[idx] = remSec;
-      final draftKey = _activeDraftKey();
-      final textToSave = _draftsByIndex[idx] ?? state.draftText;
+      if ((_closedGenerationByKey[snapshot.draftKey] ?? -1) >=
+          snapshot.generation) {
+        return;
+      }
 
       try {
         await attemptRepo.saveWritingDraft(
-          attemptId: draftKey,
-          packId: state.packId,
-          taskType: state.taskType.name,
-          draftText: textToSave,
-          wordCount: LocalObjectiveScorer.countWords(textToSave),
-          timerRemainingSec: remSec,
+          attemptId: snapshot.draftKey,
+          packId: snapshot.packId,
+          taskType: snapshot.taskType,
+          draftText: snapshot.text,
+          wordCount: snapshot.wordCount,
+          timerRemainingSec: snapshot.remainingSeconds,
         );
-        _lastPersistedRemainingSec = remSec;
-        if (!_isDisposed) {
+        _lastPersistedRemainingSec = snapshot.remainingSeconds;
+        if (!_isDisposed &&
+            (_closedGenerationByKey[snapshot.draftKey] ?? -1) <
+                snapshot.generation) {
           state = state.copyWith(lastSavedText: 'Autosaved locally');
         }
       } on MissingPluginException {
@@ -472,17 +532,29 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
 
     _countdownTimer?.cancel();
     _autosaveDebounce?.cancel();
+    final draftKey = _activeDraftKey();
+    final closedGen = (_draftGenerationByKey[draftKey] ?? 0) + 1;
+    _draftGenerationByKey[draftKey] = closedGen;
+    _closedGenerationByKey[draftKey] = closedGen;
     state = state.copyWith(isSubmitting: true, clearError: true);
 
-    final attemptRepo = ref.read(attemptRepositoryProvider);
+    final attemptRepo = _attemptRepo;
     final gradingGateway = ref.read(gradingGatewayProvider);
     final profileRepo = ref.read(profileRepositoryProvider);
     final authSession = ref.read(authSessionServiceProvider);
     final progressRepo = ref.read(progressRepositoryProvider);
     final entropy = ref.read(entropySourceProvider);
 
+    final pending = _pendingSave;
+    if (pending != null) {
+      try {
+        await pending;
+      } on Object {
+        // Ignore prior save errors during final submission.
+      }
+    }
+
     final attemptId = entropy.nextUuidV4();
-    final draftKey = _activeDraftKey();
     final remNow = _clockTracker?.currentRemaining() ?? state.remainingSeconds;
     final durationSeconds = (state.totalSeconds - remNow).clamp(5, 7200);
     final wordCount = state.wordCount;
@@ -515,6 +587,9 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
         'wordCount': wordCount,
       });
 
+      final installedPack = await ref
+          .read(examCatalogRepositoryProvider)
+          .getInstalledPackById(state.packId);
       // Atomically persist attempt, delete draft, and enqueue outbox BEFORE network I/O (`TD-39`, `TD-43`).
       final outboxId = await attemptRepo.saveDurableSubmissionWithOutbox(
         attemptId: attemptId,
@@ -527,8 +602,19 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
         startedAtUtcMs: _sessionStartTime?.toUtc().millisecondsSinceEpoch,
         durationSeconds: durationSeconds,
         usedStudyMode: !state.isExamMode,
+        contentVersion: installedPack?.version,
+        mockSessionId: _mockSessionId,
+        mockStageKey: _mockStageKey,
         deleteDraftId: draftKey,
       );
+
+      if (_mockSessionId != null && _mockStageKey != null) {
+        await attemptRepo.recordMockStageAttempt(
+          mockId: _mockSessionId!,
+          stageKey: _mockStageKey!,
+          attemptId: attemptId,
+        );
+      }
 
       await progressRepo.logTodayActivity(
         studySeconds: durationSeconds,

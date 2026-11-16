@@ -37,14 +37,14 @@ const List<StorePackage> defaultGlobalStorePackages = <StorePackage>[
   StorePackage(
     identifier: 'mockza_cram_weekly',
     title: 'Exam Cram Pass',
-    description: 'Intensive unlimited AI evaluation access for 7 days.',
+    description: 'Full Pro AI evaluation allowance for 7 days (10 Speaking + 10 Writing daily).',
     priceString: r'$9.99',
     periodDuration: '1 week',
   ),
   StorePackage(
     identifier: 'mockza_pro_monthly',
     title: 'Pro Monthly',
-    description: 'Unlimited Speaking & Writing AI reviews + Explanations.',
+    description: 'Pro Speaking & Writing AI reviews (10+10 daily, 150/month) + Explanations.',
     priceString: r'$19.99',
     periodDuration: '1 month',
   ),

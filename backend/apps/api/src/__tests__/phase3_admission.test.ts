@@ -2,7 +2,7 @@ import { loadEnv } from '@mockza/config';
 import { describe, expect, it } from 'vitest';
 import { createApiApp } from '../app.js';
 
-describe('Phase 3: Owned Idempotency, Producer Readiness & Job Retry (TD-06, TD-13, TD-16)', () => {
+describe('Phase 3 (In-Memory API Adapter): Owned Idempotency, Producer Readiness & Job Retry (TD-06, TD-13, TD-16)', () => {
   const env = loadEnv({
     EDITION: 'glb',
     NODE_ENV: 'test',

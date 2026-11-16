@@ -129,18 +129,23 @@ final class ContentSyncService {
       final pack =
           (data['pack'] as Map<String, dynamic>?) ?? const <String, dynamic>{};
       final declaredSha = (pack['sha256'] as String?)?.trim() ?? '';
-      if (RegExp(r'^[a-f0-9]{64}$').hasMatch(declaredSha)) {
-        final computedSha = computeCanonicalBundleSha256(
-          sections: data['sections'],
-          questions: data['questions'],
+      if (!RegExp(r'^[a-f0-9]{64}$').hasMatch(declaredSha)) {
+        return Err(
+          ValidationFailure(
+            'Exam bundle $packId is missing a valid SHA-256 integrity digest.',
+          ),
         );
-        if (computedSha != declaredSha) {
-          return Err(
-            ValidationFailure(
-              'Exam bundle $packId failed SHA-256 integrity verification.',
-            ),
-          );
-        }
+      }
+      final computedSha = computeCanonicalBundleSha256(
+        sections: data['sections'],
+        questions: data['questions'],
+      );
+      if (computedSha != declaredSha) {
+        return Err(
+          ValidationFailure(
+            'Exam bundle $packId failed SHA-256 integrity verification.',
+          ),
+        );
       }
 
       // Download & persist required media (SVG charts inline + Listening audio bytes)
@@ -168,17 +173,22 @@ final class ContentSyncService {
           );
           final rawBytes = mediaRes.data;
           if (rawBytes == null || rawBytes.isEmpty) {
-            if (skill == 'listening') {
-              return Err(
-                NetworkFailure('Required listening audio for $packId is empty'),
-              );
-            }
-            continue;
+            return Err(
+              NetworkFailure(
+                'Required media asset ($url) for $packId is empty',
+              ),
+            );
           }
           final bytes = Uint8List.fromList(rawBytes);
           final lowerUrl = url.toLowerCase();
           if (lowerUrl.endsWith('.svg')) {
-            cachedMediaInline[url] = utf8.decode(bytes, allowMalformed: true);
+            final svgText = utf8.decode(bytes, allowMalformed: true).trim();
+            if (!svgText.contains('<svg')) {
+              return Err(
+                ValidationFailure('Invalid SVG chart asset ($url) for $packId'),
+              );
+            }
+            cachedMediaInline[url] = svgText;
           } else {
             final maybeSvgPrefix = utf8
                 .decode(
@@ -194,24 +204,22 @@ final class ContentSyncService {
               final localRef = await persistCachedMediaBytes(bytes, mediaKey);
               if (localRef.isNotEmpty) {
                 cachedMediaPaths[url] = localRef;
-              } else if (skill == 'listening') {
-                return const Err(
+              } else {
+                return Err(
                   StorageFailure(
-                    'Failed to persist offline listening audio bytes',
+                    'Failed to persist required $skill media asset for $packId',
                   ),
                 );
               }
             }
           }
         } on DioException catch (e) {
-          if (skill == 'listening') {
-            return Err(
-              NetworkFailure(
-                'Failed to download listening audio for $packId: ${e.message ?? 'offline'}',
-                statusCode: e.response?.statusCode,
-              ),
-            );
-          }
+          return Err(
+            NetworkFailure(
+              'Failed to download required media asset ($url) for $packId: ${e.message ?? 'offline'}',
+              statusCode: e.response?.statusCode,
+            ),
+          );
         }
       }
 

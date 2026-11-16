@@ -160,7 +160,7 @@ final class VocabRepository {
           ),
         )
         .toList(growable: false);
-    return _db.vocabDao.insertMissingCardsBatch(companions);
+    return _db.vocabDao.upsertSyncedCardsPreservingSchedule(companions);
   }
 
   /// Applies [quality] via [Sm2Scheduler] and persists the updated due date with review log.

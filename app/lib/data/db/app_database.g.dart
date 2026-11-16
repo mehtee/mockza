@@ -2718,6 +2718,65 @@ class $ExamAttemptsTable extends ExamAttempts
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _questionCountMeta = const VerificationMeta(
+    'questionCount',
+  );
+  @override
+  late final GeneratedColumn<int> questionCount = GeneratedColumn<int>(
+    'question_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _isCalibratedFullPackMeta =
+      const VerificationMeta('isCalibratedFullPack');
+  @override
+  late final GeneratedColumn<bool> isCalibratedFullPack = GeneratedColumn<bool>(
+    'is_calibrated_full_pack',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_calibrated_full_pack" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _contentVersionMeta = const VerificationMeta(
+    'contentVersion',
+  );
+  @override
+  late final GeneratedColumn<String> contentVersion = GeneratedColumn<String>(
+    'content_version',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _mockSessionIdMeta = const VerificationMeta(
+    'mockSessionId',
+  );
+  @override
+  late final GeneratedColumn<String> mockSessionId = GeneratedColumn<String>(
+    'mock_session_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _mockStageKeyMeta = const VerificationMeta(
+    'mockStageKey',
+  );
+  @override
+  late final GeneratedColumn<String> mockStageKey = GeneratedColumn<String>(
+    'mock_stage_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     createdAt,
@@ -2736,6 +2795,11 @@ class $ExamAttemptsTable extends ExamAttempts
     completedAtUtcMs,
     durationSeconds,
     usedStudyMode,
+    questionCount,
+    isCalibratedFullPack,
+    contentVersion,
+    mockSessionId,
+    mockStageKey,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2883,6 +2947,51 @@ class $ExamAttemptsTable extends ExamAttempts
         ),
       );
     }
+    if (data.containsKey('question_count')) {
+      context.handle(
+        _questionCountMeta,
+        questionCount.isAcceptableOrUnknown(
+          data['question_count']!,
+          _questionCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_calibrated_full_pack')) {
+      context.handle(
+        _isCalibratedFullPackMeta,
+        isCalibratedFullPack.isAcceptableOrUnknown(
+          data['is_calibrated_full_pack']!,
+          _isCalibratedFullPackMeta,
+        ),
+      );
+    }
+    if (data.containsKey('content_version')) {
+      context.handle(
+        _contentVersionMeta,
+        contentVersion.isAcceptableOrUnknown(
+          data['content_version']!,
+          _contentVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('mock_session_id')) {
+      context.handle(
+        _mockSessionIdMeta,
+        mockSessionId.isAcceptableOrUnknown(
+          data['mock_session_id']!,
+          _mockSessionIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('mock_stage_key')) {
+      context.handle(
+        _mockStageKeyMeta,
+        mockStageKey.isAcceptableOrUnknown(
+          data['mock_stage_key']!,
+          _mockStageKeyMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2956,6 +3065,26 @@ class $ExamAttemptsTable extends ExamAttempts
         DriftSqlType.bool,
         data['${effectivePrefix}used_study_mode'],
       )!,
+      questionCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}question_count'],
+      )!,
+      isCalibratedFullPack: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_calibrated_full_pack'],
+      )!,
+      contentVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_version'],
+      ),
+      mockSessionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mock_session_id'],
+      ),
+      mockStageKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mock_stage_key'],
+      ),
     );
   }
 
@@ -3013,6 +3142,21 @@ class ExamAttemptRow extends DataClass implements Insertable<ExamAttemptRow> {
 
   /// Whether the attempt was conducted in untimed study mode rather than exam mode.
   final bool usedStudyMode;
+
+  /// Total scored items in this attempt (`0` for essay/speaking).
+  final int questionCount;
+
+  /// Whether this attempt satisfies official IELTS full-pack calibration (e.g. 40 items for Reading/Listening, exam mode).
+  final bool isCalibratedFullPack;
+
+  /// Content pack version captured when the attempt was submitted.
+  final String? contentVersion;
+
+  /// Optional Full Mock session identifier linking child skill attempts.
+  final String? mockSessionId;
+
+  /// Optional stage key within a Full Mock (`listening`, `reading`, `writing_task1`, `writing_task2`, `speaking`).
+  final String? mockStageKey;
   const ExamAttemptRow({
     required this.createdAt,
     required this.updatedAt,
@@ -3030,6 +3174,11 @@ class ExamAttemptRow extends DataClass implements Insertable<ExamAttemptRow> {
     this.completedAtUtcMs,
     required this.durationSeconds,
     required this.usedStudyMode,
+    required this.questionCount,
+    required this.isCalibratedFullPack,
+    this.contentVersion,
+    this.mockSessionId,
+    this.mockStageKey,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3062,6 +3211,17 @@ class ExamAttemptRow extends DataClass implements Insertable<ExamAttemptRow> {
     }
     map['duration_seconds'] = Variable<int>(durationSeconds);
     map['used_study_mode'] = Variable<bool>(usedStudyMode);
+    map['question_count'] = Variable<int>(questionCount);
+    map['is_calibrated_full_pack'] = Variable<bool>(isCalibratedFullPack);
+    if (!nullToAbsent || contentVersion != null) {
+      map['content_version'] = Variable<String>(contentVersion);
+    }
+    if (!nullToAbsent || mockSessionId != null) {
+      map['mock_session_id'] = Variable<String>(mockSessionId);
+    }
+    if (!nullToAbsent || mockStageKey != null) {
+      map['mock_stage_key'] = Variable<String>(mockStageKey);
+    }
     return map;
   }
 
@@ -3095,6 +3255,17 @@ class ExamAttemptRow extends DataClass implements Insertable<ExamAttemptRow> {
           : Value(completedAtUtcMs),
       durationSeconds: Value(durationSeconds),
       usedStudyMode: Value(usedStudyMode),
+      questionCount: Value(questionCount),
+      isCalibratedFullPack: Value(isCalibratedFullPack),
+      contentVersion: contentVersion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(contentVersion),
+      mockSessionId: mockSessionId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(mockSessionId),
+      mockStageKey: mockStageKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(mockStageKey),
     );
   }
 
@@ -3120,6 +3291,13 @@ class ExamAttemptRow extends DataClass implements Insertable<ExamAttemptRow> {
       completedAtUtcMs: serializer.fromJson<int?>(json['completedAtUtcMs']),
       durationSeconds: serializer.fromJson<int>(json['durationSeconds']),
       usedStudyMode: serializer.fromJson<bool>(json['usedStudyMode']),
+      questionCount: serializer.fromJson<int>(json['questionCount']),
+      isCalibratedFullPack: serializer.fromJson<bool>(
+        json['isCalibratedFullPack'],
+      ),
+      contentVersion: serializer.fromJson<String?>(json['contentVersion']),
+      mockSessionId: serializer.fromJson<String?>(json['mockSessionId']),
+      mockStageKey: serializer.fromJson<String?>(json['mockStageKey']),
     );
   }
   @override
@@ -3142,6 +3320,11 @@ class ExamAttemptRow extends DataClass implements Insertable<ExamAttemptRow> {
       'completedAtUtcMs': serializer.toJson<int?>(completedAtUtcMs),
       'durationSeconds': serializer.toJson<int>(durationSeconds),
       'usedStudyMode': serializer.toJson<bool>(usedStudyMode),
+      'questionCount': serializer.toJson<int>(questionCount),
+      'isCalibratedFullPack': serializer.toJson<bool>(isCalibratedFullPack),
+      'contentVersion': serializer.toJson<String?>(contentVersion),
+      'mockSessionId': serializer.toJson<String?>(mockSessionId),
+      'mockStageKey': serializer.toJson<String?>(mockStageKey),
     };
   }
 
@@ -3162,6 +3345,11 @@ class ExamAttemptRow extends DataClass implements Insertable<ExamAttemptRow> {
     Value<int?> completedAtUtcMs = const Value.absent(),
     int? durationSeconds,
     bool? usedStudyMode,
+    int? questionCount,
+    bool? isCalibratedFullPack,
+    Value<String?> contentVersion = const Value.absent(),
+    Value<String?> mockSessionId = const Value.absent(),
+    Value<String?> mockStageKey = const Value.absent(),
   }) => ExamAttemptRow(
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -3185,6 +3373,15 @@ class ExamAttemptRow extends DataClass implements Insertable<ExamAttemptRow> {
         : this.completedAtUtcMs,
     durationSeconds: durationSeconds ?? this.durationSeconds,
     usedStudyMode: usedStudyMode ?? this.usedStudyMode,
+    questionCount: questionCount ?? this.questionCount,
+    isCalibratedFullPack: isCalibratedFullPack ?? this.isCalibratedFullPack,
+    contentVersion: contentVersion.present
+        ? contentVersion.value
+        : this.contentVersion,
+    mockSessionId: mockSessionId.present
+        ? mockSessionId.value
+        : this.mockSessionId,
+    mockStageKey: mockStageKey.present ? mockStageKey.value : this.mockStageKey,
   );
   ExamAttemptRow copyWithCompanion(ExamAttemptsCompanion data) {
     return ExamAttemptRow(
@@ -3220,6 +3417,21 @@ class ExamAttemptRow extends DataClass implements Insertable<ExamAttemptRow> {
       usedStudyMode: data.usedStudyMode.present
           ? data.usedStudyMode.value
           : this.usedStudyMode,
+      questionCount: data.questionCount.present
+          ? data.questionCount.value
+          : this.questionCount,
+      isCalibratedFullPack: data.isCalibratedFullPack.present
+          ? data.isCalibratedFullPack.value
+          : this.isCalibratedFullPack,
+      contentVersion: data.contentVersion.present
+          ? data.contentVersion.value
+          : this.contentVersion,
+      mockSessionId: data.mockSessionId.present
+          ? data.mockSessionId.value
+          : this.mockSessionId,
+      mockStageKey: data.mockStageKey.present
+          ? data.mockStageKey.value
+          : this.mockStageKey,
     );
   }
 
@@ -3241,13 +3453,18 @@ class ExamAttemptRow extends DataClass implements Insertable<ExamAttemptRow> {
           ..write('startedAtUtcMs: $startedAtUtcMs, ')
           ..write('completedAtUtcMs: $completedAtUtcMs, ')
           ..write('durationSeconds: $durationSeconds, ')
-          ..write('usedStudyMode: $usedStudyMode')
+          ..write('usedStudyMode: $usedStudyMode, ')
+          ..write('questionCount: $questionCount, ')
+          ..write('isCalibratedFullPack: $isCalibratedFullPack, ')
+          ..write('contentVersion: $contentVersion, ')
+          ..write('mockSessionId: $mockSessionId, ')
+          ..write('mockStageKey: $mockStageKey')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     createdAt,
     updatedAt,
     attemptId,
@@ -3264,7 +3481,12 @@ class ExamAttemptRow extends DataClass implements Insertable<ExamAttemptRow> {
     completedAtUtcMs,
     durationSeconds,
     usedStudyMode,
-  );
+    questionCount,
+    isCalibratedFullPack,
+    contentVersion,
+    mockSessionId,
+    mockStageKey,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3284,7 +3506,12 @@ class ExamAttemptRow extends DataClass implements Insertable<ExamAttemptRow> {
           other.startedAtUtcMs == this.startedAtUtcMs &&
           other.completedAtUtcMs == this.completedAtUtcMs &&
           other.durationSeconds == this.durationSeconds &&
-          other.usedStudyMode == this.usedStudyMode);
+          other.usedStudyMode == this.usedStudyMode &&
+          other.questionCount == this.questionCount &&
+          other.isCalibratedFullPack == this.isCalibratedFullPack &&
+          other.contentVersion == this.contentVersion &&
+          other.mockSessionId == this.mockSessionId &&
+          other.mockStageKey == this.mockStageKey);
 }
 
 class ExamAttemptsCompanion extends UpdateCompanion<ExamAttemptRow> {
@@ -3304,6 +3531,11 @@ class ExamAttemptsCompanion extends UpdateCompanion<ExamAttemptRow> {
   final Value<int?> completedAtUtcMs;
   final Value<int> durationSeconds;
   final Value<bool> usedStudyMode;
+  final Value<int> questionCount;
+  final Value<bool> isCalibratedFullPack;
+  final Value<String?> contentVersion;
+  final Value<String?> mockSessionId;
+  final Value<String?> mockStageKey;
   final Value<int> rowid;
   const ExamAttemptsCompanion({
     this.createdAt = const Value.absent(),
@@ -3322,6 +3554,11 @@ class ExamAttemptsCompanion extends UpdateCompanion<ExamAttemptRow> {
     this.completedAtUtcMs = const Value.absent(),
     this.durationSeconds = const Value.absent(),
     this.usedStudyMode = const Value.absent(),
+    this.questionCount = const Value.absent(),
+    this.isCalibratedFullPack = const Value.absent(),
+    this.contentVersion = const Value.absent(),
+    this.mockSessionId = const Value.absent(),
+    this.mockStageKey = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ExamAttemptsCompanion.insert({
@@ -3341,6 +3578,11 @@ class ExamAttemptsCompanion extends UpdateCompanion<ExamAttemptRow> {
     this.completedAtUtcMs = const Value.absent(),
     this.durationSeconds = const Value.absent(),
     this.usedStudyMode = const Value.absent(),
+    this.questionCount = const Value.absent(),
+    this.isCalibratedFullPack = const Value.absent(),
+    this.contentVersion = const Value.absent(),
+    this.mockSessionId = const Value.absent(),
+    this.mockStageKey = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : createdAt = Value(createdAt),
        updatedAt = Value(updatedAt),
@@ -3366,6 +3608,11 @@ class ExamAttemptsCompanion extends UpdateCompanion<ExamAttemptRow> {
     Expression<int>? completedAtUtcMs,
     Expression<int>? durationSeconds,
     Expression<bool>? usedStudyMode,
+    Expression<int>? questionCount,
+    Expression<bool>? isCalibratedFullPack,
+    Expression<String>? contentVersion,
+    Expression<String>? mockSessionId,
+    Expression<String>? mockStageKey,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3385,6 +3632,12 @@ class ExamAttemptsCompanion extends UpdateCompanion<ExamAttemptRow> {
       if (completedAtUtcMs != null) 'completed_at_utc_ms': completedAtUtcMs,
       if (durationSeconds != null) 'duration_seconds': durationSeconds,
       if (usedStudyMode != null) 'used_study_mode': usedStudyMode,
+      if (questionCount != null) 'question_count': questionCount,
+      if (isCalibratedFullPack != null)
+        'is_calibrated_full_pack': isCalibratedFullPack,
+      if (contentVersion != null) 'content_version': contentVersion,
+      if (mockSessionId != null) 'mock_session_id': mockSessionId,
+      if (mockStageKey != null) 'mock_stage_key': mockStageKey,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3406,6 +3659,11 @@ class ExamAttemptsCompanion extends UpdateCompanion<ExamAttemptRow> {
     Value<int?>? completedAtUtcMs,
     Value<int>? durationSeconds,
     Value<bool>? usedStudyMode,
+    Value<int>? questionCount,
+    Value<bool>? isCalibratedFullPack,
+    Value<String?>? contentVersion,
+    Value<String?>? mockSessionId,
+    Value<String?>? mockStageKey,
     Value<int>? rowid,
   }) {
     return ExamAttemptsCompanion(
@@ -3425,6 +3683,11 @@ class ExamAttemptsCompanion extends UpdateCompanion<ExamAttemptRow> {
       completedAtUtcMs: completedAtUtcMs ?? this.completedAtUtcMs,
       durationSeconds: durationSeconds ?? this.durationSeconds,
       usedStudyMode: usedStudyMode ?? this.usedStudyMode,
+      questionCount: questionCount ?? this.questionCount,
+      isCalibratedFullPack: isCalibratedFullPack ?? this.isCalibratedFullPack,
+      contentVersion: contentVersion ?? this.contentVersion,
+      mockSessionId: mockSessionId ?? this.mockSessionId,
+      mockStageKey: mockStageKey ?? this.mockStageKey,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3480,6 +3743,23 @@ class ExamAttemptsCompanion extends UpdateCompanion<ExamAttemptRow> {
     if (usedStudyMode.present) {
       map['used_study_mode'] = Variable<bool>(usedStudyMode.value);
     }
+    if (questionCount.present) {
+      map['question_count'] = Variable<int>(questionCount.value);
+    }
+    if (isCalibratedFullPack.present) {
+      map['is_calibrated_full_pack'] = Variable<bool>(
+        isCalibratedFullPack.value,
+      );
+    }
+    if (contentVersion.present) {
+      map['content_version'] = Variable<String>(contentVersion.value);
+    }
+    if (mockSessionId.present) {
+      map['mock_session_id'] = Variable<String>(mockSessionId.value);
+    }
+    if (mockStageKey.present) {
+      map['mock_stage_key'] = Variable<String>(mockStageKey.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3505,6 +3785,11 @@ class ExamAttemptsCompanion extends UpdateCompanion<ExamAttemptRow> {
           ..write('completedAtUtcMs: $completedAtUtcMs, ')
           ..write('durationSeconds: $durationSeconds, ')
           ..write('usedStudyMode: $usedStudyMode, ')
+          ..write('questionCount: $questionCount, ')
+          ..write('isCalibratedFullPack: $isCalibratedFullPack, ')
+          ..write('contentVersion: $contentVersion, ')
+          ..write('mockSessionId: $mockSessionId, ')
+          ..write('mockStageKey: $mockStageKey, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -7584,6 +7869,496 @@ class OutboxSyncQueueCompanion extends UpdateCompanion<OutboxSyncItemRow> {
   }
 }
 
+class $MockSessionsTable extends MockSessions
+    with TableInfo<$MockSessionsTable, MockSessionRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MockSessionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _mockIdMeta = const VerificationMeta('mockId');
+  @override
+  late final GeneratedColumn<String> mockId = GeneratedColumn<String>(
+    'mock_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _trackMeta = const VerificationMeta('track');
+  @override
+  late final GeneratedColumn<String> track = GeneratedColumn<String>(
+    'track',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('academic'),
+  );
+  static const VerificationMeta _startedAtUtcMsMeta = const VerificationMeta(
+    'startedAtUtcMs',
+  );
+  @override
+  late final GeneratedColumn<int> startedAtUtcMs = GeneratedColumn<int>(
+    'started_at_utc_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _examModeMeta = const VerificationMeta(
+    'examMode',
+  );
+  @override
+  late final GeneratedColumn<bool> examMode = GeneratedColumn<bool>(
+    'exam_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("exam_mode" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _stageAttemptIdsJsonMeta =
+      const VerificationMeta('stageAttemptIdsJson');
+  @override
+  late final GeneratedColumn<String> stageAttemptIdsJson =
+      GeneratedColumn<String>(
+        'stage_attempt_ids_json',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('{}'),
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    createdAt,
+    updatedAt,
+    mockId,
+    track,
+    startedAtUtcMs,
+    examMode,
+    stageAttemptIdsJson,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'mock_sessions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MockSessionRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('mock_id')) {
+      context.handle(
+        _mockIdMeta,
+        mockId.isAcceptableOrUnknown(data['mock_id']!, _mockIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_mockIdMeta);
+    }
+    if (data.containsKey('track')) {
+      context.handle(
+        _trackMeta,
+        track.isAcceptableOrUnknown(data['track']!, _trackMeta),
+      );
+    }
+    if (data.containsKey('started_at_utc_ms')) {
+      context.handle(
+        _startedAtUtcMsMeta,
+        startedAtUtcMs.isAcceptableOrUnknown(
+          data['started_at_utc_ms']!,
+          _startedAtUtcMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_startedAtUtcMsMeta);
+    }
+    if (data.containsKey('exam_mode')) {
+      context.handle(
+        _examModeMeta,
+        examMode.isAcceptableOrUnknown(data['exam_mode']!, _examModeMeta),
+      );
+    }
+    if (data.containsKey('stage_attempt_ids_json')) {
+      context.handle(
+        _stageAttemptIdsJsonMeta,
+        stageAttemptIdsJson.isAcceptableOrUnknown(
+          data['stage_attempt_ids_json']!,
+          _stageAttemptIdsJsonMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {mockId};
+  @override
+  MockSessionRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MockSessionRow(
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      mockId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mock_id'],
+      )!,
+      track: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}track'],
+      )!,
+      startedAtUtcMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}started_at_utc_ms'],
+      )!,
+      examMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}exam_mode'],
+      )!,
+      stageAttemptIdsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}stage_attempt_ids_json'],
+      )!,
+    );
+  }
+
+  @override
+  $MockSessionsTable createAlias(String alias) {
+    return $MockSessionsTable(attachedDatabase, alias);
+  }
+}
+
+class MockSessionRow extends DataClass implements Insertable<MockSessionRow> {
+  /// Record creation timestamp in UTC.
+  final DateTime createdAt;
+
+  /// Last local mutation timestamp in UTC.
+  final DateTime updatedAt;
+
+  /// Full Mock identifier (e.g. `mock-acad-01`, `mock-gt-01`).
+  final String mockId;
+
+  /// IELTS module track (`academic` or `general`).
+  final String track;
+
+  /// UTC millisecond timestamp when this mock session was started/reset.
+  final int startedAtUtcMs;
+
+  /// Whether sections launch in timed Exam Mode.
+  final bool examMode;
+
+  /// JSON object mapping stage keys (`listening`, `reading`, `writing_task1`, `writing_task2`, `speaking`) to attempt IDs.
+  final String stageAttemptIdsJson;
+  const MockSessionRow({
+    required this.createdAt,
+    required this.updatedAt,
+    required this.mockId,
+    required this.track,
+    required this.startedAtUtcMs,
+    required this.examMode,
+    required this.stageAttemptIdsJson,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    map['mock_id'] = Variable<String>(mockId);
+    map['track'] = Variable<String>(track);
+    map['started_at_utc_ms'] = Variable<int>(startedAtUtcMs);
+    map['exam_mode'] = Variable<bool>(examMode);
+    map['stage_attempt_ids_json'] = Variable<String>(stageAttemptIdsJson);
+    return map;
+  }
+
+  MockSessionsCompanion toCompanion(bool nullToAbsent) {
+    return MockSessionsCompanion(
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      mockId: Value(mockId),
+      track: Value(track),
+      startedAtUtcMs: Value(startedAtUtcMs),
+      examMode: Value(examMode),
+      stageAttemptIdsJson: Value(stageAttemptIdsJson),
+    );
+  }
+
+  factory MockSessionRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MockSessionRow(
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      mockId: serializer.fromJson<String>(json['mockId']),
+      track: serializer.fromJson<String>(json['track']),
+      startedAtUtcMs: serializer.fromJson<int>(json['startedAtUtcMs']),
+      examMode: serializer.fromJson<bool>(json['examMode']),
+      stageAttemptIdsJson: serializer.fromJson<String>(
+        json['stageAttemptIdsJson'],
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'mockId': serializer.toJson<String>(mockId),
+      'track': serializer.toJson<String>(track),
+      'startedAtUtcMs': serializer.toJson<int>(startedAtUtcMs),
+      'examMode': serializer.toJson<bool>(examMode),
+      'stageAttemptIdsJson': serializer.toJson<String>(stageAttemptIdsJson),
+    };
+  }
+
+  MockSessionRow copyWith({
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    String? mockId,
+    String? track,
+    int? startedAtUtcMs,
+    bool? examMode,
+    String? stageAttemptIdsJson,
+  }) => MockSessionRow(
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    mockId: mockId ?? this.mockId,
+    track: track ?? this.track,
+    startedAtUtcMs: startedAtUtcMs ?? this.startedAtUtcMs,
+    examMode: examMode ?? this.examMode,
+    stageAttemptIdsJson: stageAttemptIdsJson ?? this.stageAttemptIdsJson,
+  );
+  MockSessionRow copyWithCompanion(MockSessionsCompanion data) {
+    return MockSessionRow(
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      mockId: data.mockId.present ? data.mockId.value : this.mockId,
+      track: data.track.present ? data.track.value : this.track,
+      startedAtUtcMs: data.startedAtUtcMs.present
+          ? data.startedAtUtcMs.value
+          : this.startedAtUtcMs,
+      examMode: data.examMode.present ? data.examMode.value : this.examMode,
+      stageAttemptIdsJson: data.stageAttemptIdsJson.present
+          ? data.stageAttemptIdsJson.value
+          : this.stageAttemptIdsJson,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MockSessionRow(')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('mockId: $mockId, ')
+          ..write('track: $track, ')
+          ..write('startedAtUtcMs: $startedAtUtcMs, ')
+          ..write('examMode: $examMode, ')
+          ..write('stageAttemptIdsJson: $stageAttemptIdsJson')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    createdAt,
+    updatedAt,
+    mockId,
+    track,
+    startedAtUtcMs,
+    examMode,
+    stageAttemptIdsJson,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MockSessionRow &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.mockId == this.mockId &&
+          other.track == this.track &&
+          other.startedAtUtcMs == this.startedAtUtcMs &&
+          other.examMode == this.examMode &&
+          other.stageAttemptIdsJson == this.stageAttemptIdsJson);
+}
+
+class MockSessionsCompanion extends UpdateCompanion<MockSessionRow> {
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<String> mockId;
+  final Value<String> track;
+  final Value<int> startedAtUtcMs;
+  final Value<bool> examMode;
+  final Value<String> stageAttemptIdsJson;
+  final Value<int> rowid;
+  const MockSessionsCompanion({
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.mockId = const Value.absent(),
+    this.track = const Value.absent(),
+    this.startedAtUtcMs = const Value.absent(),
+    this.examMode = const Value.absent(),
+    this.stageAttemptIdsJson = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MockSessionsCompanion.insert({
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    required String mockId,
+    this.track = const Value.absent(),
+    required int startedAtUtcMs,
+    this.examMode = const Value.absent(),
+    this.stageAttemptIdsJson = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt),
+       mockId = Value(mockId),
+       startedAtUtcMs = Value(startedAtUtcMs);
+  static Insertable<MockSessionRow> custom({
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<String>? mockId,
+    Expression<String>? track,
+    Expression<int>? startedAtUtcMs,
+    Expression<bool>? examMode,
+    Expression<String>? stageAttemptIdsJson,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (mockId != null) 'mock_id': mockId,
+      if (track != null) 'track': track,
+      if (startedAtUtcMs != null) 'started_at_utc_ms': startedAtUtcMs,
+      if (examMode != null) 'exam_mode': examMode,
+      if (stageAttemptIdsJson != null)
+        'stage_attempt_ids_json': stageAttemptIdsJson,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MockSessionsCompanion copyWith({
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<String>? mockId,
+    Value<String>? track,
+    Value<int>? startedAtUtcMs,
+    Value<bool>? examMode,
+    Value<String>? stageAttemptIdsJson,
+    Value<int>? rowid,
+  }) {
+    return MockSessionsCompanion(
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      mockId: mockId ?? this.mockId,
+      track: track ?? this.track,
+      startedAtUtcMs: startedAtUtcMs ?? this.startedAtUtcMs,
+      examMode: examMode ?? this.examMode,
+      stageAttemptIdsJson: stageAttemptIdsJson ?? this.stageAttemptIdsJson,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (mockId.present) {
+      map['mock_id'] = Variable<String>(mockId.value);
+    }
+    if (track.present) {
+      map['track'] = Variable<String>(track.value);
+    }
+    if (startedAtUtcMs.present) {
+      map['started_at_utc_ms'] = Variable<int>(startedAtUtcMs.value);
+    }
+    if (examMode.present) {
+      map['exam_mode'] = Variable<bool>(examMode.value);
+    }
+    if (stageAttemptIdsJson.present) {
+      map['stage_attempt_ids_json'] = Variable<String>(
+        stageAttemptIdsJson.value,
+      );
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MockSessionsCompanion(')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('mockId: $mockId, ')
+          ..write('track: $track, ')
+          ..write('startedAtUtcMs: $startedAtUtcMs, ')
+          ..write('examMode: $examMode, ')
+          ..write('stageAttemptIdsJson: $stageAttemptIdsJson, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -7606,6 +8381,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $OutboxSyncQueueTable outboxSyncQueue = $OutboxSyncQueueTable(
     this,
   );
+  late final $MockSessionsTable mockSessions = $MockSessionsTable(this);
   late final AttemptDao attemptDao = AttemptDao(this as AppDatabase);
   late final VocabDao vocabDao = VocabDao(this as AppDatabase);
   late final CatalogDao catalogDao = CatalogDao(this as AppDatabase);
@@ -7627,6 +8403,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     vocabReviewLogs,
     dailyStudyLogs,
     outboxSyncQueue,
+    mockSessions,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -8908,6 +9685,11 @@ typedef $$ExamAttemptsTableCreateCompanionBuilder =
       Value<int?> completedAtUtcMs,
       Value<int> durationSeconds,
       Value<bool> usedStudyMode,
+      Value<int> questionCount,
+      Value<bool> isCalibratedFullPack,
+      Value<String?> contentVersion,
+      Value<String?> mockSessionId,
+      Value<String?> mockStageKey,
       Value<int> rowid,
     });
 typedef $$ExamAttemptsTableUpdateCompanionBuilder =
@@ -8928,6 +9710,11 @@ typedef $$ExamAttemptsTableUpdateCompanionBuilder =
       Value<int?> completedAtUtcMs,
       Value<int> durationSeconds,
       Value<bool> usedStudyMode,
+      Value<int> questionCount,
+      Value<bool> isCalibratedFullPack,
+      Value<String?> contentVersion,
+      Value<String?> mockSessionId,
+      Value<String?> mockStageKey,
       Value<int> rowid,
     });
 
@@ -9064,6 +9851,31 @@ class $$ExamAttemptsTableFilterComposer
 
   ColumnFilters<bool> get usedStudyMode => $composableBuilder(
     column: $table.usedStudyMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get questionCount => $composableBuilder(
+    column: $table.questionCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isCalibratedFullPack => $composableBuilder(
+    column: $table.isCalibratedFullPack,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentVersion => $composableBuilder(
+    column: $table.contentVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mockSessionId => $composableBuilder(
+    column: $table.mockSessionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mockStageKey => $composableBuilder(
+    column: $table.mockStageKey,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9206,6 +10018,31 @@ class $$ExamAttemptsTableOrderingComposer
     column: $table.usedStudyMode,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get questionCount => $composableBuilder(
+    column: $table.questionCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isCalibratedFullPack => $composableBuilder(
+    column: $table.isCalibratedFullPack,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentVersion => $composableBuilder(
+    column: $table.contentVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mockSessionId => $composableBuilder(
+    column: $table.mockSessionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mockStageKey => $composableBuilder(
+    column: $table.mockStageKey,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ExamAttemptsTableAnnotationComposer
@@ -9278,6 +10115,31 @@ class $$ExamAttemptsTableAnnotationComposer
 
   GeneratedColumn<bool> get usedStudyMode => $composableBuilder(
     column: $table.usedStudyMode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get questionCount => $composableBuilder(
+    column: $table.questionCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isCalibratedFullPack => $composableBuilder(
+    column: $table.isCalibratedFullPack,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get contentVersion => $composableBuilder(
+    column: $table.contentVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get mockSessionId => $composableBuilder(
+    column: $table.mockSessionId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get mockStageKey => $composableBuilder(
+    column: $table.mockStageKey,
     builder: (column) => column,
   );
 
@@ -9379,6 +10241,11 @@ class $$ExamAttemptsTableTableManager
                 Value<int?> completedAtUtcMs = const Value.absent(),
                 Value<int> durationSeconds = const Value.absent(),
                 Value<bool> usedStudyMode = const Value.absent(),
+                Value<int> questionCount = const Value.absent(),
+                Value<bool> isCalibratedFullPack = const Value.absent(),
+                Value<String?> contentVersion = const Value.absent(),
+                Value<String?> mockSessionId = const Value.absent(),
+                Value<String?> mockStageKey = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ExamAttemptsCompanion(
                 createdAt: createdAt,
@@ -9397,6 +10264,11 @@ class $$ExamAttemptsTableTableManager
                 completedAtUtcMs: completedAtUtcMs,
                 durationSeconds: durationSeconds,
                 usedStudyMode: usedStudyMode,
+                questionCount: questionCount,
+                isCalibratedFullPack: isCalibratedFullPack,
+                contentVersion: contentVersion,
+                mockSessionId: mockSessionId,
+                mockStageKey: mockStageKey,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -9417,6 +10289,11 @@ class $$ExamAttemptsTableTableManager
                 Value<int?> completedAtUtcMs = const Value.absent(),
                 Value<int> durationSeconds = const Value.absent(),
                 Value<bool> usedStudyMode = const Value.absent(),
+                Value<int> questionCount = const Value.absent(),
+                Value<bool> isCalibratedFullPack = const Value.absent(),
+                Value<String?> contentVersion = const Value.absent(),
+                Value<String?> mockSessionId = const Value.absent(),
+                Value<String?> mockStageKey = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ExamAttemptsCompanion.insert(
                 createdAt: createdAt,
@@ -9435,6 +10312,11 @@ class $$ExamAttemptsTableTableManager
                 completedAtUtcMs: completedAtUtcMs,
                 durationSeconds: durationSeconds,
                 usedStudyMode: usedStudyMode,
+                questionCount: questionCount,
+                isCalibratedFullPack: isCalibratedFullPack,
+                contentVersion: contentVersion,
+                mockSessionId: mockSessionId,
+                mockStageKey: mockStageKey,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -11986,6 +12868,257 @@ typedef $$OutboxSyncQueueTableProcessedTableManager =
       OutboxSyncItemRow,
       PrefetchHooks Function()
     >;
+typedef $$MockSessionsTableCreateCompanionBuilder =
+    MockSessionsCompanion Function({
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      required String mockId,
+      Value<String> track,
+      required int startedAtUtcMs,
+      Value<bool> examMode,
+      Value<String> stageAttemptIdsJson,
+      Value<int> rowid,
+    });
+typedef $$MockSessionsTableUpdateCompanionBuilder =
+    MockSessionsCompanion Function({
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<String> mockId,
+      Value<String> track,
+      Value<int> startedAtUtcMs,
+      Value<bool> examMode,
+      Value<String> stageAttemptIdsJson,
+      Value<int> rowid,
+    });
+
+class $$MockSessionsTableFilterComposer
+    extends Composer<_$AppDatabase, $MockSessionsTable> {
+  $$MockSessionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mockId => $composableBuilder(
+    column: $table.mockId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get track => $composableBuilder(
+    column: $table.track,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get startedAtUtcMs => $composableBuilder(
+    column: $table.startedAtUtcMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get examMode => $composableBuilder(
+    column: $table.examMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get stageAttemptIdsJson => $composableBuilder(
+    column: $table.stageAttemptIdsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$MockSessionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $MockSessionsTable> {
+  $$MockSessionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mockId => $composableBuilder(
+    column: $table.mockId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get track => $composableBuilder(
+    column: $table.track,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startedAtUtcMs => $composableBuilder(
+    column: $table.startedAtUtcMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get examMode => $composableBuilder(
+    column: $table.examMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get stageAttemptIdsJson => $composableBuilder(
+    column: $table.stageAttemptIdsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MockSessionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MockSessionsTable> {
+  $$MockSessionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get mockId =>
+      $composableBuilder(column: $table.mockId, builder: (column) => column);
+
+  GeneratedColumn<String> get track =>
+      $composableBuilder(column: $table.track, builder: (column) => column);
+
+  GeneratedColumn<int> get startedAtUtcMs => $composableBuilder(
+    column: $table.startedAtUtcMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get examMode =>
+      $composableBuilder(column: $table.examMode, builder: (column) => column);
+
+  GeneratedColumn<String> get stageAttemptIdsJson => $composableBuilder(
+    column: $table.stageAttemptIdsJson,
+    builder: (column) => column,
+  );
+}
+
+class $$MockSessionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MockSessionsTable,
+          MockSessionRow,
+          $$MockSessionsTableFilterComposer,
+          $$MockSessionsTableOrderingComposer,
+          $$MockSessionsTableAnnotationComposer,
+          $$MockSessionsTableCreateCompanionBuilder,
+          $$MockSessionsTableUpdateCompanionBuilder,
+          (
+            MockSessionRow,
+            BaseReferences<_$AppDatabase, $MockSessionsTable, MockSessionRow>,
+          ),
+          MockSessionRow,
+          PrefetchHooks Function()
+        > {
+  $$MockSessionsTableTableManager(_$AppDatabase db, $MockSessionsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MockSessionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MockSessionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MockSessionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<String> mockId = const Value.absent(),
+                Value<String> track = const Value.absent(),
+                Value<int> startedAtUtcMs = const Value.absent(),
+                Value<bool> examMode = const Value.absent(),
+                Value<String> stageAttemptIdsJson = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MockSessionsCompanion(
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                mockId: mockId,
+                track: track,
+                startedAtUtcMs: startedAtUtcMs,
+                examMode: examMode,
+                stageAttemptIdsJson: stageAttemptIdsJson,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                required String mockId,
+                Value<String> track = const Value.absent(),
+                required int startedAtUtcMs,
+                Value<bool> examMode = const Value.absent(),
+                Value<String> stageAttemptIdsJson = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MockSessionsCompanion.insert(
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                mockId: mockId,
+                track: track,
+                startedAtUtcMs: startedAtUtcMs,
+                examMode: examMode,
+                stageAttemptIdsJson: stageAttemptIdsJson,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$MockSessionsTable, MockSessionRow>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $MockSessionsTable,
+                    MockSessionRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$MockSessionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MockSessionsTable,
+      MockSessionRow,
+      $$MockSessionsTableFilterComposer,
+      $$MockSessionsTableOrderingComposer,
+      $$MockSessionsTableAnnotationComposer,
+      $$MockSessionsTableCreateCompanionBuilder,
+      $$MockSessionsTableUpdateCompanionBuilder,
+      (
+        MockSessionRow,
+        BaseReferences<_$AppDatabase, $MockSessionsTable, MockSessionRow>,
+      ),
+      MockSessionRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -12014,4 +13147,6 @@ class $AppDatabaseManager {
       $$DailyStudyLogsTableTableManager(_db, _db.dailyStudyLogs);
   $$OutboxSyncQueueTableTableManager get outboxSyncQueue =>
       $$OutboxSyncQueueTableTableManager(_db, _db.outboxSyncQueue);
+  $$MockSessionsTableTableManager get mockSessions =>
+      $$MockSessionsTableTableManager(_db, _db.mockSessions);
 }

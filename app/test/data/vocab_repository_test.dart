@@ -46,4 +46,52 @@ void main() {
       SerialDay.fromUtcDateTime(clock.now()).addDays(1),
     );
   });
+
+  test('RR-20: sync updates definition and metadata while preserving SM-2 schedule', () async {
+    await repository.insertSyncedDeckCards([
+      <String, dynamic>{
+        'cardId': 'sync-c1',
+        'headword': 'mitigate',
+        'ipa': '/ˈmɪt.ɪ.ɡeɪt/',
+        'definition': 'old definition',
+        'topicTag': 'environment',
+        'contextSentence': 'Old sentence.',
+      },
+    ]);
+
+    final due = await repository.watchDueCards().first;
+    expect(due, hasLength(1));
+    final reviewed = await repository.recordReview(
+      card: due.single,
+      quality: ReviewQuality.easy,
+    );
+    expect(reviewed.repetitions, 1);
+    expect(reviewed.intervalDays, greaterThan(0));
+
+    // Re-sync from server with updated definition, IPA, topicTag, and contextSentence.
+    await repository.insertSyncedDeckCards([
+      <String, dynamic>{
+        'cardId': 'sync-c1',
+        'headword': 'mitigate',
+        'ipa': '/ˈmɪt.ɪ.ɡeɪt/',
+        'definition': 'make less severe or harmful',
+        'topicTag': 'policy',
+        'contextSentence': 'Targeted subsidies can mitigate energy costs.',
+      },
+    ]);
+
+    final updated = await db.vocabDao.getCardById('sync-c1');
+    expect(updated, isNotNull);
+    expect(updated!.definition, 'make less severe or harmful');
+    expect(updated.topicTag, 'policy');
+    expect(
+      updated.contextSentence,
+      'Targeted subsidies can mitigate energy costs.',
+    );
+    // Schedule progress preserved!
+    expect(updated.repetitions, reviewed.repetitions);
+    expect(updated.intervalDays, reviewed.intervalDays);
+    expect(updated.easeFactorMilli, reviewed.easeFactorMilli);
+    expect(updated.dueDay, reviewed.dueDay.value);
+  });
 }

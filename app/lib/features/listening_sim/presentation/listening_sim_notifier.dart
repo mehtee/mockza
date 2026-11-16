@@ -202,15 +202,17 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
   StreamSubscription<bool>? _playSub;
   DateTime? _sessionStartTime;
   bool _isDisposed = false;
+  AudioPlayerGateway? _player;
+  String? _activeAudioBlobUrl;
+  String? _mockSessionId;
+  String? _mockStageKey;
 
   @override
   ListeningSimState build() {
     _isDisposed = false;
+    _player = ref.read(audioPlayerGatewayProvider);
     _sessionStartTime = ref.read(clockProvider).now();
-    ref.onDispose(() {
-      _isDisposed = true;
-      unawaited(_cancelPlayerSubs());
-    });
+    ref.onDispose(_cleanupAll);
 
     return const ListeningSimState(
       packId: 'ielts-listening-seed-01',
@@ -233,7 +235,11 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
   Future<void> initialize(
     String packId, {
     bool isExamMode = true,
+    String? mockSessionId,
+    String? mockStageKey,
   }) async {
+    _mockSessionId = mockSessionId;
+    _mockStageKey = mockStageKey;
     await _cancelPlayerSubs();
     _sessionStartTime = ref.read(clockProvider).now();
 
@@ -283,7 +289,16 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
       final audioPath = spec.audioRelativePath.trim();
       if (audioPath.isNotEmpty) {
         final offlinePlayable = await resolveCachedAudioPlayableUrl(audioPath);
-        if (_isDisposed) return;
+        if (_isDisposed) {
+          if (offlinePlayable != null && offlinePlayable.startsWith('blob:')) {
+            await releasePlayableAudioUrl(offlinePlayable);
+          }
+          return;
+        }
+        await _releaseActiveBlobUrl();
+        if (offlinePlayable != null && offlinePlayable.startsWith('blob:')) {
+          _activeAudioBlobUrl = offlinePlayable;
+        }
         final resolvedUrl =
             offlinePlayable ?? editionConfig.resolveMediaUrl(audioPath);
         await _loadAudioUrl(resolvedUrl, isExamMode: isExamMode);
@@ -350,18 +365,54 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
     }, onError: (_) {});
   }
 
-  Future<void> _cancelPlayerSubs() async {
-    await _posSub?.cancel();
-    await _durSub?.cancel();
-    await _playSub?.cancel();
+  Future<void> _releaseActiveBlobUrl() async {
+    final blob = _activeAudioBlobUrl;
+    _activeAudioBlobUrl = null;
+    if (blob != null) {
+      await releasePlayableAudioUrl(blob);
+    }
+  }
+
+  void _cleanupAll() {
+    _isDisposed = true;
+    final posSub = _posSub;
+    final durSub = _durSub;
+    final playSub = _playSub;
     _posSub = null;
     _durSub = null;
     _playSub = null;
+    if (posSub != null) unawaited(posSub.cancel());
+    if (durSub != null) unawaited(durSub.cancel());
+    if (playSub != null) unawaited(playSub.cancel());
+
+    // Stop playback synchronously on captured gateway without calling `ref.read` (`RR-01`).
+    final player = _player;
+    if (player != null) {
+      unawaited(player.pause().then((_) {}, onError: (_) {}));
+    }
+    final blob = _activeAudioBlobUrl;
+    _activeAudioBlobUrl = null;
+    if (blob != null) {
+      unawaited(releasePlayableAudioUrl(blob));
+    }
+  }
+
+  Future<void> _cancelPlayerSubs() async {
+    final posSub = _posSub;
+    final durSub = _durSub;
+    final playSub = _playSub;
+    _posSub = null;
+    _durSub = null;
+    _playSub = null;
+    await posSub?.cancel();
+    await durSub?.cancel();
+    await playSub?.cancel();
     try {
-      await ref.read(audioPlayerGatewayProvider).pause();
+      await _player?.pause();
     } on Object {
       // Ignore uninitialized player on teardown.
     }
+    await _releaseActiveBlobUrl();
   }
 
   /// Toggles play / pause (in Exam Mode audio can start, and pauses are disabled once started).
@@ -509,12 +560,19 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
           ? clock.now().difference(_sessionStartTime!).inSeconds.clamp(5, 3600)
           : state.currentPosition.inSeconds.clamp(5, 3600);
 
+      final installedPack = await ref
+          .read(examCatalogRepositoryProvider)
+          .getInstalledPackById(pack.packId);
+      final nowUtcMs = clock.now().toUtc().millisecondsSinceEpoch;
+
       final submissionJson = jsonEncode({
         'packId': pack.packId,
         'title': pack.title,
         'correctCount': report.correctCount,
         'totalCount': report.totalCount,
         'overallBand': report.bandScore,
+        'isCalibratedFullPack': report.isCalibratedFullPack,
+        'usedStudyMode': !state.isExamMode,
         'questions': questionBreakdown,
       });
 
@@ -527,7 +585,23 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
         status: AttemptStatus.scored,
         examId: examId,
         startedAtUtcMs: _sessionStartTime?.toUtc().millisecondsSinceEpoch,
+        completedAtUtcMs: nowUtcMs,
+        durationSeconds: elapsedSeconds,
+        usedStudyMode: !state.isExamMode,
+        questionCount: report.totalCount,
+        isCalibratedFullPack: report.isCalibratedFullPack,
+        contentVersion: installedPack?.version,
+        mockSessionId: _mockSessionId,
+        mockStageKey: _mockStageKey,
       );
+
+      if (_mockSessionId != null && _mockStageKey != null) {
+        await attemptRepo.recordMockStageAttempt(
+          mockId: _mockSessionId!,
+          stageKey: _mockStageKey!,
+          attemptId: attemptId,
+        );
+      }
 
       await progressRepo.logTodayActivity(
         studySeconds: elapsedSeconds,

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { S3Client } from '@aws-sdk/client-s3';
 import type { OpenAPIHono } from '@hono/zod-openapi';
 import type { AppEnv } from '@mockza/config';
@@ -17,9 +17,21 @@ import {
   users,
 } from '@mockza/db';
 import { createAudioS3Client, deleteAllUserAudio } from '@mockza/storage';
-import { eq, inArray, or } from 'drizzle-orm';
+import { eq, inArray, or, sql } from 'drizzle-orm';
 import { createDeviceAuthMiddleware } from '../middleware/auth.js';
 import type { RequestVariables } from '../middleware/request-id.js';
+
+function hashReceiptToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+function verifyReceiptHash(token: string | undefined, expectedHex: string | null): boolean {
+  if (!token || !expectedHex) return false;
+  const actual = Buffer.from(hashReceiptToken(token), 'utf8');
+  const expected = Buffer.from(expectedHex, 'utf8');
+  if (actual.length !== expected.length) return false;
+  return timingSafeEqual(actual, expected);
+}
 
 export function registerAccountRoutes(
   app: OpenAPIHono<{ Variables: RequestVariables }>,
@@ -70,13 +82,25 @@ export function registerAccountRoutes(
         ? [...affectedDeviceIds, linkedUserId]
         : [...affectedDeviceIds];
       const erasureId = randomUUID();
+      const receiptToken = randomBytes(24).toString('base64url');
+      const receiptTokenHash = hashReceiptToken(receiptToken);
 
       await db.transaction(async (tx) => {
+        // Fence active signed uploads immediately before removing device rows (`RR-06`).
+        await tx
+          .update(devices)
+          .set({
+            erasingAt: new Date(),
+            uploadGeneration: sql`${devices.uploadGeneration} + 1`,
+          })
+          .where(inArray(devices.deviceId, affectedDeviceIds));
+
         await tx.insert(erasureRequests).values({
           erasureId,
           accountKey: linkedUserId ?? deviceId,
           deviceIdsJson: affectedDeviceIds,
           status: 'pending',
+          receiptTokenHash,
         });
 
         await tx.delete(questionFlags).where(inArray(questionFlags.deviceId, affectedDeviceIds));
@@ -145,6 +169,7 @@ export function registerAccountRoutes(
               'Account records were erased, but media storage deletion failed and has been queued for retry.',
             requestId: c.get('requestId'),
             erasureId,
+            receiptToken,
           },
           503,
         );
@@ -166,5 +191,85 @@ export function registerAccountRoutes(
       },
       200,
     );
+  });
+
+  // Receipt-authenticated erasure status & resume endpoint usable after device credentials are deleted (`RR-05`).
+  app.get('/v1/erasure/:erasureId', async (c) => {
+    const erasureId = c.req.param('erasureId');
+    const receipt = c.req.header('x-erasure-receipt');
+    if (!db) {
+      return c.json({ code: 'not_found', message: 'Erasure store unavailable.' }, 404);
+    }
+    const [row] = await db
+      .select()
+      .from(erasureRequests)
+      .where(eq(erasureRequests.erasureId, erasureId))
+      .limit(1);
+    if (!row || !verifyReceiptHash(receipt, row.receiptTokenHash)) {
+      return c.json({ code: 'unauthorized', message: 'Invalid or missing erasure receipt.' }, 401);
+    }
+    return c.json({
+      erasureId: row.erasureId,
+      status: row.status,
+      completed: row.status === 'completed',
+    });
+  });
+
+  app.post('/v1/erasure/:erasureId/retry', async (c) => {
+    const erasureId = c.req.param('erasureId');
+    const receipt = c.req.header('x-erasure-receipt');
+    if (!db) {
+      return c.json({ code: 'not_found', message: 'Erasure store unavailable.' }, 404);
+    }
+    const [row] = await db
+      .select()
+      .from(erasureRequests)
+      .where(eq(erasureRequests.erasureId, erasureId))
+      .limit(1);
+    if (!row || !verifyReceiptHash(receipt, row.receiptTokenHash)) {
+      return c.json({ code: 'unauthorized', message: 'Invalid or missing erasure receipt.' }, 401);
+    }
+    if (row.status === 'completed') {
+      return c.json({ success: true, erasureId: row.erasureId, status: 'completed' }, 200);
+    }
+
+    let purgedAudioCount = 0;
+    try {
+      for (const targetDevId of row.deviceIdsJson) {
+        purgedAudioCount += await deleteAllUserAudio({
+          client: internalS3,
+          bucket: env.S3_BUCKET,
+          deviceId: targetDevId,
+        });
+      }
+      await db
+        .update(erasureRequests)
+        .set({ status: 'completed', lastError: null, updatedAt: new Date() })
+        .where(eq(erasureRequests.erasureId, erasureId));
+
+      return c.json(
+        { success: true, erasureId: row.erasureId, status: 'completed', purgedAudioCount },
+        200,
+      );
+    } catch (s3Error) {
+      await db
+        .update(erasureRequests)
+        .set({
+          status: 'partial',
+          lastError: (s3Error as Error).message.slice(0, 500),
+          updatedAt: new Date(),
+        })
+        .where(eq(erasureRequests.erasureId, erasureId));
+
+      return c.json(
+        {
+          code: 'erasure_incomplete',
+          message: 'Media storage deletion still incomplete; retry with receipt.',
+          requestId: c.get('requestId'),
+          erasureId,
+        },
+        503,
+      );
+    }
   });
 }

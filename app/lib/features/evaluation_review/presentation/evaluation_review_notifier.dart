@@ -119,6 +119,8 @@ class EvaluationReviewState {
     this.flaggedQuestionIds = const <String>{},
     this.isRetrying = false,
     this.isFlagging = false,
+    this.isCalibratedFullPack = true,
+    this.usedStudyMode = false,
   });
 
   /// Reviewed attempt identifier.
@@ -199,6 +201,12 @@ class EvaluationReviewState {
   /// Whether a flag submission is currently running.
   final bool isFlagging;
 
+  /// True if the attempt used a full 40-item objective pack / full timed prompt (`RR-10`).
+  final bool isCalibratedFullPack;
+
+  /// True if completed in untimed Study Mode rather than Exam Mode (`RR-10`).
+  final bool usedStudyMode;
+
   /// Whether the attempt is still waiting for AI scoring.
   bool get isPendingRemote =>
       (skill == SkillKind.writing || skill == SkillKind.speaking) &&
@@ -240,6 +248,8 @@ class EvaluationReviewState {
     Set<String>? flaggedQuestionIds,
     bool? isRetrying,
     bool? isFlagging,
+    bool? isCalibratedFullPack,
+    bool? usedStudyMode,
   }) => EvaluationReviewState(
     attemptId: attemptId ?? this.attemptId,
     packId: packId ?? this.packId,
@@ -275,6 +285,8 @@ class EvaluationReviewState {
     flaggedQuestionIds: flaggedQuestionIds ?? this.flaggedQuestionIds,
     isRetrying: isRetrying ?? this.isRetrying,
     isFlagging: isFlagging ?? this.isFlagging,
+    isCalibratedFullPack: isCalibratedFullPack ?? this.isCalibratedFullPack,
+    usedStudyMode: usedStudyMode ?? this.usedStudyMode,
   );
 }
 
@@ -454,6 +466,12 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
       pollStageLabel: _defaultStageLabel(status, row.remoteJobId),
       errorMessage: row.errorCode,
       comparison: comparison,
+      isCalibratedFullPack:
+          row.isCalibratedFullPack &&
+          (submissionMap['isCalibratedFullPack'] as bool? ?? true),
+      usedStudyMode:
+          row.usedStudyMode ||
+          (submissionMap['usedStudyMode'] as bool? ?? false),
     );
 
     // If Waiting for remote AI evaluation, start polling or trigger outbox flush.

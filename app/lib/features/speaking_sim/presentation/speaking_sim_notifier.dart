@@ -6,7 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mockza/core/exams/countdown_clock_tracker.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/models/attempt_status.dart';
+import 'package:mockza/data/repositories/attempt_repository.dart';
 import 'package:mockza/providers.dart';
+import 'package:mockza/services/audio_player_gateway.dart';
+import 'package:mockza/services/audio_recorder_gateway.dart';
 import 'package:mockza/services/media_bytes_platform.dart';
 
 /// Phase of a Speaking prompt turn.
@@ -78,6 +81,8 @@ class SpeakingSimState {
     required this.isPlayingBack,
     required this.playingPromptId,
     required this.isSubmitting,
+    this.isEphemeralStorage = false,
+    this.hasStorageWarning = false,
     this.errorMessage,
   });
 
@@ -141,6 +146,12 @@ class SpeakingSimState {
   /// Whether audio upload & remote grading enqueueing is in flight.
   final bool isSubmitting;
 
+  /// Whether local database degraded to volatile RAM (Web private mode) (`RR-07`).
+  final bool isEphemeralStorage;
+
+  /// Whether durable clip storage reported an abort/quota failure (`RR-07`).
+  final bool hasStorageWarning;
+
   /// Optional non-fatal error message (offline load, permission, upload).
   final String? errorMessage;
 
@@ -196,6 +207,8 @@ class SpeakingSimState {
     String? playingPromptId,
     bool clearPlayingPrompt = false,
     bool? isSubmitting,
+    bool? isEphemeralStorage,
+    bool? hasStorageWarning,
     String? errorMessage,
     bool clearError = false,
   }) => SpeakingSimState(
@@ -221,6 +234,8 @@ class SpeakingSimState {
         ? null
         : (playingPromptId ?? this.playingPromptId),
     isSubmitting: isSubmitting ?? this.isSubmitting,
+    isEphemeralStorage: isEphemeralStorage ?? this.isEphemeralStorage,
+    hasStorageWarning: hasStorageWarning ?? this.hasStorageWarning,
     errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
   );
 }
@@ -234,16 +249,26 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
   StreamSubscription<double>? _ampSub;
   StreamSubscription<bool>? _playSub;
   String? _previewPath;
+  String? _activePlaybackBlobUrl;
   DateTime? _turnStartTime;
   DateTime? _sessionStartTime;
   bool _isDisposed = false;
   int _initGeneration = 0;
+  late AudioRecorderGateway _recorder;
+  late AudioPlayerGateway _player;
+  late AttemptRepository _attemptRepo;
+  String? _mockSessionId;
+  String? _mockStageKey;
 
   @override
   SpeakingSimState build() {
     _isDisposed = false;
     final entropy = ref.read(entropySourceProvider);
     final clock = ref.read(clockProvider);
+    // Capture resource owners while `ref` is active so disposal never calls `ref.read` (`RR-01`).
+    _recorder = ref.read(audioRecorderGatewayProvider);
+    _player = ref.read(audioPlayerGatewayProvider);
+    _attemptRepo = ref.read(attemptRepositoryProvider);
     _sessionStartTime = clock.now();
 
     ref.onDispose(_cleanupAll);
@@ -269,6 +294,7 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
       isPlayingBack: false,
       playingPromptId: null,
       isSubmitting: false,
+      isEphemeralStorage: ref.read(isDatabaseEphemeralProvider),
     );
   }
 
@@ -277,7 +303,11 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
   Future<void> initialize(
     String packId, {
     bool isExamMode = true,
+    String? mockSessionId,
+    String? mockStageKey,
   }) async {
+    _mockSessionId = mockSessionId;
+    _mockStageKey = mockStageKey;
     final entropy = ref.read(entropySourceProvider);
     final clock = ref.read(clockProvider);
     final gen = ++_initGeneration;
@@ -305,39 +335,60 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
       final bundleRes = await sync.ensureExamBundle(packId);
       if (_isDisposed || gen != _initGeneration) return;
 
-      bundleRes.when(
-        success: (bundle) {
-          final spec = catalog.parseSpeakingSession(bundle);
-          final prompts = spec.prompts;
-          final first = prompts.isNotEmpty ? prompts.first : null;
-          final prepSecs = first?.prepSeconds ?? 0;
-          final initialTotal = prepSecs > 0
-              ? prepSecs
-              : (first?.speakSeconds ?? 60);
+      if (bundleRes.isSuccess) {
+        final spec = catalog.parseSpeakingSession(bundleRes.valueOrNull!);
+        final prompts = spec.prompts;
+        final restored = await _restorePendingSession(
+          packId,
+          isExamMode: state.isExamMode,
+          prompts: prompts,
+        );
+        if (_isDisposed || gen != _initGeneration) return;
 
-          state = state.copyWith(
-            isLoadingPack: false,
-            sessionTitle: spec.title,
-            prompts: prompts,
-            currentTurnIndex: 0,
-            phase: SpeakingPhase.prepOrReady,
-            remainingSeconds: initialTotal,
-            totalSeconds: initialTotal,
-            clearError: true,
-          );
+        final targetIndex = restored?.turnIndex ?? 0;
+        final activePrompt = (targetIndex >= 0 && targetIndex < prompts.length)
+            ? prompts[targetIndex]
+            : (prompts.isNotEmpty ? prompts.first : null);
+        final hasClipForTarget =
+            activePrompt != null &&
+            (restored?.turns.containsKey(activePrompt.promptId) ?? false);
+        final prepSecs = hasClipForTarget
+            ? 0
+            : (activePrompt?.prepSeconds ?? 0);
+        final initialTotal = prepSecs > 0
+            ? prepSecs
+            : (activePrompt?.speakSeconds ?? 60);
 
-          if (prepSecs > 0) {
-            _startPrepCountdown(prepSecs);
-          }
-        },
-        failure: (f) {
-          state = state.copyWith(
-            isLoadingPack: false,
-            errorMessage:
-                'Could not load Speaking pack "$packId": ${f.message}. Check connection and retry.',
-          );
-        },
-      );
+        state = state.copyWith(
+          sessionId: restored?.sessionId ?? state.sessionId,
+          isLoadingPack: false,
+          sessionTitle: spec.title,
+          prompts: prompts,
+          currentTurnIndex: targetIndex.clamp(
+            0,
+            prompts.isEmpty ? 0 : prompts.length - 1,
+          ),
+          phase: hasClipForTarget
+              ? SpeakingPhase.recorded
+              : SpeakingPhase.prepOrReady,
+          remainingSeconds: initialTotal,
+          totalSeconds: initialTotal,
+          cueCardNotes: restored?.notes ?? state.cueCardNotes,
+          recordedTurns: restored?.turns ?? state.recordedTurns,
+          clearError: true,
+        );
+
+        if (!hasClipForTarget && prepSecs > 0) {
+          _startPrepCountdown(prepSecs);
+        }
+      } else {
+        final f = bundleRes.failureOrNull!;
+        state = state.copyWith(
+          isLoadingPack: false,
+          errorMessage:
+              'Could not load Speaking pack "$packId": ${f.message}. Check connection and retry.',
+        );
+      }
     } on Object catch (err) {
       if (_isDisposed) return;
       state = state.copyWith(
@@ -390,7 +441,7 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
     if (_isDisposed || state.isRecording || !state.hasMicPermission) return;
     if (state.isPreviewingMic) return;
 
-    final recorder = ref.read(audioRecorderGatewayProvider);
+    final recorder = _recorder;
     try {
       final previewPath = await createTempRecordingPath(
         'speaking_preview_${state.sessionId}.m4a',
@@ -426,9 +477,8 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
     _ampSub = null;
     if (state.isPreviewingMic) {
       try {
-        final res = await ref
-            .read(audioRecorderGatewayProvider)
-            .stopRecording();
+        final recorder = _recorder;
+        final res = await recorder.stopRecording();
         final path = res.valueOrNull ?? _previewPath;
         if (path != null && path.isNotEmpty) {
           await deleteRecordedAudioClip(path);
@@ -450,7 +500,7 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
 
   void _attachAmplitudeListener() {
     unawaited(_ampSub?.cancel());
-    final recorder = ref.read(audioRecorderGatewayProvider);
+    final recorder = _recorder;
     _ampSub = recorder.watchAmplitude().listen(
       (level) {
         if (_isDisposed) return;
@@ -502,7 +552,8 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
       _countdownTimer?.cancel();
       if (_clockForRecording && state.phase == SpeakingPhase.recording) {
         unawaited(finishResponse());
-      } else if (!_clockForRecording && state.phase == SpeakingPhase.prepOrReady) {
+      } else if (!_clockForRecording &&
+          state.phase == SpeakingPhase.prepOrReady) {
         unawaited(startSpeaking());
       }
     }
@@ -579,13 +630,18 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
     await _ampSub?.cancel();
     _ampSub = null;
 
-    final recorder = ref.read(audioRecorderGatewayProvider);
+    final recorder = _recorder;
     String? recordedPath;
+    String? stopFailureMessage;
     try {
       final stopRes = await recorder.stopRecording();
-      recordedPath = stopRes.valueOrNull;
-    } on Object {
-      recordedPath = null;
+      if (stopRes.isFailure) {
+        stopFailureMessage = stopRes.failureOrNull?.message;
+      } else {
+        recordedPath = stopRes.valueOrNull;
+      }
+    } on Object catch (err) {
+      stopFailureMessage = '$err';
     }
 
     if (_isDisposed) return;
@@ -599,17 +655,33 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
     final updatedTurns = Map<String, RecordedSpeakingTurn>.from(
       state.recordedTurns,
     );
+    var storageWarning = state.hasStorageWarning;
+    var errorMsg = stopFailureMessage;
+
     if (prompt != null && recordedPath != null && recordedPath.isNotEmpty) {
-      final durablePath = await persistRecordedAudioClip(
+      final previousTurn = updatedTurns[prompt.promptId];
+      final persisted = await persistRecordedAudioClipWithStatus(
         recordedPath,
         '${state.sessionId}_${prompt.promptId}',
+        mimeType: recorder.activeContentType,
       );
       if (_isDisposed) return;
+
+      if (previousTurn != null &&
+          previousTurn.localPathOrUrl != persisted.pathOrUrl) {
+        await deleteRecordedAudioClip(previousTurn.localPathOrUrl);
+      }
+
+      if (!persisted.isDurable) {
+        storageWarning = true;
+        errorMsg = persisted.errorMessage ?? 'Recording is held in temporary browser memory only; submit without closing this tab.';
+      }
+
       updatedTurns[prompt.promptId] = RecordedSpeakingTurn(
         partIndex: prompt.partIndex,
         promptId: prompt.promptId,
         promptText: prompt.promptText,
-        localPathOrUrl: durablePath,
+        localPathOrUrl: persisted.pathOrUrl,
         durationMs: elapsedMs,
         contentType: recorder.activeContentType,
       );
@@ -622,7 +694,14 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
       isSilent: false,
       isClipping: false,
       recordedTurns: updatedTurns,
+      hasStorageWarning: storageWarning,
+      errorMessage: errorMsg,
+      clearError: errorMsg == null,
     );
+
+    if (prompt != null && recordedPath != null && recordedPath.isNotEmpty) {
+      await _persistPendingSession();
+    }
   }
 
   /// Updates Part 2 scratchpad notes.
@@ -666,7 +745,7 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
     final turn = state.recordedTurns[promptId];
     if (turn == null) return;
 
-    final player = ref.read(audioPlayerGatewayProvider);
+    final player = _player;
     if (state.isPlayingBack && state.playingPromptId == promptId) {
       await player.pause();
       if (!_isDisposed) {
@@ -676,9 +755,39 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
     }
 
     await _stopPlaybackInternal();
-    final loadRes = await player.loadFile(turn.localPathOrUrl);
     if (_isDisposed) return;
+
+    // Materialize `idb://` clips into a MIME-typed `blob:` URL before calling `loadFile` (`RR-02`).
+    final String? playableSource;
+    if (turn.localPathOrUrl.startsWith('idb://')) {
+      playableSource = await resolveCachedAudioPlayableUrl(
+        turn.localPathOrUrl,
+        mimeType: turn.contentType,
+      );
+      if (_isDisposed) {
+        await releasePlayableAudioUrl(playableSource);
+        return;
+      }
+      if (playableSource == null || playableSource.isEmpty) {
+        state = state.copyWith(
+          errorMessage: 'Could not load saved recording from browser storage. Re-record this turn.',
+        );
+        return;
+      }
+      if (playableSource.startsWith('blob:')) {
+        _activePlaybackBlobUrl = playableSource;
+      }
+    } else {
+      playableSource = turn.localPathOrUrl;
+    }
+
+    final loadRes = await player.loadFile(playableSource);
+    if (_isDisposed) {
+      await _releaseActivePlaybackBlob();
+      return;
+    }
     if (loadRes.isFailure) {
+      await _releaseActivePlaybackBlob();
       state = state.copyWith(
         errorMessage: 'Could not play clip: ${loadRes.failureOrNull?.message}',
       );
@@ -701,16 +810,133 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
     await player.play();
   }
 
+  Future<void> _releaseActivePlaybackBlob() async {
+    final oldBlob = _activePlaybackBlobUrl;
+    _activePlaybackBlobUrl = null;
+    if (oldBlob != null) {
+      await releasePlayableAudioUrl(oldBlob);
+    }
+  }
+
   Future<void> _stopPlaybackInternal() async {
     unawaited(_playSub?.cancel());
     _playSub = null;
     try {
-      await ref.read(audioPlayerGatewayProvider).pause();
+      await _player.pause();
     } on Object {
       // Ignore if player uninitialized.
     }
+    await _releaseActivePlaybackBlob();
     if (!_isDisposed) {
       state = state.copyWith(isPlayingBack: false, clearPlayingPrompt: true);
+    }
+  }
+
+  Future<void> _persistPendingSession() async {
+    if (state.recordedTurns.isEmpty) return;
+    final orderedTurns = state.recordedTurns.values.toList()
+      ..sort((a, b) => a.partIndex.compareTo(b.partIndex));
+    try {
+      await _attemptRepo.savePendingSpeakingSession(
+        sessionId: state.sessionId,
+        packId: state.packId,
+        isExamMode: state.isExamMode,
+        startedAtUtcMs: _sessionStartTime?.toUtc().millisecondsSinceEpoch,
+        sessionJson: jsonEncode({
+          'packId': state.packId,
+          'sessionTitle': state.sessionTitle,
+          'isExamMode': state.isExamMode,
+          'currentTurnIndex': state.currentTurnIndex,
+          'cueCardNotes': state.cueCardNotes,
+          'turns': orderedTurns
+              .map(
+                (t) => <String, Object?>{
+                  'partIndex': t.partIndex,
+                  'promptId': t.promptId,
+                  'promptText': t.promptText,
+                  'localPathOrUrl': t.localPathOrUrl,
+                  'durationMs': t.durationMs,
+                  'contentType': t.contentType,
+                },
+              )
+              .toList(growable: false),
+        }),
+        recordings: orderedTurns
+            .map(
+              (t) => (
+                recordingId: '${state.sessionId}_${t.promptId}',
+                partIndex: t.partIndex,
+                localFilePath: t.localPathOrUrl,
+                durationMs: t.durationMs,
+              ),
+            )
+            .toList(growable: false),
+      );
+    } on Object {
+      // Non-fatal in headless widget tests without DB tables.
+    }
+  }
+
+  Future<
+    ({
+      String sessionId,
+      int turnIndex,
+      String notes,
+      Map<String, RecordedSpeakingTurn> turns,
+    })?
+  >
+  _restorePendingSession(
+    String packId, {
+    required bool isExamMode,
+    required List<SpeakingPromptSpec> prompts,
+  }) async {
+    try {
+      final row = await _attemptRepo.findLatestPendingSpeakingSession(
+        packId,
+        isExamMode: isExamMode,
+      );
+      if (row == null) return null;
+      final decoded = jsonDecode(row.submissionJson);
+      if (decoded is! Map<String, dynamic>) return null;
+      final rawTurns = decoded['turns'];
+      if (rawTurns is! List<dynamic> || rawTurns.isEmpty) return null;
+
+      final restoredTurns = <String, RecordedSpeakingTurn>{};
+      for (final item in rawTurns.whereType<Map<String, dynamic>>()) {
+        final promptId = (item['promptId'] as String?) ?? '';
+        final pathOrUrl = (item['localPathOrUrl'] as String?) ?? '';
+        if (promptId.isEmpty || pathOrUrl.isEmpty) continue;
+        // Verify durable bytes exist before restoring clip metadata (`RR-07`).
+        final bytes = await readRecordedAudioBytes(pathOrUrl);
+        if (bytes == null || bytes.isEmpty) continue;
+        restoredTurns[promptId] = RecordedSpeakingTurn(
+          partIndex: (item['partIndex'] as num?)?.toInt() ?? 1,
+          promptId: promptId,
+          promptText: (item['promptText'] as String?) ?? '',
+          localPathOrUrl: pathOrUrl,
+          durationMs: (item['durationMs'] as num?)?.toInt() ?? 1000,
+          contentType: (item['contentType'] as String?) ?? 'audio/mp4',
+        );
+      }
+      if (restoredTurns.isEmpty) return null;
+
+      var nextIndex = (decoded['currentTurnIndex'] as num?)?.toInt() ?? 0;
+      if (prompts.isNotEmpty) {
+        final firstUnrecorded = prompts.indexWhere(
+          (p) => !restoredTurns.containsKey(p.promptId),
+        );
+        if (firstUnrecorded >= 0) {
+          nextIndex = firstUnrecorded;
+        }
+      }
+      return (
+        sessionId: row.attemptId,
+        turnIndex: nextIndex,
+        notes: (decoded['cueCardNotes'] as String?) ?? '',
+        turns: restoredTurns,
+      );
+    } on Object {
+      return null;
     }
   }
 
@@ -755,10 +981,12 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
           ? 'full'
           : 'part${orderedTurns.first.partIndex}';
 
-      final turnEntries = orderedTurns.map((turn) {
-        final recordingId = entropy.nextUuidV4();
-        return (turn: turn, recordingId: recordingId);
-      }).toList(growable: false);
+      final turnEntries = orderedTurns
+          .map((turn) {
+            final recordingId = entropy.nextUuidV4();
+            return (turn: turn, recordingId: recordingId);
+          })
+          .toList(growable: false);
 
       final outboxTurnsPayload = turnEntries
           .map(
@@ -795,6 +1023,9 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
         'turns': outboxTurnsPayload,
       };
 
+      final installedPack = await ref
+          .read(examCatalogRepositoryProvider)
+          .getInstalledPackById(state.packId);
       // Persist parent Attempt, child AudioRecordings, and Outbox entry atomically BEFORE network I/O (`TD-18` & `TD-43`).
       final outboxId = await attemptRepo.saveDurableSubmissionWithOutbox(
         attemptId: attemptId,
@@ -807,6 +1038,9 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
         startedAtUtcMs: _sessionStartTime?.toUtc().millisecondsSinceEpoch,
         durationSeconds: elapsedSeconds,
         usedStudyMode: !state.isExamMode,
+        contentVersion: installedPack?.version,
+        mockSessionId: _mockSessionId,
+        mockStageKey: _mockStageKey,
         recordings: turnEntries
             .map(
               (e) => (
@@ -819,6 +1053,14 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
             )
             .toList(growable: false),
       );
+
+      if (_mockSessionId != null && _mockStageKey != null) {
+        await attemptRepo.recordMockStageAttempt(
+          mockId: _mockSessionId!,
+          stageKey: _mockStageKey!,
+          attemptId: attemptId,
+        );
+      }
 
       await progressRepo.logTodayActivity(
         studySeconds: elapsedSeconds,
@@ -930,20 +1172,25 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
   void _cleanupAll() {
     _isDisposed = true;
     _countdownTimer?.cancel();
-    unawaited(_ampSub?.cancel());
-    unawaited(_playSub?.cancel());
-    try {
-      unawaited(ref.read(audioRecorderGatewayProvider).stopRecording());
-    } on Object {
-      // Ignore if recorder uninitialized.
-    }
-    try {
-      unawaited(ref.read(audioPlayerGatewayProvider).pause());
-    } on Object {
-      // Ignore if player uninitialized.
+    final ampSub = _ampSub;
+    final playSub = _playSub;
+    _ampSub = null;
+    _playSub = null;
+    if (ampSub != null) unawaited(ampSub.cancel());
+    if (playSub != null) unawaited(playSub.cancel());
+
+    // Stop captured recorder & player directly without `ref.read` after disposal (`RR-01`).
+    unawaited(_recorder.stopRecording().then((_) {}, onError: (_) {}));
+    unawaited(_player.pause().then((_) {}, onError: (_) {}));
+    final blobUrl = _activePlaybackBlobUrl;
+    _activePlaybackBlobUrl = null;
+    if (blobUrl != null) {
+      unawaited(releasePlayableAudioUrl(blobUrl));
     }
     if (_previewPath != null) {
-      unawaited(deleteRecordedAudioClip(_previewPath!));
+      final path = _previewPath!;
+      _previewPath = null;
+      unawaited(deleteRecordedAudioClip(path));
     }
   }
 }

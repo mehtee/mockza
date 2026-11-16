@@ -15,6 +15,7 @@ import {
 import {
   aiQuestionExplanations,
   audioAssets,
+  catalogPacks,
   entitlements,
   evaluationJobs,
   examQuestions,
@@ -24,7 +25,7 @@ import {
 } from '@mockza/db';
 import { DomainError } from '@mockza/domain';
 import { createAudioS3Client, verifyUploadedAudioObject } from '@mockza/storage';
-import { and, eq, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, or, sql } from 'drizzle-orm';
 import type PgBoss from 'pg-boss';
 import { createDeviceAuthMiddleware } from '../middleware/auth.js';
 import type { RequestVariables } from '../middleware/request-id.js';
@@ -174,6 +175,10 @@ export function registerEvaluateRoutes(
         description: 'Forbidden attempt access.',
         content: { 'application/json': { schema: ApiErrorSchema } },
       },
+      404: {
+        description: 'Exam pack not found or unpublished.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
       409: {
         description: 'Attempt ID conflict with different input.',
         content: { 'application/json': { schema: ApiErrorSchema } },
@@ -211,14 +216,67 @@ export function registerEvaluateRoutes(
       );
     }
 
+    let effectivePayload = payload;
+    if (db) {
+      const edition = env.EDITION === 'irn' ? 'irn' : 'glb';
+      const [packRow] = await db
+        .select({
+          packId: catalogPacks.packId,
+          edition: catalogPacks.edition,
+          isPublished: catalogPacks.isPublished,
+        })
+        .from(catalogPacks)
+        .where(eq(catalogPacks.packId, payload.packId))
+        .limit(1);
+
+      if (packRow) {
+        if (!packRow.isPublished || (packRow.edition !== 'all' && packRow.edition !== edition)) {
+          return c.json(
+            {
+              code: 'not_found' as const,
+              message: `Exam pack ${payload.packId} is not published for this edition.`,
+              requestId: c.get('requestId'),
+            },
+            404,
+          );
+        }
+
+        const sections = await db
+          .select({
+            sectionIndex: examSections.sectionIndex,
+            sectionType: examSections.sectionType,
+            title: examSections.title,
+            contentText: examSections.contentText,
+          })
+          .from(examSections)
+          .where(eq(examSections.packId, payload.packId))
+          .orderBy(asc(examSections.sectionIndex));
+
+        const targetIndex = payload.taskType === 'task2Essay' ? 2 : 1;
+        const targetType = payload.taskType === 'task2Essay' ? 'task2' : 'task1';
+        const matchedSection =
+          sections.find((s) => s.sectionType === targetType) ??
+          sections.find((s) => s.sectionIndex === targetIndex) ??
+          sections[0];
+
+        if (matchedSection && matchedSection.contentText.trim().length > 0) {
+          effectivePayload = {
+            ...payload,
+            promptTitle: matchedSection.title || payload.promptTitle,
+            promptBody: matchedSection.contentText,
+          };
+        }
+      }
+    }
+
     const inputHash = sha256Canonical({
       skill: 'writing',
-      packId: payload.packId,
-      examId: payload.examId,
-      taskType: payload.taskType,
-      promptTitle: payload.promptTitle,
-      promptBody: payload.promptBody,
-      essayText: payload.essayText,
+      packId: effectivePayload.packId,
+      examId: effectivePayload.examId,
+      taskType: effectivePayload.taskType,
+      promptTitle: effectivePayload.promptTitle,
+      promptBody: effectivePayload.promptBody,
+      essayText: effectivePayload.essayText,
     });
 
     if (db) {
@@ -265,7 +323,9 @@ export function registerEvaluateRoutes(
       }
 
       const jobId = randomUUID();
-      const jobPayload = { jobId, ...payload };
+      const executionGeneration = 1;
+      const dispatchKey = `${effectivePayload.attemptId}:gen:${executionGeneration}`;
+      const jobPayload = { jobId, executionGeneration, ...effectivePayload };
 
       try {
         await db.transaction(async (tx) => {
@@ -273,28 +333,30 @@ export function registerEvaluateRoutes(
             db: tx,
             accountKey,
             deviceId,
-            attemptId: payload.attemptId,
+            attemptId: effectivePayload.attemptId,
             skill: 'writing',
           });
 
           await tx.insert(evaluationJobs).values({
             jobId,
-            attemptId: payload.attemptId,
+            attemptId: effectivePayload.attemptId,
             accountKey,
             deviceId,
-            packId: payload.packId,
-            examId: payload.examId,
-            taskType: payload.taskType,
+            packId: effectivePayload.packId,
+            examId: effectivePayload.examId,
+            taskType: effectivePayload.taskType,
             skill: 'writing',
             status: 'queued',
             stageDetail: 'Queued for AI evaluation',
             inputHash,
-            inputJson: payload,
+            inputJson: effectivePayload,
+            executionGeneration,
           });
 
           await tx.insert(jobDispatchOutbox).values({
             jobId,
             queueName: WRITING_QUEUE,
+            dispatchKey,
             payloadJson: jobPayload,
             status: 'pending',
           });
@@ -356,7 +418,7 @@ export function registerEvaluateRoutes(
         jobId,
         queueName: WRITING_QUEUE,
         payload: jobPayload,
-        singletonKey: payload.attemptId,
+        singletonKey: dispatchKey,
       });
 
       return c.json({ jobId, status: 'queued' as const }, 202);
@@ -587,7 +649,9 @@ export function registerEvaluateRoutes(
       }
 
       const jobId = randomUUID();
-      const jobPayload = { jobId, ...payload };
+      const executionGeneration = 1;
+      const dispatchKey = `${payload.attemptId}:gen:${executionGeneration}`;
+      const jobPayload = { jobId, executionGeneration, ...payload };
 
       try {
         await db.transaction(async (tx) => {
@@ -611,11 +675,13 @@ export function registerEvaluateRoutes(
             stageDetail: 'Queued for audio evaluation',
             inputHash,
             inputJson: payload,
+            executionGeneration,
           });
 
           await tx.insert(jobDispatchOutbox).values({
             jobId,
             queueName: SPEAKING_QUEUE,
+            dispatchKey,
             payloadJson: jobPayload,
             status: 'pending',
           });
@@ -677,7 +743,7 @@ export function registerEvaluateRoutes(
         jobId,
         queueName: SPEAKING_QUEUE,
         payload: jobPayload,
-        singletonKey: payload.attemptId,
+        singletonKey: dispatchKey,
       });
 
       return c.json({ jobId, status: 'queued' as const }, 202);
@@ -839,8 +905,13 @@ export function registerEvaluateRoutes(
 
       const queueName = job.skill === 'speaking' ? SPEAKING_QUEUE : WRITING_QUEUE;
       const storedInput = (job.inputJson ?? {}) as Record<string, unknown>;
-      const jobPayload = { jobId: job.jobId, ...storedInput };
-      const nextRetryGeneration = job.attemptsCount + 1;
+      const nextExecutionGeneration = job.executionGeneration + 1;
+      const dispatchKey = `${attemptId}:gen:${nextExecutionGeneration}`;
+      const jobPayload = {
+        jobId: job.jobId,
+        executionGeneration: nextExecutionGeneration,
+        ...storedInput,
+      };
 
       try {
         await db.transaction(async (tx) => {
@@ -859,7 +930,10 @@ export function registerEvaluateRoutes(
               status: 'queued',
               stageDetail: 'Retry queued for AI evaluation',
               errorCode: null,
-              attemptsCount: nextRetryGeneration,
+              executionGeneration: nextExecutionGeneration,
+              claimToken: null,
+              claimExpiresAt: null,
+              attemptsCount: job.attemptsCount + 1,
               updatedAt: new Date(),
             })
             .where(and(eq(evaluationJobs.jobId, job.jobId), eq(evaluationJobs.status, 'failed')))
@@ -871,6 +945,7 @@ export function registerEvaluateRoutes(
               .values({
                 jobId: job.jobId,
                 queueName,
+                dispatchKey,
                 payloadJson: jobPayload,
                 status: 'pending',
               })
@@ -878,6 +953,7 @@ export function registerEvaluateRoutes(
                 target: jobDispatchOutbox.jobId,
                 set: {
                   queueName,
+                  dispatchKey,
                   payloadJson: jobPayload,
                   status: 'pending',
                   updatedAt: new Date(),
@@ -900,7 +976,7 @@ export function registerEvaluateRoutes(
         jobId: job.jobId,
         queueName,
         payload: jobPayload,
-        singletonKey: `${attemptId}:retry:${nextRetryGeneration}`,
+        singletonKey: dispatchKey,
       });
 
       return c.json({ jobId: job.jobId, status: 'queued' as const }, 202);
@@ -1005,28 +1081,39 @@ export function registerEvaluateRoutes(
         );
       }
 
-      // Verify authoritative published question BEFORE cache lookup/generation (`TD-59`).
-      const [qRow] = await db
-        .select()
+      const edition = env.EDITION === 'irn' ? 'irn' : 'glb';
+      // Verify authoritative PUBLISHED question & pack version BEFORE cache lookup/generation (`RR-18`, `TD-59`).
+      const [row] = await db
+        .select({
+          question: examQuestions,
+          packVersion: catalogPacks.version,
+          packSkill: catalogPacks.skill,
+        })
         .from(examQuestions)
+        .innerJoin(catalogPacks, eq(examQuestions.packId, catalogPacks.packId))
         .where(
           and(
             eq(examQuestions.questionId, payload.questionId),
             eq(examQuestions.packId, payload.packId),
+            eq(catalogPacks.isPublished, true),
+            inArray(catalogPacks.edition, [edition, 'all']),
           ),
         )
         .limit(1);
 
-      if (!qRow) {
+      const qRow = row?.question;
+      if (!qRow || !row || (row.packSkill !== payload.skill && row.packSkill !== 'fullMock')) {
         return c.json(
           {
             code: 'not_found' as const,
-            message: `Question ${payload.questionId} was not found in pack ${payload.packId}.`,
+            message: `Published question ${payload.questionId} was not found in pack ${payload.packId}.`,
             requestId: c.get('requestId'),
           },
           404,
         );
       }
+
+      const authoritativePackVersion = row.packVersion;
 
       const cached = await db
         .select({ explanationJson: aiQuestionExplanations.explanationJson })
@@ -1034,7 +1121,7 @@ export function registerEvaluateRoutes(
         .where(
           and(
             eq(aiQuestionExplanations.questionId, payload.questionId),
-            eq(aiQuestionExplanations.packVersion, payload.packVersion),
+            eq(aiQuestionExplanations.packVersion, authoritativePackVersion),
           ),
         )
         .limit(1);
@@ -1071,9 +1158,17 @@ export function registerEvaluateRoutes(
         passageExcerpt = secRow.contentText.slice(0, 1500);
       }
 
-      // Generate question-generic explanation (never embedding one learner's wrong answer into shared cache `TD-59`).
+      const authoritativeSkill =
+        row.packSkill === 'listening' || row.packSkill === 'reading'
+          ? row.packSkill
+          : payload.skill;
+
+      // Generate question-generic explanation using authoritative DB metadata (`RR-18`, `TD-59`).
       const generatedExplanation = await explainQuestionGraph.invoke({
         ...payload,
+        packVersion: authoritativePackVersion,
+        questionType: qRow.questionType,
+        skill: authoritativeSkill,
         userAnswer: '',
         correctAnswer: correctAnswer || undefined,
         questionPrompt: questionPrompt || undefined,
@@ -1091,7 +1186,7 @@ export function registerEvaluateRoutes(
         .insert(aiQuestionExplanations)
         .values({
           questionId: payload.questionId,
-          packVersion: payload.packVersion,
+          packVersion: authoritativePackVersion,
           skill: payload.skill,
           explanationJson: responsePayload,
         })
@@ -1100,7 +1195,13 @@ export function registerEvaluateRoutes(
       return c.json(ExplainQuestionResponseSchema.parse(responsePayload), 200);
     }
 
-    const generated = await explainQuestionGraph.invoke(payload);
-    return c.json(generated, 200);
+    return c.json(
+      {
+        code: 'not_found' as const,
+        message: 'Database unavailable for authoritative question lookup.',
+        requestId: c.get('requestId'),
+      },
+      404,
+    );
   });
 }

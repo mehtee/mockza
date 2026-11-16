@@ -401,8 +401,12 @@ class _OverviewTab extends StatelessWidget {
                   ),
                   MzChip(
                     label: isAiSkill
-                        ? 'AI Estimated Band'
-                        : 'Objective Answer Key',
+                        ? (state.usedStudyMode
+                              ? 'AI Study Mode Estimate'
+                              : 'AI Estimated Band')
+                        : (!state.isCalibratedFullPack || state.usedStudyMode)
+                        ? 'Practice Estimate (${state.objectiveTotalCount} items)'
+                        : 'Answer Key (${state.objectiveTotalCount} items)',
                     glyph: isAiSkill
                         ? LucideGlyph.sparkles
                         : LucideGlyph.checkCircle2,
@@ -427,7 +431,9 @@ class _OverviewTab extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
                           Text(
-                            'Estimated IELTS Band',
+                            (state.isCalibratedFullPack && !state.usedStudyMode)
+                                ? 'Estimated IELTS Band'
+                                : 'Uncalibrated Practice Estimate',
                             style: typography.cardTitle.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
@@ -440,6 +446,18 @@ class _OverviewTab extends StatelessWidget {
                               color: colors.textSecondary,
                             ),
                           ),
+                          if (!state.isCalibratedFullPack ||
+                              state.usedStudyMode) ...<Widget>[
+                            const SizedBox(height: SpacingTokens.xs),
+                            Text(
+                              state.usedStudyMode
+                                  ? 'Study Mode attempts are excluded from calibrated dashboard band estimates.'
+                                  : 'Scaled from a ${state.objectiveTotalCount}-item practice passage; excluded from calibrated 40-item IELTS averages.',
+                              style: typography.caption.copyWith(
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

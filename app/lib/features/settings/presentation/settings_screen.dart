@@ -35,6 +35,7 @@ class SettingsScreen extends ConsumerWidget {
     return MzScaffold(
       appBar: AppBar(
         leading: IconButton(
+          tooltip: 'Back',
           icon: const AppIcon(LucideGlyph.chevronLeft, size: 22),
           onPressed: () {
             if (context.canPop()) {
@@ -48,42 +49,47 @@ class SettingsScreen extends ConsumerWidget {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsetsDirectional.all(SpacingTokens.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            _buildSectionHeader(context, 'Exam Calibration'),
-            const SizedBox(height: SpacingTokens.sm),
-            _buildCalibrationCard(context, state, notifier),
-            const SizedBox(height: SpacingTokens.xl),
-            _buildSectionHeader(context, 'Appearance'),
-            const SizedBox(height: SpacingTokens.sm),
-            _buildThemeCard(context, state, notifier),
-            const SizedBox(height: SpacingTokens.xl),
-            _buildSectionHeader(context, 'Subscription & Daily Quota'),
-            const SizedBox(height: SpacingTokens.sm),
-            _buildSubscriptionCard(context, state, notifier),
-            const SizedBox(height: SpacingTokens.xl),
-            _buildSectionHeader(context, 'Account & Privacy'),
-            const SizedBox(height: SpacingTokens.sm),
-            _buildAccountCard(context, state, notifier),
-            const SizedBox(height: SpacingTokens.xl),
-            _buildSectionHeader(context, 'Offline Storage'),
-            const SizedBox(height: SpacingTokens.sm),
-            _buildStorageCard(
-              context,
-              state: state,
-              notifier: notifier,
-              cacheBytes: cacheBytes,
-              cachedPacksCount: cachedPacksCount,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                _buildSectionHeader(context, 'Exam Calibration'),
+                const SizedBox(height: SpacingTokens.sm),
+                _buildCalibrationCard(context, state, notifier),
+                const SizedBox(height: SpacingTokens.xl),
+                _buildSectionHeader(context, 'Appearance'),
+                const SizedBox(height: SpacingTokens.sm),
+                _buildThemeCard(context, state, notifier),
+                const SizedBox(height: SpacingTokens.xl),
+                _buildSectionHeader(context, 'Subscription & Daily Quota'),
+                const SizedBox(height: SpacingTokens.sm),
+                _buildSubscriptionCard(context, state, notifier),
+                const SizedBox(height: SpacingTokens.xl),
+                _buildSectionHeader(context, 'Account & Privacy'),
+                const SizedBox(height: SpacingTokens.sm),
+                _buildAccountCard(context, state, notifier),
+                const SizedBox(height: SpacingTokens.xl),
+                _buildSectionHeader(context, 'Offline Storage'),
+                const SizedBox(height: SpacingTokens.sm),
+                _buildStorageCard(
+                  context,
+                  state: state,
+                  notifier: notifier,
+                  cacheBytes: cacheBytes,
+                  cachedPacksCount: cachedPacksCount,
+                ),
+                const SizedBox(height: SpacingTokens.xl),
+                _buildDisclaimerCard(context),
+                const SizedBox(height: SpacingTokens.xl),
+                _buildDangerZone(context, state, notifier),
+                const SizedBox(height: SpacingTokens.xxl),
+                _buildFooter(context, state),
+                const SizedBox(height: SpacingTokens.xxl),
+              ],
             ),
-            const SizedBox(height: SpacingTokens.xl),
-            _buildDisclaimerCard(context),
-            const SizedBox(height: SpacingTokens.xl),
-            _buildDangerZone(context, state, notifier),
-            const SizedBox(height: SpacingTokens.xxl),
-            _buildFooter(context, state),
-            const SizedBox(height: SpacingTokens.xxl),
-          ],
+          ),
         ),
       ),
     );
@@ -134,15 +140,19 @@ class SettingsScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              Switch(
-                value: state.examModule == ExamModuleType.academic,
-                onChanged: (val) {
-                  notifier.setExamModule(
-                    val
-                        ? ExamModuleType.academic
-                        : ExamModuleType.generalTraining,
-                  );
-                },
+              Semantics(
+                toggled: state.examModule == ExamModuleType.academic,
+                label: 'Toggle Academic vs General Training track',
+                child: Switch(
+                  value: state.examModule == ExamModuleType.academic,
+                  onChanged: (val) {
+                    notifier.setExamModule(
+                      val
+                          ? ExamModuleType.academic
+                          : ExamModuleType.generalTraining,
+                    );
+                  },
+                ),
               ),
             ],
           ),
@@ -161,7 +171,7 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                     ),
                     Text(
-                      'Overall goal calibrated in rubrics',
+                      'Personal goal used for progress tracking',
                       style: typography.caption.copyWith(
                         color: colors.textSecondary,
                       ),
@@ -170,6 +180,7 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               IconButton(
+                tooltip: 'Decrease target band score',
                 icon: const Icon(Icons.remove_circle_outline),
                 onPressed: state.targetBand > 5.0
                     ? () => notifier.setTargetBand(state.targetBand - 0.5)
@@ -180,6 +191,7 @@ class SettingsScreen extends ConsumerWidget {
                 style: typography.cardTitle.copyWith(color: colors.primary),
               ),
               IconButton(
+                tooltip: 'Increase target band score',
                 icon: const Icon(Icons.add_circle_outline),
                 onPressed: state.targetBand < 9.0
                     ? () => notifier.setTargetBand(state.targetBand + 0.5)
@@ -244,7 +256,9 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: SpacingTokens.md),
           Text(
-            'Daily Evaluation Quota',
+            state.isPro
+                ? 'Daily Evaluation Quota'
+                : 'Free Diagnostic Allowance',
             style: typography.body.copyWith(
               color: colors.textPrimary,
               fontWeight: FontWeight.w600,
@@ -252,7 +266,11 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: SpacingTokens.xs),
           Text(
-            '${state.speakingRemaining} Speaking & ${state.writingRemaining} Writing evaluations remaining today.',
+            state.isPro
+                ? '${state.speakingRemaining} Speaking & ${state.writingRemaining} Writing evaluations remaining today.'
+                : ((state.speakingRemaining > 0 || state.writingRemaining > 0)
+                      ? '1 shared free diagnostic AI evaluation remaining (Speaking or Writing).'
+                      : 'Free diagnostic AI evaluation used. Upgrade to Pro for 10 Speaking + 10 Writing evaluations daily.'),
             style: typography.caption.copyWith(color: colors.textSecondary),
           ),
           const SizedBox(height: SpacingTokens.md),

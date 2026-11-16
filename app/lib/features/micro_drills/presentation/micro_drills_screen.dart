@@ -84,6 +84,7 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
           backgroundColor: colors.background,
           elevation: 0,
           leading: IconButton(
+            tooltip: 'Back',
             icon: const AppIcon(LucideGlyph.x, size: 20),
             onPressed: () {
               if (canPopSafely) {
@@ -97,16 +98,26 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
               }
             },
           ),
-          title: Text(activeSpec?.title ?? 'Micro-Drills'),
+          title: Text(
+            activeSpec?.title ?? 'Micro-Drills',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           actions: <Widget>[
             if (activeSpec != null && !state.isFinished)
               Padding(
                 padding: const EdgeInsetsDirectional.only(
-                  end: SpacingTokens.md,
+                  end: SpacingTokens.sm,
                 ),
-                child: TimerBar(
-                  remainingSeconds: state.remainingSeconds,
-                  totalSeconds: activeSpec.durationSeconds,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 140),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: TimerBar(
+                      remainingSeconds: state.remainingSeconds,
+                      totalSeconds: activeSpec.durationSeconds,
+                    ),
+                  ),
                 ),
               ),
           ],
@@ -177,7 +188,7 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
                           MzChip(
-                            label: drill.weaknessCode,
+                            label: drill.displayCategoryLabel,
                             variant: MzChipVariant.target,
                           ),
                           const SizedBox(height: SpacingTokens.sm),
@@ -233,8 +244,13 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
           const SizedBox(height: SpacingTokens.md),
           Row(
             children: <Widget>[
-              MzChip(label: spec.weaknessCode, variant: MzChipVariant.target),
-              const Spacer(),
+              Flexible(
+                child: MzChip(
+                  label: spec.displayCategoryLabel,
+                  variant: MzChipVariant.target,
+                ),
+              ),
+              const SizedBox(width: SpacingTokens.sm),
               Text(
                 'Question ${state.currentIndex + 1} of ${spec.items.length}',
                 style: typography.caption.copyWith(
@@ -249,7 +265,7 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'Complete the Sentence',
+                  spec.itemHeaderTitle,
                   style: typography.cardTitle.copyWith(
                     color: colors.textPrimary,
                   ),
@@ -481,7 +497,7 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
           ),
           const SizedBox(height: SpacingTokens.xs),
           Text(
-            '${state.score} of ${spec.items.length} correct ($percentage%) · ${spec.weaknessCode}',
+            '${state.score} of ${spec.items.length} correct ($percentage%) · ${spec.displayCategoryLabel}',
             textAlign: TextAlign.center,
             style: typography.body.copyWith(color: colors.textSecondary),
           ),

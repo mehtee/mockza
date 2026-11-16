@@ -361,4 +361,157 @@ describe('@mockza/ai model registry, fail-closed guarantees, and audio processor
       prepareAudioForModel(Buffer.from('not-an-audio-file-at-all'), 'clip.webm'),
     ).rejects.toMatchObject({ code: 'audio_missing' });
   });
+
+  it('RR-18: rejects duplicate/mismatched criterion codes and strips ungrounded writing edits', async () => {
+    await expect(
+      gradeWritingGraph.invoke(
+        {
+          attemptId: '123e4567-e89b-12d3-a456-426614174101',
+          packId: 'writing-pack-01',
+          examId: 'ielts_academic',
+          taskType: 'task1Academic',
+          promptTitle: 'Chart Comparison',
+          promptBody: 'Summarize the chart.',
+          essayText: 'The bar chart illustrates urban energy usage across four decades.',
+        },
+        {
+          client: {
+            async createChatCompletion() {
+              return {
+                id: 'bad-code',
+                choices: [
+                  {
+                    finish_reason: 'stop',
+                    message: {
+                      role: 'assistant',
+                      content: JSON.stringify({
+                        criteria: [
+                          {
+                            code: 'TR',
+                            label: 'Task Response',
+                            band: 7,
+                            evidenceExcerpt: 'bar chart',
+                            feedbackNote: 'Wrong code for Task 1.',
+                          },
+                          {
+                            code: 'CC',
+                            label: 'Coherence',
+                            band: 7,
+                            evidenceExcerpt: 'across',
+                            feedbackNote: 'Ok.',
+                          },
+                          {
+                            code: 'LR',
+                            label: 'Lexis',
+                            band: 7,
+                            evidenceExcerpt: 'illustrates',
+                            feedbackNote: 'Ok.',
+                          },
+                          {
+                            code: 'GRA',
+                            label: 'Grammar',
+                            band: 7,
+                            evidenceExcerpt: 'four decades',
+                            feedbackNote: 'Ok.',
+                          },
+                        ],
+                      }),
+                    },
+                  },
+                ],
+              };
+            },
+          },
+        },
+      ),
+    ).rejects.toThrow('expected TA, CC, LR, GRA');
+
+    const essayText = 'Urban energy usage rose sharply across four decades.';
+    const sanitized = await gradeWritingGraph.invoke(
+      {
+        attemptId: '123e4567-e89b-12d3-a456-426614174102',
+        packId: 'writing-pack-01',
+        examId: 'ielts_academic',
+        taskType: 'task2Essay',
+        promptTitle: 'Energy',
+        promptBody: 'Discuss energy trends.',
+        essayText,
+      },
+      {
+        client: {
+          async createChatCompletion() {
+            return {
+              id: 'mixed-edits',
+              choices: [
+                {
+                  finish_reason: 'stop',
+                  message: {
+                    role: 'assistant',
+                    content: JSON.stringify({
+                      criteria: [
+                        {
+                          code: 'TR',
+                          label: 'Task Response',
+                          band: 7,
+                          evidenceExcerpt: 'Urban energy usage',
+                          feedbackNote: 'Clear focus.',
+                        },
+                        {
+                          code: 'CC',
+                          label: 'Coherence',
+                          band: 7,
+                          evidenceExcerpt: 'rose sharply',
+                          feedbackNote: 'Logical.',
+                        },
+                        {
+                          code: 'LR',
+                          label: 'Lexis',
+                          band: 7,
+                          evidenceExcerpt: 'four decades',
+                          feedbackNote: 'Natural.',
+                        },
+                        {
+                          code: 'GRA',
+                          label: 'Grammar',
+                          band: 7,
+                          evidenceExcerpt: 'across four decades',
+                          feedbackNote: 'Accurate.',
+                        },
+                      ],
+                      inlineEdits: [
+                        {
+                          editId: 'bad-offset-hallucinated',
+                          startOffset: 999,
+                          endOffset: 1020,
+                          originalText: 'nonexistent phrase',
+                          suggestedText: 'better phrase',
+                          criterionCode: 'LR',
+                          rationale: 'Hallucinated span should be stripped.',
+                        },
+                        {
+                          editId: 'drifted-but-unique',
+                          startOffset: 0,
+                          endOffset: 4,
+                          originalText: 'rose sharply',
+                          suggestedText: 'increased markedly',
+                          criterionCode: 'LR',
+                          rationale: 'Snaps cleanly to unique verbatim match.',
+                        },
+                      ],
+                    }),
+                  },
+                },
+              ],
+            };
+          },
+        },
+      },
+    );
+    expect(sanitized.inlineEdits).toHaveLength(1);
+    const firstEdit = sanitized.inlineEdits?.[0];
+    expect(firstEdit?.editId).toBe('drifted-but-unique');
+    expect(firstEdit ? essayText.slice(firstEdit.startOffset, firstEdit.endOffset) : '').toBe(
+      'rose sharply',
+    );
+  });
 });

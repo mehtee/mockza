@@ -36,6 +36,13 @@
       "when": 1794836094716,
       "tag": "0004_massive_silver_centurion",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794844003987,
+      "tag": "0005_phase7_fencing_and_reconciliation",
+      "breakpoints": true
     }
   ]
 }

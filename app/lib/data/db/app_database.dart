@@ -22,6 +22,7 @@ part 'app_database.g.dart';
     VocabReviewLogs,
     DailyStudyLogs,
     OutboxSyncQueue,
+    MockSessions,
   ],
   daos: [AttemptDao, VocabDao, CatalogDao, ProgressDao],
 )
@@ -30,7 +31,7 @@ class AppDatabase extends _$AppDatabase {
   new(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -77,6 +78,14 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(examPayloads);
         await m.createTable(cachedDrills);
       }
+      if (from < 4) {
+        await m.addColumn(examAttempts, examAttempts.questionCount);
+        await m.addColumn(examAttempts, examAttempts.isCalibratedFullPack);
+        await m.addColumn(examAttempts, examAttempts.contentVersion);
+        await m.addColumn(examAttempts, examAttempts.mockSessionId);
+        await m.addColumn(examAttempts, examAttempts.mockStageKey);
+        await m.createTable(mockSessions);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON;');
@@ -102,6 +111,7 @@ class AppDatabase extends _$AppDatabase {
     await delete(cachedDrills).go();
     await delete(examPacks).go();
     await delete(vocabCards).go();
+    await delete(mockSessions).go();
     await delete(userProfiles).go();
   });
 }

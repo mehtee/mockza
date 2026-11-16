@@ -124,22 +124,26 @@ abstract final class LocalObjectiveScorer {
     if (text.isEmpty) return '';
 
     // Token-level normalization preserving decimals (3.5), currency ($12.50, £5), % (25%), and times (10:30)
-    final tokens = text.split(' ').map((token) {
-      var cleanToken = token;
-      // Strip leading/trailing punctuation EXCEPT leading currency ($ £ €) or trailing %
-      cleanToken = cleanToken.replaceFirst(RegExp(r"^[^\w$£€']+"), '');
-      cleanToken = cleanToken.replaceFirst(RegExp(r'[^\w%]+$'), '');
-      // Strip internal commas in formatted numbers (e.g. 1,250 -> 1250)
-      cleanToken = cleanToken.replaceAllMapped(
-        RegExp(r'(\d),(\d)'),
-        (m) => '${m.group(1)}${m.group(2)}',
-      );
-      final usEquivalent = ukToUsSpellings[cleanToken];
-      if (usEquivalent != null) return usEquivalent;
-      final digitEquivalent = wordToDigits[cleanToken];
-      if (digitEquivalent != null) return digitEquivalent;
-      return cleanToken;
-    }).where((t) => t.isNotEmpty).toList();
+    final tokens = text
+        .split(' ')
+        .map((token) {
+          var cleanToken = token;
+          // Strip leading/trailing punctuation EXCEPT leading currency ($ £ €) or trailing %
+          cleanToken = cleanToken.replaceFirst(RegExp(r"^[^\w$£€']+"), '');
+          cleanToken = cleanToken.replaceFirst(RegExp(r'[^\w%]+$'), '');
+          // Strip internal commas in formatted numbers (e.g. 1,250 -> 1250)
+          cleanToken = cleanToken.replaceAllMapped(
+            RegExp(r'(\d),(\d)'),
+            (m) => '${m.group(1)}${m.group(2)}',
+          );
+          final usEquivalent = ukToUsSpellings[cleanToken];
+          if (usEquivalent != null) return usEquivalent;
+          final digitEquivalent = wordToDigits[cleanToken];
+          if (digitEquivalent != null) return digitEquivalent;
+          return cleanToken;
+        })
+        .where((t) => t.isNotEmpty)
+        .toList();
 
     return tokens.join(' ').trim();
   }

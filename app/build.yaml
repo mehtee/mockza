@@ -7,4 +7,4 @@ targets:
             - lib/data/db/**.dart
             - lib/data/daos/**.dart
         options:
-          store_date_time_values_as_text: true
+          store_date_time_values_as_text: false

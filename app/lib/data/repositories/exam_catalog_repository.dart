@@ -607,9 +607,7 @@ final class ExamCatalogRepository {
           }
           return MicroDrillItemSpec(
             itemId:
-                (item['itemId'] as String?) ??
-                (item['id'] as String?) ??
-                '',
+                (item['itemId'] as String?) ?? (item['id'] as String?) ?? '',
             prompt: (item['prompt'] as String?) ?? '',
             options: opts.map((o) => o.toString()).toList(growable: false),
             acceptedAnswers: accepted,

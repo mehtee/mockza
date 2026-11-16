@@ -73,7 +73,7 @@ class PracticeHubScreen extends ConsumerWidget {
                       Text('Practice Hub', style: typography.headline),
                       const SizedBox(height: SpacingTokens.xs),
                       Text(
-                        'Postgres exam catalog • Download for offline',
+                        'Offline exam library • Sync & download packs',
                         style: typography.secondary.copyWith(
                           color: colors.textSecondary,
                         ),
@@ -378,7 +378,8 @@ class PracticeHubScreen extends ConsumerWidget {
                   ...drills.map(
                     (drill) => TaskCard(
                       title: drill.title,
-                      subtitle: '${drill.weaknessCode} • ${drill.subtitle}',
+                      subtitle:
+                          '${drill.displayCategoryLabel} • ${drill.subtitle}',
                       glyph: LucideGlyph.chartIncreasing,
                       tint: IconWellTint.neutral,
                       durationText:

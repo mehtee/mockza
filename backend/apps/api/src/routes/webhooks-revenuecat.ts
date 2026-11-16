@@ -2,7 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { type OpenAPIHono, z } from '@hono/zod-openapi';
 import type { AppEnv } from '@mockza/config';
 import { devices, entitlements, type MockzaDb, users, webhookEvents } from '@mockza/db';
-import { eq, inArray, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull, lte, or } from 'drizzle-orm';
 import type { RequestVariables } from '../middleware/request-id.js';
 
 const SUPPORTED_PRO_PRODUCTS = new Set<string>([
@@ -23,11 +23,12 @@ const GRANT_EVENT_TYPES = new Set<string>([
 
 const REVOKE_EVENT_TYPES = new Set<string>(['EXPIRATION', 'REFUND', 'REVOKE']);
 
-const RevenueCatEventSchema = z.object({
+export const RevenueCatEventSchema = z.object({
   id: z.string().min(1),
   type: z.string().min(1),
   app_user_id: z.string().optional(),
   aliases: z.array(z.string()).optional(),
+  transferred_from: z.array(z.string()).optional(),
   transferred_to: z.array(z.string()).optional(),
   product_id: z.string().optional(),
   entitlement_ids: z.array(z.string()).optional(),
@@ -35,6 +36,8 @@ const RevenueCatEventSchema = z.object({
   grace_period_expires_date_ms: z.number().finite().nullable().optional(),
   event_timestamp_ms: z.number().finite().optional(),
 });
+
+export type RevenueCatEvent = z.infer<typeof RevenueCatEventSchema>;
 
 function constantTimeBearerMatch(header: string | undefined, expectedSecret: string): boolean {
   if (!header || !expectedSecret) return false;
@@ -46,6 +49,218 @@ function constantTimeBearerMatch(header: string | undefined, expectedSecret: str
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type DbTx = Parameters<Parameters<MockzaDb['transaction']>[0]>[0] | MockzaDb;
+
+async function findMatchingDevicesForIds(
+  tx: DbTx,
+  rawIds: Array<string | undefined>,
+): Promise<Array<{ deviceId: string; linkedUserId: string | null }>> {
+  const validIds = Array.from(
+    new Set(rawIds.filter((id): id is string => Boolean(id && UUID_REGEX.test(id)))),
+  );
+  if (validIds.length === 0) return [];
+
+  const matchingUsers = await tx
+    .select({ userId: users.userId })
+    .from(users)
+    .where(inArray(users.userId, validIds));
+  const userIds = matchingUsers.map((u) => u.userId);
+
+  return tx
+    .select({
+      deviceId: devices.deviceId,
+      linkedUserId: devices.linkedUserId,
+    })
+    .from(devices)
+    .where(
+      userIds.length > 0
+        ? or(inArray(devices.deviceId, validIds), inArray(devices.linkedUserId, userIds))
+        : inArray(devices.deviceId, validIds),
+    );
+}
+
+async function atomicConditionalUpsertEntitlement(params: {
+  tx: DbTx;
+  deviceId: string;
+  userId: string | null;
+  originalAppUserId: string;
+  productId: string | null;
+  isPro: boolean;
+  expiresAt: Date | null;
+  graceUntil: Date | null;
+  eventTime: Date;
+  now: Date;
+}): Promise<void> {
+  // Single-statement atomic PostgreSQL ordering fence: stale concurrent events are ignored at write time (`RR-04`).
+  await params.tx
+    .insert(entitlements)
+    .values({
+      deviceId: params.deviceId,
+      userId: params.userId,
+      provider: 'revenuecat',
+      originalAppUserId: params.originalAppUserId,
+      productId: params.productId,
+      isPro: params.isPro,
+      expiresAt: params.expiresAt,
+      graceUntil: params.graceUntil,
+      lastVerifiedAt: params.now,
+      lastEventAt: params.eventTime,
+      updatedAt: params.now,
+    })
+    .onConflictDoUpdate({
+      target: entitlements.deviceId,
+      set: {
+        userId: params.userId ?? entitlements.userId,
+        originalAppUserId: params.originalAppUserId,
+        productId: params.productId ?? entitlements.productId,
+        isPro: params.isPro,
+        expiresAt: params.expiresAt,
+        graceUntil: params.graceUntil,
+        lastVerifiedAt: params.now,
+        lastEventAt: params.eventTime,
+        updatedAt: params.now,
+      },
+      setWhere: or(
+        isNull(entitlements.lastEventAt),
+        lte(entitlements.lastEventAt, params.eventTime),
+      ),
+    });
+}
+
+export async function applyRevenueCatEventTx(params: {
+  tx: DbTx;
+  event: RevenueCatEvent;
+  now: Date;
+}): Promise<{ matched: boolean; primaryIdentity: string | null }> {
+  const { tx, event, now } = params;
+  const eventTime = event.event_timestamp_ms ? new Date(event.event_timestamp_ms) : now;
+  const expiresAt = event.expiration_at_ms ? new Date(event.expiration_at_ms) : null;
+  const graceUntil = event.grace_period_expires_date_ms
+    ? new Date(event.grace_period_expires_date_ms)
+    : null;
+
+  const isTransfer = event.type === 'TRANSFER';
+  const targetRawIds = isTransfer
+    ? [...(event.transferred_to ?? []), ...(event.aliases ?? [])]
+    : [event.app_user_id, ...(event.transferred_to ?? []), ...(event.aliases ?? [])];
+  const primaryIdentity =
+    targetRawIds.find((id): id is string => Boolean(id && UUID_REGEX.test(id))) ?? null;
+
+  const hasKnownProduct = Boolean(event.product_id && SUPPORTED_PRO_PRODUCTS.has(event.product_id));
+  const hasProEntitlement =
+    Array.isArray(event.entitlement_ids) && event.entitlement_ids.includes('pro');
+  const hasExplicitGrantAuthority = hasKnownProduct || hasProEntitlement;
+  const productAllowed = !event.product_id || hasKnownProduct;
+  const entitlementAllowed =
+    !event.entitlement_ids || event.entitlement_ids.length === 0 || hasProEntitlement;
+  const hasValidFutureExpiration = Boolean(expiresAt && expiresAt > now);
+
+  let nextIsPro: boolean | null = null;
+  if (REVOKE_EVENT_TYPES.has(event.type)) {
+    nextIsPro = false;
+  } else if (event.type === 'BILLING_ISSUE') {
+    nextIsPro = Boolean(graceUntil && graceUntil > now);
+  } else if (event.type === 'CANCELLATION') {
+    nextIsPro = Boolean(productAllowed && entitlementAllowed && hasValidFutureExpiration);
+  } else if (GRANT_EVENT_TYPES.has(event.type)) {
+    // Reject empty/unbounded grant payloads lacking authoritative product/entitlement or expiration (`RR-04`).
+    nextIsPro = Boolean(
+      hasExplicitGrantAuthority && productAllowed && entitlementAllowed && hasValidFutureExpiration,
+    );
+  }
+
+  if (nextIsPro === null) {
+    return { matched: true, primaryIdentity };
+  }
+
+  if (isTransfer && event.transferred_from && event.transferred_from.length > 0) {
+    const sourceDevices = await findMatchingDevicesForIds(tx, event.transferred_from);
+    for (const src of sourceDevices) {
+      await atomicConditionalUpsertEntitlement({
+        tx,
+        deviceId: src.deviceId,
+        userId: src.linkedUserId,
+        originalAppUserId: event.transferred_from[0] ?? src.deviceId,
+        productId: event.product_id ?? null,
+        isPro: false,
+        expiresAt: null,
+        graceUntil: null,
+        eventTime,
+        now,
+      });
+    }
+  }
+
+  const targetDevices = await findMatchingDevicesForIds(tx, targetRawIds);
+  if (targetDevices.length === 0) {
+    return { matched: false, primaryIdentity };
+  }
+
+  for (const target of targetDevices) {
+    await atomicConditionalUpsertEntitlement({
+      tx,
+      deviceId: target.deviceId,
+      userId: target.linkedUserId,
+      originalAppUserId: event.app_user_id ?? primaryIdentity ?? target.deviceId,
+      productId: event.product_id ?? null,
+      isPro: nextIsPro,
+      expiresAt,
+      graceUntil,
+      eventTime,
+      now,
+    });
+  }
+
+  return { matched: true, primaryIdentity };
+}
+
+/** Reconciles any webhook receipts received before [identityIds] registered or linked (`RR-04`). */
+export async function reconcilePendingWebhooksForIdentities(
+  db: MockzaDb,
+  identityIds: string[],
+): Promise<number> {
+  const validIds = Array.from(new Set(identityIds.filter((id) => UUID_REGEX.test(id))));
+  if (validIds.length === 0) return 0;
+
+  const pending = await db
+    .select()
+    .from(webhookEvents)
+    .where(
+      and(
+        eq(webhookEvents.status, 'pending_reconciliation'),
+        inArray(webhookEvents.targetIdentity, validIds),
+      ),
+    );
+  if (pending.length === 0) return 0;
+
+  let reconciled = 0;
+  const now = new Date();
+  for (const row of pending) {
+    const raw = row.payloadJson;
+    const candidate =
+      typeof raw === 'object' &&
+      raw !== null &&
+      'event' in raw &&
+      typeof (raw as { event?: unknown }).event === 'object'
+        ? (raw as { event: unknown }).event
+        : raw;
+    const parsed = RevenueCatEventSchema.safeParse(candidate);
+    if (!parsed.success) continue;
+
+    await db.transaction(async (tx) => {
+      const res = await applyRevenueCatEventTx({ tx, event: parsed.data, now });
+      if (res.matched) {
+        await tx
+          .update(webhookEvents)
+          .set({ status: 'processed' })
+          .where(eq(webhookEvents.eventId, row.eventId));
+        reconciled += 1;
+      }
+    });
+  }
+  return reconciled;
+}
 
 export function registerBillingWebhookRoutes(
   app: OpenAPIHono<{ Variables: RequestVariables }>,
@@ -125,11 +340,6 @@ export function registerBillingWebhookRoutes(
 
     const event = parsedEvent.data;
     const now = new Date();
-    const eventTime = event.event_timestamp_ms ? new Date(event.event_timestamp_ms) : now;
-    const expiresAt = event.expiration_at_ms ? new Date(event.expiration_at_ms) : null;
-    const graceUntil = event.grace_period_expires_date_ms
-      ? new Date(event.grace_period_expires_date_ms)
-      : null;
 
     if (db) {
       const outcome = await db.transaction(async (tx) => {
@@ -139,6 +349,7 @@ export function registerBillingWebhookRoutes(
             eventId: event.id,
             provider: 'revenuecat',
             eventType: event.type,
+            status: 'processed',
             payloadJson: rawPayload as Record<string, unknown>,
           })
           .onConflictDoNothing({ target: webhookEvents.eventId })
@@ -148,108 +359,16 @@ export function registerBillingWebhookRoutes(
           return { deduplicated: true as const };
         }
 
-        const candidateIds = new Set<string>();
-        for (const id of [
-          event.app_user_id,
-          ...(event.transferred_to ?? []),
-          ...(event.aliases ?? []),
-        ]) {
-          if (id && UUID_REGEX.test(id)) {
-            candidateIds.add(id);
-          }
-        }
-
-        if (candidateIds.size === 0) {
-          return { deduplicated: false as const };
-        }
-
-        const idList = Array.from(candidateIds);
-        const matchingUsers = await tx
-          .select({ userId: users.userId })
-          .from(users)
-          .where(inArray(users.userId, idList));
-        const userIds = matchingUsers.map((u) => u.userId);
-
-        const matchingDevices = await tx
-          .select({
-            deviceId: devices.deviceId,
-            linkedUserId: devices.linkedUserId,
-          })
-          .from(devices)
-          .where(
-            userIds.length > 0
-              ? or(inArray(devices.deviceId, idList), inArray(devices.linkedUserId, userIds))
-              : inArray(devices.deviceId, idList),
-          );
-
-        if (matchingDevices.length === 0) {
-          return { deduplicated: false as const };
-        }
-
-        const productValid = !event.product_id || SUPPORTED_PRO_PRODUCTS.has(event.product_id);
-        const entitlementValid =
-          !event.entitlement_ids ||
-          event.entitlement_ids.length === 0 ||
-          event.entitlement_ids.includes('pro');
-
-        let nextIsPro: boolean | null = null;
-        if (REVOKE_EVENT_TYPES.has(event.type)) {
-          nextIsPro = false;
-        } else if (event.type === 'BILLING_ISSUE') {
-          nextIsPro = Boolean(graceUntil && graceUntil > now);
-        } else if (event.type === 'CANCELLATION') {
-          nextIsPro = Boolean(expiresAt && expiresAt > now && productValid && entitlementValid);
-        } else if (GRANT_EVENT_TYPES.has(event.type)) {
-          nextIsPro = Boolean(productValid && entitlementValid && (!expiresAt || expiresAt > now));
-        }
-
-        if (nextIsPro === null) {
-          // Informational / non-entitlement event (e.g. TEST, SUBSCRIBER_ALIAS)
-          return { deduplicated: false as const };
-        }
-
-        for (const target of matchingDevices) {
-          const existingEnt = await tx
-            .select({ lastEventAt: entitlements.lastEventAt })
-            .from(entitlements)
-            .where(eq(entitlements.deviceId, target.deviceId))
-            .limit(1);
-
-          const prevEventAt = existingEnt[0]?.lastEventAt;
-          if (prevEventAt && prevEventAt > eventTime) {
-            // Out-of-order stale event; ignore state overwrite while retaining receipt.
-            continue;
-          }
-
+        const applied = await applyRevenueCatEventTx({ tx, event, now });
+        if (!applied.matched) {
+          // Retain unresolved receipt as pending_reconciliation for late registration/linking (`RR-04`).
           await tx
-            .insert(entitlements)
-            .values({
-              deviceId: target.deviceId,
-              userId: target.linkedUserId ?? userIds[0] ?? null,
-              provider: 'revenuecat',
-              originalAppUserId: event.app_user_id ?? target.deviceId,
-              productId: event.product_id,
-              isPro: nextIsPro,
-              expiresAt,
-              graceUntil,
-              lastVerifiedAt: now,
-              lastEventAt: eventTime,
-              updatedAt: now,
+            .update(webhookEvents)
+            .set({
+              status: 'pending_reconciliation',
+              targetIdentity: applied.primaryIdentity,
             })
-            .onConflictDoUpdate({
-              target: entitlements.deviceId,
-              set: {
-                userId: target.linkedUserId ?? userIds[0] ?? entitlements.userId,
-                originalAppUserId: event.app_user_id ?? entitlements.originalAppUserId,
-                productId: event.product_id ?? entitlements.productId,
-                isPro: nextIsPro,
-                expiresAt,
-                graceUntil,
-                lastVerifiedAt: now,
-                lastEventAt: eventTime,
-                updatedAt: now,
-              },
-            });
+            .where(eq(webhookEvents.eventId, event.id));
         }
 
         return { deduplicated: false as const };

@@ -28,6 +28,8 @@ class ListeningSimScreen extends ConsumerStatefulWidget {
   const new({
     this.packId = 'ielts-listening-seed-01',
     this.isExamMode = true,
+    this.mockSessionId,
+    this.mockStageKey,
     super.key,
   });
 
@@ -36,6 +38,12 @@ class ListeningSimScreen extends ConsumerStatefulWidget {
 
   /// Exam Mode (linear locked audio, no transcript) vs Study Mode.
   final bool isExamMode;
+
+  /// Optional parent Full Mock session ID.
+  final String? mockSessionId;
+
+  /// Optional stage key within the Full Mock session.
+  final String? mockStageKey;
 
   @override
   ConsumerState<ListeningSimScreen> createState() => _ListeningSimScreenState();
@@ -50,7 +58,12 @@ class _ListeningSimScreenState extends ConsumerState<ListeningSimScreen> {
       unawaited(
         ref
             .read(listeningSimNotifierProvider.notifier)
-            .initialize(widget.packId, isExamMode: widget.isExamMode),
+            .initialize(
+              widget.packId,
+              isExamMode: widget.isExamMode,
+              mockSessionId: widget.mockSessionId,
+              mockStageKey: widget.mockStageKey,
+            ),
       );
     });
   }

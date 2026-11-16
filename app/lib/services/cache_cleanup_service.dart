@@ -17,10 +17,17 @@ final class CacheCleanupService {
   /// already-completed speaking audio clips (`TD-40` protects pending work).
   Future<void> clearDownloadedCaches() async {
     await _catalogRepository.clearOfflineCache();
-    final expiredCompleted = await _attemptRepository.findExpiredAudioRecordings();
+    final expiredCompleted = await _attemptRepository
+        .findExpiredAudioRecordings();
     for (final rec in expiredCompleted) {
       await deleteRecordedAudioClip(rec.localFilePath);
       await _attemptRepository.deleteAudioRecordingRow(rec.recordingId);
     }
+  }
+
+  /// Unconditionally erases ALL cached packs and ALL local recorded/media audio bytes (`RR-05`).
+  Future<bool> eraseAllLocalMediaForAccountWipe() async {
+    await _catalogRepository.clearOfflineCache();
+    return await clearAllCachedMediaAndClips();
   }
 }

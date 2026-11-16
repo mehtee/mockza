@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Backup and restore utility for Mockza PostgreSQL + SeaweedFS S3 buckets (TD-51).
+# Backup and restore utility for Mockza PostgreSQL + S3/Seed Assets (`RR-15`).
 # Usage:
 #   ./scripts/backup_restore.sh backup <output-dir>
 #   ./scripts/backup_restore.sh verify <backup-dir>
+#   ./scripts/backup_restore.sh verify-restore <backup-dir>
 #   ./scripts/backup_restore.sh restore <backup-dir>
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -40,18 +41,34 @@ run_pg_cmd() {
   fi
 }
 
+run_psql() {
+  local target_db="$1"
+  local sql_cmd="$2"
+  if command -v psql >/dev/null 2>&1; then
+    PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$target_db" -v ON_ERROR_STOP=1 -tAc "$sql_cmd"
+  else
+    docker exec -i -e "PGPASSWORD=$PG_PASSWORD" "$PG_CONTAINER" psql -U "$PG_USER" -d "$target_db" -v ON_ERROR_STOP=1 -tAc "$sql_cmd"
+  fi
+}
+
 case "$CMD" in
   backup)
     mkdir -p "$TARGET_DIR"
     DUMP_PATH="$TARGET_DIR/mockza_pg.dump"
+    ASSETS_ARCHIVE="$TARGET_DIR/seed_assets.tar.gz"
     echo "[backup] Creating PostgreSQL custom-format dump at $DUMP_PATH..."
     if command -v pg_dump >/dev/null 2>&1; then
       PGPASSWORD="$PG_PASSWORD" pg_dump -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -Fc > "$DUMP_PATH"
     else
       docker exec -e "PGPASSWORD=$PG_PASSWORD" "$PG_CONTAINER" pg_dump -U "$PG_USER" -d "$PG_DB" -Fc > "$DUMP_PATH"
     fi
-    sha256sum "$DUMP_PATH" > "$TARGET_DIR/SHA256SUMS.txt"
-    echo "[backup] PostgreSQL dump verified: $(du -h "$DUMP_PATH" | cut -f1)"
+    SUM_FILES=("mockza_pg.dump")
+    if [[ -d "$ROOT_DIR/backend/packages/db/seed-assets" ]]; then
+      tar -czf "$ASSETS_ARCHIVE" -C "$ROOT_DIR/backend/packages/db" seed-assets
+      SUM_FILES+=("seed_assets.tar.gz")
+    fi
+    (cd "$TARGET_DIR" && sha256sum "${SUM_FILES[@]}" > SHA256SUMS.txt)
+    echo "[backup] Archive verified ($(du -h "$DUMP_PATH" | cut -f1))."
     ;;
   verify)
     DUMP_PATH="$TARGET_DIR/mockza_pg.dump"
@@ -62,7 +79,29 @@ case "$CMD" in
     else
       docker exec -i "$PG_CONTAINER" pg_restore --list < "$DUMP_PATH" >/dev/null
     fi
-    echo "[verify] Backup archive & pg_restore catalog check succeeded."
+    echo "[verify] Checksum & pg_restore catalog check succeeded (relocation-safe)."
+    ;;
+  verify-restore)
+    DUMP_PATH="$TARGET_DIR/mockza_pg.dump"
+    test -s "$DUMP_PATH"
+    (cd "$TARGET_DIR" && sha256sum -c SHA256SUMS.txt)
+    TEMP_DB="mockza_restore_drill_$$"
+    cleanup_drill() {
+      run_psql postgres "DROP DATABASE IF EXISTS ${TEMP_DB};" >/dev/null 2>&1 || true
+    }
+    trap cleanup_drill EXIT
+    echo "[verify-restore] Creating isolated temporary database $TEMP_DB..."
+    run_psql postgres "CREATE DATABASE ${TEMP_DB};" >/dev/null
+    if command -v pg_restore >/dev/null 2>&1; then
+      PGPASSWORD="$PG_PASSWORD" pg_restore -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$TEMP_DB" --no-owner --no-privileges "$DUMP_PATH"
+    else
+      docker exec -i -e "PGPASSWORD=$PG_PASSWORD" "$PG_CONTAINER" pg_restore -U "$PG_USER" -d "$TEMP_DB" --no-owner --no-privileges < "$DUMP_PATH"
+    fi
+    PACK_COUNT=$(run_psql "$TEMP_DB" "SELECT COUNT(*) FROM catalog_packs;")
+    QUESTION_COUNT=$(run_psql "$TEMP_DB" "SELECT COUNT(*) FROM exam_questions;")
+    echo "[verify-restore] Temporary restore verified: catalog_packs=$PACK_COUNT, exam_questions=$QUESTION_COUNT"
+    test "${PACK_COUNT:-0}" -ge 1
+    test "${QUESTION_COUNT:-0}" -ge 1
     ;;
   restore)
     DUMP_PATH="$TARGET_DIR/mockza_pg.dump"

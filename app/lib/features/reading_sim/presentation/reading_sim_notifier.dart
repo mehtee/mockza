@@ -171,6 +171,8 @@ class ReadingSimNotifier extends Notifier<ReadingSimState> {
   StreamSubscription<List<ReadingAnnotationItem>>? _annotationsSub;
   DateTime? _sessionStartTime;
   bool _isDisposed = false;
+  String? _mockSessionId;
+  String? _mockStageKey;
 
   @override
   ReadingSimState build() {
@@ -206,7 +208,11 @@ class ReadingSimNotifier extends Notifier<ReadingSimState> {
   Future<void> initialize(
     String packId, {
     bool isExamMode = true,
+    String? mockSessionId,
+    String? mockStageKey,
   }) async {
+    _mockSessionId = mockSessionId;
+    _mockStageKey = mockStageKey;
     _timer?.cancel();
     unawaited(_annotationsSub?.cancel());
     _sessionStartTime = ref.read(clockProvider).now();
@@ -557,12 +563,19 @@ class ReadingSimNotifier extends Notifier<ReadingSimState> {
           ? clock.now().difference(_sessionStartTime!).inSeconds.clamp(5, 7200)
           : (state.totalSeconds - state.remainingSeconds).clamp(5, 7200);
 
+      final installedPack = await ref
+          .read(examCatalogRepositoryProvider)
+          .getInstalledPackById(pack.packId);
+      final nowUtcMs = clock.now().toUtc().millisecondsSinceEpoch;
+
       final submissionJson = jsonEncode({
         'packId': pack.packId,
         'title': pack.title,
         'correctCount': report.correctCount,
         'totalCount': report.totalCount,
         'overallBand': report.bandScore,
+        'isCalibratedFullPack': report.isCalibratedFullPack,
+        'usedStudyMode': !state.isExamMode,
         'questions': questionBreakdown,
       });
 
@@ -575,7 +588,23 @@ class ReadingSimNotifier extends Notifier<ReadingSimState> {
         status: AttemptStatus.scored,
         examId: examId,
         startedAtUtcMs: _sessionStartTime?.toUtc().millisecondsSinceEpoch,
+        completedAtUtcMs: nowUtcMs,
+        durationSeconds: elapsedSeconds,
+        usedStudyMode: !state.isExamMode,
+        questionCount: report.totalCount,
+        isCalibratedFullPack: report.isCalibratedFullPack,
+        contentVersion: installedPack?.version,
+        mockSessionId: _mockSessionId,
+        mockStageKey: _mockStageKey,
       );
+
+      if (_mockSessionId != null && _mockStageKey != null) {
+        await attemptRepo.recordMockStageAttempt(
+          mockId: _mockSessionId!,
+          stageKey: _mockStageKey!,
+          attemptId: attemptId,
+        );
+      }
 
       await progressRepo.logTodayActivity(
         studySeconds: elapsedSeconds,

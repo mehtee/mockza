@@ -33,7 +33,9 @@ final StreamProvider<List<MicroDrillSpec>> drillsCatalogProvider =
 /// Streams recent learner attempts for Full Mock stage progress reconciliation.
 final StreamProvider<List<AttemptSummary>> practiceHubAttemptsProvider =
     StreamProvider<List<AttemptSummary>>(
-      (ref) => ref.watch(attemptRepositoryProvider).watchRecentAttempts(
-        limit: 500,
-      ),
+      (ref) => ref
+          .watch(attemptRepositoryProvider)
+          .watchRecentAttempts(
+            limit: 500,
+          ),
     );

@@ -161,16 +161,30 @@ class VocabularyScreen extends ConsumerWidget {
     final String ctaLabel;
     final VoidCallback onTapCta;
 
+    final selectedBatchSize = ref.watch(vocabBatchSizeProvider);
+    final limitQuery = selectedBatchSize == null ? 'all' : '$selectedBatchSize';
+
     if (dueCount > 0) {
+      final sessionCount = selectedBatchSize == null
+          ? dueCount
+          : (dueCount < selectedBatchSize ? dueCount : selectedBatchSize);
       headingText = '$dueCount words due for review';
-      bodyText = 'Review today to lock these academic collocations into long-term memory.';
-      ctaLabel = 'Start Review';
-      onTapCta = () => context.push(AppRoutes.vocabReview);
+      bodyText =
+          'Review a focused batch of $sessionCount cards today to lock collocations into long-term memory.';
+      ctaLabel = 'Start Review ($sessionCount)';
+      onTapCta = () =>
+          context.push('${AppRoutes.vocabReview}?limit=$limitQuery');
     } else if (totalCount > 0) {
+      final sessionCount = selectedBatchSize == null
+          ? totalCount
+          : (totalCount < selectedBatchSize ? totalCount : selectedBatchSize);
       headingText = 'All caught up for today!';
-      bodyText = 'Great job! Practice ahead or return tomorrow for your next interval.';
-      ctaLabel = 'Review Ahead';
-      onTapCta = () => context.push('${AppRoutes.vocabReview}?mode=ahead');
+      bodyText =
+          'Practice a $sessionCount-card ahead batch or return tomorrow for your next interval.';
+      ctaLabel = 'Review Ahead ($sessionCount)';
+      onTapCta = () => context.push(
+        '${AppRoutes.vocabReview}?mode=ahead&limit=$limitQuery',
+      );
     } else {
       headingText = 'Vocabulary deck empty';
       bodyText = 'Sync starter collocations from the server or save upgrades from your evaluations.';
@@ -215,6 +229,31 @@ class VocabularyScreen extends ConsumerWidget {
               color: colors.textSecondary,
             ),
           ),
+          if (totalCount > 0) ...<Widget>[
+            const SizedBox(height: SpacingTokens.md),
+            Wrap(
+              spacing: SpacingTokens.xs,
+              runSpacing: SpacingTokens.xs,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: <Widget>[
+                Text(
+                  'Session cards:',
+                  style: typography.caption.copyWith(
+                    color: colors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                for (final size in <int?>[15, 20, 30, null])
+                  MzChip(
+                    label: size == null ? 'All' : '$size',
+                    isSelected: selectedBatchSize == size,
+                    onTap: () => ref
+                        .read(vocabBatchSizeProvider.notifier)
+                        .setBatchSize(size),
+                  ),
+              ],
+            ),
+          ],
           const SizedBox(height: SpacingTokens.lg),
           PrimaryButton(
             label: ctaLabel,

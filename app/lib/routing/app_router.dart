@@ -188,6 +188,8 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => SpeakingSimScreen(
           examId: state.pathParameters['examId'] ?? 'ielts-speaking-seed-01',
           isExamMode: state.uri.queryParameters['mode'] != 'study',
+          mockSessionId: state.uri.queryParameters['mockSessionId'],
+          mockStageKey: state.uri.queryParameters['mockStageKey'],
         ),
       ),
       GoRoute(
@@ -195,6 +197,10 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => WritingSimScreen(
           taskId: state.pathParameters['taskId'] ?? 'ielts-writing-seed-01',
           isExamMode: state.uri.queryParameters['mode'] != 'study',
+          mockSessionId: state.uri.queryParameters['mockSessionId'],
+          mockStageKey: state.uri.queryParameters['mockStageKey'],
+          initialTaskIndex:
+              int.tryParse(state.uri.queryParameters['taskIndex'] ?? '') ?? 0,
         ),
       ),
       GoRoute(
@@ -203,6 +209,8 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
           packId:
               state.pathParameters['packId'] ?? 'ielts-acad-reading-seed-01',
           isExamMode: state.uri.queryParameters['mode'] != 'study',
+          mockSessionId: state.uri.queryParameters['mockSessionId'],
+          mockStageKey: state.uri.queryParameters['mockStageKey'],
         ),
       ),
       GoRoute(
@@ -210,6 +218,8 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => ListeningSimScreen(
           packId: state.pathParameters['packId'] ?? 'ielts-listening-seed-01',
           isExamMode: state.uri.queryParameters['mode'] != 'study',
+          mockSessionId: state.uri.queryParameters['mockSessionId'],
+          mockStageKey: state.uri.queryParameters['mockStageKey'],
         ),
       ),
       GoRoute(
@@ -230,9 +240,16 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.vocabReview,
-        builder: (context, state) => VocabReviewScreen(
-          reviewAhead: state.uri.queryParameters['mode'] == 'ahead',
-        ),
+        builder: (context, state) {
+          final rawLimit = state.uri.queryParameters['limit'];
+          final batchLimit = rawLimit == 'all'
+              ? null
+              : (int.tryParse(rawLimit ?? '') ?? 20);
+          return VocabReviewScreen(
+            reviewAhead: state.uri.queryParameters['mode'] == 'ahead',
+            batchLimit: batchLimit,
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.vocabWordDetail,

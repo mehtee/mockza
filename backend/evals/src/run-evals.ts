@@ -77,6 +77,16 @@ export async function runRubricEvals(options: RunEvalOptions = {}): Promise<Eval
   const datasetPath = resolve(__dirname, '../datasets/golden-rubric-samples.json');
   const samples: GoldenSample[] = JSON.parse(readFileSync(datasetPath, 'utf-8'));
 
+  const requireRealAudio = options.requireAudioForSpeaking ?? true;
+  if (requireRealAudio || !options.client) {
+    const missingAudioSample = samples.find((s) => s.skill === 'speaking' && !s.base64AudioData);
+    if (missingAudioSample) {
+      throw new Error(
+        `Refusing Speaking calibration sample "${missingAudioSample.id}" without real human-rated audio recording.`,
+      );
+    }
+  }
+
   process.stdout.write(
     `Starting Held-Out IELTS Calibration Benchmark (${samples.length} samples, models: writing=${MODEL_REGISTRY.writingPrimary}, speaking=${MODEL_REGISTRY.speakingAudioPrimary})\n`,
   );
@@ -110,6 +120,12 @@ export async function runRubricEvals(options: RunEvalOptions = {}): Promise<Eval
         throw new Error(`Benchmark integrity violation: unexpected modelId ${result.modelId}`);
       }
     } else {
+      const requireRealAudio = options.requireAudioForSpeaking ?? true;
+      if (!sample.base64AudioData && (requireRealAudio || !options.client)) {
+        throw new Error(
+          `Refusing Speaking calibration sample "${sample.id}" without real human-rated audio recording.`,
+        );
+      }
       const speakingAudio = sample.base64AudioData ?? buildMinimalSilenceWavBase64();
       result = await gradeSpeakingGraph.invoke(
         {

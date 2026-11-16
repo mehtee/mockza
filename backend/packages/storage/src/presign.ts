@@ -85,8 +85,10 @@ export function signUploadProxyParams(params: {
   objectKey: string;
   contentType: string;
   expiresAtEpochSec: number;
+  uploadGeneration?: number;
 }): string {
-  const payload = `${params.bucket}:${params.objectKey}:${params.contentType}:${params.expiresAtEpochSec}`;
+  const genSuffix = params.uploadGeneration !== undefined ? `:gen=${params.uploadGeneration}` : '';
+  const payload = `${params.bucket}:${params.objectKey}:${params.contentType}:${params.expiresAtEpochSec}${genSuffix}`;
   return createHmac('sha256', params.secret).update(payload).digest('hex');
 }
 
@@ -97,6 +99,7 @@ export function verifyUploadProxySignature(params: {
   contentType: string;
   expiresAtEpochSec: number;
   signature: string;
+  uploadGeneration?: number;
   nowEpochSec?: number;
 }): boolean {
   const now = params.nowEpochSec ?? Math.floor(Date.now() / 1000);
@@ -109,6 +112,7 @@ export function verifyUploadProxySignature(params: {
     objectKey: params.objectKey,
     contentType: params.contentType,
     expiresAtEpochSec: params.expiresAtEpochSec,
+    uploadGeneration: params.uploadGeneration,
   });
   const actualBuf = Buffer.from(params.signature, 'utf8');
   const expectedBuf = Buffer.from(expected, 'utf8');

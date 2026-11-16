@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:mockza/core/result/failure.dart';
@@ -99,6 +101,7 @@ final class SecureIdentityService {
   static const _deviceIdKey = 'mockza_device_id_v1';
   static const _deviceSecretKey = 'mockza_device_secret_v1';
   static const _accessTokenKey = 'mockza_access_token_v1';
+  static const _erasureReceiptKey = 'mockza_pending_erasure_v1';
 
   final SecureStorageGateway _storage;
   final EntropySource _entropy;
@@ -139,17 +142,50 @@ final class SecureIdentityService {
   Future<Result<void, Failure>> saveAccessToken(String token) =>
       _storage.write(key: _accessTokenKey, value: token);
 
-  /// Clears stored session tokens during explicit account deletion/reset.
-  Future<Result<void, Failure>> clearCredentials() =>
-      _storage.delete(key: _accessTokenKey);
+  /// Persists an incomplete-erasure receipt so retry works after server device removal (`RR-05`).
+  Future<Result<void, Failure>> savePendingErasureReceipt({
+    required String erasureId,
+    required String receiptToken,
+  }) => _storage.write(
+    key: _erasureReceiptKey,
+    value: jsonEncode({'erasureId': erasureId, 'receiptToken': receiptToken}),
+  );
 
-  /// Clears tokens, device secret, and pseudonymous device UUID on full account deletion.
-  Future<Result<void, Failure>> clearAll() async {
+  /// Reads an incomplete-erasure receipt if a prior account deletion returned 503.
+  Future<({String erasureId, String receiptToken})?>
+  readPendingErasureReceipt() async {
+    final res = await _storage.read(key: _erasureReceiptKey);
+    final raw = res.valueOrNull;
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) return null;
+      final id = decoded['erasureId'] as String?;
+      final token = decoded['receiptToken'] as String?;
+      if (id == null || id.isEmpty || token == null || token.isEmpty) {
+        return null;
+      }
+      return (erasureId: id, receiptToken: token);
+    } on Object {
+      return null;
+    }
+  }
+
+  /// Clears stored session tokens during explicit account deletion/reset.
+  Future<Result<void, Failure>> clearCredentials() async {
     final tokenRes = await _storage.delete(key: _accessTokenKey);
     final secretRes = await _storage.delete(key: _deviceSecretKey);
     final idRes = await _storage.delete(key: _deviceIdKey);
     if (tokenRes case Err<void, Failure>()) return tokenRes;
     if (secretRes case Err<void, Failure>()) return secretRes;
     return idRes;
+  }
+
+  /// Clears tokens, device secret, device UUID, and erasure receipt on full account deletion.
+  Future<Result<void, Failure>> clearAll() async {
+    final credRes = await clearCredentials();
+    final receiptRes = await _storage.delete(key: _erasureReceiptKey);
+    if (credRes case Err<void, Failure>()) return credRes;
+    return receiptRes;
   }
 }

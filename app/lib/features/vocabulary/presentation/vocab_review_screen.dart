@@ -21,11 +21,15 @@ class VocabReviewScreen extends ConsumerStatefulWidget {
   /// Creates a [VocabReviewScreen].
   const new({
     this.reviewAhead = false,
+    this.batchLimit = 20,
     super.key,
   });
 
   /// When true, reviews earliest-due cards even if none are due today.
   final bool reviewAhead;
+
+  /// Optional card count limit for this session (`null` = All available).
+  final int? batchLimit;
 
   @override
   ConsumerState<VocabReviewScreen> createState() => _VocabReviewScreenState();
@@ -39,7 +43,10 @@ class _VocabReviewScreenState extends ConsumerState<VocabReviewScreen> {
       Future.microtask(
         () => ref
             .read(vocabularyNotifierProvider.notifier)
-            .loadSession(reviewAhead: widget.reviewAhead),
+            .loadSession(
+              reviewAhead: widget.reviewAhead,
+              batchLimit: widget.batchLimit,
+            ),
       ),
     );
   }
@@ -47,12 +54,16 @@ class _VocabReviewScreenState extends ConsumerState<VocabReviewScreen> {
   @override
   void didUpdateWidget(covariant VocabReviewScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.reviewAhead != widget.reviewAhead) {
+    if (oldWidget.reviewAhead != widget.reviewAhead ||
+        oldWidget.batchLimit != widget.batchLimit) {
       unawaited(
         Future.microtask(
           () => ref
               .read(vocabularyNotifierProvider.notifier)
-              .loadSession(reviewAhead: widget.reviewAhead),
+              .loadSession(
+                reviewAhead: widget.reviewAhead,
+                batchLimit: widget.batchLimit,
+              ),
         ),
       );
     }

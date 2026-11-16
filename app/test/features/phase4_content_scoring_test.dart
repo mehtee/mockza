@@ -276,8 +276,7 @@ void main() {
         'questions': <dynamic>[],
       };
 
-      final dio = Dio()
-        ..httpClientAdapter = _FakeBundleAdapter(badBundle);
+      final dio = Dio()..httpClientAdapter = _FakeBundleAdapter(badBundle);
       const crashLog = DeveloperCrashLog(AppEdition.global);
       final sync = ContentSyncService(
         dio: dio,
@@ -317,7 +316,10 @@ void main() {
         topicTag: 'environment',
       );
       final cards = await vocabRepo.getDueCards();
-      await vocabRepo.recordReview(card: cards.single, quality: ReviewQuality.easy);
+      await vocabRepo.recordReview(
+        card: cards.single,
+        quality: ReviewQuality.easy,
+      );
       await vocabRepo.captureMistakeToDeck(
         cardId: 'card-1',
         headword: 'mitigate (v)',
@@ -331,19 +333,21 @@ void main() {
 
       // 2. Tied updatedAt timestamps iterate completely across composite cursor pages
       for (var i = 1; i <= 5; i++) {
-        await db.into(db.examAttempts).insert(
-          ExamAttemptsCompanion.insert(
-            attemptId: 'att-tie-$i',
-            packId: 'r-01',
-            skill: 'reading',
-            status: 'scored',
-            submissionJson: '{}',
-            overallBand: const Value(7),
-            completedAtUtcMs: Value(now.millisecondsSinceEpoch),
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
+        await db
+            .into(db.examAttempts)
+            .insert(
+              ExamAttemptsCompanion.insert(
+                attemptId: 'att-tie-$i',
+                packId: 'r-01',
+                skill: 'reading',
+                status: 'scored',
+                submissionJson: '{}',
+                overallBand: const Value(7),
+                completedAtUtcMs: Value(now.millisecondsSinceEpoch),
+                createdAt: now,
+                updatedAt: now,
+              ),
+            );
       }
       final page1 = await attemptRepo.fetchHistoryPage(limit: 2);
       final page2 = await attemptRepo.fetchHistoryPage(
@@ -365,12 +369,122 @@ void main() {
 
       // 3. Summary metrics flag partial (<4 skills) vs full (4 skills)
       final partial = StudyMetricsCalculator.calculateEstimatedOverallBand(
-        scoredAttempts: <({double score, SkillKind skill, int completedAtUtcMs})>[
-          (score: 7.0, skill: SkillKind.reading, completedAtUtcMs: now.millisecondsSinceEpoch),
-        ],
+        scoredAttempts:
+            <({double score, SkillKind skill, int completedAtUtcMs})>[
+              (
+                score: 7.0,
+                skill: SkillKind.reading,
+                completedAtUtcMs: now.millisecondsSinceEpoch,
+              ),
+            ],
       );
       expect(partial.isFullFourSkillEstimate, isFalse);
       expect(partial.attemptedSkillsCount, 1);
+    });
+
+    test('RR-10/RR-11: Study Mode and uncalibrated short packs are excluded from calibrated bands and MockSessions persist durably', () async {
+      final db = createTestDatabase();
+      addTearDown(db.close);
+      final clock = fixedTestClock();
+      final attemptRepo = AttemptRepository(db: db, clock: clock);
+
+      await attemptRepo.saveLocalSubmission(
+        attemptId: 'short-pack-attempt',
+        packId: 'ielts-acad-reading-seed-01',
+        skill: SkillKind.reading,
+        submissionJson: '{}',
+        overallBand: 9,
+        status: AttemptStatus.scored,
+        questionCount: 13,
+        isCalibratedFullPack: false,
+      );
+      await attemptRepo.saveLocalSubmission(
+        attemptId: 'study-mode-attempt',
+        packId: 'ielts-writing-seed-01',
+        skill: SkillKind.writing,
+        submissionJson: '{}',
+        overallBand: 8.5,
+        status: AttemptStatus.scored,
+        usedStudyMode: true,
+      );
+      await attemptRepo.saveLocalSubmission(
+        attemptId: 'calibrated-exam-attempt',
+        packId: 'ielts-acad-reading-full-01',
+        skill: SkillKind.reading,
+        submissionJson: '{}',
+        overallBand: 7,
+        status: AttemptStatus.scored,
+        questionCount: 40,
+        mockSessionId: 'mock-acad-01',
+        mockStageKey: 'reading',
+      );
+
+      final attempts = await attemptRepo.watchRecentAttempts(limit: 10).first;
+      final calibrated = attempts
+          .where((a) => a.countsTowardCalibratedBand)
+          .toList();
+      expect(calibrated.map((a) => a.attemptId).toList(), [
+        'calibrated-exam-attempt',
+      ]);
+
+      final session = await attemptRepo.getOrCreateMockSession(
+        mockId: 'mock-acad-01',
+        track: 'academic',
+      );
+      expect(session.examMode, isTrue);
+      await attemptRepo.recordMockStageAttempt(
+        mockId: 'mock-acad-01',
+        stageKey: 'reading',
+        attemptId: 'calibrated-exam-attempt',
+      );
+      final reloadedSession = await attemptRepo.getOrCreateMockSession(
+        mockId: 'mock-acad-01',
+        track: 'academic',
+      );
+      expect(
+        reloadedSession.stageAttemptIds['reading'],
+        'calibrated-exam-attempt',
+      );
+    });
+
+    test('RR-14: ContentSyncService rejects exam bundles without valid SHA-256 digest', () async {
+      final db = createTestDatabase();
+      addTearDown(db.close);
+      final clock = fixedTestClock();
+      final catalogRepo = ExamCatalogRepository(db: db, clock: clock);
+      final vocabRepo = VocabRepository(db: db, clock: clock);
+      final dio = Dio(BaseOptions(baseUrl: 'https://api.test.mockza'))
+        ..httpClientAdapter = _FakeBundleAdapter(<String, dynamic>{
+          'pack': <String, dynamic>{
+            'packId': 'missing-sha-pack',
+            'skill': 'writing',
+            'version': '1.0.0',
+            'sha256': '',
+          },
+          'sections': const <Object?>[],
+          'questions': const <Object?>[],
+        });
+
+      const crashLog = DeveloperCrashLog(AppEdition.global);
+      final sync = ContentSyncService(
+        dio: dio,
+        catalogRepository: catalogRepo,
+        vocabRepository: vocabRepo,
+        authSession: AuthSessionService(
+          config: EditionConfig.globalDefault,
+          identity: SecureIdentityService(
+            storage: InMemorySecureStorageGateway(),
+            entropy: FixedEntropySource(),
+          ),
+          clock: clock,
+          crashLog: crashLog,
+        ),
+        editionConfig: EditionConfig.globalDefault,
+        crashLog: crashLog,
+      );
+      final res = await sync.downloadExamPack('missing-sha-pack');
+      expect(res.isFailure, isTrue);
+      expect(res.failureOrNull?.message, contains('missing a valid SHA-256'));
     });
   });
 }

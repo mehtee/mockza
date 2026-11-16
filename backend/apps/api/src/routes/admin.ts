@@ -12,9 +12,8 @@ import {
 } from '@mockza/db';
 import {
   checkCleanRoomSafety,
-  computeBundleContentDigest,
-  extractQuestionMaxWords,
   normalizeQuestionType,
+  validateExamBundleIntegrity,
 } from '@mockza/domain';
 import { contentTypeFromKey, putObjectBuffer } from '@mockza/storage';
 import { asc, eq, sql } from 'drizzle-orm';
@@ -178,18 +177,6 @@ export function createAdminRoutes(env: AppEnv, db?: MockzaDb, s3Client?: S3Clien
 
     const body = parsed.data;
     const serialized = JSON.stringify(body);
-    const safety = checkCleanRoomSafety(serialized);
-    if (!safety.safe) {
-      return c.json(
-        {
-          code: 'copyright_policy_violation',
-          message: `Banned trademark terms detected: ${safety.violations.join(', ')}`,
-          requestId: c.get('requestId'),
-        },
-        400,
-      );
-    }
-
     const normalizedQuestions = body.questions.map((q) => {
       const mergedEvidence: Record<string, unknown> | null =
         q.evidence || q.maxWords != null
@@ -209,42 +196,37 @@ export function createAdminRoutes(env: AppEnv, db?: MockzaDb, s3Client?: S3Clien
       };
     });
 
-    const sortedSections = [...body.sections].sort((a, b) => a.sectionIndex - b.sectionIndex);
-    const sortedQuestions = [...normalizedQuestions].sort(
-      (a, b) => a.questionNumber - b.questionNumber,
-    );
-    const { sha256, byteLength } = computeBundleContentDigest({
-      sections: sortedSections.map((s) => ({
-        sectionId: s.sectionId,
-        sectionIndex: s.sectionIndex,
-        sectionType: s.sectionType,
-        title: s.title,
-        instructions: s.instructions,
-        contentText: s.contentText,
-        paragraphs: s.paragraphs ?? null,
-        transcript: s.transcript ?? null,
-        mediaUrl: s.mediaObjectKey ? `/v1/media/${s.mediaObjectKey}` : null,
-        durationSeconds: s.durationSeconds,
-        wordCount: s.wordCount,
-        metadata: s.metadata ?? null,
-      })),
-      questions: sortedQuestions.map((q) => ({
+    const integrity = validateExamBundleIntegrity({
+      packId: body.packId,
+      skill: body.skill,
+      humanQaReviewed: body.humanQaReviewed,
+      rawTextForSafetyCheck: serialized,
+      sections: body.sections,
+      questions: normalizedQuestions.map((q) => ({
         questionId: q.questionId,
         sectionId: q.sectionId,
         questionNumber: q.questionNumber,
         questionType: q.questionType,
         prompt: q.prompt,
-        options: q.optionsJson ?? null,
+        options: q.optionsJson,
         acceptedAnswers: q.acceptedAnswersJson,
-        maxWords: extractQuestionMaxWords({
-          evidence: q.evidenceJson,
-          prompt: q.prompt,
-          acceptedAnswers: q.acceptedAnswersJson,
-        }),
         evidence: q.evidenceJson,
         cueTimestampMs: q.cueTimestampMs,
       })),
     });
+
+    if (!integrity.valid) {
+      return c.json(
+        {
+          code: 'validation_error',
+          message: integrity.errors.join(' '),
+          requestId: c.get('requestId'),
+        },
+        400,
+      );
+    }
+
+    const { sha256, byteLength } = integrity.computedDigest;
     const now = new Date();
 
     await db.transaction(async (tx) => {
@@ -337,6 +319,78 @@ export function createAdminRoutes(env: AppEnv, db?: MockzaDb, s3Client?: S3Clien
     const packId = c.req.param('packId');
     const body = (await c.req.json()) as { isPublished?: boolean };
     const isPublished = Boolean(body.isPublished);
+
+    const [packRow] = await db
+      .select()
+      .from(catalogPacks)
+      .where(eq(catalogPacks.packId, packId))
+      .limit(1);
+    if (!packRow) {
+      return c.json(
+        { code: 'not_found', message: `Pack ${packId} not found.`, requestId: c.get('requestId') },
+        404,
+      );
+    }
+
+    if (isPublished) {
+      const [sections, questions] = await Promise.all([
+        db
+          .select()
+          .from(examSections)
+          .where(eq(examSections.packId, packId))
+          .orderBy(asc(examSections.sectionIndex)),
+        db
+          .select()
+          .from(examQuestions)
+          .where(eq(examQuestions.packId, packId))
+          .orderBy(asc(examQuestions.questionNumber)),
+      ]);
+
+      const integrity = validateExamBundleIntegrity({
+        packId: packRow.packId,
+        skill: packRow.skill,
+        humanQaReviewed: packRow.humanQaReviewed,
+        declaredSha256: packRow.sha256,
+        rawTextForSafetyCheck: JSON.stringify({ pack: packRow, sections, questions }),
+        sections: sections.map((s) => ({
+          sectionId: s.sectionId,
+          sectionIndex: s.sectionIndex,
+          sectionType: s.sectionType,
+          title: s.title,
+          instructions: s.instructions,
+          contentText: s.contentText,
+          paragraphs: s.paragraphsJson,
+          transcript: s.transcriptJson,
+          mediaObjectKey: s.mediaObjectKey,
+          durationSeconds: s.durationSeconds,
+          wordCount: s.wordCount,
+          metadata: s.metadataJson,
+        })),
+        questions: questions.map((q) => ({
+          questionId: q.questionId,
+          sectionId: q.sectionId,
+          questionNumber: q.questionNumber,
+          questionType: q.questionType,
+          prompt: q.prompt,
+          options: q.optionsJson,
+          acceptedAnswers: q.acceptedAnswersJson,
+          evidence: q.evidenceJson,
+          cueTimestampMs: q.cueTimestampMs,
+        })),
+      });
+
+      if (!integrity.valid) {
+        return c.json(
+          {
+            code: 'publish_validation_failed',
+            message: integrity.errors.join(' '),
+            requestId: c.get('requestId'),
+          },
+          400,
+        );
+      }
+    }
+
     await db
       .update(catalogPacks)
       .set({ isPublished, publishedAt: isPublished ? new Date() : null })

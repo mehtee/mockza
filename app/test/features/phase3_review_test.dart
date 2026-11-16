@@ -84,7 +84,9 @@ void main() {
         );
         addTearDown(sub.close);
 
-        final notifier = container.read(evaluationReviewNotifierProvider.notifier);
+        final notifier = container.read(
+          evaluationReviewNotifierProvider.notifier,
+        );
         await notifier.loadAttempt('att-A');
         await notifier.loadAttempt('att-B');
 
@@ -98,7 +100,12 @@ void main() {
               rawResultJson: <String, Object?>{
                 'attemptId': 'att-A',
                 'overallBand': 8.5,
-                'criteria': <String, Object?>{'TR': 8.5, 'CC': 8.5, 'LR': 8.5, 'GRA': 8.5},
+                'criteria': <String, Object?>{
+                  'TR': 8.5,
+                  'CC': 8.5,
+                  'LR': 8.5,
+                  'GRA': 8.5,
+                },
               },
             ),
           ),
@@ -166,7 +173,9 @@ void main() {
         );
         addTearDown(sub.close);
 
-        final notifier = container.read(evaluationReviewNotifierProvider.notifier);
+        final notifier = container.read(
+          evaluationReviewNotifierProvider.notifier,
+        );
         await notifier.loadAttempt('att-failed-01');
         await notifier.retryEvaluation();
 
@@ -197,7 +206,9 @@ class _ControlledPollGateway implements GradingGateway {
     required int partIndex,
     String examId = 'ielts_academic',
     String partSequence = 'full',
-    List<({int partIndex, String promptText, String objectKey, int? durationMs})>?
+    List<
+      ({int partIndex, String promptText, String objectKey, int? durationMs})
+    >?
     turns,
   }) => inner.enqueueSpeakingEvaluation(
     attemptId: attemptId,

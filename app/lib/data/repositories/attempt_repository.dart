@@ -22,6 +22,11 @@ class AttemptSummary {
     this.usedStudyMode = false,
     this.startedAtUtcMs,
     this.completedAtUtcMs,
+    this.questionCount = 0,
+    this.isCalibratedFullPack = true,
+    this.contentVersion,
+    this.mockSessionId,
+    this.mockStageKey,
   });
 
   /// Client-assigned attempt UUID.
@@ -57,9 +62,60 @@ class AttemptSummary {
   /// Immutable completion/submission timestamp in UTC milliseconds (`BF-12`, `TD-35`).
   final int? completedAtUtcMs;
 
+  /// Total scored questions in the pack (0 for open-response Writing/Speaking).
+  final int questionCount;
+
+  /// Whether this attempt comes from a full calibrated IELTS pack (40 objective items or timed prompt).
+  final bool isCalibratedFullPack;
+
+  /// Pack version active when the attempt was created.
+  final String? contentVersion;
+
+  /// Full Mock session ID if launched from a Full Mock orchestrator.
+  final String? mockSessionId;
+
+  /// Stage key within the parent Full Mock (`listening`, `reading`, `writing_task1`, `writing_task2`, `speaking`).
+  final String? mockStageKey;
+
   /// Best available immutable completion timestamp for analytics ordering & 30-day deltas.
   int get effectiveCompletedAtUtcMs =>
       completedAtUtcMs ?? startedAtUtcMs ?? updatedAt.millisecondsSinceEpoch;
+
+  /// True only for scored exam-mode calibrated attempts that belong in IELTS band estimates (`RR-10`).
+  bool get countsTowardCalibratedBand =>
+      overallBand != null &&
+      status == AttemptStatus.scored &&
+      !usedStudyMode &&
+      isCalibratedFullPack &&
+      skill != SkillKind.vocabulary;
+}
+
+/// Durable Full Mock session summary persisted in `MockSessions` (`RR-11`).
+@immutable
+class MockSessionRecord {
+  /// Creates a [MockSessionRecord].
+  const new({
+    required this.mockId,
+    required this.track,
+    required this.startedAtUtcMs,
+    required this.examMode,
+    this.stageAttemptIds = const <String, String>{},
+  });
+
+  /// Full Mock identifier.
+  final String mockId;
+
+  /// Exam module (`academic` or `general`).
+  final String track;
+
+  /// Session start/reset UTC timestamp in milliseconds.
+  final int startedAtUtcMs;
+
+  /// Timed Exam Mode vs untimed Study Mode.
+  final bool examMode;
+
+  /// Recorded attempt IDs per mock stage (`listening`, `reading`, `writing_task1`, `writing_task2`, `speaking`).
+  final Map<String, String> stageAttemptIds;
 }
 
 /// In-progress essay draft auto-saved every 500ms.
@@ -135,7 +191,7 @@ class ReadingAnnotationItem {
 }
 
 /// Repository owning offline attempt creation, status updates, history queries, and draft autosave.
-final class AttemptRepository {
+class AttemptRepository {
   /// Creates an [AttemptRepository].
   const new({
     required this._db,
@@ -164,6 +220,11 @@ final class AttemptRepository {
                 usedStudyMode: row.usedStudyMode,
                 startedAtUtcMs: row.startedAtUtcMs,
                 completedAtUtcMs: row.completedAtUtcMs,
+                questionCount: row.questionCount,
+                isCalibratedFullPack: row.isCalibratedFullPack,
+                contentVersion: row.contentVersion,
+                mockSessionId: row.mockSessionId,
+                mockStageKey: row.mockStageKey,
               ),
             )
             .toList(growable: false),
@@ -196,6 +257,11 @@ final class AttemptRepository {
             usedStudyMode: row.usedStudyMode,
             startedAtUtcMs: row.startedAtUtcMs,
             completedAtUtcMs: row.completedAtUtcMs,
+            questionCount: row.questionCount,
+            isCalibratedFullPack: row.isCalibratedFullPack,
+            contentVersion: row.contentVersion,
+            mockSessionId: row.mockSessionId,
+            mockStageKey: row.mockStageKey,
           ),
         )
         .toList(growable: false);
@@ -214,6 +280,11 @@ final class AttemptRepository {
     int? completedAtUtcMs,
     int durationSeconds = 0,
     bool usedStudyMode = false,
+    int questionCount = 0,
+    bool isCalibratedFullPack = true,
+    String? contentVersion,
+    String? mockSessionId,
+    String? mockStageKey,
   }) {
     final now = _clock.now().toUtc();
     return _db.attemptDao.upsertAttempt(
@@ -229,6 +300,11 @@ final class AttemptRepository {
         completedAtUtcMs: Value(completedAtUtcMs),
         durationSeconds: Value(durationSeconds),
         usedStudyMode: Value(usedStudyMode),
+        questionCount: Value(questionCount),
+        isCalibratedFullPack: Value(isCalibratedFullPack),
+        contentVersion: Value(contentVersion),
+        mockSessionId: Value(mockSessionId),
+        mockStageKey: Value(mockStageKey),
         createdAt: now,
         updatedAt: now,
       ),
@@ -335,6 +411,65 @@ final class AttemptRepository {
   Future<List<AudioRecordingRow>> getRecordingsForAttempt(String attemptId) =>
       _db.attemptDao.getRecordingsForAttempt(attemptId);
 
+  /// Persists an in-progress Speaking session manifest and captured clips so reload recovers turns (`RR-07`).
+  Future<void> savePendingSpeakingSession({
+    required String sessionId,
+    required String packId,
+    required bool isExamMode,
+    required String sessionJson,
+    int? startedAtUtcMs,
+    List<
+          ({
+            String recordingId,
+            int partIndex,
+            String localFilePath,
+            int durationMs,
+          })
+        >
+        recordings =
+        const [],
+  }) {
+    final now = _clock.now().toUtc();
+    return _db.transaction(() async {
+      await _db.attemptDao.upsertAttempt(
+        ExamAttemptsCompanion.insert(
+          attemptId: sessionId,
+          packId: packId,
+          skill: SkillKind.speaking.name,
+          status: AttemptStatus.inProgress.name,
+          submissionJson: sessionJson,
+          startedAtUtcMs: Value(startedAtUtcMs),
+          usedStudyMode: Value(!isExamMode),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+      for (final rec in recordings) {
+        await _db.attemptDao.upsertAudioRecording(
+          AudioRecordingsCompanion.insert(
+            recordingId: rec.recordingId,
+            attemptId: sessionId,
+            partIndex: rec.partIndex,
+            localFilePath: rec.localFilePath,
+            durationMs: rec.durationMs,
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+      }
+    });
+  }
+
+  /// Finds the latest unfinished in-progress Speaking session for [packId] and mode (`RR-07`).
+  Future<ExamAttemptRow?> findLatestPendingSpeakingSession(
+    String packId, {
+    required bool isExamMode,
+  }) => _db.attemptDao.findLatestInProgressAttempt(
+    packId: packId,
+    skill: SkillKind.speaking.name,
+    usedStudyMode: !isExamMode,
+  );
+
   /// Atomically persists a new attempt, optional child audio recordings, optional draft cleanup,
   /// and an initial `OutboxSyncQueue` item inside a single SQLite transaction before network I/O.
   Future<int?> saveDurableSubmissionWithOutbox({
@@ -348,17 +483,23 @@ final class AttemptRepository {
     int? startedAtUtcMs,
     int durationSeconds = 0,
     bool usedStudyMode = false,
+    int questionCount = 0,
+    bool isCalibratedFullPack = true,
+    String? contentVersion,
+    String? mockSessionId,
+    String? mockStageKey,
     String? deleteDraftId,
     List<
-      ({
-        String recordingId,
-        int partIndex,
-        String localFilePath,
-        int durationMs,
-        String? remoteObjectKey,
-      })
-    >
-    recordings = const [],
+          ({
+            String recordingId,
+            int partIndex,
+            String localFilePath,
+            int durationMs,
+            String? remoteObjectKey,
+          })
+        >
+        recordings =
+        const [],
   }) {
     final now = _clock.now().toUtc();
     return _db.transaction(() async {
@@ -373,6 +514,11 @@ final class AttemptRepository {
           startedAtUtcMs: Value(startedAtUtcMs),
           durationSeconds: Value(durationSeconds),
           usedStudyMode: Value(usedStudyMode),
+          questionCount: Value(questionCount),
+          isCalibratedFullPack: Value(isCalibratedFullPack),
+          contentVersion: Value(contentVersion),
+          mockSessionId: Value(mockSessionId),
+          mockStageKey: Value(mockStageKey),
           createdAt: now,
           updatedAt: now,
         ),
@@ -489,17 +635,16 @@ final class AttemptRepository {
 
   /// Deletes a draft when test is submitted or deliberately discarded,
   /// removing any synthetic `inProgress` placeholder parent attempt row (`TD-39`).
-  Future<int> deleteWritingDraft(String attemptId) =>
-      _db.transaction(() async {
-        final deleted = await _db.attemptDao.deleteWritingDraft(attemptId);
-        final parent = await _db.attemptDao.getAttemptById(attemptId);
-        if (parent != null && parent.status == AttemptStatus.inProgress.name) {
-          await (_db.delete(
-            _db.examAttempts,
-          )..where((t) => t.attemptId.equals(attemptId))).go();
-        }
-        return deleted;
-      });
+  Future<int> deleteWritingDraft(String attemptId) => _db.transaction(() async {
+    final deleted = await _db.attemptDao.deleteWritingDraft(attemptId);
+    final parent = await _db.attemptDao.getAttemptById(attemptId);
+    if (parent != null && parent.status == AttemptStatus.inProgress.name) {
+      await (_db.delete(
+        _db.examAttempts,
+      )..where((t) => t.attemptId.equals(attemptId))).go();
+    }
+    return deleted;
+  });
 
   // --- Reading Annotations ---
 
@@ -636,5 +781,116 @@ final class AttemptRepository {
           .toList(growable: false),
     };
     return const JsonEncoder.withIndent('  ').convert(payload);
+  }
+
+  // --- Full Mock Sessions (`RR-11`) ---
+
+  /// Loads or initializes a durable [MockSessionRecord] in `MockSessions`.
+  Future<MockSessionRecord> getOrCreateMockSession({
+    required String mockId,
+    required String track,
+    bool defaultExamMode = true,
+  }) async {
+    final existing = await _db.attemptDao.getMockSession(mockId);
+    if (existing != null) {
+      final decoded = _decodeStageMap(existing.stageAttemptIdsJson);
+      return MockSessionRecord(
+        mockId: existing.mockId,
+        track: existing.track,
+        startedAtUtcMs: existing.startedAtUtcMs,
+        examMode: existing.examMode,
+        stageAttemptIds: decoded,
+      );
+    }
+
+    final now = _clock.now().toUtc();
+    final startedAt = now.millisecondsSinceEpoch;
+    await _db.attemptDao.upsertMockSession(
+      MockSessionsCompanion.insert(
+        mockId: mockId,
+        track: Value(track),
+        startedAtUtcMs: startedAt,
+        examMode: Value(defaultExamMode),
+        stageAttemptIdsJson: const Value('{}'),
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+    return MockSessionRecord(
+      mockId: mockId,
+      track: track,
+      startedAtUtcMs: startedAt,
+      examMode: defaultExamMode,
+    );
+  }
+
+  /// Updates exam/study mode or resets a durable [MockSessionRecord].
+  Future<MockSessionRecord> saveMockSession({
+    required String mockId,
+    required String track,
+    required int startedAtUtcMs,
+    required bool examMode,
+    Map<String, String> stageAttemptIds = const <String, String>{},
+  }) async {
+    final now = _clock.now().toUtc();
+    final existing = await _db.attemptDao.getMockSession(mockId);
+    await _db.attemptDao.upsertMockSession(
+      MockSessionsCompanion.insert(
+        mockId: mockId,
+        track: Value(track),
+        startedAtUtcMs: startedAtUtcMs,
+        examMode: Value(examMode),
+        stageAttemptIdsJson: Value(jsonEncode(stageAttemptIds)),
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      ),
+    );
+    return MockSessionRecord(
+      mockId: mockId,
+      track: track,
+      startedAtUtcMs: startedAtUtcMs,
+      examMode: examMode,
+      stageAttemptIds: stageAttemptIds,
+    );
+  }
+
+  /// Records a completed or in-progress attempt ID for a specific mock stage (`RR-11`).
+  Future<void> recordMockStageAttempt({
+    required String mockId,
+    required String stageKey,
+    required String attemptId,
+  }) async {
+    final existing = await _db.attemptDao.getMockSession(mockId);
+    if (existing == null) return;
+    final map = Map<String, String>.from(
+      _decodeStageMap(existing.stageAttemptIdsJson),
+    )..[stageKey] = attemptId;
+    await _db.attemptDao.upsertMockSession(
+      MockSessionsCompanion.insert(
+        mockId: existing.mockId,
+        track: Value(existing.track),
+        startedAtUtcMs: existing.startedAtUtcMs,
+        examMode: Value(existing.examMode),
+        stageAttemptIdsJson: Value(jsonEncode(map)),
+        createdAt: existing.createdAt,
+        updatedAt: _clock.now().toUtc(),
+      ),
+    );
+  }
+
+  Map<String, String> _decodeStageMap(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) {
+        return <String, String>{
+          for (final entry in decoded.entries)
+            if (entry.key is String && entry.value is String)
+              entry.key as String: entry.value as String,
+        };
+      }
+    } on Object {
+      // Fall back to empty stage map if malformed.
+    }
+    return const <String, String>{};
   }
 }

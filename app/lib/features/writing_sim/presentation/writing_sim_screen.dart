@@ -16,6 +16,7 @@ import 'package:mockza/theme/components/chart_stage_card.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
+import 'package:mockza/theme/components/status_banner.dart';
 import 'package:mockza/theme/components/timer_bar.dart';
 import 'package:mockza/theme/primitives.dart';
 
@@ -27,6 +28,9 @@ class WritingSimScreen extends ConsumerStatefulWidget {
   const new({
     this.taskId = 'ielts-writing-seed-01',
     this.isExamMode = true,
+    this.mockSessionId,
+    this.mockStageKey,
+    this.initialTaskIndex = 0,
     super.key,
   });
 
@@ -36,6 +40,15 @@ class WritingSimScreen extends ConsumerStatefulWidget {
   /// Exam Mode (disables autocorrect & timer pause) vs Study Mode.
   final bool isExamMode;
 
+  /// Optional parent Full Mock session ID.
+  final String? mockSessionId;
+
+  /// Optional stage key (`writing_task1` or `writing_task2`) within the Full Mock session.
+  final String? mockStageKey;
+
+  /// Initial task tab index when launching a single task (`0` = Task 1, `1` = Task 2).
+  final int initialTaskIndex;
+
   @override
   ConsumerState<WritingSimScreen> createState() => _WritingSimScreenState();
 }
@@ -44,6 +57,7 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
     with WidgetsBindingObserver {
   late final TextEditingController _controller;
   int _lastSyncedNonce = -1;
+  bool _isPromptCollapsed = false;
 
   @override
   void initState() {
@@ -55,7 +69,13 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
       unawaited(
         ref
             .read(writingSimNotifierProvider.notifier)
-            .initialize(widget.taskId, isExamMode: widget.isExamMode),
+            .initialize(
+              widget.taskId,
+              isExamMode: widget.isExamMode,
+              mockSessionId: widget.mockSessionId,
+              mockStageKey: widget.mockStageKey,
+              initialTaskIndex: widget.initialTaskIndex,
+            ),
       );
     });
   }
@@ -110,7 +130,9 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
             shape: RoundedRectangleBorder(borderRadius: shapes.cardRadius),
             title: Text('Exit Writing Session?', style: typography.cardTitle),
             content: Text(
-              'Your essay draft is safely autosaved locally. You can resume anytime.',
+              state.isEphemeralStorage
+                  ? 'Browser storage is running in volatile memory mode. Exiting or reloading before submitting may lose your unsubmitted draft.'
+                  : 'Your essay draft is saved locally. You can resume anytime.',
               style: typography.body.copyWith(color: colors.textSecondary),
             ),
             actions: <Widget>[
@@ -264,40 +286,66 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
                         horizontal: SpacingTokens.md,
                       ),
                       children: <Widget>[
-                        // Prompt Card
+                        if (state.isEphemeralStorage) ...<Widget>[
+                          const StatusBanner(
+                            variant: StatusBannerVariant.offline,
+                            message: 'Browser storage is unavailable (volatile memory mode). Drafts will not survive a page reload.',
+                          ),
+                          const SizedBox(height: SpacingTokens.sm),
+                        ],
+                        // Prompt Card (collapsible on compact screens so the editor stays reachable `UX-06`)
                         MzCard(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
-                              Text(
-                                _headingForTaskType(state.taskType),
-                                style: typography.caption.copyWith(
-                                  color: colors.textSecondary,
-                                ),
+                              Row(
+                                children: <Widget>[
+                                  Expanded(
+                                    child: Text(
+                                      _headingForTaskType(state.taskType),
+                                      style: typography.caption.copyWith(
+                                        color: colors.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => setState(
+                                      () => _isPromptCollapsed =
+                                          !_isPromptCollapsed,
+                                    ),
+                                    child: Text(
+                                      _isPromptCollapsed
+                                          ? 'Show prompt'
+                                          : 'Hide prompt',
+                                    ),
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: SpacingTokens.xs),
                               Text(
                                 state.promptTitle,
                                 style: typography.cardTitle,
                               ),
-                              const SizedBox(height: SpacingTokens.xs),
-                              Text(
-                                state.promptDescription,
-                                style: typography.body.copyWith(
-                                  color: colors.textPrimary,
-                                  height: 1.5,
-                                ),
-                              ),
-                              if (state.chartSvg != null &&
-                                  state.chartSvg!.isNotEmpty) ...<Widget>[
-                                const SizedBox(height: SpacingTokens.md),
-                                _TaskChartView(
-                                  chartSvgOrPath: state.chartSvg!,
-                                  resolvedUrl: editionConfig.resolveMediaUrl(
-                                    state.chartSvg!,
+                              if (!_isPromptCollapsed) ...<Widget>[
+                                const SizedBox(height: SpacingTokens.xs),
+                                Text(
+                                  state.promptDescription,
+                                  style: typography.body.copyWith(
+                                    color: colors.textPrimary,
+                                    height: 1.5,
                                   ),
-                                  caption: state.chartCaption,
                                 ),
+                                if (state.chartSvg != null &&
+                                    state.chartSvg!.isNotEmpty) ...<Widget>[
+                                  const SizedBox(height: SpacingTokens.md),
+                                  _TaskChartView(
+                                    chartSvgOrPath: state.chartSvg!,
+                                    resolvedUrl: editionConfig.resolveMediaUrl(
+                                      state.chartSvg!,
+                                    ),
+                                    caption: state.chartCaption,
+                                  ),
+                                ],
                               ],
                             ],
                           ),
@@ -347,7 +395,9 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
                                   border: InputBorder.none,
                                   hintText: state.isTimeExpired
                                       ? 'Time expired — submit your response below.'
-                                      : 'Begin typing your response here... Drafts autosave automatically.',
+                                      : (state.isEphemeralStorage
+                                            ? 'Begin typing your response here (memory-only session)...'
+                                            : 'Begin typing your response here... Drafts autosave locally.'),
                                   hintStyle: typography.body.copyWith(
                                     color: colors.textTertiary,
                                   ),

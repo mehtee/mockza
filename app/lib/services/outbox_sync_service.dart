@@ -138,7 +138,9 @@ final class OutboxSyncService {
     try {
       final decoded = jsonDecode(payloadJson);
       if (decoded is! Map<String, Object?>) {
-        throw const FormatException('Outbox payload root must be a JSON object');
+        throw const FormatException(
+          'Outbox payload root must be a JSON object',
+        );
       }
       payload = decoded;
     } on FormatException catch (e) {

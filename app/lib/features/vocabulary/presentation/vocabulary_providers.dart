@@ -61,3 +61,21 @@ final NotifierProvider<VocabSearchQueryNotifier, String>
 vocabSearchQueryProvider = NotifierProvider<VocabSearchQueryNotifier, String>(
   VocabSearchQueryNotifier.new,
 );
+
+/// Selected review session batch size (`15`, `20`, `30`, or `null` for all cards; default `20`).
+class VocabBatchSizeNotifier extends Notifier<int?> {
+  @override
+  int? build() => 20;
+
+  /// Selects a target card count per review session (`null` means all available).
+  void setBatchSize(int? size) {
+    if (state == size) return;
+    state = size;
+  }
+}
+
+/// Provides selected vocabulary review session batch limit (`UX-13`).
+final NotifierProvider<VocabBatchSizeNotifier, int?> vocabBatchSizeProvider =
+    NotifierProvider<VocabBatchSizeNotifier, int?>(
+      VocabBatchSizeNotifier.new,
+    );

@@ -70,8 +70,11 @@ class VocabularyNotifier extends Notifier<VocabularyState> {
     );
   }
 
-  /// Loads a frozen snapshot of due (or ahead) cards so Drift updates do not shift indices.
-  Future<void> loadSession({required bool reviewAhead}) async {
+  /// Loads a frozen snapshot of due (or ahead) cards capped at [batchLimit] (`UX-13`).
+  Future<void> loadSession({
+    required bool reviewAhead,
+    int? batchLimit = 20,
+  }) async {
     if (_isDisposed) return;
     _isRating = false;
     state = VocabularyState(
@@ -80,10 +83,11 @@ class VocabularyNotifier extends Notifier<VocabularyState> {
       isReviewAhead: reviewAhead,
     );
 
+    final effectiveLimit = batchLimit ?? 200;
     final vocabRepo = ref.read(vocabRepositoryProvider);
     final cards = reviewAhead
-        ? await vocabRepo.getAheadCards()
-        : await vocabRepo.getDueCards();
+        ? await vocabRepo.getAheadCards(limit: effectiveLimit)
+        : await vocabRepo.getDueCards(limit: effectiveLimit);
 
     if (_isDisposed) return;
     _cardStartedAt = ref.read(clockProvider).now();

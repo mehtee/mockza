@@ -5,6 +5,7 @@ import { EvaluationModelError } from '../errors.js';
 import { OpenRouterClient } from '../models/openrouter.js';
 import { MODEL_REGISTRY } from '../models/registry.js';
 import { SPEAKING_RUBRIC_PROMPT } from '../prompts/rubrics.js';
+import { validateAndExtractCriterionBands } from './rubric-validation.js';
 
 export type SpeakingGraphInput = z.infer<typeof EvaluateSpeakingRequestSchema> & {
   base64AudioData?: string;
@@ -224,28 +225,10 @@ Return JSON format:
       );
     }
 
-    const criteria = Array.isArray(parsed['criteria']) ? parsed['criteria'] : null;
-    if (!criteria || criteria.length !== 4) {
-      throw new EvaluationModelError(
-        'model_invalid_output',
-        'Speaking model output must contain exactly 4 criterion scores.',
-        true,
-      );
-    }
-
-    const bands = criteria.map((c: { band?: unknown }) => Number(c?.band)) as [
-      number,
-      number,
-      number,
-      number,
-    ];
-    if (bands.some((b) => !Number.isFinite(b) || b < 0 || b > 9)) {
-      throw new EvaluationModelError(
-        'model_invalid_output',
-        'Speaking model output contained invalid criterion band values.',
-        true,
-      );
-    }
+    const bands = validateAndExtractCriterionBands({
+      skill: 'speaking',
+      rawCriteria: parsed['criteria'],
+    });
 
     const overallBand = computeOverallBandFromCriteria(bands);
 

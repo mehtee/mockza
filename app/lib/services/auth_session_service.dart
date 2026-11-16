@@ -145,11 +145,27 @@ final class AuthSessionService {
     return res.valueOrNull;
   }
 
-  /// Calls `DELETE /v1/account` when an authenticated token exists, then clears
-  /// stored device credentials ONLY after confirmed remote deletion so failed
-  /// requests remain retryable (`TD-09`).
+  /// Calls `DELETE /v1/account` or resumes an existing partial erasure receipt via
+  /// `POST /v1/erasure/:erasureId/retry`, propagating credential deletion errors (`RR-05`).
   Future<Result<void, Failure>> deleteRemoteAccount() async {
     try {
+      final pendingReceipt = await _identity.readPendingErasureReceipt();
+      if (pendingReceipt != null) {
+        await _authDio.post<void>(
+          '/v1/erasure/${pendingReceipt.erasureId}/retry',
+          options: Options(
+            headers: <String, Object?>{
+              'x-erasure-receipt': pendingReceipt.receiptToken,
+            },
+          ),
+        );
+        final cleared = await _identity.clearAll();
+        if (cleared case Err<void, Failure>(:final failure)) {
+          return Err(failure);
+        }
+        return const Ok(null);
+      }
+
       var token = await _identity.readAccessToken();
       if (token == null || token.isEmpty) {
         final ensured = await ensureAuthenticated();
@@ -168,13 +184,33 @@ final class AuthSessionService {
           ),
         );
       }
-      await _identity.clearAll();
+      final cleared = await _identity.clearAll();
+      if (cleared case Err<void, Failure>(:final failure)) {
+        return Err(failure);
+      }
       return const Ok(null);
     } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      final body = e.response?.data;
+      if (status == 503 && body is Map) {
+        final erasureId = body['erasureId'] as String?;
+        final receiptToken = body['receiptToken'] as String?;
+        if (erasureId != null &&
+            erasureId.isNotEmpty &&
+            receiptToken != null &&
+            receiptToken.isNotEmpty) {
+          await _identity.savePendingErasureReceipt(
+            erasureId: erasureId,
+            receiptToken: receiptToken,
+          );
+          // Revoked DB device credentials are no longer usable; clear them and rely on receipt (`RR-05`).
+          await _identity.clearCredentials();
+        }
+      }
       return Err(
         NetworkFailure(
           'Remote account deletion failed: ${e.message ?? 'offline'}',
-          statusCode: e.response?.statusCode,
+          statusCode: status,
         ),
       );
     } on Object catch (e) {

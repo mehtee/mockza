@@ -53,65 +53,67 @@ class PaywallScreen extends ConsumerWidget {
               vertical: SpacingTokens.lg,
             ),
             child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            if (kIsWeb) ...<Widget>[
-              const StatusBanner(
-                variant: StatusBannerVariant.offline,
-                message: 'Subscriptions are managed via Google Play / App Store on mobile devices and synced automatically to your account.',
-              ),
-              const SizedBox(height: SpacingTokens.lg),
-            ],
-            _buildHeroHeader(context),
-            const SizedBox(height: SpacingTokens.lg),
-            _buildFairUseAllowanceCard(context),
-            const SizedBox(height: SpacingTokens.xl),
-            Text(
-              'Select Your Study Plan',
-              style: typography.cardTitle.copyWith(color: colors.textPrimary),
-            ),
-            const SizedBox(height: SpacingTokens.sm),
-            ...state.packages.map(
-              (p) => _buildPackageCard(context, p, state, notifier),
-            ),
-            const SizedBox(height: SpacingTokens.xl),
-            PrimaryButton(
-              label: state.isPro
-                  ? 'Pro Active'
-                  : (kIsWeb
-                        ? 'Subscribe via Android / iOS App'
-                        : 'Subscribe to Mockza Pro'),
-              isLoading: state.isBusy,
-              onPressed: state.isPro || state.isBusy || kIsWeb
-                  ? null
-                  : () => unawaited(notifier.purchaseSelected()),
-            ),
-            const SizedBox(height: SpacingTokens.md),
-            Center(
-              child: TextButton(
-                onPressed: state.isBusy || kIsWeb
-                    ? null
-                    : () => unawaited(notifier.restorePurchases()),
-                child: const Text('Restore Previous Purchases'),
-              ),
-            ),
-            if (state.statusMessage != null) ...<Widget>[
-              const SizedBox(height: SpacingTokens.sm),
-              Center(
-                child: Text(
-                  state.statusMessage!,
-                  textAlign: TextAlign.center,
-                  style: typography.caption.copyWith(color: colors.primary),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                if (kIsWeb) ...<Widget>[
+                  const StatusBanner(
+                    variant: StatusBannerVariant.offline,
+                    message: 'Subscriptions are managed via Google Play / App Store on mobile devices and synced automatically to your account.',
+                  ),
+                  const SizedBox(height: SpacingTokens.lg),
+                ],
+                _buildHeroHeader(context),
+                const SizedBox(height: SpacingTokens.lg),
+                _buildFairUseAllowanceCard(context),
+                const SizedBox(height: SpacingTokens.xl),
+                Text(
+                  'Select Your Study Plan',
+                  style: typography.cardTitle.copyWith(
+                    color: colors.textPrimary,
+                  ),
                 ),
-              ),
-            ],
-            const SizedBox(height: SpacingTokens.xl),
-            _buildFreeComparisonCard(context),
-            const SizedBox(height: SpacingTokens.xl),
-            _buildTermsNotice(context),
-            const SizedBox(height: SpacingTokens.xxl),
-          ],
-        ),
+                const SizedBox(height: SpacingTokens.sm),
+                ...state.packages.map(
+                  (p) => _buildPackageCard(context, p, state, notifier),
+                ),
+                const SizedBox(height: SpacingTokens.xl),
+                PrimaryButton(
+                  label: state.isPro
+                      ? 'Pro Active'
+                      : (kIsWeb
+                            ? 'Subscribe via Android / iOS App'
+                            : 'Subscribe to Mockza Pro'),
+                  isLoading: state.isBusy,
+                  onPressed: state.isPro || state.isBusy || kIsWeb
+                      ? null
+                      : () => unawaited(notifier.purchaseSelected()),
+                ),
+                const SizedBox(height: SpacingTokens.md),
+                Center(
+                  child: TextButton(
+                    onPressed: state.isBusy || kIsWeb
+                        ? null
+                        : () => unawaited(notifier.restorePurchases()),
+                    child: const Text('Restore Previous Purchases'),
+                  ),
+                ),
+                if (state.statusMessage != null) ...<Widget>[
+                  const SizedBox(height: SpacingTokens.sm),
+                  Center(
+                    child: Text(
+                      state.statusMessage!,
+                      textAlign: TextAlign.center,
+                      style: typography.caption.copyWith(color: colors.primary),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: SpacingTokens.xl),
+                _buildFreeComparisonCard(context),
+                const SizedBox(height: SpacingTokens.xl),
+                _buildTermsNotice(context),
+                const SizedBox(height: SpacingTokens.xxl),
+              ],
+            ),
           ),
         ),
       ),
@@ -133,7 +135,7 @@ class PaywallScreen extends ConsumerWidget {
         ),
         const SizedBox(height: SpacingTokens.xs),
         Text(
-          'Structured IELTS Speaking & Writing rubric coaching paired with official objective tests.',
+          'Structured IELTS Speaking & Writing rubric coaching paired with original Reading & Listening practice tests.',
           textAlign: TextAlign.center,
           style: typography.body.copyWith(color: colors.textSecondary),
         ),
@@ -314,7 +316,7 @@ class PaywallScreen extends ConsumerWidget {
           ),
           const SizedBox(height: SpacingTokens.xs),
           Text(
-            '1 free diagnostic evaluation, unlimited local objective Reading & Listening exams, and daily spaced repetition vocabulary reviews.',
+            '1 shared free diagnostic AI evaluation (Speaking or Writing), full offline Reading & Listening practice tests, and daily spaced repetition vocabulary reviews.',
             style: typography.caption.copyWith(
               color: colors.textSecondary,
               height: 1.4,

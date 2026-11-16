@@ -36,6 +36,91 @@ export function computeSha256(content: string | Buffer): string {
   return createHash('sha256').update(content).digest('hex');
 }
 
+function stableJsonStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableJsonStringify(item)).join(',')}]`;
+  }
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(([, v]) => v !== undefined)
+    .sort(([a], [b]) => a.localeCompare(b));
+  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableJsonStringify(v)}`).join(',')}}`;
+}
+
+function normalizeCanonicalQuestionType(raw: string): string {
+  switch (raw.trim().toLowerCase()) {
+    case 'tfng':
+    case 'true_false_not_given':
+      return 'tfng';
+    case 'ynng':
+    case 'yes_no_not_given':
+      return 'ynng';
+    case 'mcq_single':
+    case 'mcqsingle':
+    case 'mcq':
+    case 'multiple_choice':
+      return 'mcq_single';
+    case 'mcq_multi':
+    case 'mcqmulti':
+    case 'multiple_choice_multi':
+      return 'mcq_multi';
+    case 'matching_headings':
+    case 'matchingheadings':
+    case 'matching':
+      return 'matching_headings';
+    case 'summary_gap_fill':
+    case 'summarygapfill':
+    case 'gap_fill':
+    case 'form_completion':
+    case 'sentence_completion':
+      return 'summary_gap_fill';
+    case 'writing_prompt':
+      return 'writing_prompt';
+    case 'speaking_part1':
+      return 'speaking_part1';
+    case 'speaking_part2':
+      return 'speaking_part2';
+    case 'speaking_part3':
+      return 'speaking_part3';
+    default:
+      return 'short_answer';
+  }
+}
+
+function extractCanonicalMaxWords(params: {
+  evidence?: Record<string, unknown> | null;
+  prompt?: string;
+  acceptedAnswers?: string[];
+}): number | null {
+  const explicit = params.evidence?.['maxWords'];
+  if (typeof explicit === 'number' && Number.isFinite(explicit) && explicit > 0) {
+    return Math.trunc(explicit);
+  }
+  const promptUpper = (params.prompt ?? '').toUpperCase();
+  if (promptUpper.includes('ONE WORD ONLY') || promptUpper.includes('NO MORE THAN ONE WORD')) {
+    return 1;
+  }
+  if (promptUpper.includes('NO MORE THAN TWO WORDS')) {
+    return 2;
+  }
+  if (promptUpper.includes('NO MORE THAN THREE WORDS')) {
+    return 3;
+  }
+  if (Array.isArray(params.acceptedAnswers) && params.acceptedAnswers.length > 0) {
+    let maxWords = 0;
+    for (const ans of params.acceptedAnswers) {
+      const count = ans.trim().split(/\s+/).filter(Boolean).length;
+      if (count > maxWords) maxWords = count;
+    }
+    if (maxWords > 3) {
+      return maxWords;
+    }
+  }
+  return null;
+}
+
 export function checkCopyrightSafety(text: string): { safe: boolean; violations: string[] } {
   const violations: string[] = [];
   for (const pattern of BANNED_PATTERNS) {
@@ -170,14 +255,51 @@ export async function validateAllPacks(): Promise<ValidationSummary> {
     }
 
     if (!/^[a-f0-9]{64}$/.test(bundle.pack.sha256)) {
-      process.stderr.write(`FAIL: Invalid SHA-256 in exam ${bundle.pack.packId}\n`);
+      process.stderr.write(`FAIL: Invalid SHA-256 format in exam ${bundle.pack.packId}\n`);
       sha256Ok = false;
     }
 
-    const computedDigest = computeSha256(
-      JSON.stringify({ sections: bundle.sections, questions: bundle.questions }),
-    );
-    if (!/^[a-f0-9]{64}$/.test(computedDigest)) {
+    const sortedSections = [...bundle.sections].sort((a, b) => a.sectionIndex - b.sectionIndex);
+    const sortedQuestions = [...bundle.questions]
+      .map((q) => ({ ...q, questionType: normalizeCanonicalQuestionType(q.questionType) }))
+      .sort((a, b) => a.questionNumber - b.questionNumber);
+    const canonicalPayload = stableJsonStringify({
+      sections: sortedSections.map((s) => ({
+        sectionId: s.sectionId,
+        sectionIndex: s.sectionIndex,
+        sectionType: s.sectionType,
+        title: s.title,
+        instructions: s.instructions,
+        contentText: s.contentText,
+        paragraphs: s.paragraphsJson ?? null,
+        transcript: s.transcriptJson ?? null,
+        mediaUrl: s.mediaObjectKey ? `/v1/media/${s.mediaObjectKey}` : null,
+        durationSeconds: s.durationSeconds,
+        wordCount: s.wordCount,
+        metadata: s.metadataJson ?? null,
+      })),
+      questions: sortedQuestions.map((q) => ({
+        questionId: q.questionId,
+        sectionId: q.sectionId,
+        questionNumber: q.questionNumber,
+        questionType: q.questionType,
+        prompt: q.prompt,
+        options: q.optionsJson ?? null,
+        acceptedAnswers: q.acceptedAnswersJson,
+        maxWords: extractCanonicalMaxWords({
+          evidence: q.evidenceJson ?? null,
+          prompt: q.prompt,
+          acceptedAnswers: q.acceptedAnswersJson,
+        }),
+        evidence: q.evidenceJson ?? null,
+        cueTimestampMs: q.cueTimestampMs ?? null,
+      })),
+    });
+    const computedDigest = computeSha256(canonicalPayload);
+    if (bundle.pack.sha256 !== computedDigest) {
+      process.stderr.write(
+        `FAIL: SHA-256 mismatch in exam ${bundle.pack.packId} (declared=${bundle.pack.sha256}, computed=${computedDigest})\n`,
+      );
       sha256Ok = false;
     }
 

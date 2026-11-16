@@ -49,9 +49,7 @@ class ProgressScreen extends ConsumerWidget {
     final filteredAttempts = _filterByTimeframe(attempts, timeframe, now);
 
     final scoredAttempts = filteredAttempts
-        .where(
-          (a) => a.overallBand != null && a.skill != SkillKind.vocabulary,
-        )
+        .where((a) => a.countsTowardCalibratedBand)
         .map(
           (a) => (
             score: a.overallBand!,
@@ -62,7 +60,7 @@ class ProgressScreen extends ConsumerWidget {
         .toList(growable: false);
 
     final skillAttempts = filteredAttempts
-        .where((a) => a.overallBand != null)
+        .where((a) => a.countsTowardCalibratedBand)
         .map((a) => (score: a.overallBand!, skill: a.skill))
         .toList(growable: false);
 
@@ -178,9 +176,7 @@ class ProgressScreen extends ConsumerWidget {
       _ => null,
     };
     if (days == null) return attempts;
-    final cutoffMs = now
-        .subtract(Duration(days: days))
-        .millisecondsSinceEpoch;
+    final cutoffMs = now.subtract(Duration(days: days)).millisecondsSinceEpoch;
     return attempts
         .where((a) => a.effectiveCompletedAtUtcMs >= cutoffMs)
         .toList(growable: false);

@@ -210,7 +210,8 @@ class MicroDrillsNotifier extends Notifier<MicroDrillsState> {
     if (matched == null) {
       final cleanLower = cleanId.toLowerCase();
       for (final d in drills) {
-        if (d.drillId == cleanId || d.weaknessCode.toLowerCase() == cleanLower) {
+        if (d.drillId == cleanId ||
+            d.weaknessCode.toLowerCase() == cleanLower) {
           matched = d;
           break;
         }

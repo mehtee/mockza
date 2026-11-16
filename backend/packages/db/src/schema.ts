@@ -25,6 +25,8 @@ export const devices = pgTable('devices', {
   appVersion: text('app_version'),
   deviceSecretHash: text('device_secret_hash'),
   tokenVersion: integer('token_version').default(1).notNull(),
+  uploadGeneration: integer('upload_generation').default(1).notNull(),
+  erasingAt: timestamp('erasing_at', { withTimezone: true }),
   linkedUserId: uuid('linked_user_id').references(() => users.userId, { onDelete: 'set null' }),
   freeDiagnosticUsed: boolean('free_diagnostic_used').default(false).notNull(),
   lastAttestedAt: timestamp('last_attested_at', { withTimezone: true }),
@@ -76,6 +78,7 @@ export const erasureRequests = pgTable('erasure_requests', {
   accountKey: text('account_key').notNull(),
   deviceIdsJson: jsonb('device_ids_json').$type<string[]>().notNull(),
   status: text('status').notNull(), // 'pending' | 'partial' | 'completed'
+  receiptTokenHash: text('receipt_token_hash'),
   lastError: text('last_error'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -149,6 +152,9 @@ export const evaluationJobs = pgTable(
     tokenUsageJson: jsonb('token_usage_json'),
     estimatedCostUsdMicros: integer('estimated_cost_usd_micros'),
     attemptsCount: integer('attempts_count').default(1).notNull(),
+    executionGeneration: integer('execution_generation').default(1).notNull(),
+    claimToken: text('claim_token'),
+    claimExpiresAt: timestamp('claim_expires_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -163,6 +169,7 @@ export const jobDispatchOutbox = pgTable('job_dispatch_outbox', {
     .primaryKey()
     .references(() => evaluationJobs.jobId, { onDelete: 'cascade' }),
   queueName: text('queue_name').notNull(),
+  dispatchKey: text('dispatch_key'),
   payloadJson: jsonb('payload_json').$type<Record<string, unknown>>().notNull(),
   status: text('status').default('pending').notNull(), // 'pending' | 'dispatched'
   attempts: integer('attempts').default(0).notNull(),
@@ -222,6 +229,8 @@ export const webhookEvents = pgTable('webhook_events', {
   eventId: text('event_id').primaryKey(),
   provider: text('provider').notNull(),
   eventType: text('event_type').notNull(),
+  status: text('status').default('processed').notNull(), // 'processed' | 'pending_reconciliation'
+  targetIdentity: text('target_identity'),
   payloadJson: jsonb('payload_json').notNull(),
   processedAt: timestamp('processed_at', { withTimezone: true }).defaultNow().notNull(),
 });

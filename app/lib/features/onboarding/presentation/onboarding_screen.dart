@@ -85,7 +85,7 @@ class _ExamSelectionStep extends StatelessWidget {
           ),
           const SizedBox(height: SpacingTokens.xs),
           Text(
-            'AI-powered IELTS preparation calibrated to official examiner standards.',
+            'Offline-first IELTS preparation with structured AI rubric feedback and local Reading & Listening practice.',
             textAlign: TextAlign.center,
             style: typography.body.copyWith(color: colors.textSecondary),
           ),
@@ -113,8 +113,7 @@ class _ExamSelectionStep extends StatelessWidget {
           const SizedBox(height: SpacingTokens.sm),
           _ExamCard(
             title: 'PTE Academic',
-            description:
-                'Coming soon — 10–90 automated PTE scoring packs are in development.',
+            description: 'Coming soon — 10–90 automated PTE scoring packs are in development.',
             isSelected: false,
             isComingSoon: true,
             onTap: () {},
@@ -122,8 +121,7 @@ class _ExamSelectionStep extends StatelessWidget {
           const SizedBox(height: SpacingTokens.sm),
           _ExamCard(
             title: 'TOEFL iBT',
-            description:
-                'Coming soon — 0–120 TOEFL iBT full simulations are in development.',
+            description: 'Coming soon — 0–120 TOEFL iBT full simulations are in development.',
             isSelected: false,
             isComingSoon: true,
             onTap: () {},

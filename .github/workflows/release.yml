@@ -64,9 +64,15 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          MOCKZA_API_BASE_URL: ${{ vars.MOCKZA_API_BASE_URL }}
+          REVENUECAT_PUBLIC_KEY: ${{ secrets.REVENUECAT_PUBLIC_KEY }}
         run: |
           if [ -z "${ANDROID_KEYSTORE_BASE64:-}" ] || [ -z "${ANDROID_KEYSTORE_PASSWORD:-}" ] || [ -z "${ANDROID_KEY_ALIAS:-}" ] || [ -z "${ANDROID_KEY_PASSWORD:-}" ]; then
             echo "Error: Missing Android release signing secrets (ANDROID_KEYSTORE_*)." >&2
+            exit 1
+          fi
+          if [ -z "${MOCKZA_API_BASE_URL:-}" ]; then
+            echo "Error: Missing MOCKZA_API_BASE_URL for native release build." >&2
             exit 1
           fi
           cd app
@@ -80,6 +86,10 @@ jobs:
           if [ "$FLAVOR" = "glb" ]; then
             TARGET="lib/main_global.dart"
             FLAVOR_NAME="global"
+            if [ -z "${REVENUECAT_PUBLIC_KEY:-}" ]; then
+              echo "Error: Missing REVENUECAT_PUBLIC_KEY for global release build." >&2
+              exit 1
+            fi
           elif [ "$FLAVOR" = "irn" ]; then
             TARGET="lib/main_iran.dart"
             FLAVOR_NAME="iran"
@@ -92,6 +102,8 @@ jobs:
             --release \
             --flavor="$FLAVOR_NAME" \
             --target="$TARGET" \
+            --dart-define="MOCKZA_API_BASE_URL=$MOCKZA_API_BASE_URL" \
+            --dart-define="REVENUECAT_PUBLIC_KEY=${REVENUECAT_PUBLIC_KEY:-}" \
             --build-name="$BUILD_NAME" \
             --build-number="$BUILD_NUMBER"
 
@@ -102,7 +114,7 @@ jobs:
           path: app/build/app/outputs/bundle/**/*.aab
 
   build_ios:
-    name: Build iOS Archive (.xcarchive)
+    name: Build iOS Unsigned Archive (.xcarchive)
     needs: validate_release_tag
     runs-on: macos-14
     steps:
@@ -117,15 +129,25 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Build iOS No-Codesign Archive
+      - name: Build iOS Unsigned Archive (requires separate distribution signing before App Store upload)
         env:
           FLAVOR: ${{ needs.validate_release_tag.outputs.flavor }}
           BUILD_NAME: ${{ needs.validate_release_tag.outputs.version }}
           BUILD_NUMBER: ${{ needs.validate_release_tag.outputs.build_number }}
+          MOCKZA_API_BASE_URL: ${{ vars.MOCKZA_API_BASE_URL }}
+          REVENUECAT_PUBLIC_KEY: ${{ secrets.REVENUECAT_PUBLIC_KEY }}
         run: |
+          if [ -z "${MOCKZA_API_BASE_URL:-}" ]; then
+            echo "Error: Missing MOCKZA_API_BASE_URL for iOS release build." >&2
+            exit 1
+          fi
           cd app
           if [ "$FLAVOR" = "glb" ]; then
             TARGET="lib/main_global.dart"
+            if [ -z "${REVENUECAT_PUBLIC_KEY:-}" ]; then
+              echo "Error: Missing REVENUECAT_PUBLIC_KEY for global iOS release build." >&2
+              exit 1
+            fi
           elif [ "$FLAVOR" = "irn" ]; then
             TARGET="lib/main_iran.dart"
           else
@@ -137,15 +159,17 @@ jobs:
             --release \
             --no-codesign \
             --target="$TARGET" \
+            --dart-define="MOCKZA_API_BASE_URL=$MOCKZA_API_BASE_URL" \
+            --dart-define="REVENUECAT_PUBLIC_KEY=${REVENUECAT_PUBLIC_KEY:-}" \
             --build-name="$BUILD_NAME" \
             --build-number="$BUILD_NUMBER"
-          tar -czf "build/ios/mockza-${FLAVOR}.xcarchive.tar.gz" -C build/ios/archive .
+          tar -czf "build/ios/mockza-${FLAVOR}-unsigned.xcarchive.tar.gz" -C build/ios/archive .
 
       - name: Archive iOS Build
         uses: actions/upload-artifact@v4
         with:
-          name: mockza-${{ needs.validate_release_tag.outputs.flavor }}-ios-xcarchive
-          path: app/build/ios/mockza-${{ needs.validate_release_tag.outputs.flavor }}.xcarchive.tar.gz
+          name: mockza-${{ needs.validate_release_tag.outputs.flavor }}-ios-unsigned-xcarchive
+          path: app/build/ios/mockza-${{ needs.validate_release_tag.outputs.flavor }}-unsigned.xcarchive.tar.gz
 
   publish_backend_images:
     name: Build & Push Production Backend Docker Images (GHCR)

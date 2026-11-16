@@ -74,29 +74,78 @@ abstract final class AppRoutes {
   static String buildPracticeFullMock(String mockId) =>
       '/practice/full-mock/$mockId';
 
+  static String _buildModePath(
+    String path,
+    bool examMode, {
+    String? mockSessionId,
+    String? mockStageKey,
+    int? taskIndex,
+  }) {
+    final params = <String, String>{
+      if (!examMode) 'mode': 'study',
+      if (mockSessionId != null && mockSessionId.isNotEmpty)
+        'mockSessionId': mockSessionId,
+      if (mockStageKey != null && mockStageKey.isNotEmpty)
+        'mockStageKey': mockStageKey,
+      if (taskIndex != null) 'taskIndex': '$taskIndex',
+    };
+    if (params.isEmpty) return path;
+    return Uri(path: path, queryParameters: params).toString();
+  }
+
   /// Builds a Speaking simulator path for [examId].
   static String buildSpeakingSim([
     String examId = 'ielts-speaking-seed-01',
     bool examMode = true,
-  ]) => examMode ? '/speaking/$examId' : '/speaking/$examId?mode=study';
+    String? mockSessionId,
+    String? mockStageKey,
+  ]) => _buildModePath(
+    '/speaking/$examId',
+    examMode,
+    mockSessionId: mockSessionId,
+    mockStageKey: mockStageKey,
+  );
 
   /// Builds a Writing simulator path for [taskId].
   static String buildWritingSim([
     String taskId = 'ielts-writing-seed-01',
     bool examMode = true,
-  ]) => examMode ? '/writing/$taskId' : '/writing/$taskId?mode=study';
+    String? mockSessionId,
+    String? mockStageKey,
+    int? taskIndex,
+  ]) => _buildModePath(
+    '/writing/$taskId',
+    examMode,
+    mockSessionId: mockSessionId,
+    mockStageKey: mockStageKey,
+    taskIndex: taskIndex,
+  );
 
   /// Builds a Reading simulator path for [packId].
   static String buildReadingSim([
     String packId = 'ielts-acad-reading-seed-01',
     bool examMode = true,
-  ]) => examMode ? '/reading/$packId' : '/reading/$packId?mode=study';
+    String? mockSessionId,
+    String? mockStageKey,
+  ]) => _buildModePath(
+    '/reading/$packId',
+    examMode,
+    mockSessionId: mockSessionId,
+    mockStageKey: mockStageKey,
+  );
 
   /// Builds a Listening simulator path for [packId].
   static String buildListeningSim([
     String packId = 'ielts-listening-seed-01',
     bool examMode = true,
-  ]) => examMode ? '/listening/$packId' : '/listening/$packId?mode=study';
+    String? mockSessionId,
+    String? mockStageKey,
+  ]) => _buildModePath(
+    '/listening/$packId',
+    examMode,
+    mockSessionId: mockSessionId,
+    mockStageKey: mockStageKey,
+  );
 
   /// Builds a micro-drill path for [drillId].
   static String buildMicroDrill([String drillId = 'ielts-micro-drill-01']) =>

@@ -130,15 +130,19 @@ class _TrendChartPainter extends CustomPainter {
       return size.height - bottomPadding - (fraction * chartHeight);
     }
 
-    void drawLabel(String text, Offset offset, {TextAlign align = TextAlign.left}) {
+    void drawLabel(
+      String text,
+      Offset offset, {
+      TextAlign align = TextAlign.left,
+    }) {
       TextPainter(
-        text: TextSpan(
-          text: text,
-          style: TextStyle(color: axisLabelColor, fontSize: 10),
-        ),
-        textDirection: TextDirection.ltr,
-        textAlign: align,
-      )
+          text: TextSpan(
+            text: text,
+            style: TextStyle(color: axisLabelColor, fontSize: 10),
+          ),
+          textDirection: TextDirection.ltr,
+          textAlign: align,
+        )
         ..layout()
         ..paint(canvas, offset);
     }
@@ -155,7 +159,9 @@ class _TrendChartPainter extends CustomPainter {
         Offset(leftPadding + chartWidth, y),
         gridPaint,
       );
-      if (s == minScore || s == maxScore || s == ((minScore + maxScore) / 2).roundToDouble()) {
+      if (s == minScore ||
+          s == maxScore ||
+          s == ((minScore + maxScore) / 2).roundToDouble()) {
         drawLabel(s.toStringAsFixed(1), Offset(0, y - 6));
       }
     }
@@ -172,7 +178,10 @@ class _TrendChartPainter extends CustomPainter {
     while (startX < leftPadding + chartWidth) {
       canvas.drawLine(
         Offset(startX, targetY),
-        Offset((startX + dashWidth).clamp(leftPadding, leftPadding + chartWidth), targetY),
+        Offset(
+          (startX + dashWidth).clamp(leftPadding, leftPadding + chartWidth),
+          targetY,
+        ),
         targetPaint,
       );
       startX += dashWidth + dashSpace;
@@ -205,7 +214,10 @@ class _TrendChartPainter extends CustomPainter {
     );
     drawLabel(
       points.last.dateLabel,
-      Offset((leftPadding + chartWidth - 28).clamp(leftPadding, size.width), size.height - bottomPadding + 4),
+      Offset(
+        (leftPadding + chartWidth - 28).clamp(leftPadding, size.width),
+        size.height - bottomPadding + 4,
+      ),
     );
 
     // Draw trend line

@@ -22,6 +22,7 @@ import {
   type VerifyProviderTokenFn,
   verifyProviderIdToken,
 } from '../services/provider-verify.js';
+import { reconcilePendingWebhooksForIdentities } from './webhooks-revenuecat.js';
 
 function sha256Hex(secret: string): string {
   return createHash('sha256').update(secret, 'utf-8').digest('hex');
@@ -231,6 +232,9 @@ export function registerAuthRoutes(
       }
     }
 
+    if (db) {
+      await reconcilePendingWebhooksForIdentities(db, [deviceId]);
+    }
     const { token, expiresAt } = await signDeviceToken(deviceId, env, 30 * 24 * 3600, tokenVersion);
 
     return c.json(
@@ -434,6 +438,9 @@ export function registerAuthRoutes(
       tokenVersion = outcome.tokenVersion;
     }
 
+    if (db) {
+      await reconcilePendingWebhooksForIdentities(db, [deviceId, userId]);
+    }
     const { token, expiresAt } = await signDeviceToken(deviceId, env, 30 * 24 * 3600, tokenVersion);
 
     return c.json(

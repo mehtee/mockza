@@ -178,15 +178,23 @@ class AudioPlayerBar extends StatelessWidget {
                   fontSize: 14,
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: SpacingTokens.xs),
               if (isExam)
-                Text(
-                  'Exam Mode · Linear',
-                  style: typography.caption.copyWith(
-                    color: colors.textTertiary,
+                Expanded(
+                  child: Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: Text(
+                      'Exam Mode · Linear',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: typography.caption.copyWith(
+                        color: colors.textTertiary,
+                      ),
+                    ),
                   ),
                 )
-              else if (onTapSpeed != null)
+              else if (onTapSpeed != null) ...<Widget>[
+                const Spacer(),
                 InkWell(
                   onTap: onTapSpeed,
                   borderRadius: shapes.pillRadius,
@@ -212,6 +220,7 @@ class AudioPlayerBar extends StatelessWidget {
                     ),
                   ),
                 ),
+              ],
             ],
           ),
         ],

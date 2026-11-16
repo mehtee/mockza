@@ -2,7 +2,9 @@ import type { S3Client } from '@aws-sdk/client-s3';
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { AppEnv } from '@mockza/config';
 import type { MockzaDb } from '@mockza/db';
+import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
+import { HTTPException } from 'hono/http-exception';
 import type PgBoss from 'pg-boss';
 import type postgres from 'postgres';
 import {
@@ -45,9 +47,45 @@ export function createApiApp(
   const app = new OpenAPIHono<{ Variables: RequestVariables }>();
   const challengeStore = createChallengeStore(deps.db);
 
+  const trustedProxyIps = new Set(
+    (env.TRUSTED_PROXY_IPS ?? '127.0.0.1,::1')
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0),
+  );
+
+  app.onError((err, c) => {
+    const requestId = c.get('requestId') ?? 'unknown';
+    if (err instanceof HTTPException) {
+      const status = err.status;
+      return c.json(
+        {
+          code: status === 413 ? 'payload_too_large' : 'request_error',
+          message: status >= 500 ? 'Internal server error.' : err.message,
+          requestId,
+        },
+        status,
+      );
+    }
+    return c.json(
+      {
+        code: 'internal_error',
+        message: 'Unexpected internal error.',
+        requestId,
+      },
+      500,
+    );
+  });
+
   app.use('*', cors());
   app.use('*', requestIdMiddleware);
-  app.use('/v1/*', createRateLimitMiddleware({ windowMs: 60_000, maxRequests: 120 }));
+  app.use(
+    '/v1/*',
+    createRateLimitMiddleware({ windowMs: 60_000, maxRequests: 120, trustedProxyIps }),
+  );
+  // Bound JSON API routes (upload proxy enforces its own streaming byte cap `RR-17`).
+  app.use('/v1/evaluate/*', bodyLimit({ maxSize: 2 * 1024 * 1024 }));
+  app.use('/v1/auth/*', bodyLimit({ maxSize: 256 * 1024 }));
   app.use('/v1/*', createEditionGuardMiddleware(env.EDITION));
   app.use(
     '/v1/auth/*',
