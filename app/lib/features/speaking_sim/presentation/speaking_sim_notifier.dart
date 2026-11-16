@@ -711,6 +711,7 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
 
   /// Moves to the next prompt in the Speaking pack, or switches parts in Study Mode.
   Future<void> goToTurn(int index) async {
+    if (state.isSubmitting) return;
     if (index < 0 || index >= state.prompts.length) return;
     if (state.isExamMode && state.isRecording) return;
 
@@ -832,10 +833,14 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
     }
   }
 
+  List<RecordedSpeakingTurn> get _orderedRecordedTurns => state.prompts
+      .map((prompt) => state.recordedTurns[prompt.promptId])
+      .whereType<RecordedSpeakingTurn>()
+      .toList(growable: false);
+
   Future<void> _persistPendingSession() async {
     if (state.recordedTurns.isEmpty) return;
-    final orderedTurns = state.recordedTurns.values.toList()
-      ..sort((a, b) => a.partIndex.compareTo(b.partIndex));
+    final orderedTurns = _orderedRecordedTurns;
     try {
       await _attemptRepo.savePendingSpeakingSession(
         sessionId: state.sessionId,
@@ -861,6 +866,8 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
               )
               .toList(growable: false),
         }),
+        mockSessionId: _mockSessionId,
+        mockStageKey: _mockStageKey,
         recordings: orderedTurns
             .map(
               (t) => (
@@ -873,7 +880,12 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
             .toList(growable: false),
       );
     } on Object {
-      // Non-fatal in headless widget tests without DB tables.
+      if (!_isDisposed) {
+        state = state.copyWith(
+          hasStorageWarning: true,
+          errorMessage: 'Could not save session progress. Keep this session open and retry before leaving.',
+        );
+      }
     }
   }
 
@@ -894,6 +906,7 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
       final row = await _attemptRepo.findLatestPendingSpeakingSession(
         packId,
         isExamMode: isExamMode,
+        mockSessionId: _mockSessionId,
       );
       if (row == null) return null;
       final decoded = jsonDecode(row.submissionJson);
@@ -952,12 +965,12 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
       return null;
     }
 
+    state = state.copyWith(isSubmitting: true, clearError: true);
+
     _countdownTimer?.cancel();
     await stopMicPreview();
     await _stopPlaybackInternal();
     if (_isDisposed) return null;
-
-    state = state.copyWith(isSubmitting: true, clearError: true);
 
     final attemptId = state.sessionId;
     final attemptRepo = ref.read(attemptRepositoryProvider);
@@ -965,7 +978,6 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
     final profileRepo = ref.read(profileRepositoryProvider);
     final authSession = ref.read(authSessionServiceProvider);
     final progressRepo = ref.read(progressRepositoryProvider);
-    final entropy = ref.read(entropySourceProvider);
     final clock = ref.read(clockProvider);
 
     try {
@@ -974,16 +986,18 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
           ? 'ielts_general'
           : 'ielts_academic';
 
-      final orderedTurns = state.recordedTurns.values.toList()
-        ..sort((a, b) => a.partIndex.compareTo(b.partIndex));
+      final orderedTurns = _orderedRecordedTurns;
 
-      final canonicalPartSequence = orderedTurns.length >= 3
+      final representedParts = orderedTurns
+          .map((turn) => turn.partIndex)
+          .toSet();
+      final canonicalPartSequence = representedParts.containsAll({1, 2, 3})
           ? 'full'
           : 'part${orderedTurns.first.partIndex}';
 
       final turnEntries = orderedTurns
           .map((turn) {
-            final recordingId = entropy.nextUuidV4();
+            final recordingId = '${state.sessionId}_${turn.promptId}';
             return (turn: turn, recordingId: recordingId);
           })
           .toList(growable: false);

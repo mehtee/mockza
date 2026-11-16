@@ -15,10 +15,10 @@ import {
   refundQuotaAtomic,
 } from '@mockza/db';
 import { and, eq, isNull, lt, notInArray, or } from 'drizzle-orm';
+import { JOB_LEASE_DURATION_MS, startEvaluationLeaseRenewal } from './evaluation-lease.js';
 import type { WorkerRetryContext } from './grade-writing.js';
 
 export const SPEAKING_JOB_QUEUE = 'evaluation.speaking';
-const JOB_LEASE_DURATION_MS = 180_000;
 
 export async function handleGradeSpeakingJob(
   payload: SpeakingGraphInput & { jobId: string; executionGeneration?: number },
@@ -78,6 +78,16 @@ export async function handleGradeSpeakingJob(
       return null;
     }
   }
+
+  const stopLeaseRenewal =
+    db && payload.jobId
+      ? startEvaluationLeaseRenewal({
+          db,
+          jobId: payload.jobId,
+          generation: expectedGeneration,
+          claimToken,
+        })
+      : () => {};
 
   try {
     let turnAudios = payload.turnAudios;
@@ -240,5 +250,7 @@ export async function handleGradeSpeakingJob(
       }
     }
     throw error;
+  } finally {
+    stopLeaseRenewal();
   }
 }

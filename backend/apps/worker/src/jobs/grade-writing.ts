@@ -12,9 +12,9 @@ import {
   refundQuotaAtomic,
 } from '@mockza/db';
 import { and, eq, isNull, lt, notInArray, or } from 'drizzle-orm';
+import { JOB_LEASE_DURATION_MS, startEvaluationLeaseRenewal } from './evaluation-lease.js';
 
 export const WRITING_JOB_QUEUE = 'evaluation.writing';
-const JOB_LEASE_DURATION_MS = 180_000;
 
 export interface WorkerRetryContext {
   attemptNumber?: number;
@@ -78,6 +78,16 @@ export async function handleGradeWritingJob(
       return null;
     }
   }
+
+  const stopLeaseRenewal =
+    db && payload.jobId
+      ? startEvaluationLeaseRenewal({
+          db,
+          jobId: payload.jobId,
+          generation: expectedGeneration,
+          claimToken,
+        })
+      : () => {};
 
   try {
     const result = await gradeWritingGraph.invoke(payload, invokeOptions);
@@ -172,5 +182,7 @@ export async function handleGradeWritingJob(
       }
     }
     throw error;
+  } finally {
+    stopLeaseRenewal();
   }
 }

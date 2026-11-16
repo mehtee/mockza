@@ -100,7 +100,13 @@ export function registerEvaluateRoutes(
       await params.database
         .update(jobDispatchOutbox)
         .set({ status: 'dispatched', updatedAt: new Date() })
-        .where(eq(jobDispatchOutbox.jobId, params.jobId));
+        .where(
+          and(
+            eq(jobDispatchOutbox.jobId, params.jobId),
+            eq(jobDispatchOutbox.dispatchKey, params.singletonKey),
+            eq(jobDispatchOutbox.status, 'pending'),
+          ),
+        );
     } catch (enqueueErr) {
       // Leave `status = 'pending'` in `job_dispatch_outbox` so sweeper recovers without stranding credit.
       await params.database
@@ -110,7 +116,13 @@ export function registerEvaluateRoutes(
           lastError: (enqueueErr as Error).message.slice(0, 500),
           updatedAt: new Date(),
         })
-        .where(eq(jobDispatchOutbox.jobId, params.jobId));
+        .where(
+          and(
+            eq(jobDispatchOutbox.jobId, params.jobId),
+            eq(jobDispatchOutbox.dispatchKey, params.singletonKey),
+            eq(jobDispatchOutbox.status, 'pending'),
+          ),
+        );
     }
   }
 

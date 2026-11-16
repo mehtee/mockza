@@ -355,8 +355,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
   Future<String> exportStudyDataJson() =>
       ref.read(attemptRepositoryProvider).exportStudyDataJson();
 
-  /// Deletes remote account first, then clears local credentials, caches & Drift tables.
-  /// Leaves local credentials intact if remote deletion fails so the user can retry.
+  /// Deletes the remote account and local data, retaining the receipt until all cleanup succeeds.
   Future<void> wipeAllData() async {
     state = state.copyWith(isBusy: true, clearStatusMessage: true);
     final remoteResult = await ref
@@ -368,16 +367,48 @@ class SettingsNotifier extends Notifier<SettingsState> {
       state = state.copyWith(
         isBusy: false,
         statusMessage:
-            'Could not erase server records (${failure.message}). Your credentials were kept so you can retry.',
+            'Could not erase server records (${failure.message}). Retry to finish deleting your data.',
       );
       return;
     }
 
-    final mediaCleared = await ref
-        .read(cacheCleanupServiceProvider)
-        .eraseAllLocalMediaForAccountWipe();
-    await ref.read(profileRepositoryProvider).resetAllLocalData();
-    ref.read(onboardingCompletedLatchProvider.notifier).completed = false;
+    try {
+      final mediaCleared = await ref
+          .read(cacheCleanupServiceProvider)
+          .eraseAllLocalMediaForAccountWipe();
+      if (!mediaCleared) {
+        if (!_isDisposed) {
+          state = state.copyWith(
+            isBusy: false,
+            statusMessage: 'Server account erased. Local audio deletion failed; retry to finish deleting your data.',
+          );
+        }
+        return;
+      }
+      final identity = ref.read(secureIdentityServiceProvider);
+      await ref.read(profileRepositoryProvider).resetAllLocalData();
+      final cleared = await identity.clearPendingErasureReceipt();
+      if (cleared case Err<void, Failure>(:final failure)) {
+        if (!_isDisposed) {
+          state = state.copyWith(
+            isBusy: false,
+            statusMessage:
+                'Data erased, but deletion confirmation could not be saved: ${failure.message}. Retry to finish.',
+          );
+        }
+        return;
+      }
+      if (_isDisposed) return;
+      ref.read(onboardingCompletedLatchProvider.notifier).completed = false;
+    } on Object {
+      if (!_isDisposed) {
+        state = state.copyWith(
+          isBusy: false,
+          statusMessage: 'Local data deletion could not finish. Retry to complete deletion.',
+        );
+      }
+      return;
+    }
 
     if (_isDisposed) return;
     state = SettingsState(
@@ -390,9 +421,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       writingRemaining: 1,
       appUserId: 'reset',
       appVersionLabel: state.appVersionLabel,
-      statusMessage: mediaCleared
-          ? 'Account and all local data wiped successfully.'
-          : 'Account records erased, but some local audio files could not be deleted.',
+      statusMessage: 'Account and all local data wiped successfully.',
     );
   }
 }

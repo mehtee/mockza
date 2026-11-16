@@ -72,6 +72,7 @@ class AttemptDao extends DatabaseAccessor<AppDatabase> with _$AttemptDaoMixin {
     required String packId,
     required String skill,
     required bool usedStudyMode,
+    String? mockSessionId,
   }) =>
       (select(examAttempts)
             ..where(
@@ -79,7 +80,10 @@ class AttemptDao extends DatabaseAccessor<AppDatabase> with _$AttemptDaoMixin {
                   t.packId.equals(packId) &
                   t.skill.equals(skill) &
                   t.status.equals('inProgress') &
-                  t.usedStudyMode.equals(usedStudyMode),
+                  t.usedStudyMode.equals(usedStudyMode) &
+                  (mockSessionId == null
+                      ? t.mockSessionId.isNull()
+                      : t.mockSessionId.equals(mockSessionId)),
             )
             ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)])
             ..limit(1))

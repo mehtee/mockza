@@ -431,14 +431,15 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
 
   /// Switches active writing task (`0` for Task 1, `1` for Task 2).
   void selectTaskIndex(int index) {
-    if (index == state.activeTaskIndex) return;
+    if (state.isSubmitting || index == state.activeTaskIndex) return;
     unawaited(flushAutosaveNow());
     _activateTaskIndex(index);
   }
 
   /// Updates the active draft text and triggers a 500ms debounced autosave.
   void updateDraft(String text) {
-    if (state.isTimeExpired) return;
+    if (state.isSubmitting || state.isTimeExpired) return;
+    _closedGenerationByKey.remove(_activeDraftKey());
     final idx = state.activeTaskIndex;
     _draftsByIndex[idx] = text;
     state = state.copyWith(draftText: text, clearError: true);
@@ -452,12 +453,13 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
   /// Serializes and flushes an immutable snapshot of the current writing draft + timer (`RR-08`).
   Future<void> flushAutosaveNow() async {
     _autosaveDebounce?.cancel();
-    if (_isDisposed || state.tasks.isEmpty) return;
+    if (_isDisposed || state.isSubmitting || state.tasks.isEmpty) return;
 
     final idx = state.activeTaskIndex;
     final remSec = _clockTracker?.currentRemaining() ?? state.remainingSeconds;
     _remainingByIndex[idx] = remSec;
     final draftKey = _activeDraftKey();
+    if (_closedGenerationByKey.containsKey(draftKey)) return;
     final textToSave = _draftsByIndex[idx] ?? state.draftText;
     final nextGen = (_draftGenerationByKey[draftKey] ?? 0) + 1;
     _draftGenerationByKey[draftKey] = nextGen;
@@ -544,6 +546,12 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
     final authSession = ref.read(authSessionServiceProvider);
     final progressRepo = ref.read(progressRepositoryProvider);
     final entropy = ref.read(entropySourceProvider);
+    final catalog = ref.read(examCatalogRepositoryProvider);
+    final mockStageKey = _mockSessionId == null
+        ? _mockStageKey
+        : state.taskType == WritingTaskType.task2Essay
+        ? 'writing_task2'
+        : 'writing_task1';
 
     final pending = _pendingSave;
     if (pending != null) {
@@ -587,9 +595,7 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
         'wordCount': wordCount,
       });
 
-      final installedPack = await ref
-          .read(examCatalogRepositoryProvider)
-          .getInstalledPackById(state.packId);
+      final installedPack = await catalog.getInstalledPackById(state.packId);
       // Atomically persist attempt, delete draft, and enqueue outbox BEFORE network I/O (`TD-39`, `TD-43`).
       final outboxId = await attemptRepo.saveDurableSubmissionWithOutbox(
         attemptId: attemptId,
@@ -604,14 +610,14 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
         usedStudyMode: !state.isExamMode,
         contentVersion: installedPack?.version,
         mockSessionId: _mockSessionId,
-        mockStageKey: _mockStageKey,
+        mockStageKey: mockStageKey,
         deleteDraftId: draftKey,
       );
 
-      if (_mockSessionId != null && _mockStageKey != null) {
+      if (_mockSessionId != null && mockStageKey != null) {
         await attemptRepo.recordMockStageAttempt(
           mockId: _mockSessionId!,
-          stageKey: _mockStageKey!,
+          stageKey: mockStageKey,
           attemptId: attemptId,
         );
       }
@@ -644,7 +650,7 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
         if (outboxId != null) {
           await attemptRepo.deleteOutboxItem(outboxId);
         }
-      } else {
+      } else if (!_isDisposed) {
         ref.read(outboxSyncServiceProvider).notifyWorkEnqueued();
       }
 
@@ -653,6 +659,7 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
       }
       return attemptId;
     } on Object catch (err) {
+      _closedGenerationByKey.remove(draftKey);
       if (!_isDisposed) {
         state = state.copyWith(
           isSubmitting: false,

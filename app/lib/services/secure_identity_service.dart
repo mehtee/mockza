@@ -184,8 +184,11 @@ final class SecureIdentityService {
   /// Clears tokens, device secret, device UUID, and erasure receipt on full account deletion.
   Future<Result<void, Failure>> clearAll() async {
     final credRes = await clearCredentials();
-    final receiptRes = await _storage.delete(key: _erasureReceiptKey);
     if (credRes case Err<void, Failure>()) return credRes;
-    return receiptRes;
+    return await clearPendingErasureReceipt();
   }
+
+  /// Acknowledges completed remote and local erasure without touching a new device identity.
+  Future<Result<void, Failure>> clearPendingErasureReceipt() =>
+      _storage.delete(key: _erasureReceiptKey);
 }

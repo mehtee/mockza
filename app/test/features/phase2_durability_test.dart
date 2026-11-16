@@ -354,7 +354,11 @@ void main() {
       addTearDown(sub.close);
 
       final notifier = container.read(writingSimNotifierProvider.notifier);
-      await notifier.initialize('w-pack-rr08');
+      await notifier.initialize(
+        'w-pack-rr08',
+        mockSessionId: 'mock-rr08',
+        mockStageKey: 'writing_task1',
+      );
 
       notifier.updateDraft('Task one first write');
       final inFlightFirst = notifier.flushAutosaveNow();
@@ -387,11 +391,27 @@ void main() {
       final queuedBeforeSubmit = notifier.flushAutosaveNow();
       await submitGateStarted.future;
       final submitFuture = notifier.submitWriting();
+      notifier
+        ..selectTaskIndex(0)
+        ..updateDraft('An edit while the submission is awaiting storage');
+      final saveDuringSubmit = notifier.flushAutosaveNow();
       submitGateRelease.complete();
       await queuedBeforeSubmit;
       final attemptId = await submitFuture;
+      await saveDuringSubmit;
 
       expect(attemptId, isNotNull);
+      expect(await heldRepo.getWritingDraft('draft-w-pack-rr08-t2'), isNull);
+      final submitted = await heldRepo.getAttemptRow(attemptId!);
+      final submittedPayload =
+          jsonDecode(submitted!.submissionJson) as Map<String, dynamic>;
+      expect(submittedPayload['taskType'], 'task2Essay');
+      expect(
+        submittedPayload['essayText'],
+        'Task two essay body with sufficient content',
+      );
+      expect(submitted.mockStageKey, 'writing_task2');
+      await notifier.flushAutosaveNow();
       expect(await heldRepo.getWritingDraft('draft-w-pack-rr08-t2'), isNull);
     });
 
@@ -474,11 +494,43 @@ void main() {
         ],
       );
 
+      final laterRepo = AttemptRepository(
+        db: db,
+        clock: Clock.fixed(DateTime.utc(2026, 11, 17)),
+      );
+      await laterRepo.savePendingSpeakingSession(
+        sessionId: 'unrelated-mock-session',
+        packId: 'sp-pack-rr07',
+        isExamMode: true,
+        mockSessionId: 'another-mock',
+        mockStageKey: 'speaking',
+        sessionJson: '{}',
+      );
+      expect(
+        (await attemptRepo.findLatestPendingSpeakingSession(
+          'sp-pack-rr07',
+          isExamMode: true,
+        ))?.attemptId,
+        'sess-restore-01',
+      );
+      expect(
+        (await attemptRepo.findLatestPendingSpeakingSession(
+          'sp-pack-rr07',
+          isExamMode: true,
+          mockSessionId: 'another-mock',
+        ))?.attemptId,
+        'unrelated-mock-session',
+      );
+
       final container = ProviderContainer(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           audioRecorderGatewayProvider.overrideWithValue(
             FakeAudioRecorderGateway()..permissionGranted = false,
+          ),
+          gradingGatewayProvider.overrideWithValue(FakeGradingGateway()),
+          secureStorageGatewayProvider.overrideWithValue(
+            InMemorySecureStorageGateway(),
           ),
           audioPlayerGatewayProvider.overrideWithValue(
             FakeAudioPlayerGateway(),
@@ -499,6 +551,23 @@ void main() {
       expect(restoredState.cueCardNotes, 'Solar microgrids note');
       expect(restoredState.recordedTurns.keys, contains('q1'));
       expect(restoredState.currentTurnIndex, 1);
+
+      final notifier = container.read(speakingSimNotifierProvider.notifier);
+      final firstSubmission = notifier.submitSession();
+      final repeatedSubmission = await notifier.submitSession();
+      expect(repeatedSubmission, isNull);
+      final submittedId = await firstSubmission;
+      expect(submittedId, 'sess-restore-01');
+      final recordings = await attemptRepo.getRecordingsForAttempt(
+        submittedId!,
+      );
+      expect(
+        recordings,
+        hasLength(1),
+        reason:
+            'Submitting a restored turn must update its existing recording row',
+      );
+      expect(recordings.single.remoteObjectKey, isNotNull);
     });
   });
 }

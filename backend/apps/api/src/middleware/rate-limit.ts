@@ -24,7 +24,8 @@ export function resolveClientKey(params: {
 
   // Only consume proxy headers when the immediate peer IP is an explicitly configured trusted proxy (`RR-17`).
   if (isTrustedProxy) {
-    if (params.cfIp?.trim()) return params.cfIp.trim();
+    // A trusted reverse proxy can forward a caller-supplied CF-Connecting-IP.
+    // Use its appended forwarding chain rather than trusting that header.
     if (params.forwardedFor) {
       const hops = params.forwardedFor
         .split(',')

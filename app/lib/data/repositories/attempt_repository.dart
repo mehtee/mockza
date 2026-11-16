@@ -417,6 +417,8 @@ class AttemptRepository {
     required String packId,
     required bool isExamMode,
     required String sessionJson,
+    String? mockSessionId,
+    String? mockStageKey,
     int? startedAtUtcMs,
     List<
           ({
@@ -438,6 +440,8 @@ class AttemptRepository {
           skill: SkillKind.speaking.name,
           status: AttemptStatus.inProgress.name,
           submissionJson: sessionJson,
+          mockSessionId: Value(mockSessionId),
+          mockStageKey: Value(mockStageKey),
           startedAtUtcMs: Value(startedAtUtcMs),
           usedStudyMode: Value(!isExamMode),
           createdAt: now,
@@ -464,10 +468,12 @@ class AttemptRepository {
   Future<ExamAttemptRow?> findLatestPendingSpeakingSession(
     String packId, {
     required bool isExamMode,
+    String? mockSessionId,
   }) => _db.attemptDao.findLatestInProgressAttempt(
     packId: packId,
     skill: SkillKind.speaking.name,
     usedStudyMode: !isExamMode,
+    mockSessionId: mockSessionId,
   );
 
   /// Atomically persists a new attempt, optional child audio recordings, optional draft cleanup,

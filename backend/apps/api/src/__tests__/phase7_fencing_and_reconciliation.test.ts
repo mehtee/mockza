@@ -45,6 +45,52 @@ const baseEnv = loadEnv({
 });
 
 describe('Phase 7 Live PostgreSQL Fencing, Reconciliation, Proxy & Catalog Integrity (RR-04..06, RR-14, RR-17, RR-18)', () => {
+  it('returns a reusable receipt on successful erasure so local cleanup can retry', async (ctx) => {
+    if (!pgReachable) return ctx.skip();
+    const deviceId = randomUUID();
+    const s3Client = {
+      async send() {
+        return { Contents: [], IsTruncated: false };
+      },
+    } as unknown as S3Client;
+    const app = createApiApp(baseEnv, { db, s3Client });
+    let erasureId: string | undefined;
+    try {
+      const registered = await app.request('/v1/auth/anonymous', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId }),
+      });
+      const { accessToken } = (await registered.json()) as { accessToken: string };
+      const erased = await app.request('/v1/account', {
+        method: 'DELETE',
+        headers: { authorization: `Bearer ${accessToken}` },
+      });
+      expect(erased.status).toBe(200);
+      const receipt = (await erased.json()) as { erasureId: string; receiptToken: string };
+      erasureId = receipt.erasureId;
+      expect(receipt.receiptToken).toBeTruthy();
+      const resumed = await app.request(`/v1/erasure/${receipt.erasureId}/retry`, {
+        method: 'POST',
+        headers: { 'x-erasure-receipt': receipt.receiptToken },
+      });
+      expect(resumed.status).toBe(200);
+    } finally {
+      if (erasureId)
+        await db.delete(erasureRequests).where(eq(erasureRequests.erasureId, erasureId));
+      await db.delete(devices).where(eq(devices.deviceId, deviceId));
+    }
+  });
+  it('uses the verified forwarding chain instead of a caller-supplied Cloudflare header', () => {
+    expect(
+      resolveClientKey({
+        remoteAddr: '127.0.0.1',
+        trustedProxyIps: new Set(['127.0.0.1']),
+        forwardedFor: '198.51.100.7',
+        cfIp: '203.0.113.99',
+      }),
+    ).toBe('198.51.100.7');
+  });
   it('RR-04: rejects out-of-order EXPIRATION after newer RENEWAL, handles TRANSFER, and reconciles late registration', async (ctx) => {
     if (!pgReachable) {
       ctx.skip();

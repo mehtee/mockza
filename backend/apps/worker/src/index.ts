@@ -1,7 +1,7 @@
 import { loadEnv } from '@mockza/config';
 import { createDbClient, evaluationJobs, jobDispatchOutbox, type MockzaDb } from '@mockza/db';
 import { createAudioS3Client } from '@mockza/storage';
-import { and, eq, inArray, lt } from 'drizzle-orm';
+import { and, eq, inArray, lt, sql } from 'drizzle-orm';
 import PgBoss from 'pg-boss';
 import { EXPLAIN_JOB_QUEUE, handleExplainQuestionJob } from './jobs/explain-question.js';
 import { handleGradeSpeakingJob, SPEAKING_JOB_QUEUE } from './jobs/grade-speaking.js';
@@ -17,34 +17,55 @@ export async function sweepPendingDispatchOutbox(db: MockzaDb, boss: PgBoss): Pr
   const cutoff = new Date(now.getTime() - 5000);
 
   // Recover jobs whose worker lease expired mid-flight without deleting generation fencing.
-  const expiredJobs = await db
-    .update(evaluationJobs)
-    .set({
-      status: 'queued',
-      stageDetail: 'Recovering interrupted evaluation after worker lease timeout',
-      claimToken: null,
-      claimExpiresAt: null,
-      updatedAt: now,
-    })
-    .where(
-      and(
-        inArray(evaluationJobs.status, ['evaluating', 'processing_audio', 'repairing']),
-        lt(evaluationJobs.claimExpiresAt, expiredLeaseCutoff),
-      ),
-    )
-    .returning({ jobId: evaluationJobs.jobId });
-
-  if (expiredJobs.length > 0) {
-    await db
-      .update(jobDispatchOutbox)
-      .set({ status: 'pending', updatedAt: cutoff })
+  await db.transaction(async (tx) => {
+    const expiredJobs = await tx
+      .update(evaluationJobs)
+      .set({
+        status: 'queued',
+        stageDetail: 'Recovering interrupted evaluation after worker lease timeout',
+        claimToken: null,
+        claimExpiresAt: null,
+        executionGeneration: sql`${evaluationJobs.executionGeneration} + 1`,
+        updatedAt: now,
+      })
       .where(
-        inArray(
-          jobDispatchOutbox.jobId,
-          expiredJobs.map((j) => j.jobId),
+        and(
+          inArray(evaluationJobs.status, ['evaluating', 'processing_audio', 'repairing']),
+          lt(evaluationJobs.claimExpiresAt, expiredLeaseCutoff),
         ),
-      );
-  }
+      )
+      .returning();
+
+    for (const job of expiredJobs) {
+      const queueName = job.skill === 'speaking' ? SPEAKING_JOB_QUEUE : WRITING_JOB_QUEUE;
+      const payload = {
+        ...(job.inputJson as Record<string, unknown>),
+        jobId: job.jobId,
+        executionGeneration: job.executionGeneration,
+      };
+      const dispatchKey = `${job.attemptId}:gen:${job.executionGeneration}`;
+      await tx
+        .insert(jobDispatchOutbox)
+        .values({
+          jobId: job.jobId,
+          queueName,
+          dispatchKey,
+          payloadJson: payload,
+          status: 'pending',
+          updatedAt: new Date(cutoff.getTime() - 1),
+        })
+        .onConflictDoUpdate({
+          target: jobDispatchOutbox.jobId,
+          set: {
+            queueName,
+            dispatchKey,
+            payloadJson: payload,
+            status: 'pending',
+            updatedAt: new Date(cutoff.getTime() - 1),
+          },
+        });
+    }
+  });
 
   const pending = await db
     .select()
@@ -68,7 +89,13 @@ export async function sweepPendingDispatchOutbox(db: MockzaDb, boss: PgBoss): Pr
       await db
         .update(jobDispatchOutbox)
         .set({ status: 'dispatched', updatedAt: new Date() })
-        .where(eq(jobDispatchOutbox.jobId, row.jobId));
+        .where(
+          and(
+            eq(jobDispatchOutbox.jobId, row.jobId),
+            sql`${jobDispatchOutbox.dispatchKey} IS NOT DISTINCT FROM ${row.dispatchKey}`,
+            eq(jobDispatchOutbox.status, 'pending'),
+          ),
+        );
       dispatchedCount += 1;
     } catch (err) {
       await db
@@ -78,7 +105,13 @@ export async function sweepPendingDispatchOutbox(db: MockzaDb, boss: PgBoss): Pr
           lastError: (err as Error).message.slice(0, 500),
           updatedAt: new Date(),
         })
-        .where(eq(jobDispatchOutbox.jobId, row.jobId));
+        .where(
+          and(
+            eq(jobDispatchOutbox.jobId, row.jobId),
+            sql`${jobDispatchOutbox.dispatchKey} IS NOT DISTINCT FROM ${row.dispatchKey}`,
+            eq(jobDispatchOutbox.status, 'pending'),
+          ),
+        );
     }
   }
   return dispatchedCount;

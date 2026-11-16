@@ -56,6 +56,13 @@ final class AuthSessionService {
   Future<Result<String, Failure>> ensureAuthenticated({
     bool forceRefresh = false,
   }) async {
+    if (await _identity.readPendingErasureReceipt() != null) {
+      return const Err(
+        ValidationFailure(
+          'Finish account deletion before starting a new session.',
+        ),
+      );
+    }
     if (!forceRefresh) {
       final existingToken = await _identity.readAccessToken();
       if (existingToken != null &&
@@ -146,7 +153,7 @@ final class AuthSessionService {
   }
 
   /// Calls `DELETE /v1/account` or resumes an existing partial erasure receipt via
-  /// `POST /v1/erasure/:erasureId/retry`, propagating credential deletion errors (`RR-05`).
+  /// `POST /v1/erasure/:erasureId/retry`, retaining its receipt until local erasure completes.
   Future<Result<void, Failure>> deleteRemoteAccount() async {
     try {
       final pendingReceipt = await _identity.readPendingErasureReceipt();
@@ -159,7 +166,7 @@ final class AuthSessionService {
             },
           ),
         );
-        final cleared = await _identity.clearAll();
+        final cleared = await _identity.clearCredentials();
         if (cleared case Err<void, Failure>(:final failure)) {
           return Err(failure);
         }
@@ -177,14 +184,29 @@ final class AuthSessionService {
         }
       }
       if (token.isNotEmpty) {
-        await _authDio.delete<void>(
+        final response = await _authDio.delete<Map<String, Object?>>(
           '/v1/account',
           options: Options(
             headers: <String, Object?>{'authorization': 'Bearer $token'},
           ),
         );
+        final erasureId = response.data?['erasureId'] as String?;
+        final receiptToken = response.data?['receiptToken'] as String?;
+        if (erasureId == null ||
+            erasureId.isEmpty ||
+            receiptToken == null ||
+            receiptToken.isEmpty) {
+          return const Err(
+            ValidationFailure('Account deletion receipt was not returned.'),
+          );
+        }
+        final saved = await _identity.savePendingErasureReceipt(
+          erasureId: erasureId,
+          receiptToken: receiptToken,
+        );
+        if (saved case Err<void, Failure>(:final failure)) return Err(failure);
       }
-      final cleared = await _identity.clearAll();
+      final cleared = await _identity.clearCredentials();
       if (cleared case Err<void, Failure>(:final failure)) {
         return Err(failure);
       }
@@ -199,12 +221,18 @@ final class AuthSessionService {
             erasureId.isNotEmpty &&
             receiptToken != null &&
             receiptToken.isNotEmpty) {
-          await _identity.savePendingErasureReceipt(
+          final saved = await _identity.savePendingErasureReceipt(
             erasureId: erasureId,
             receiptToken: receiptToken,
           );
+          if (saved case Err<void, Failure>(:final failure)) {
+            return Err(failure);
+          }
           // Revoked DB device credentials are no longer usable; clear them and rely on receipt (`RR-05`).
-          await _identity.clearCredentials();
+          final cleared = await _identity.clearCredentials();
+          if (cleared case Err<void, Failure>(:final failure)) {
+            return Err(failure);
+          }
         }
       }
       return Err(

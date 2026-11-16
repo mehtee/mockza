@@ -386,7 +386,8 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
                               const SizedBox(height: SpacingTokens.xs),
                               TextField(
                                 controller: _controller,
-                                readOnly: state.isTimeExpired,
+                                readOnly:
+                                    state.isTimeExpired || state.isSubmitting,
                                 maxLines: 15,
                                 autocorrect: !state.isExamMode,
                                 enableSuggestions: !state.isExamMode,

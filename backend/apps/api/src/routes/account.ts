@@ -58,6 +58,7 @@ export function registerAccountRoutes(
     }
 
     let purgedAudioCount = 0;
+    let erasureReceipt: { erasureId: string; receiptToken: string } | undefined;
 
     if (db) {
       const devRows = await db
@@ -84,6 +85,7 @@ export function registerAccountRoutes(
       const erasureId = randomUUID();
       const receiptToken = randomBytes(24).toString('base64url');
       const receiptTokenHash = hashReceiptToken(receiptToken);
+      erasureReceipt = { erasureId, receiptToken };
 
       await db.transaction(async (tx) => {
         // Fence active signed uploads immediately before removing device rows (`RR-06`).
@@ -188,6 +190,7 @@ export function registerAccountRoutes(
         deleted: true,
         deviceId,
         purgedAudioCount,
+        ...erasureReceipt,
       },
       200,
     );
