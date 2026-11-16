@@ -25,9 +25,10 @@ class AttemptDao extends DatabaseAccessor<AppDatabase> with _$AttemptDaoMixin {
             ..limit(limit))
           .watch();
 
-  /// Fetches a keyset-cursor paginated slice of attempts.
+  /// Fetches a keyset-cursor paginated slice of attempts with composite `(updatedAt, attemptId)` tie-breaking (`TD-47`).
   Future<List<ExamAttemptRow>> fetchHistoryPage({
     DateTime? cursorUpdatedAt,
+    String? cursorAttemptId,
     int limit = 20,
     String? filterSkill,
   }) {
@@ -36,10 +37,22 @@ class AttemptDao extends DatabaseAccessor<AppDatabase> with _$AttemptDaoMixin {
       query.where((t) => t.skill.equals(filterSkill));
     }
     if (cursorUpdatedAt != null) {
-      query.where((t) => t.updatedAt.isSmallerThanValue(cursorUpdatedAt));
+      if (cursorAttemptId != null && cursorAttemptId.isNotEmpty) {
+        query.where(
+          (t) =>
+              t.updatedAt.isSmallerThanValue(cursorUpdatedAt) |
+              (t.updatedAt.equals(cursorUpdatedAt) &
+                  t.attemptId.isSmallerThanValue(cursorAttemptId)),
+        );
+      } else {
+        query.where((t) => t.updatedAt.isSmallerThanValue(cursorUpdatedAt));
+      }
     }
     query
-      ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)])
+      ..orderBy([
+        (t) => OrderingTerm.desc(t.updatedAt),
+        (t) => OrderingTerm.desc(t.attemptId),
+      ])
       ..limit(limit);
     return query.get();
   }
@@ -127,11 +140,53 @@ class AttemptDao extends DatabaseAccessor<AppDatabase> with _$AttemptDaoMixin {
             ..orderBy([(t) => OrderingTerm.asc(t.partIndex)]))
           .get();
 
-  /// Lists recordings older than [cutoffUtc] eligible for retention cleanup.
-  Future<List<AudioRecordingRow>> getExpiredRecordings(DateTime cutoffUtc) =>
-      (select(
-        audioRecordings,
-      )..where((t) => t.createdAt.isSmallerThanValue(cutoffUtc))).get();
+  /// Lists expired completed audio recordings older than [cutoffUtc] while protecting pending/retryable attempts.
+  Future<List<AudioRecordingRow>> getExpiredRecordings(DateTime cutoffUtc) async {
+    final candidates = await (select(
+      audioRecordings,
+    )..where((t) => t.createdAt.isSmallerThanValue(cutoffUtc))).get();
+    if (candidates.isEmpty) return const <AudioRecordingRow>[];
+
+    final attemptIds = candidates.map((c) => c.attemptId).toSet().toList();
+    final parents = await (select(
+      examAttempts,
+    )..where((t) => t.attemptId.isIn(attemptIds))).get();
+    final statusByAttempt = <String, String>{
+      for (final p in parents) p.attemptId: p.status,
+    };
+
+    const protectedStatuses = <String>{
+      'inProgress',
+      'submittedLocal',
+      'queuedRemote',
+      'failedRetryable',
+    };
+
+    return candidates
+        .where((rec) {
+          final status = statusByAttempt[rec.attemptId];
+          // Protect if parent status is unknown or still pending upload/retry.
+          if (status == null || protectedStatuses.contains(status)) {
+            return false;
+          }
+          return true;
+        })
+        .toList(growable: false);
+  }
+
+  /// Updates [remoteObjectKey] on an existing audio recording checkpoint.
+  Future<int> updateAudioRemoteKey({
+    required String recordingId,
+    required String remoteObjectKey,
+    required DateTime updatedAt,
+  }) =>
+      (update(audioRecordings)..where((t) => t.recordingId.equals(recordingId)))
+          .write(
+            AudioRecordingsCompanion(
+              remoteObjectKey: Value(remoteObjectKey),
+              updatedAt: Value(updatedAt),
+            ),
+          );
 
   /// Deletes an expired or uploaded audio recording row.
   Future<int> deleteAudioRecording(String recordingId) => (delete(
@@ -154,6 +209,34 @@ class AttemptDao extends DatabaseAccessor<AppDatabase> with _$AttemptDaoMixin {
             ..orderBy([(t) => OrderingTerm.asc(t.id)])
             ..limit(limit))
           .get();
+
+  /// Returns the earliest scheduled retry timestamp across pending outbox items, or null if empty.
+  Future<DateTime?> nextOutboxAttemptTime() async {
+    final row =
+        await (select(outboxSyncQueue)
+              ..orderBy([(t) => OrderingTerm.asc(t.nextAttemptAt)])
+              ..limit(1))
+            .getSingleOrNull();
+    return row?.nextAttemptAt;
+  }
+
+  /// Counts total items currently in [OutboxSyncQueue].
+  Future<int> countOutboxItems() async {
+    final rows = await select(outboxSyncQueue).get();
+    return rows.length;
+  }
+
+  /// Persists checkpointed payload updates (e.g. uploaded S3 keys) back into an outbox item.
+  Future<int> updateOutboxPayload({
+    required int id,
+    required String payloadJson,
+    required DateTime updatedAt,
+  }) => (update(outboxSyncQueue)..where((t) => t.id.equals(id))).write(
+    OutboxSyncQueueCompanion(
+      payloadJson: Value(payloadJson),
+      updatedAt: Value(updatedAt),
+    ),
+  );
 
   /// Updates retry counter and exponential backoff timestamp on transient failure.
   Future<void> incrementOutboxRetry({

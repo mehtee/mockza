@@ -11,10 +11,14 @@ final class ProfileRepository {
   const new({
     required this._db,
     required this._clock,
+    this.generateFallbackDeviceId,
   });
 
   final AppDatabase _db;
   final Clock _clock;
+
+  /// Optional UUID generator used if `loadOrInitializePrimary` is called without an explicit ID.
+  final String Function()? generateFallbackDeviceId;
 
   /// Loads or initializes the default local [UserProfile] for [deviceId].
   Future<UserProfile> loadOrInitialize(String deviceId) async {
@@ -91,15 +95,20 @@ final class ProfileRepository {
   }
 
   /// Loads the primary persisted learner profile if any exists, or initializes
-  /// a default profile using [fallbackDeviceId].
+  /// a default profile using [fallbackDeviceId] or generated UUID (`BF-10`).
   Future<UserProfile> loadOrInitializePrimary({
-    String fallbackDeviceId = 'mockza-local-user',
+    String? fallbackDeviceId,
   }) async {
     final existingList = await (_db.select(_db.userProfiles)..limit(1)).get();
     if (existingList.isNotEmpty) {
       return await loadOrInitialize(existingList.first.deviceId);
     }
-    return await loadOrInitialize(fallbackDeviceId);
+    final resolvedId =
+        (fallbackDeviceId != null && fallbackDeviceId.trim().isNotEmpty)
+        ? fallbackDeviceId
+        : (generateFallbackDeviceId?.call() ??
+              'device-${_clock.now().toUtc().millisecondsSinceEpoch}');
+    return await loadOrInitialize(resolvedId);
   }
 
   /// Streams the primary persisted learner profile whenever it changes in SQLite.

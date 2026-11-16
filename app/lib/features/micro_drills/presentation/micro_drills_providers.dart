@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mockza/features/micro_drills/presentation/micro_drills_notifier.dart';
 
-/// Provides [MicroDrillsState] via [MicroDrillsNotifier].
+/// Route-scoped [MicroDrillsState] so timers release cleanly on exit.
 final NotifierProvider<MicroDrillsNotifier, MicroDrillsState>
 microDrillsNotifierProvider =
-    NotifierProvider<MicroDrillsNotifier, MicroDrillsState>(
+    NotifierProvider.autoDispose<MicroDrillsNotifier, MicroDrillsState>(
       MicroDrillsNotifier.new,
     );

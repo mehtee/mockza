@@ -55,20 +55,42 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Build Android App Bundle (AAB)
+      - name: Configure Release Signing & Build Android App Bundle (AAB)
         env:
           FLAVOR: ${{ needs.validate_release_tag.outputs.flavor }}
           BUILD_NAME: ${{ needs.validate_release_tag.outputs.version }}
           BUILD_NUMBER: ${{ needs.validate_release_tag.outputs.build_number }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          if [ -z "${ANDROID_KEYSTORE_BASE64:-}" ] || [ -z "${ANDROID_KEYSTORE_PASSWORD:-}" ] || [ -z "${ANDROID_KEY_ALIAS:-}" ] || [ -z "${ANDROID_KEY_PASSWORD:-}" ]; then
+            echo "Error: Missing Android release signing secrets (ANDROID_KEYSTORE_*)." >&2
+            exit 1
+          fi
           cd app
-          TARGET="lib/main_${FLAVOR}.dart"
-          if [ ! -f "$TARGET" ]; then
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+          cat > android/key.properties <<EOF
+          storePassword=$ANDROID_KEYSTORE_PASSWORD
+          keyPassword=$ANDROID_KEY_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          storeFile=upload-keystore.jks
+          EOF
+          if [ "$FLAVOR" = "glb" ]; then
             TARGET="lib/main_global.dart"
+            FLAVOR_NAME="global"
+          elif [ "$FLAVOR" = "irn" ]; then
+            TARGET="lib/main_iran.dart"
+            FLAVOR_NAME="iran"
+          else
+            echo "Error: Unknown flavor $FLAVOR" >&2
+            exit 1
           fi
           flutter pub get
           flutter build appbundle \
             --release \
+            --flavor="$FLAVOR_NAME" \
             --target="$TARGET" \
             --build-name="$BUILD_NAME" \
             --build-number="$BUILD_NUMBER"
@@ -76,11 +98,11 @@ jobs:
       - name: Archive Android Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mockza-${{ needs.validate_release_tag.outputs.flavor }}-release.aab
-          path: app/build/app/outputs/bundle/release/*.aab
+          name: mockza-${{ needs.validate_release_tag.outputs.flavor }}-release-aab
+          path: app/build/app/outputs/bundle/**/*.aab
 
   build_ios:
-    name: Build iOS Archive & Unsigned IPA
+    name: Build iOS Archive (.xcarchive)
     needs: validate_release_tag
     runs-on: macos-14
     steps:
@@ -102,9 +124,13 @@ jobs:
           BUILD_NUMBER: ${{ needs.validate_release_tag.outputs.build_number }}
         run: |
           cd app
-          TARGET="lib/main_${FLAVOR}.dart"
-          if [ ! -f "$TARGET" ]; then
+          if [ "$FLAVOR" = "glb" ]; then
             TARGET="lib/main_global.dart"
+          elif [ "$FLAVOR" = "irn" ]; then
+            TARGET="lib/main_iran.dart"
+          else
+            echo "Error: Unknown flavor $FLAVOR" >&2
+            exit 1
           fi
           flutter pub get
           flutter build ipa \
@@ -113,12 +139,13 @@ jobs:
             --target="$TARGET" \
             --build-name="$BUILD_NAME" \
             --build-number="$BUILD_NUMBER"
+          tar -czf "build/ios/mockza-${FLAVOR}.xcarchive.tar.gz" -C build/ios/archive .
 
       - name: Archive iOS Build
         uses: actions/upload-artifact@v4
         with:
-          name: mockza-${{ needs.validate_release_tag.outputs.flavor }}-unsigned.ipa
-          path: app/build/ios/archive/*.xcarchive
+          name: mockza-${{ needs.validate_release_tag.outputs.flavor }}-ios-xcarchive
+          path: app/build/ios/mockza-${{ needs.validate_release_tag.outputs.flavor }}.xcarchive.tar.gz
 
   publish_backend_images:
     name: Build & Push Production Backend Docker Images (GHCR)
@@ -138,24 +165,25 @@ jobs:
       - name: Build and Push Backend Images
         env:
           REGISTRY: ghcr.io/${{ github.repository }}
-          TAG: ${{ github.ref_name }}
+          RAW_TAG: ${{ github.ref_name }}
         run: |
+          DOCKER_TAG="${RAW_TAG//+/-}"
           for TARGET in api worker migrator cli; do
             IMAGE_NAME="$REGISTRY/mockza-$TARGET"
-            echo "Building and pushing $IMAGE_NAME:$TAG"
+            echo "Building and pushing $IMAGE_NAME:$DOCKER_TAG"
             docker build \
               -f backend/Containerfile \
               --target "$TARGET" \
-              -t "$IMAGE_NAME:$TAG" \
+              -t "$IMAGE_NAME:$DOCKER_TAG" \
               -t "$IMAGE_NAME:latest" \
               backend
-            docker push "$IMAGE_NAME:$TAG"
+            docker push "$IMAGE_NAME:$DOCKER_TAG"
             docker push "$IMAGE_NAME:latest"
           done
 
   create_github_release:
     name: Create GitHub Release with SHA-256 Digest Manifest
-    needs: [validate_release_tag, build_android]
+    needs: [validate_release_tag, build_android, build_ios, publish_backend_images]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -168,11 +196,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd release-artifacts
-          find . -type f -name "*.aab" -o -name "*.ipa" | while read file; do
-            sha256sum "$file" >> SHA256SUMS.txt
-          done
+          mapfile -t ARTIFACTS < <(find . -type f \( -name "*.aab" -o -name "*.tar.gz" -o -name "*.ipa" \) | sort)
+          if [ "${#ARTIFACTS[@]}" -eq 0 ]; then
+            echo "Error: No build artifacts found to publish." >&2
+            exit 1
+          fi
+          sha256sum "${ARTIFACTS[@]}" > SHA256SUMS.txt
           cat SHA256SUMS.txt
           gh release create "${{ github.ref_name }}" \
             --title "Mockza Release ${{ github.ref_name }}" \
             --notes "Automated container-first release for Mockza. See attached build artifacts and SHA256SUMS.txt for verification." \
-            SHA256SUMS.txt
+            SHA256SUMS.txt "${ARTIFACTS[@]}"

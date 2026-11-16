@@ -24,11 +24,11 @@ final StreamProvider<List<DailyStudySummary>> recentDailyStudyLogsProvider =
           ref.watch(progressRepositoryProvider).watchRecentActivity(limit: 90),
     );
 
-/// Streams recent exam attempts for analytics and history.
+/// Streams recent exam attempts for analytics and history without capping `'ALL'` at 100 (`TD-35`).
 final StreamProvider<List<AttemptSummary>> recentAttemptsProvider =
     StreamProvider<List<AttemptSummary>>(
       (ref) =>
-          ref.watch(attemptRepositoryProvider).watchRecentAttempts(limit: 100),
+          ref.watch(attemptRepositoryProvider).watchRecentAttempts(limit: 2000),
     );
 
 /// Selected timeframe filter for progress charts.

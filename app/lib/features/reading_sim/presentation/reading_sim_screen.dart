@@ -101,7 +101,11 @@ class _ReadingSimScreenState extends ConsumerState<ReadingSimScreen> {
         );
         if (shouldExit ?? false) {
           if (context.mounted) {
-            context.pop();
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(AppRoutes.home);
+            }
           }
         }
       },
@@ -843,23 +847,31 @@ class _QuestionsPane extends StatelessWidget {
                 ),
                 const SizedBox(height: SpacingTokens.sm),
                 ...List.generate(q.options.length, (oIdx) {
-                  final optText = q.options[oIdx];
-                  final letter = String.fromCharCode(65 + oIdx);
+                  final rawOpt = q.options[oIdx];
+                  final parsed = parseObjectiveChoiceOption(
+                    q.questionType,
+                    rawOpt,
+                    oIdx,
+                    q.acceptedVariants,
+                  );
                   final isSel = isMulti
-                      ? (selectedMulti.contains(letter) ||
-                            selectedMulti.contains(optText))
-                      : (current == letter || current == optText);
+                      ? (selectedMulti.contains(parsed.value) ||
+                            selectedMulti.contains(parsed.label) ||
+                            selectedMulti.contains(rawOpt))
+                      : (current == parsed.value ||
+                            current == parsed.label ||
+                            current == rawOpt);
                   return Padding(
                     padding: const EdgeInsetsDirectional.only(
                       bottom: SpacingTokens.xs,
                     ),
                     child: _McqOption(
-                      label: letter,
-                      text: optText,
+                      label: parsed.label,
+                      text: parsed.displayText,
                       isSelected: isSel,
                       onTap: () => isMulti
-                          ? onToggleMulti(q.number, letter)
-                          : onAnswer(q.number, letter),
+                          ? onToggleMulti(q.number, parsed.value)
+                          : onAnswer(q.number, parsed.value),
                     ),
                   );
                 }),

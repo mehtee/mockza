@@ -512,3 +512,63 @@ abstract final class ExamSpec {
     return roundIeltsBand(weighted);
   }
 }
+
+/// Parses an MCQ or Matching Headings option string (e.g. `"ii. Heading"`, `"B. Text"`, or plain text)
+/// into its pill label, clean display text, and canonical submitted value (`BF-01`).
+({String label, String displayText, String value}) parseObjectiveChoiceOption(
+  ObjectiveQuestionType questionType,
+  String rawOption,
+  int index,
+  List<String> acceptedVariants,
+) {
+  final trimmed = rawOption.trim();
+  const romanNumerals = <String>[
+    'i',
+    'ii',
+    'iii',
+    'iv',
+    'v',
+    'vi',
+    'vii',
+    'viii',
+    'ix',
+    'x',
+    'xi',
+    'xii',
+  ];
+
+  if (questionType == ObjectiveQuestionType.matchingHeadings) {
+    final romanMatch = RegExp(
+      r'^(i{1,3}|iv|vi{0,3}|ix|x|xi|xii)[.)]\s+(.+)$',
+      caseSensitive: false,
+    ).firstMatch(trimmed);
+    if (romanMatch != null) {
+      final roman = romanMatch.group(1)!.toLowerCase();
+      final body = romanMatch.group(2)!.trim();
+      return (label: roman, displayText: body, value: roman);
+    }
+    final fallbackRoman = index < romanNumerals.length
+        ? romanNumerals[index]
+        : '${index + 1}';
+    return (label: fallbackRoman, displayText: trimmed, value: fallbackRoman);
+  }
+
+  final letterMatch = RegExp(
+    r'^([A-Za-z])[.)]\s+(.+)$',
+  ).firstMatch(trimmed);
+  if (letterMatch != null) {
+    final letter = letterMatch.group(1)!.toUpperCase();
+    final body = letterMatch.group(2)!.trim();
+    return (label: letter, displayText: body, value: letter);
+  }
+
+  final fallbackLetter = String.fromCharCode(65 + index);
+  final expectsSingleLetter = acceptedVariants.any(
+    (v) => v.trim().length == 1 && RegExp(r'^[A-Za-z]$').hasMatch(v.trim()),
+  );
+  return (
+    label: fallbackLetter,
+    displayText: trimmed,
+    value: expectsSingleLetter ? fallbackLetter : trimmed,
+  );
+}

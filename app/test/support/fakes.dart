@@ -115,6 +115,7 @@ final class FakeGradingGateway implements GradingGateway {
     this.presignResult,
     this.uploadAudioResult,
     this.flagQuestionResult,
+    this.retryResult,
   });
 
   /// Configurable enqueue outcome. Default returns a dummy jobId.
@@ -137,6 +138,12 @@ final class FakeGradingGateway implements GradingGateway {
 
   /// Configurable question flagging outcome.
   Result<void, Failure>? flagQuestionResult;
+
+  /// Configurable retry outcome.
+  Result<String, Failure>? retryResult;
+
+  /// Recorded retry calls for assertion.
+  final List<String> retryCalls = <String>[];
 
   /// Recorded writing enqueue calls for assertion.
   final List<
@@ -221,6 +228,7 @@ final class FakeGradingGateway implements GradingGateway {
     required String attemptId,
     required int partIndex,
     required int byteLength,
+    String? turnId,
     String contentType = 'audio/mp4',
   }) async {
     presignCalls.add((
@@ -228,10 +236,12 @@ final class FakeGradingGateway implements GradingGateway {
       partIndex: partIndex,
       byteLength: byteLength,
     ));
+    final suffix = (turnId != null && turnId.isNotEmpty) ? '-$turnId' : '';
     return presignResult ??
-        const Ok((
-          uploadUrl: '/v1/media/upload-proxy/users/test/clips/test/part-1.m4a',
-          objectKey: 'users/test/clips/test/part-1.m4a',
+        Ok((
+          uploadUrl:
+              '/v1/media/upload-proxy/users/test/clips/test/part-$partIndex$suffix.m4a',
+          objectKey: 'users/test/clips/test/part-$partIndex$suffix.m4a',
         ));
   }
 
@@ -281,6 +291,14 @@ final class FakeGradingGateway implements GradingGateway {
       partIndex: partIndex,
     ));
     return enqueueResult ?? const Ok('test-speaking-job-1234');
+  }
+
+  @override
+  Future<Result<String, Failure>> retryEvaluation({
+    required String attemptId,
+  }) async {
+    retryCalls.add(attemptId);
+    return retryResult ?? const Ok('retried-job-uuid-9999');
   }
 
   @override

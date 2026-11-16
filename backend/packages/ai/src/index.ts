@@ -1,4 +1,5 @@
 export * from './audio/processor.js';
+export * from './errors.js';
 export * from './graphs/explain-question.js';
 export * from './graphs/grade-speaking.js';
 export * from './graphs/grade-writing.js';

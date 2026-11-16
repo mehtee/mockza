@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
+import 'package:mockza/data/repositories/attempt_repository.dart';
 import 'package:mockza/data/repositories/exam_catalog_repository.dart';
 import 'package:mockza/features/practice_hub/presentation/practice_hub_notifier.dart';
 import 'package:mockza/providers.dart';
@@ -27,4 +28,12 @@ final StreamProvider<Set<String>> cachedExamPackIdsProvider =
 final StreamProvider<List<MicroDrillSpec>> drillsCatalogProvider =
     StreamProvider<List<MicroDrillSpec>>(
       (ref) => ref.watch(examCatalogRepositoryProvider).watchDrills(),
+    );
+
+/// Streams recent learner attempts for Full Mock stage progress reconciliation.
+final StreamProvider<List<AttemptSummary>> practiceHubAttemptsProvider =
+    StreamProvider<List<AttemptSummary>>(
+      (ref) => ref.watch(attemptRepositoryProvider).watchRecentAttempts(
+        limit: 500,
+      ),
     );

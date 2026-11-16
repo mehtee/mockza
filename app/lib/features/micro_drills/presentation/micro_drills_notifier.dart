@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mockza/core/exams/countdown_clock_tracker.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/exams/local_objective_scorer.dart';
 import 'package:mockza/core/models/attempt_status.dart';
@@ -125,12 +126,14 @@ class MicroDrillsState {
 /// Coordinates IELTS micro-drills synced from PostgreSQL `drills` table.
 class MicroDrillsNotifier extends Notifier<MicroDrillsState> {
   Timer? _timer;
+  CountdownClockTracker? _clockTracker;
   bool _isDisposed = false;
   bool _attemptRecorded = false;
 
   @override
   MicroDrillsState build() {
     _isDisposed = false;
+    _clockTracker = CountdownClockTracker(clock: ref.read(clockProvider));
     ref.onDispose(() {
       _isDisposed = true;
       _timer?.cancel();
@@ -202,14 +205,36 @@ class MicroDrillsNotifier extends Notifier<MicroDrillsState> {
       return;
     }
 
-    final matched =
-        await catalogRepo.getDrillById(cleanId) ??
-        drills.firstWhere(
-          (d) => d.drillId == cleanId,
-          orElse: () => drills.first,
-        );
+    final byId = await catalogRepo.getDrillById(cleanId);
+    var matched = byId;
+    if (matched == null) {
+      final cleanLower = cleanId.toLowerCase();
+      for (final d in drills) {
+        if (d.drillId == cleanId || d.weaknessCode.toLowerCase() == cleanLower) {
+          matched = d;
+          break;
+        }
+      }
+    }
 
     if (_isDisposed) return;
+    if (matched == null) {
+      state = state.copyWith(
+        availableDrills: drills,
+        clearDrillSpec: true,
+        isLoading: false,
+        hasSelectedDrill: false,
+        clearSelected: true,
+        currentIndex: 0,
+        isSubmitted: false,
+        isCorrect: false,
+        score: 0,
+        isFinished: false,
+        errorMessage:
+            'Micro-drill "$cleanId" was not found. Choose a drill below.',
+      );
+      return;
+    }
     _activateDrill(drills: drills, spec: matched);
   }
 
@@ -239,25 +264,36 @@ class MicroDrillsNotifier extends Notifier<MicroDrillsState> {
       hasSelectedDrill: true,
     );
     if (spec.items.isNotEmpty) {
+      (_clockTracker ??= CountdownClockTracker(
+        clock: ref.read(clockProvider),
+      )).start(remainingSeconds: spec.durationSeconds);
       _startTimer();
     }
   }
 
   void _startTimer() {
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _timer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
       if (_isDisposed) {
         timer.cancel();
         return;
       }
-      if (state.remainingSeconds <= 1) {
-        timer.cancel();
-        state = state.copyWith(remainingSeconds: 0, isFinished: true);
-        unawaited(_recordAttempt());
-      } else {
-        state = state.copyWith(remainingSeconds: state.remainingSeconds - 1);
-      }
+      reconcileTimer();
     });
+  }
+
+  /// Synchronizes drill countdown against wall clock (`TD-37`).
+  void reconcileTimer() {
+    final tracker = _clockTracker;
+    if (_isDisposed || tracker == null || state.isFinished) return;
+    final rem = tracker.currentRemaining();
+    if (rem <= 0) {
+      _timer?.cancel();
+      state = state.copyWith(remainingSeconds: 0, isFinished: true);
+      unawaited(_recordAttempt());
+    } else if (rem != state.remainingSeconds) {
+      state = state.copyWith(remainingSeconds: rem);
+    }
   }
 
   /// Selects an answer choice.

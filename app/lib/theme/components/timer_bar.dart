@@ -98,11 +98,15 @@ class TimerBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: SpacingTokens.sm),
-            Text(
-              phaseLabel,
-              style: typography.caption.copyWith(
-                color: badgeColor,
-                fontWeight: FontWeight.w600,
+            Flexible(
+              child: Text(
+                phaseLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: typography.caption.copyWith(
+                  color: badgeColor,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             if (isStudyMode && onTapPauseResume != null) ...<Widget>[

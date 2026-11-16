@@ -5,7 +5,11 @@ import type { MockzaDb } from '@mockza/db';
 import { cors } from 'hono/cors';
 import type PgBoss from 'pg-boss';
 import type postgres from 'postgres';
-import { createAttestationMiddleware } from './middleware/attest.js';
+import {
+  createAttestationMiddleware,
+  createChallengeStore,
+  type VerifyAttestationProofFn,
+} from './middleware/attest.js';
 import { createEditionGuardMiddleware } from './middleware/edition-guard.js';
 import { createRateLimitMiddleware } from './middleware/rate-limit.js';
 import { type RequestVariables, requestIdMiddleware } from './middleware/request-id.js';
@@ -22,12 +26,16 @@ import { registerMediaRoutes } from './routes/media.js';
 import { registerQuotaRoutes } from './routes/quota.js';
 import { registerUploadRoutes } from './routes/uploads.js';
 import { registerBillingWebhookRoutes } from './routes/webhooks-revenuecat.js';
+import type { VerifyProviderTokenFn } from './services/provider-verify.js';
 
 export interface ApiAppDependencies {
   db?: MockzaDb;
   sql?: postgres.Sql;
   boss?: PgBoss;
   s3Client?: S3Client;
+  isQueueReady?: () => boolean;
+  verifyProviderToken?: VerifyProviderTokenFn;
+  verifyAttestationProof?: VerifyAttestationProofFn;
 }
 
 export function createApiApp(
@@ -35,20 +43,32 @@ export function createApiApp(
   deps: ApiAppDependencies = {},
 ): OpenAPIHono<{ Variables: RequestVariables }> {
   const app = new OpenAPIHono<{ Variables: RequestVariables }>();
+  const challengeStore = createChallengeStore(deps.db);
 
   app.use('*', cors());
   app.use('*', requestIdMiddleware);
   app.use('/v1/*', createRateLimitMiddleware({ windowMs: 60_000, maxRequests: 120 }));
   app.use('/v1/*', createEditionGuardMiddleware(env.EDITION));
-  app.use('/v1/auth/*', createAttestationMiddleware(env.APP_ATTEST_ENFORCED));
+  app.use(
+    '/v1/auth/*',
+    createAttestationMiddleware({
+      enforced: env.APP_ATTEST_ENFORCED,
+      challengeStore,
+      hmacSecret: env.APP_ATTEST_HMAC_SECRET,
+      verifyProof: deps.verifyAttestationProof,
+    }),
+  );
 
-  registerHealthRoutes(app, env, deps.sql, deps.s3Client);
-  registerAuthRoutes(app, env, deps.db);
+  registerHealthRoutes(app, env, deps.sql, deps.s3Client, deps.isQueueReady);
+  registerAuthRoutes(app, env, deps.db, {
+    challengeStore,
+    verifyProviderToken: deps.verifyProviderToken,
+  });
   registerUploadRoutes(app, env, deps.db, deps.s3Client);
   registerMediaRoutes(app, env, deps.s3Client);
   registerContentRoutes(app, env, deps.db);
   registerAdminRoutes(app, env, deps.db, deps.s3Client);
-  registerEvaluateRoutes(app, env, deps.db, deps.boss, deps.s3Client);
+  registerEvaluateRoutes(app, env, deps.db, deps.boss, deps.s3Client, deps.isQueueReady);
   registerJobRoutes(app, env, deps.db);
   registerQuotaRoutes(app, env, deps.db);
   registerCatalogRoutes(app, env, deps.db);

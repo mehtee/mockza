@@ -5,11 +5,14 @@ import type { MiddlewareHandler } from 'hono';
 import { sign, verify } from 'hono/jwt';
 import type { RequestVariables } from './request-id.js';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export interface TokenPayload {
   [key: string]: unknown;
   sub: string; // deviceId
   edition: string;
   type: 'device';
+  tv?: number;
   exp: number;
 }
 
@@ -18,12 +21,14 @@ export async function signDeviceToken(
   deviceId: string,
   env: Pick<AppEnv, 'JWT_SECRET' | 'EDITION'>,
   expiresInSeconds = 30 * 24 * 3600,
+  tokenVersion = 1,
 ): Promise<{ token: string; expiresAt: string }> {
   const exp = Math.floor(Date.now() / 1000) + expiresInSeconds;
   const payload: TokenPayload = {
     sub: deviceId,
     edition: env.EDITION,
     type: 'device',
+    tv: tokenVersion,
     exp,
   };
   const token = await sign(payload, env.JWT_SECRET, 'HS256');
@@ -31,7 +36,7 @@ export async function signDeviceToken(
   return { token, expiresAt };
 }
 
-/** Middleware verifying JWT bearer token, edition match, and loading accountKey. */
+/** Middleware verifying JWT bearer token, required claims, edition match, and active DB device row. */
 export function createDeviceAuthMiddleware(
   env: Pick<AppEnv, 'JWT_SECRET' | 'EDITION'>,
   db?: MockzaDb,
@@ -52,39 +57,48 @@ export function createDeviceAuthMiddleware(
     }
 
     const token = authHeader.slice('Bearer '.length).trim();
-    let deviceId: string | undefined;
-
-    try {
-      const decoded = (await verify(token, env.JWT_SECRET, 'HS256')) as unknown as TokenPayload;
-      if (decoded.edition && decoded.edition !== env.EDITION) {
-        return c.json(
-          {
-            code: 'edition_mismatch',
-            message: `Token edition (${decoded.edition}) does not match configured API edition (${env.EDITION}).`,
-            requestId: c.get('requestId'),
-          },
-          401,
-        );
-      }
-      deviceId = decoded.sub;
-    } catch (_jwtError) {
-      // Allow raw UUID in development/test fallback
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (uuidRegex.test(token)) {
-        deviceId = token;
-      } else {
-        return c.json(
-          {
-            code: 'unauthorized',
-            message: 'Invalid or expired session token.',
-            requestId: c.get('requestId'),
-          },
-          401,
-        );
-      }
+    if (!token) {
+      return c.json(
+        {
+          code: 'unauthorized',
+          message: 'Bearer device token required.',
+          requestId: c.get('requestId'),
+        },
+        401,
+      );
     }
 
-    if (!deviceId) {
+    let decoded: Partial<TokenPayload>;
+    try {
+      decoded = (await verify(token, env.JWT_SECRET, 'HS256')) as unknown as Partial<TokenPayload>;
+    } catch {
+      return c.json(
+        {
+          code: 'unauthorized',
+          message: 'Invalid or expired session token.',
+          requestId: c.get('requestId'),
+        },
+        401,
+      );
+    }
+
+    if (typeof decoded.edition !== 'string' || decoded.edition !== env.EDITION) {
+      return c.json(
+        {
+          code: 'edition_mismatch',
+          message: `Token edition (${String(decoded.edition ?? 'missing')}) does not match configured API edition (${env.EDITION}).`,
+          requestId: c.get('requestId'),
+        },
+        401,
+      );
+    }
+
+    if (
+      typeof decoded.sub !== 'string' ||
+      !UUID_REGEX.test(decoded.sub) ||
+      decoded.type !== 'device' ||
+      typeof decoded.exp !== 'number'
+    ) {
       return c.json(
         {
           code: 'unauthorized',
@@ -95,19 +109,44 @@ export function createDeviceAuthMiddleware(
       );
     }
 
+    const deviceId = decoded.sub;
     let accountKey = deviceId;
+
     if (db) {
-      try {
-        const found = await db
-          .select({ linkedUserId: devices.linkedUserId })
-          .from(devices)
-          .where(eq(devices.deviceId, deviceId))
-          .limit(1);
-        if (found[0]?.linkedUserId) {
-          accountKey = found[0].linkedUserId;
-        }
-      } catch (_dbError) {
-        // Fall back to deviceId if DB query fails
+      const found = await db
+        .select({
+          linkedUserId: devices.linkedUserId,
+          tokenVersion: devices.tokenVersion,
+        })
+        .from(devices)
+        .where(eq(devices.deviceId, deviceId))
+        .limit(1);
+
+      const row = found[0];
+      if (!row) {
+        return c.json(
+          {
+            code: 'unauthorized',
+            message: 'Session revoked or device is not registered.',
+            requestId: c.get('requestId'),
+          },
+          401,
+        );
+      }
+
+      if (decoded.tv !== undefined && row.tokenVersion !== decoded.tv) {
+        return c.json(
+          {
+            code: 'unauthorized',
+            message: 'Session token has been revoked.',
+            requestId: c.get('requestId'),
+          },
+          401,
+        );
+      }
+
+      if (row.linkedUserId) {
+        accountKey = row.linkedUserId;
       }
     }
 

@@ -32,5 +32,10 @@
   "loadingLabel": "Loading...",
   "syncNowLabel": "Sync Catalog Now",
   "micTestLabel": "Test Microphone",
-  "fullMockTitle": "Full Mock Exam"
+  "fullMockTitle": "Full Mock Exam",
+  "startAudioLabel": "Start Audio",
+  "exportStudyDataLabel": "Export Study Data (JSON)",
+  "comingSoonLabel": "Soon",
+  "partialEstimateLabel": "Partial Estimate",
+  "readingPassagesLabel": "Reading Passages"
 }

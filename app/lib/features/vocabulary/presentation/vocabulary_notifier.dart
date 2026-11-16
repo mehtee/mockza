@@ -57,10 +57,12 @@ class VocabularyState {
 class VocabularyNotifier extends Notifier<VocabularyState> {
   DateTime? _cardStartedAt;
   bool _isDisposed = false;
+  bool _isRating = false;
 
   @override
   VocabularyState build() {
     _isDisposed = false;
+    _isRating = false;
     ref.onDispose(() => _isDisposed = true);
     return const VocabularyState(
       reviewedCount: 0,
@@ -71,6 +73,7 @@ class VocabularyNotifier extends Notifier<VocabularyState> {
   /// Loads a frozen snapshot of due (or ahead) cards so Drift updates do not shift indices.
   Future<void> loadSession({required bool reviewAhead}) async {
     if (_isDisposed) return;
+    _isRating = false;
     state = VocabularyState(
       reviewedCount: 0,
       showAnswer: false,
@@ -97,31 +100,38 @@ class VocabularyNotifier extends Notifier<VocabularyState> {
     state = state.copyWith(showAnswer: !state.showAnswer);
   }
 
-  /// Submits a recall [quality] rating for [card], logs study activity & advances queue.
+  /// Submits a recall [quality] rating for [card], logs study activity & advances queue
+  /// with a re-entrancy guard preventing double-ratings on rapid taps (`TD-46`).
   Future<void> rateCard({
     required VocabDeckCard card,
     required ReviewQuality quality,
   }) async {
-    final now = ref.read(clockProvider).now();
-    final elapsedSec = _cardStartedAt != null
-        ? now.difference(_cardStartedAt!).inSeconds.clamp(5, 120)
-        : 15;
-    _cardStartedAt = now;
+    if (_isDisposed || _isRating) return;
+    _isRating = true;
+    try {
+      final now = ref.read(clockProvider).now();
+      final elapsedSec = _cardStartedAt != null
+          ? now.difference(_cardStartedAt!).inSeconds.clamp(5, 120)
+          : 15;
+      _cardStartedAt = now;
 
-    await ref
-        .read(vocabRepositoryProvider)
-        .recordReview(card: card, quality: quality);
+      await ref
+          .read(vocabRepositoryProvider)
+          .recordReview(card: card, quality: quality);
 
-    await ref
-        .read(progressRepositoryProvider)
-        .logTodayActivity(studySeconds: elapsedSec, completedItems: 1);
+      await ref
+          .read(progressRepositoryProvider)
+          .logTodayActivity(studySeconds: elapsedSec, completedItems: 1);
 
-    if (_isDisposed) return;
-    state = state.copyWith(
-      reviewedCount: state.reviewedCount + 1,
-      showAnswer: false,
-      activeCardIndex: state.activeCardIndex + 1,
-    );
+      if (_isDisposed) return;
+      state = state.copyWith(
+        reviewedCount: state.reviewedCount + 1,
+        activeCardIndex: state.activeCardIndex + 1,
+        showAnswer: false,
+      );
+    } finally {
+      _isRating = false;
+    }
   }
 
   /// Resets review session pointers.

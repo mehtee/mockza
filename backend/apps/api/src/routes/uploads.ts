@@ -6,21 +6,59 @@ import {
   PresignUploadRequestSchema,
   PresignUploadResponseSchema,
 } from '@mockza/contracts';
-import type { MockzaDb } from '@mockza/db';
+import { audioAssets, type MockzaDb } from '@mockza/db';
 import {
+  buildAudioClipObjectKey,
   createAudioPresignUrl,
   createAudioS3Client,
   createPublicSigningS3Client,
-  extensionForAudioContentType,
   putObjectBuffer,
   type SupportedAudioContentType,
   signUploadProxyParams,
   verifyUploadProxySignature,
 } from '@mockza/storage';
+import { and, eq, ne } from 'drizzle-orm';
 import { createDeviceAuthMiddleware } from '../middleware/auth.js';
 import type { RequestVariables } from '../middleware/request-id.js';
 
 const ALLOWED_AUDIO_MIME = new Set<string>(['audio/mp4', 'audio/webm', 'audio/ogg', 'audio/wav']);
+
+async function upsertAudioAssetRow(params: {
+  db?: MockzaDb;
+  objectKey: string;
+  deviceId: string;
+  attemptId: string;
+  byteLength: number;
+  ttlDays: number;
+}): Promise<void> {
+  if (!params.db) return;
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + params.ttlDays * 24 * 60 * 60 * 1000);
+  await params.db
+    .insert(audioAssets)
+    .values({
+      objectKey: params.objectKey,
+      deviceId: params.deviceId,
+      attemptId: params.attemptId,
+      byteLength: params.byteLength,
+      expiresAt,
+      purgedAt: null,
+    })
+    .onConflictDoUpdate({
+      target: audioAssets.objectKey,
+      set: {
+        byteLength: params.byteLength,
+        expiresAt,
+        purgedAt: null,
+      },
+    });
+}
+
+function parseClipObjectKey(objectKey: string): { deviceId: string; attemptId: string } | null {
+  const match = /^users\/([0-9a-f-]{36})\/clips\/([0-9a-f-]{36})\//i.exec(objectKey);
+  if (!match?.[1] || !match[2]) return null;
+  return { deviceId: match[1], attemptId: match[2] };
+}
 
 export function registerUploadRoutes(
   app: OpenAPIHono<{ Variables: RequestVariables }>,
@@ -84,8 +122,44 @@ export function registerUploadRoutes(
 
     const contentType = body.contentType as SupportedAudioContentType;
     const expiresInSeconds = 300;
-    const ext = extensionForAudioContentType(contentType);
-    const objectKey = `users/${deviceId}/clips/${body.attemptId}/part-${body.partIndex}.${ext}`;
+    const objectKey = buildAudioClipObjectKey({
+      deviceId,
+      attemptId: body.attemptId,
+      partIndex: body.partIndex,
+      contentType,
+      turnId: body.turnId,
+    });
+
+    if (db) {
+      const existingAssets = await db
+        .select({ byteLength: audioAssets.byteLength })
+        .from(audioAssets)
+        .where(
+          and(eq(audioAssets.attemptId, body.attemptId), ne(audioAssets.objectKey, objectKey)),
+        );
+      const aggregateBytes =
+        existingAssets.reduce((sum, row) => sum + row.byteLength, 0) + body.byteLength;
+      const maxAggregateBytes = maxBytes * 12;
+      if (aggregateBytes > maxAggregateBytes) {
+        return c.json(
+          {
+            code: 'upload_too_large' as const,
+            message: `Aggregate attempt audio exceeds limit (${env.MAX_AUDIO_MB * 12} MB).`,
+            requestId: c.get('requestId'),
+          },
+          400,
+        );
+      }
+    }
+
+    await upsertAudioAssetRow({
+      db,
+      objectKey,
+      deviceId,
+      attemptId: body.attemptId,
+      byteLength: body.byteLength,
+      ttlDays: env.AUDIO_TTL_DAYS,
+    });
 
     if (env.S3_PUBLIC_MODE === 'proxy') {
       const expiresAtEpochSec = Math.floor(Date.now() / 1000) + expiresInSeconds;
@@ -119,6 +193,7 @@ export function registerUploadRoutes(
       deviceId,
       attemptId: body.attemptId,
       partIndex: body.partIndex,
+      turnId: body.turnId,
       byteLength: body.byteLength,
       contentType,
       expiresInSeconds,
@@ -132,6 +207,22 @@ export function registerUploadRoutes(
     const contentType = c.req.query('contentType') ?? 'audio/mp4';
     const expStr = c.req.query('exp') ?? '0';
     const sig = c.req.query('sig') ?? '';
+    const maxBytes = env.MAX_AUDIO_MB * 1024 * 1024;
+
+    const declaredLengthRaw = c.req.header('content-length');
+    if (declaredLengthRaw) {
+      const declaredLength = Number(declaredLengthRaw);
+      if (!Number.isFinite(declaredLength) || declaredLength <= 0 || declaredLength > maxBytes) {
+        return c.json(
+          {
+            code: 'payload_too_large',
+            message: `Audio payload must be between 1 byte and ${env.MAX_AUDIO_MB} MB.`,
+            requestId: c.get('requestId'),
+          },
+          400,
+        );
+      }
+    }
 
     const expiresAtEpochSec = Number.parseInt(expStr, 10);
     if (!objectKey.startsWith('users/') || !ALLOWED_AUDIO_MIME.has(contentType)) {
@@ -165,7 +256,6 @@ export function registerUploadRoutes(
     }
 
     const arrayBuf = await c.req.arrayBuffer();
-    const maxBytes = env.MAX_AUDIO_MB * 1024 * 1024;
     if (arrayBuf.byteLength === 0 || arrayBuf.byteLength > maxBytes) {
       return c.json(
         {
@@ -185,6 +275,18 @@ export function registerUploadRoutes(
       body: Buffer.from(arrayBuf),
       contentType,
     });
+
+    const parsedKey = parseClipObjectKey(objectKey);
+    if (parsedKey) {
+      await upsertAudioAssetRow({
+        db,
+        objectKey,
+        deviceId: parsedKey.deviceId,
+        attemptId: parsedKey.attemptId,
+        byteLength: arrayBuf.byteLength,
+        ttlDays: env.AUDIO_TTL_DAYS,
+      });
+    }
 
     return c.json({ ok: true, objectKey, byteLength: arrayBuf.byteLength }, 200);
   });

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_typography.dart';
@@ -81,8 +83,13 @@ class AnnotatedText extends StatelessWidget {
       ..sort((a, b) => a.startOffset.compareTo(b.startOffset));
 
     for (final edit in sortedEdits) {
-      final start = edit.startOffset.clamp(0, rawText.length);
-      final end = edit.endOffset.clamp(start, rawText.length);
+      final rawStart = edit.startOffset.clamp(0, rawText.length);
+      final rawEnd = edit.endOffset.clamp(rawStart, rawText.length);
+      final start = math.max(rawStart, currentIndex);
+      final end = math.max(start, rawEnd);
+      if (end <= start) {
+        continue;
+      }
 
       // Preceding unannotated text
       if (start > currentIndex) {
@@ -94,30 +101,35 @@ class AnnotatedText extends StatelessWidget {
         );
       }
 
-      // Highlighted annotation span
+      // Highlighted annotation span with accessible button semantics (`UX-10`)
       final highlightedText = rawText.substring(start, end);
       spans.add(
         WidgetSpan(
           alignment: PlaceholderAlignment.baseline,
           baseline: TextBaseline.alphabetic,
-          child: InkWell(
-            onTap: onTapEdit != null ? () => onTapEdit!(edit) : null,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              decoration: BoxDecoration(
-                color: colors.writingAccent.withValues(alpha: 0.18),
-                border: Border(
-                  bottom: BorderSide(
-                    color: colors.writingAccent,
-                    width: 2,
+          child: Semantics(
+            button: onTapEdit != null,
+            label:
+                '${edit.criterionCode} feedback: $highlightedText. Suggestion: ${edit.suggestedText}',
+            child: InkWell(
+              onTap: onTapEdit != null ? () => onTapEdit!(edit) : null,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                decoration: BoxDecoration(
+                  color: colors.writingAccent.withValues(alpha: 0.18),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: colors.writingAccent,
+                      width: 2,
+                    ),
                   ),
                 ),
-              ),
-              child: Text(
-                highlightedText,
-                style: baseStyle.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: colors.writingAccent,
+                child: Text(
+                  highlightedText,
+                  style: baseStyle.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colors.writingAccent,
+                  ),
                 ),
               ),
             ),

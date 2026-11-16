@@ -169,9 +169,7 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
             : null,
       );
       await profileRepo.completeOnboarding(primary.deviceId);
-      ref
-          .read(onboardingCompletedLatchProvider.notifier)
-          .setCompleted(completed: true);
+      ref.read(onboardingCompletedLatchProvider.notifier).completed = true;
 
       // Kick off anonymous JWT + lightweight catalog sync right after navigation
       // so the UI transitions immediately without waiting on IndexedDB/SQLite writes.

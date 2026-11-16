@@ -97,7 +97,9 @@ ALTER TABLE "entitlements" ADD COLUMN "original_app_user_id" text;--> statement-
 ALTER TABLE "entitlements" ADD COLUMN "product_id" text;--> statement-breakpoint
 ALTER TABLE "entitlements" ADD COLUMN "grace_until" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "entitlements" ADD COLUMN "last_verified_at" timestamp with time zone;--> statement-breakpoint
-ALTER TABLE "evaluation_jobs" ADD COLUMN "account_key" text NOT NULL;--> statement-breakpoint
+ALTER TABLE "evaluation_jobs" ADD COLUMN "account_key" text;--> statement-breakpoint
+UPDATE "evaluation_jobs" SET "account_key" = "device_id"::text WHERE "account_key" IS NULL;--> statement-breakpoint
+ALTER TABLE "evaluation_jobs" ALTER COLUMN "account_key" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "evaluation_jobs" ADD COLUMN "pack_id" text;--> statement-breakpoint
 ALTER TABLE "evaluation_jobs" ADD COLUMN "exam_id" text;--> statement-breakpoint
 ALTER TABLE "evaluation_jobs" ADD COLUMN "task_type" text;--> statement-breakpoint

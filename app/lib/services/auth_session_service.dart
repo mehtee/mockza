@@ -92,12 +92,23 @@ final class AuthSessionService {
     }
 
     try {
+      final deviceSecret = await _identity.readDeviceSecret();
+      final currentToken = await _identity.readAccessToken();
       final response = await _authDio.post<Map<String, Object?>>(
         '/v1/auth/anonymous',
         data: <String, Object?>{
           'deviceId': deviceId,
           'appVersion': appVersion,
+          if (deviceSecret != null && deviceSecret.isNotEmpty)
+            'deviceSecret': deviceSecret,
         },
+        options: (currentToken != null && currentToken.isNotEmpty)
+            ? Options(
+                headers: <String, Object?>{
+                  'authorization': 'Bearer $currentToken',
+                },
+              )
+            : null,
       );
       final data = response.data;
       final token = data?['accessToken'] as String?;
@@ -105,6 +116,10 @@ final class AuthSessionService {
         return const Err(
           ValidationFailure('Authentication response missing accessToken'),
         );
+      }
+      final returnedSecret = data?['deviceSecret'] as String?;
+      if (returnedSecret != null && returnedSecret.isNotEmpty) {
+        await _identity.saveDeviceSecret(returnedSecret);
       }
       await _identity.saveAccessToken(token);
       _crashLog.info(
@@ -131,15 +146,21 @@ final class AuthSessionService {
   }
 
   /// Calls `DELETE /v1/account` when an authenticated token exists, then clears
-  /// stored device credentials so a fresh identity is minted next session.
+  /// stored device credentials ONLY after confirmed remote deletion so failed
+  /// requests remain retryable (`TD-09`).
   Future<Result<void, Failure>> deleteRemoteAccount() async {
     try {
       var token = await _identity.readAccessToken();
       if (token == null || token.isEmpty) {
         final ensured = await ensureAuthenticated();
-        token = ensured.valueOrNull;
+        switch (ensured) {
+          case Ok<String, Failure>(:final value):
+            token = value;
+          case Err<String, Failure>(:final failure):
+            return Err(failure);
+        }
       }
-      if (token != null && token.isNotEmpty) {
+      if (token.isNotEmpty) {
         await _authDio.delete<void>(
           '/v1/account',
           options: Options(
@@ -150,17 +171,14 @@ final class AuthSessionService {
       await _identity.clearAll();
       return const Ok(null);
     } on DioException catch (e) {
-      // Clear local credentials even if server was unreachable so local wipe completes cleanly.
-      await _identity.clearAll();
       return Err(
         NetworkFailure(
-          'Remote account deletion incomplete: ${e.message ?? 'offline'}',
+          'Remote account deletion failed: ${e.message ?? 'offline'}',
           statusCode: e.response?.statusCode,
         ),
       );
     } on Object catch (e) {
-      await _identity.clearAll();
-      return Err(UnexpectedFailure('Account reset error: $e'));
+      return Err(UnexpectedFailure('Account deletion error: $e'));
     }
   }
 

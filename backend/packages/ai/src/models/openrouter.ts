@@ -1,3 +1,5 @@
+import { EvaluationModelError } from '../errors.js';
+
 export interface OpenRouterMessage {
   role: 'system' | 'user' | 'assistant';
   content:
@@ -84,10 +86,43 @@ export class OpenRouterClient {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`OpenRouter API error (${response.status}): ${errorText}`);
+        const truncated = errorText.slice(0, 300);
+        if (response.status === 429 || response.status >= 500) {
+          throw new EvaluationModelError(
+            'upstream_rate_limited',
+            `OpenRouter API transient error (${response.status}): ${truncated}`,
+            true,
+          );
+        }
+        throw new EvaluationModelError(
+          'model_unavailable',
+          `OpenRouter API error (${response.status}): ${truncated}`,
+          false,
+        );
       }
 
-      return (await response.json()) as OpenRouterChatResponse;
+      const rawJson = (await response.json()) as Partial<OpenRouterChatResponse>;
+      if (
+        !Array.isArray(rawJson?.choices) ||
+        typeof rawJson.choices[0]?.message?.content !== 'string'
+      ) {
+        throw new EvaluationModelError(
+          'model_invalid_output',
+          'OpenRouter response missing choices[0].message.content.',
+          true,
+        );
+      }
+      return rawJson as OpenRouterChatResponse;
+    } catch (err) {
+      if (err instanceof EvaluationModelError) {
+        throw err;
+      }
+      const isAbort = err instanceof Error && err.name === 'AbortError';
+      throw new EvaluationModelError(
+        isAbort ? 'upstream_timeout' : 'model_unavailable',
+        `OpenRouter request failed: ${(err as Error).message}`,
+        true,
+      );
     } finally {
       clearTimeout(timeout);
     }

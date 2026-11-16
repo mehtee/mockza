@@ -32,7 +32,6 @@ x-backend-common: &backend-common
     REVENUECAT_WEBHOOK_SECRET: ${REVENUECAT_WEBHOOK_SECRET:-}
     CAFEBAZAAR_SECRET: ${CAFEBAZAAR_SECRET:-}
     MYKET_SECRET: ${MYKET_SECRET:-}
-    POSTHOG_API_KEY: ${POSTHOG_API_KEY:-}
     MAX_AUDIO_MB: ${MAX_AUDIO_MB:-5}
     AUDIO_TTL_DAYS: ${AUDIO_TTL_DAYS:-30}
 
@@ -92,12 +91,13 @@ services:
     restart: unless-stopped
     networks:
       - mockza-net
-    command: "server -s3 -s3.port=8333 -master.port=9333 -volume.max=16 -dir=/data"
+    command: "server -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3_config.json -master.port=9333 -volume.max=16 -dir=/data"
     ports:
       - "127.0.0.1:${MOCKZA_S3_PORT:-45833}:8333"
       - "127.0.0.1:${MOCKZA_S3_MASTER_PORT:-45933}:9333"
     volumes:
       - mockza_s3data:/data
+      - ./deploy/seaweedfs/s3_config.json:/etc/seaweedfs/s3_config.json:ro
     mem_limit: 512m
     cpus: 1.0
     healthcheck:

@@ -49,12 +49,14 @@ class ProgressScreen extends ConsumerWidget {
     final filteredAttempts = _filterByTimeframe(attempts, timeframe, now);
 
     final scoredAttempts = filteredAttempts
-        .where((a) => a.overallBand != null)
+        .where(
+          (a) => a.overallBand != null && a.skill != SkillKind.vocabulary,
+        )
         .map(
           (a) => (
             score: a.overallBand!,
             skill: a.skill,
-            completedAtUtcMs: a.updatedAt.millisecondsSinceEpoch,
+            completedAtUtcMs: a.effectiveCompletedAtUtcMs,
           ),
         )
         .toList(growable: false);
@@ -78,7 +80,14 @@ class ProgressScreen extends ConsumerWidget {
 
     final today = SerialDay.fromUtcDateTime(now);
     final studyDays = <SerialDay>{
-      ...attempts.map((a) => SerialDay.fromUtcDateTime(a.updatedAt)),
+      ...attempts.map(
+        (a) => SerialDay.fromUtcDateTime(
+          DateTime.fromMillisecondsSinceEpoch(
+            a.effectiveCompletedAtUtcMs,
+            isUtc: true,
+          ),
+        ),
+      ),
       ...dailyLogs
           .where((d) => d.studySeconds > 0 || d.completedItems > 0)
           .map((d) => d.serialDay),
@@ -169,9 +178,11 @@ class ProgressScreen extends ConsumerWidget {
       _ => null,
     };
     if (days == null) return attempts;
-    final cutoff = now.subtract(Duration(days: days));
+    final cutoffMs = now
+        .subtract(Duration(days: days))
+        .millisecondsSinceEpoch;
     return attempts
-        .where((a) => !a.updatedAt.isBefore(cutoff))
+        .where((a) => a.effectiveCompletedAtUtcMs >= cutoffMs)
         .toList(growable: false);
   }
 
@@ -220,7 +231,11 @@ class ProgressScreen extends ConsumerWidget {
               const AppIcon(LucideGlyph.target, size: 20),
               const SizedBox(width: SpacingTokens.xs),
               Text(
-                'ESTIMATED OVERALL BAND',
+                summary.overallBand == null
+                    ? 'ESTIMATED OVERALL BAND'
+                    : (summary.isFullFourSkillEstimate
+                          ? 'ESTIMATED OVERALL BAND'
+                          : 'PARTIAL ESTIMATE (${summary.attemptedSkillsCount}/4 SKILLS)'),
                 style: typography.caption.copyWith(
                   color: colors.textSecondary,
                   letterSpacing: 1.2,
@@ -407,20 +422,28 @@ class ProgressScreen extends ConsumerWidget {
 
   List<ScoreTrendPoint> _buildTrendPoints(List<AttemptSummary> attempts) {
     final scored = attempts.where((a) => a.overallBand != null).toList()
-      ..sort((a, b) => a.updatedAt.compareTo(b.updatedAt));
+      ..sort(
+        (a, b) => a.effectiveCompletedAtUtcMs.compareTo(
+          b.effectiveCompletedAtUtcMs,
+        ),
+      );
 
     if (scored.isEmpty) {
       return const <ScoreTrendPoint>[];
     }
 
     return scored
-        .map(
-          (a) => ScoreTrendPoint(
-            dateLabel: '${a.updatedAt.month}/${a.updatedAt.day}',
+        .map((a) {
+          final dt = DateTime.fromMillisecondsSinceEpoch(
+            a.effectiveCompletedAtUtcMs,
+            isUtc: true,
+          );
+          return ScoreTrendPoint(
+            dateLabel: '${dt.month}/${dt.day}',
             score: a.overallBand!,
-            timestampUtcMs: a.updatedAt.millisecondsSinceEpoch,
-          ),
-        )
+            timestampUtcMs: a.effectiveCompletedAtUtcMs,
+          );
+        })
         .toList(growable: false);
   }
 }

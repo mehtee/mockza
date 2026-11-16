@@ -7,19 +7,19 @@ This document provides exact responses required for the Google Play Console Data
 ## 1. Overview of Data Collection & Sharing
 
 - **Does your app collect or share any of the required user data types?**: Yes
-- **Is all of the user data collected by your app encrypted in transit?**: Yes (all network communication uses HTTPS / TLS 1.3)
-- **Do you provide a way for users to request that their data be deleted?**: Yes (via in-app button "Delete Account & Audio Data" calling `DELETE /v1/account`, and via external web form at `https://mockza.example.com/privacy/data-deletion`)
+- **Is all of the user data collected by your app encrypted in transit?**: Yes (all network communication uses HTTPS / TLS 1.2+)
+- **Do you provide a way for users to request that their data be deleted?**: Yes (via in-app button "Wipe Account & Study Data" calling `DELETE /v1/account`, and via operator privacy portal at `https://mockza.mehtea.ir/privacy/data-deletion` — configure per deployment host)
 
 ---
 
 ## 2. Collected Data Types & Disclosures
 
-### A. Audio Files
-- **Data type**: Voice or sound recordings
+### A. Audio Files & User Essays
+- **Data type**: Voice or sound recordings & written essay responses
 - **Collected?**: Yes
-- **Shared?**: No
-- **Processed ephemerally?**: No (stored in private S3 bucket with a 30-day auto-purge TTL)
-- **Is this data required or optional?**: Optional (only collected when the user undertakes Speaking simulator tests)
+- **Shared?**: Yes — transmitted securely to the configured AI model inference provider (via OpenRouter with `no-retention` headers where supported) solely to generate IELTS evaluation feedback when the user requests AI grading
+- **Processed ephemerally?**: Audio stored in private S3 bucket with a 30-day auto-purge TTL (`AUDIO_TTL_DAYS`), or deleted immediately on `DELETE /v1/account`
+- **Is this data required or optional?**: Optional (only collected when the user undertakes Speaking or Writing AI evaluations)
 - **Purpose**: App functionality (providing IELTS Speaking fluency, lexical, grammatical, and pronunciation AI scoring)
 
 ### B. Financial Info
@@ -44,4 +44,4 @@ This document provides exact responses required for the Google Play Console Data
 ---
 
 ## 3. Privacy Policy URL
-`https://mockza.example.com/privacy`
+`https://mockza.mehtea.ir/privacy` (replace with canonical production domain before store submission)

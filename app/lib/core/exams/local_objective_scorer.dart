@@ -85,6 +85,7 @@ class ObjectiveScoreReport {
     required this.totalCount,
     required this.bandScore,
     required this.questionCorrectness,
+    this.isCalibratedFullPack = true,
   });
 
   /// Total exact/variant matches.
@@ -93,8 +94,15 @@ class ObjectiveScoreReport {
   /// Total questions evaluated.
   final int totalCount;
 
-  /// Mapped IELTS band (`0.0..9.0`).
+  /// Mapped IELTS band (`0.0..9.0`, or accuracy-scaled estimate when [isCalibratedFullPack] is false).
   final double bandScore;
+
+  /// True when evaluated against a full 40-question IELTS table (`TD-33`).
+  final bool isCalibratedFullPack;
+
+  /// Percentage accuracy (`0..100`).
+  int get accuracyPercent =>
+      totalCount == 0 ? 0 : ((correctCount / totalCount) * 100).round();
 
   /// Per-question correctness map keyed by question ID.
   final Map<String, bool> questionCorrectness;
@@ -102,26 +110,36 @@ class ObjectiveScoreReport {
 
 /// Offline scorer for Reading and Listening objective questions.
 abstract final class LocalObjectiveScorer {
-  /// Normalizes whitespace, hyphens, apostrophes, UK/US spellings, and small numerals.
+  /// Normalizes whitespace, hyphens, apostrophes, UK/US spellings, and small numerals
+  /// while preserving decimals, currency symbols, percent signs, and time colons (`TD-33`).
   static String normalize(String raw) {
     var text = raw.trim().toLowerCase();
 
-    // Standardize apostrophes and hyphens
+    // Standardize apostrophes and hyphens (preserving numeric decimals & currency)
     text = text.replaceAll(RegExp("['’`]"), "'");
     text = text.replaceAll(RegExp('[-—–]'), ' ');
 
     // Normalize multiple whitespace to single space
     text = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (text.isEmpty) return '';
 
-    // Token-level normalization for UK/US spellings and numeral words
+    // Token-level normalization preserving decimals (3.5), currency ($12.50, £5), % (25%), and times (10:30)
     final tokens = text.split(' ').map((token) {
-      final cleanToken = token.replaceAll(RegExp(r"[^\w']"), '');
+      var cleanToken = token;
+      // Strip leading/trailing punctuation EXCEPT leading currency ($ £ €) or trailing %
+      cleanToken = cleanToken.replaceFirst(RegExp(r"^[^\w$£€']+"), '');
+      cleanToken = cleanToken.replaceFirst(RegExp(r'[^\w%]+$'), '');
+      // Strip internal commas in formatted numbers (e.g. 1,250 -> 1250)
+      cleanToken = cleanToken.replaceAllMapped(
+        RegExp(r'(\d),(\d)'),
+        (m) => '${m.group(1)}${m.group(2)}',
+      );
       final usEquivalent = ukToUsSpellings[cleanToken];
       if (usEquivalent != null) return usEquivalent;
       final digitEquivalent = wordToDigits[cleanToken];
       if (digitEquivalent != null) return digitEquivalent;
       return cleanToken;
-    }).toList();
+    }).where((t) => t.isNotEmpty).toList();
 
     return tokens.join(' ').trim();
   }
@@ -190,6 +208,7 @@ abstract final class LocalObjectiveScorer {
       totalCount: answers.length,
       bandScore: band,
       questionCorrectness: perQuestion,
+      isCalibratedFullPack: answers.length == 40,
     );
   }
 }

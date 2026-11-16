@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
 import { CompletePackSchema } from './schemas.js';
+import { checkCopyrightSafety, computeSha256 } from './validate-pack.js';
 
 export interface ValidationReport {
   valid: boolean;
@@ -11,30 +11,19 @@ export interface ValidationReport {
   warnings: string[];
 }
 
-const COPYRIGHT_BLOCKLIST = [
-  'cambridge university press',
-  'cambridge english',
-  'educational testing service',
-  'cc by-nc',
-  'british council',
-  'idp education',
-];
-
-/** Validates an IELTS content pack against clean-room requirements and evidence precision (ADR-008 / B3.2). */
+/** Validates an IELTS content pack against clean-room requirements and evidence precision (ADR-008 / TD-31). */
 export function validateContentPack(rawJson: unknown): ValidationReport {
   // 1. Zod schema validation
   const pack = CompletePackSchema.parse(rawJson);
 
   const jsonStr = JSON.stringify(rawJson);
-  const lowerJson = jsonStr.toLowerCase();
 
-  // 2. Blocklist check for clean-room IP protection
-  for (const phrase of COPYRIGHT_BLOCKLIST) {
-    if (lowerJson.includes(phrase)) {
-      throw new Error(
-        `Copyright blocklist check failed: pack contains forbidden reference to "${phrase}". Packs must be 100% original authored or public domain adapted.`,
-      );
-    }
+  // 2. Shared clean-room copyright/trademark blocklist check
+  const safety = checkCopyrightSafety(jsonStr);
+  if (!safety.safe) {
+    throw new Error(
+      `Copyright blocklist check failed: pack contains forbidden reference matching "${safety.violations.join(', ')}". Packs must be 100% original authored or public domain adapted.`,
+    );
   }
 
   const warnings: string[] = [];
@@ -82,7 +71,7 @@ export function validateContentPack(rawJson: unknown): ValidationReport {
 
   // 4. Compute SHA-256 and byteLength
   const buffer = Buffer.from(jsonStr, 'utf-8');
-  const sha256 = createHash('sha256').update(buffer).digest('hex');
+  const sha256 = computeSha256(buffer);
   const byteLength = buffer.byteLength;
 
   return {

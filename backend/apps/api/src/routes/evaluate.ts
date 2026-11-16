@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { S3Client } from '@aws-sdk/client-s3';
 import { createRoute, type OpenAPIHono } from '@hono/zod-openapi';
 import { explainQuestionGraph } from '@mockza/ai';
@@ -10,22 +10,25 @@ import {
   ExplainQuestionRequestSchema,
   ExplainQuestionResponseSchema,
   JobEnqueueResponseSchema,
+  RetryEvaluationRequestSchema,
 } from '@mockza/contracts';
 import {
   aiQuestionExplanations,
+  audioAssets,
   entitlements,
   evaluationJobs,
   examQuestions,
   examSections,
+  jobDispatchOutbox,
   type MockzaDb,
 } from '@mockza/db';
 import { DomainError } from '@mockza/domain';
 import { createAudioS3Client, verifyUploadedAudioObject } from '@mockza/storage';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, or, sql } from 'drizzle-orm';
 import type PgBoss from 'pg-boss';
 import { createDeviceAuthMiddleware } from '../middleware/auth.js';
 import type { RequestVariables } from '../middleware/request-id.js';
-import { refundQuotaAtomic, reserveQuotaAtomic } from '../services/quota.js';
+import { reserveQuotaAtomic } from '../services/quota.js';
 
 export const WRITING_QUEUE = 'evaluation.writing';
 export const SPEAKING_QUEUE = 'evaluation.speaking';
@@ -33,16 +36,113 @@ export const EXPLAIN_QUEUE = 'explain.question';
 
 type ValidJobStatus = 'queued' | 'processing_audio' | 'evaluating' | 'completed' | 'failed';
 
+const VALID_JOB_STATUSES = new Set<string>([
+  'queued',
+  'processing_audio',
+  'evaluating',
+  'completed',
+  'failed',
+]);
+
+function normalizeJobStatus(status: string): ValidJobStatus {
+  return VALID_JOB_STATUSES.has(status) ? (status as ValidJobStatus) : 'queued';
+}
+
+function sha256Canonical(data: unknown): string {
+  return createHash('sha256').update(JSON.stringify(data), 'utf-8').digest('hex');
+}
+
+function isPgUniqueViolation(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false;
+  const code =
+    (err as { code?: string; cause?: { code?: string } }).code ??
+    (err as { cause?: { code?: string } }).cause?.code;
+  return code === '23505';
+}
+
 export function registerEvaluateRoutes(
   app: OpenAPIHono<{ Variables: RequestVariables }>,
   env: AppEnv,
   db?: MockzaDb,
   boss?: PgBoss,
   s3Client?: S3Client,
+  isQueueReady?: () => boolean,
 ): void {
   const authMiddleware = createDeviceAuthMiddleware(env, db);
   app.use('/v1/evaluate/*', authMiddleware);
   const internalS3 = s3Client ?? createAudioS3Client(env);
+  const memoryJobs = new Map<
+    string,
+    {
+      jobId: string;
+      accountKey: string;
+      deviceId: string;
+      inputHash: string;
+      status: ValidJobStatus;
+    }
+  >();
+
+  async function dispatchNowAndMark(params: {
+    database: MockzaDb;
+    jobId: string;
+    queueName: string;
+    payload: Record<string, unknown>;
+    singletonKey: string;
+  }): Promise<void> {
+    if (!boss) return;
+    try {
+      await boss.send(params.queueName, params.payload, {
+        singletonKey: params.singletonKey,
+        retryLimit: 3,
+        retryBackoff: true,
+      });
+      await params.database
+        .update(jobDispatchOutbox)
+        .set({ status: 'dispatched', updatedAt: new Date() })
+        .where(eq(jobDispatchOutbox.jobId, params.jobId));
+    } catch (enqueueErr) {
+      // Leave `status = 'pending'` in `job_dispatch_outbox` so sweeper recovers without stranding credit.
+      await params.database
+        .update(jobDispatchOutbox)
+        .set({
+          attempts: sql`${jobDispatchOutbox.attempts} + 1`,
+          lastError: (enqueueErr as Error).message.slice(0, 500),
+          updatedAt: new Date(),
+        })
+        .where(eq(jobDispatchOutbox.jobId, params.jobId));
+    }
+  }
+
+  function resolveIdempotentMatch(params: {
+    existing: {
+      jobId: string;
+      status: string;
+      accountKey: string;
+      deviceId: string;
+      inputHash: string | null;
+    };
+    accountKey: string;
+    deviceId: string;
+    inputHash: string;
+  }):
+    | { kind: 'ok'; jobId: string; status: ValidJobStatus }
+    | { kind: 'forbidden' }
+    | { kind: 'conflict' } {
+    if (
+      params.existing.accountKey !== params.accountKey &&
+      params.existing.deviceId !== params.deviceId
+    ) {
+      return { kind: 'forbidden' };
+    }
+    if (params.existing.inputHash && params.existing.inputHash !== params.inputHash) {
+      return { kind: 'conflict' };
+    }
+    return {
+      kind: 'ok',
+      jobId: params.existing.jobId,
+      status: normalizeJobStatus(params.existing.status),
+    };
+  }
 
   // POST /v1/evaluate/writing (202 Accepted)
   const writingRoute = createRoute({
@@ -70,8 +170,20 @@ export function registerEvaluateRoutes(
         description: 'Pro entitlement required.',
         content: { 'application/json': { schema: ApiErrorSchema } },
       },
+      403: {
+        description: 'Forbidden attempt access.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
+      409: {
+        description: 'Attempt ID conflict with different input.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
       429: {
         description: 'Quota exceeded.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
+      503: {
+        description: 'Evaluation queue unavailable.',
         content: { 'application/json': { schema: ApiErrorSchema } },
       },
     },
@@ -88,93 +200,208 @@ export function registerEvaluateRoutes(
     }
     const accountKey = c.get('accountKey') ?? deviceId;
 
+    if (isQueueReady && !isQueueReady()) {
+      return c.json(
+        {
+          code: 'model_unavailable' as const,
+          message: 'Evaluation queue producer is temporarily unavailable. Please retry shortly.',
+          requestId: c.get('requestId'),
+        },
+        503,
+      );
+    }
+
+    const inputHash = sha256Canonical({
+      skill: 'writing',
+      packId: payload.packId,
+      examId: payload.examId,
+      taskType: payload.taskType,
+      promptTitle: payload.promptTitle,
+      promptBody: payload.promptBody,
+      essayText: payload.essayText,
+    });
+
     if (db) {
-      // 1. Idempotency check: if attemptId already evaluated or queued, return existing job
-      const existing = await db
-        .select({ jobId: evaluationJobs.jobId, status: evaluationJobs.status })
+      const existingRows = await db
+        .select({
+          jobId: evaluationJobs.jobId,
+          status: evaluationJobs.status,
+          accountKey: evaluationJobs.accountKey,
+          deviceId: evaluationJobs.deviceId,
+          inputHash: evaluationJobs.inputHash,
+        })
         .from(evaluationJobs)
         .where(eq(evaluationJobs.attemptId, payload.attemptId))
         .limit(1);
 
-      if (existing[0]) {
-        const validStatus: ValidJobStatus = (
-          ['queued', 'processing_audio', 'evaluating', 'completed', 'failed'].includes(
-            existing[0].status,
-          )
-            ? existing[0].status
-            : 'queued'
-        ) as ValidJobStatus;
-        return c.json(
-          {
-            jobId: existing[0].jobId,
-            status: validStatus,
-          },
-          202,
-        );
-      }
-
-      // 2. Atomic Quota Reservation
-      try {
-        await reserveQuotaAtomic({
-          db,
+      if (existingRows[0]) {
+        const match = resolveIdempotentMatch({
+          existing: existingRows[0],
           accountKey,
           deviceId,
-          attemptId: payload.attemptId,
-          skill: 'writing',
+          inputHash,
+        });
+        if (match.kind === 'forbidden') {
+          return c.json(
+            {
+              code: 'unauthorized' as const,
+              message: 'Attempt ID belongs to a different account.',
+              requestId: c.get('requestId'),
+            },
+            403,
+          );
+        }
+        if (match.kind === 'conflict') {
+          return c.json(
+            {
+              code: 'attempt_conflict' as const,
+              message: 'Attempt ID cannot be reused with modified writing input.',
+              requestId: c.get('requestId'),
+            },
+            409,
+          );
+        }
+        return c.json({ jobId: match.jobId, status: match.status }, 202);
+      }
+
+      const jobId = randomUUID();
+      const jobPayload = { jobId, ...payload };
+
+      try {
+        await db.transaction(async (tx) => {
+          await reserveQuotaAtomic({
+            db: tx,
+            accountKey,
+            deviceId,
+            attemptId: payload.attemptId,
+            skill: 'writing',
+          });
+
+          await tx.insert(evaluationJobs).values({
+            jobId,
+            attemptId: payload.attemptId,
+            accountKey,
+            deviceId,
+            packId: payload.packId,
+            examId: payload.examId,
+            taskType: payload.taskType,
+            skill: 'writing',
+            status: 'queued',
+            stageDetail: 'Queued for AI evaluation',
+            inputHash,
+            inputJson: payload,
+          });
+
+          await tx.insert(jobDispatchOutbox).values({
+            jobId,
+            queueName: WRITING_QUEUE,
+            payloadJson: jobPayload,
+            status: 'pending',
+          });
         });
       } catch (err) {
         if (err instanceof DomainError) {
           return c.json(
             { code: err.code as any, message: err.message, requestId: c.get('requestId') },
-            err.status as 400 | 401 | 402 | 429,
+            err.status as 401 | 402 | 409 | 429,
           );
+        }
+        if (isPgUniqueViolation(err)) {
+          const raceRows = await db
+            .select({
+              jobId: evaluationJobs.jobId,
+              status: evaluationJobs.status,
+              accountKey: evaluationJobs.accountKey,
+              deviceId: evaluationJobs.deviceId,
+              inputHash: evaluationJobs.inputHash,
+            })
+            .from(evaluationJobs)
+            .where(eq(evaluationJobs.attemptId, payload.attemptId))
+            .limit(1);
+          if (raceRows[0]) {
+            const match = resolveIdempotentMatch({
+              existing: raceRows[0],
+              accountKey,
+              deviceId,
+              inputHash,
+            });
+            if (match.kind === 'forbidden') {
+              return c.json(
+                {
+                  code: 'unauthorized' as const,
+                  message: 'Attempt ID belongs to a different account.',
+                  requestId: c.get('requestId'),
+                },
+                403,
+              );
+            }
+            if (match.kind === 'conflict') {
+              return c.json(
+                {
+                  code: 'attempt_conflict' as const,
+                  message: 'Attempt ID cannot be reused with modified writing input.',
+                  requestId: c.get('requestId'),
+                },
+                409,
+              );
+            }
+            return c.json({ jobId: match.jobId, status: match.status }, 202);
+          }
         }
         throw err;
       }
 
-      const jobId = randomUUID();
-
-      // 3. Insert job in database
-      await db.insert(evaluationJobs).values({
+      await dispatchNowAndMark({
+        database: db,
         jobId,
-        attemptId: payload.attemptId,
-        accountKey,
-        deviceId,
-        packId: payload.packId,
-        examId: payload.examId,
-        taskType: payload.taskType,
-        skill: 'writing',
-        status: 'queued',
-        stageDetail: 'Queued for AI evaluation',
-        inputJson: payload,
+        queueName: WRITING_QUEUE,
+        payload: jobPayload,
+        singletonKey: payload.attemptId,
       });
-
-      // 4. Enqueue in pg-boss
-      if (boss) {
-        try {
-          await boss.send(
-            WRITING_QUEUE,
-            { jobId, ...payload },
-            {
-              singletonKey: payload.attemptId,
-              retryLimit: 3,
-              retryBackoff: true,
-            },
-          );
-        } catch (enqueueError) {
-          await refundQuotaAtomic({ db, attemptId: payload.attemptId });
-          await db
-            .update(evaluationJobs)
-            .set({ status: 'failed', errorCode: 'internal_error' })
-            .where(eq(evaluationJobs.jobId, jobId));
-          throw enqueueError;
-        }
-      }
 
       return c.json({ jobId, status: 'queued' as const }, 202);
     }
 
-    return c.json({ jobId: randomUUID(), status: 'queued' as const }, 202);
+    const memExisting = memoryJobs.get(payload.attemptId);
+    if (memExisting) {
+      const match = resolveIdempotentMatch({
+        existing: memExisting,
+        accountKey,
+        deviceId,
+        inputHash,
+      });
+      if (match.kind === 'forbidden') {
+        return c.json(
+          {
+            code: 'unauthorized' as const,
+            message: 'Attempt ID belongs to a different account.',
+            requestId: c.get('requestId'),
+          },
+          403,
+        );
+      }
+      if (match.kind === 'conflict') {
+        return c.json(
+          {
+            code: 'attempt_conflict' as const,
+            message: 'Attempt ID cannot be reused with modified writing input.',
+            requestId: c.get('requestId'),
+          },
+          409,
+        );
+      }
+      return c.json({ jobId: match.jobId, status: match.status }, 202);
+    }
+
+    const memJobId = randomUUID();
+    memoryJobs.set(payload.attemptId, {
+      jobId: memJobId,
+      accountKey,
+      deviceId,
+      inputHash,
+      status: 'queued',
+    });
+    return c.json({ jobId: memJobId, status: 'queued' as const }, 202);
   });
 
   // POST /v1/evaluate/speaking (202 Accepted)
@@ -203,12 +430,24 @@ export function registerEvaluateRoutes(
         description: 'Pro entitlement required.',
         content: { 'application/json': { schema: ApiErrorSchema } },
       },
+      403: {
+        description: 'Forbidden attempt access.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
       404: {
         description: 'Audio object not found in S3.',
         content: { 'application/json': { schema: ApiErrorSchema } },
       },
+      409: {
+        description: 'Attempt ID conflict with different input.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
       429: {
         description: 'Quota exceeded.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
+      503: {
+        description: 'Evaluation queue unavailable.',
         content: { 'application/json': { schema: ApiErrorSchema } },
       },
     },
@@ -225,113 +464,472 @@ export function registerEvaluateRoutes(
     }
     const accountKey = c.get('accountKey') ?? deviceId;
 
+    if (isQueueReady && !isQueueReady()) {
+      return c.json(
+        {
+          code: 'model_unavailable' as const,
+          message: 'Evaluation queue producer is temporarily unavailable. Please retry shortly.',
+          requestId: c.get('requestId'),
+        },
+        503,
+      );
+    }
+
+    const inputHash = sha256Canonical({
+      skill: 'speaking',
+      packId: payload.packId,
+      examId: payload.examId,
+      partSequence: payload.partSequence,
+      turns: payload.turns.map((t) => ({
+        partIndex: t.partIndex,
+        promptText: t.promptText,
+        objectKey: t.objectKey,
+      })),
+    });
+
     if (db) {
-      // 1. Idempotency check
-      const existing = await db
-        .select({ jobId: evaluationJobs.jobId, status: evaluationJobs.status })
+      const existingRows = await db
+        .select({
+          jobId: evaluationJobs.jobId,
+          status: evaluationJobs.status,
+          accountKey: evaluationJobs.accountKey,
+          deviceId: evaluationJobs.deviceId,
+          inputHash: evaluationJobs.inputHash,
+        })
         .from(evaluationJobs)
         .where(eq(evaluationJobs.attemptId, payload.attemptId))
         .limit(1);
 
-      if (existing[0]) {
-        const validStatus: ValidJobStatus = (
-          ['queued', 'processing_audio', 'evaluating', 'completed', 'failed'].includes(
-            existing[0].status,
-          )
-            ? existing[0].status
-            : 'queued'
-        ) as ValidJobStatus;
-        return c.json(
-          {
-            jobId: existing[0].jobId,
-            status: validStatus,
-          },
-          202,
-        );
+      if (existingRows[0]) {
+        const match = resolveIdempotentMatch({
+          existing: existingRows[0],
+          accountKey,
+          deviceId,
+          inputHash,
+        });
+        if (match.kind === 'forbidden') {
+          return c.json(
+            {
+              code: 'unauthorized' as const,
+              message: 'Attempt ID belongs to a different account.',
+              requestId: c.get('requestId'),
+            },
+            403,
+          );
+        }
+        if (match.kind === 'conflict') {
+          return c.json(
+            {
+              code: 'attempt_conflict' as const,
+              message: 'Attempt ID cannot be reused with modified speaking input.',
+              requestId: c.get('requestId'),
+            },
+            409,
+          );
+        }
+        return c.json({ jobId: match.jobId, status: match.status }, 202);
       }
 
-      // 2. HeadObject verification on each audio clip
+      // Verify all clips and aggregate byte budget
       const keysToVerify = payload.turns.map((t) => t.objectKey);
+      const assetExpiresAt = new Date(Date.now() + env.AUDIO_TTL_DAYS * 24 * 60 * 60 * 1000);
+      const maxSingleClipBytes = env.MAX_AUDIO_MB * 1024 * 1024;
+      const maxAggregateBytes = Math.min(25 * 1024 * 1024, maxSingleClipBytes * 3);
+      let aggregateBytes = 0;
+
       for (const objectKey of keysToVerify) {
         try {
-          await verifyUploadedAudioObject({
+          const verified = await verifyUploadedAudioObject({
             client: internalS3,
             bucket: env.S3_BUCKET,
             objectKey,
             expectedDeviceId: deviceId,
-            maxBytes: env.MAX_AUDIO_MB * 1024 * 1024,
+            maxBytes: maxSingleClipBytes,
           });
+          aggregateBytes += verified.byteLength;
+          if (aggregateBytes > maxAggregateBytes) {
+            return c.json(
+              {
+                code: 'upload_too_large' as const,
+                message: `Combined speaking audio size exceeds ${Math.round(maxAggregateBytes / (1024 * 1024))} MB session limit.`,
+                requestId: c.get('requestId'),
+              },
+              400,
+            );
+          }
+          await db
+            .insert(audioAssets)
+            .values({
+              objectKey,
+              deviceId,
+              attemptId: payload.attemptId,
+              byteLength: verified.byteLength,
+              expiresAt: assetExpiresAt,
+              purgedAt: null,
+            })
+            .onConflictDoUpdate({
+              target: audioAssets.objectKey,
+              set: {
+                byteLength: verified.byteLength,
+                expiresAt: assetExpiresAt,
+                purgedAt: null,
+              },
+            });
         } catch (err) {
           if (err instanceof DomainError) {
             return c.json(
               { code: err.code as any, message: err.message, requestId: c.get('requestId') },
-              err.status as 400 | 401 | 404,
+              err.status as 400 | 401 | 403 | 404,
             );
           }
+          throw err;
         }
       }
 
-      // 3. Atomic Quota Reservation
+      const jobId = randomUUID();
+      const jobPayload = { jobId, ...payload };
+
       try {
-        await reserveQuotaAtomic({
-          db,
-          accountKey,
-          deviceId,
-          attemptId: payload.attemptId,
-          skill: 'speaking',
+        await db.transaction(async (tx) => {
+          await reserveQuotaAtomic({
+            db: tx,
+            accountKey,
+            deviceId,
+            attemptId: payload.attemptId,
+            skill: 'speaking',
+          });
+
+          await tx.insert(evaluationJobs).values({
+            jobId,
+            attemptId: payload.attemptId,
+            accountKey,
+            deviceId,
+            packId: payload.packId,
+            examId: payload.examId,
+            skill: 'speaking',
+            status: 'queued',
+            stageDetail: 'Queued for audio evaluation',
+            inputHash,
+            inputJson: payload,
+          });
+
+          await tx.insert(jobDispatchOutbox).values({
+            jobId,
+            queueName: SPEAKING_QUEUE,
+            payloadJson: jobPayload,
+            status: 'pending',
+          });
         });
       } catch (err) {
         if (err instanceof DomainError) {
           return c.json(
             { code: err.code as any, message: err.message, requestId: c.get('requestId') },
-            err.status as 400 | 401 | 402 | 429,
+            err.status as 401 | 402 | 409 | 429,
+          );
+        }
+        if (isPgUniqueViolation(err)) {
+          const raceRows = await db
+            .select({
+              jobId: evaluationJobs.jobId,
+              status: evaluationJobs.status,
+              accountKey: evaluationJobs.accountKey,
+              deviceId: evaluationJobs.deviceId,
+              inputHash: evaluationJobs.inputHash,
+            })
+            .from(evaluationJobs)
+            .where(eq(evaluationJobs.attemptId, payload.attemptId))
+            .limit(1);
+          if (raceRows[0]) {
+            const match = resolveIdempotentMatch({
+              existing: raceRows[0],
+              accountKey,
+              deviceId,
+              inputHash,
+            });
+            if (match.kind === 'forbidden') {
+              return c.json(
+                {
+                  code: 'unauthorized' as const,
+                  message: 'Attempt ID belongs to a different account.',
+                  requestId: c.get('requestId'),
+                },
+                403,
+              );
+            }
+            if (match.kind === 'conflict') {
+              return c.json(
+                {
+                  code: 'attempt_conflict' as const,
+                  message: 'Attempt ID cannot be reused with modified speaking input.',
+                  requestId: c.get('requestId'),
+                },
+                409,
+              );
+            }
+            return c.json({ jobId: match.jobId, status: match.status }, 202);
+          }
+        }
+        throw err;
+      }
+
+      await dispatchNowAndMark({
+        database: db,
+        jobId,
+        queueName: SPEAKING_QUEUE,
+        payload: jobPayload,
+        singletonKey: payload.attemptId,
+      });
+
+      return c.json({ jobId, status: 'queued' as const }, 202);
+    }
+
+    const memExisting = memoryJobs.get(payload.attemptId);
+    if (memExisting) {
+      const match = resolveIdempotentMatch({
+        existing: memExisting,
+        accountKey,
+        deviceId,
+        inputHash,
+      });
+      if (match.kind === 'forbidden') {
+        return c.json(
+          {
+            code: 'unauthorized' as const,
+            message: 'Attempt ID belongs to a different account.',
+            requestId: c.get('requestId'),
+          },
+          403,
+        );
+      }
+      if (match.kind === 'conflict') {
+        return c.json(
+          {
+            code: 'attempt_conflict' as const,
+            message: 'Attempt ID cannot be reused with modified speaking input.',
+            requestId: c.get('requestId'),
+          },
+          409,
+        );
+      }
+      return c.json({ jobId: match.jobId, status: match.status }, 202);
+    }
+
+    const memJobId = randomUUID();
+    memoryJobs.set(payload.attemptId, {
+      jobId: memJobId,
+      accountKey,
+      deviceId,
+      inputHash,
+      status: 'queued',
+    });
+    return c.json({ jobId: memJobId, status: 'queued' as const }, 202);
+  });
+
+  // POST /v1/evaluate/retry (Re-queue an existing failed job with quota re-reservation `TD-16`)
+  const retryRoute = createRoute({
+    method: 'post',
+    path: '/v1/evaluate/retry',
+    request: {
+      body: {
+        content: { 'application/json': { schema: RetryEvaluationRequestSchema } },
+      },
+    },
+    responses: {
+      202: {
+        description: 'Failed evaluation job re-queued.',
+        content: { 'application/json': { schema: JobEnqueueResponseSchema } },
+      },
+      401: {
+        description: 'Unauthorized.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
+      402: {
+        description: 'Entitlement required.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
+      403: {
+        description: 'Forbidden.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
+      404: {
+        description: 'Attempt job not found.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
+      409: {
+        description: 'Completed job cannot be retried.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
+      429: {
+        description: 'Quota exceeded.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
+      503: {
+        description: 'Evaluation queue unavailable.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
+    },
+  });
+
+  app.openapi(retryRoute, async (c) => {
+    const { attemptId } = c.req.valid('json');
+    const deviceId = c.get('deviceId');
+    if (!deviceId) {
+      return c.json(
+        { code: 'unauthorized' as const, message: 'Auth required', requestId: c.get('requestId') },
+        401,
+      );
+    }
+    const accountKey = c.get('accountKey') ?? deviceId;
+
+    if (isQueueReady && !isQueueReady()) {
+      return c.json(
+        {
+          code: 'model_unavailable' as const,
+          message: 'Evaluation queue producer is temporarily unavailable.',
+          requestId: c.get('requestId'),
+        },
+        503,
+      );
+    }
+
+    if (db) {
+      const jobRows = await db
+        .select()
+        .from(evaluationJobs)
+        .where(eq(evaluationJobs.attemptId, attemptId))
+        .limit(1);
+
+      const job = jobRows[0];
+      if (!job) {
+        return c.json(
+          {
+            code: 'not_found' as const,
+            message: `No evaluation job found for attempt ${attemptId}.`,
+            requestId: c.get('requestId'),
+          },
+          404,
+        );
+      }
+
+      if (job.accountKey !== accountKey && job.deviceId !== deviceId) {
+        return c.json(
+          {
+            code: 'unauthorized' as const,
+            message: 'Access denied to retry this attempt.',
+            requestId: c.get('requestId'),
+          },
+          403,
+        );
+      }
+
+      if (job.status === 'completed') {
+        return c.json(
+          {
+            code: 'attempt_conflict' as const,
+            message: 'Completed evaluations cannot be re-submitted.',
+            requestId: c.get('requestId'),
+          },
+          409,
+        );
+      }
+
+      if (job.status !== 'failed') {
+        return c.json({ jobId: job.jobId, status: normalizeJobStatus(job.status) }, 202);
+      }
+
+      const queueName = job.skill === 'speaking' ? SPEAKING_QUEUE : WRITING_QUEUE;
+      const storedInput = (job.inputJson ?? {}) as Record<string, unknown>;
+      const jobPayload = { jobId: job.jobId, ...storedInput };
+      const nextRetryGeneration = job.attemptsCount + 1;
+
+      try {
+        await db.transaction(async (tx) => {
+          await reserveQuotaAtomic({
+            db: tx,
+            accountKey,
+            deviceId,
+            attemptId,
+            skill: job.skill === 'speaking' ? 'speaking' : 'writing',
+            allowRetryRefunded: true,
+          });
+
+          const transitioned = await tx
+            .update(evaluationJobs)
+            .set({
+              status: 'queued',
+              stageDetail: 'Retry queued for AI evaluation',
+              errorCode: null,
+              attemptsCount: nextRetryGeneration,
+              updatedAt: new Date(),
+            })
+            .where(and(eq(evaluationJobs.jobId, job.jobId), eq(evaluationJobs.status, 'failed')))
+            .returning({ jobId: evaluationJobs.jobId });
+
+          if (transitioned.length > 0) {
+            await tx
+              .insert(jobDispatchOutbox)
+              .values({
+                jobId: job.jobId,
+                queueName,
+                payloadJson: jobPayload,
+                status: 'pending',
+              })
+              .onConflictDoUpdate({
+                target: jobDispatchOutbox.jobId,
+                set: {
+                  queueName,
+                  payloadJson: jobPayload,
+                  status: 'pending',
+                  updatedAt: new Date(),
+                },
+              });
+          }
+        });
+      } catch (err) {
+        if (err instanceof DomainError) {
+          return c.json(
+            { code: err.code as any, message: err.message, requestId: c.get('requestId') },
+            err.status as 401 | 402 | 409 | 429,
           );
         }
         throw err;
       }
 
-      const jobId = randomUUID();
-
-      // 4. Insert job in database
-      await db.insert(evaluationJobs).values({
-        jobId,
-        attemptId: payload.attemptId,
-        accountKey,
-        deviceId,
-        packId: payload.packId,
-        examId: payload.examId,
-        skill: 'speaking',
-        status: 'queued',
-        stageDetail: 'Queued for audio evaluation',
-        inputJson: payload,
+      await dispatchNowAndMark({
+        database: db,
+        jobId: job.jobId,
+        queueName,
+        payload: jobPayload,
+        singletonKey: `${attemptId}:retry:${nextRetryGeneration}`,
       });
 
-      // 5. Enqueue in pg-boss
-      if (boss) {
-        try {
-          await boss.send(
-            SPEAKING_QUEUE,
-            { jobId, ...payload },
-            {
-              singletonKey: payload.attemptId,
-              retryLimit: 3,
-              retryBackoff: true,
-            },
-          );
-        } catch (enqueueError) {
-          await refundQuotaAtomic({ db, attemptId: payload.attemptId });
-          await db
-            .update(evaluationJobs)
-            .set({ status: 'failed', errorCode: 'internal_error' })
-            .where(eq(evaluationJobs.jobId, jobId));
-          throw enqueueError;
-        }
-      }
-
-      return c.json({ jobId, status: 'queued' as const }, 202);
+      return c.json({ jobId: job.jobId, status: 'queued' as const }, 202);
     }
 
-    return c.json({ jobId: randomUUID(), status: 'queued' as const }, 202);
+    const memExisting = memoryJobs.get(attemptId);
+    if (memExisting) {
+      if (memExisting.accountKey !== accountKey && memExisting.deviceId !== deviceId) {
+        return c.json(
+          {
+            code: 'unauthorized' as const,
+            message: 'Access denied to retry this attempt.',
+            requestId: c.get('requestId'),
+          },
+          403,
+        );
+      }
+      memExisting.status = 'queued';
+      return c.json({ jobId: memExisting.jobId, status: 'queued' as const }, 202);
+    }
+
+    return c.json(
+      {
+        code: 'not_found' as const,
+        message: `No evaluation job found for attempt ${attemptId}.`,
+        requestId: c.get('requestId'),
+      },
+      404,
+    );
   });
 
   // POST /v1/evaluate/explain-question (Pro cached explainer B4.4)
@@ -356,6 +954,10 @@ export function registerEvaluateRoutes(
         description: 'Pro entitlement required for AI question explanations.',
         content: { 'application/json': { schema: ApiErrorSchema } },
       },
+      404: {
+        description: 'Published question not found.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
     },
   });
 
@@ -368,16 +970,28 @@ export function registerEvaluateRoutes(
         401,
       );
     }
+    const accountKey = c.get('accountKey') ?? deviceId;
 
     if (db) {
+      const isLinked = accountKey !== deviceId;
       const entRows = await db
-        .select({ isPro: entitlements.isPro, expiresAt: entitlements.expiresAt })
+        .select({
+          isPro: entitlements.isPro,
+          expiresAt: entitlements.expiresAt,
+          graceUntil: entitlements.graceUntil,
+        })
         .from(entitlements)
-        .where(eq(entitlements.deviceId, deviceId))
-        .limit(1);
+        .where(
+          isLinked
+            ? or(eq(entitlements.deviceId, deviceId), eq(entitlements.userId, accountKey))
+            : eq(entitlements.deviceId, deviceId),
+        );
 
-      const isPro = Boolean(
-        entRows[0]?.isPro && (!entRows[0].expiresAt || entRows[0].expiresAt > new Date()),
+      const now = new Date();
+      const isPro = entRows.some(
+        (e) =>
+          e.isPro &&
+          (!e.expiresAt || e.expiresAt > now || Boolean(e.graceUntil && e.graceUntil > now)),
       );
       if (!isPro) {
         return c.json(
@@ -388,6 +1002,29 @@ export function registerEvaluateRoutes(
             requestId: c.get('requestId'),
           },
           402,
+        );
+      }
+
+      // Verify authoritative published question BEFORE cache lookup/generation (`TD-59`).
+      const [qRow] = await db
+        .select()
+        .from(examQuestions)
+        .where(
+          and(
+            eq(examQuestions.questionId, payload.questionId),
+            eq(examQuestions.packId, payload.packId),
+          ),
+        )
+        .limit(1);
+
+      if (!qRow) {
+        return c.json(
+          {
+            code: 'not_found' as const,
+            message: `Question ${payload.questionId} was not found in pack ${payload.packId}.`,
+            requestId: c.get('requestId'),
+          },
+          404,
         );
       }
 
@@ -418,40 +1055,26 @@ export function registerEvaluateRoutes(
         );
       }
 
-      let correctAnswer = '';
-      let questionPrompt = '';
+      const correctAnswer = qRow.acceptedAnswersJson[0] ?? '';
+      const questionPrompt = qRow.prompt;
       let passageExcerpt = '';
-
-      const [qRow] = await db
+      const quote = qRow.evidenceJson?.['exactQuote'];
+      if (typeof quote === 'string' && quote.length > 0) {
+        passageExcerpt = quote;
+      }
+      const [secRow] = await db
         .select()
-        .from(examQuestions)
-        .where(
-          and(
-            eq(examQuestions.questionId, payload.questionId),
-            eq(examQuestions.packId, payload.packId),
-          ),
-        )
+        .from(examSections)
+        .where(eq(examSections.sectionId, qRow.sectionId))
         .limit(1);
-
-      if (qRow) {
-        correctAnswer = qRow.acceptedAnswersJson[0] ?? '';
-        questionPrompt = qRow.prompt;
-        const quote = qRow.evidenceJson?.['exactQuote'];
-        if (typeof quote === 'string' && quote.length > 0) {
-          passageExcerpt = quote;
-        }
-        const [secRow] = await db
-          .select()
-          .from(examSections)
-          .where(eq(examSections.sectionId, qRow.sectionId))
-          .limit(1);
-        if (secRow?.contentText && passageExcerpt.length === 0) {
-          passageExcerpt = secRow.contentText.slice(0, 1500);
-        }
+      if (secRow?.contentText && passageExcerpt.length === 0) {
+        passageExcerpt = secRow.contentText.slice(0, 1500);
       }
 
+      // Generate question-generic explanation (never embedding one learner's wrong answer into shared cache `TD-59`).
       const generatedExplanation = await explainQuestionGraph.invoke({
         ...payload,
+        userAnswer: '',
         correctAnswer: correctAnswer || undefined,
         questionPrompt: questionPrompt || undefined,
         passageExcerpt: passageExcerpt || undefined,
@@ -474,18 +1097,10 @@ export function registerEvaluateRoutes(
         })
         .onConflictDoNothing();
 
-      return c.json(responsePayload, 200);
+      return c.json(ExplainQuestionResponseSchema.parse(responsePayload), 200);
     }
 
-    const fallbackExplained = await explainQuestionGraph.invoke(payload);
-    return c.json(
-      {
-        cached: false,
-        explanation: fallbackExplained.explanation,
-        evidenceQuote: fallbackExplained.evidenceQuote,
-        whyWrongOptions: fallbackExplained.whyWrongOptions,
-      },
-      200,
-    );
+    const generated = await explainQuestionGraph.invoke(payload);
+    return c.json(generated, 200);
   });
 }

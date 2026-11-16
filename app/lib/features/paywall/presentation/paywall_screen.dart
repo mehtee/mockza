@@ -45,9 +45,14 @@ class PaywallScreen extends ConsumerWidget {
         ),
         title: const Text('Mockza Pro'),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsetsDirectional.all(SpacingTokens.lg),
-        child: Column(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: SingleChildScrollView(
+            padding: const EdgeInsetsDirectional.symmetric(
+              vertical: SpacingTokens.lg,
+            ),
+            child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             if (kIsWeb) ...<Widget>[
@@ -107,6 +112,8 @@ class PaywallScreen extends ConsumerWidget {
             const SizedBox(height: SpacingTokens.xxl),
           ],
         ),
+          ),
+        ),
       ),
     );
   }
@@ -147,12 +154,14 @@ class PaywallScreen extends ConsumerWidget {
             children: <Widget>[
               const AppIcon(LucideGlyph.checkCircle2, size: 20),
               const SizedBox(width: SpacingTokens.xs),
-              Text(
-                'TRANSPARENT FAIR-USE ALLOWANCE',
-                style: typography.caption.copyWith(
-                  color: colors.textSecondary,
-                  letterSpacing: 1.2,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Text(
+                  'TRANSPARENT FAIR-USE ALLOWANCE',
+                  style: typography.caption.copyWith(
+                    color: colors.textSecondary,
+                    letterSpacing: 1.2,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -248,23 +257,22 @@ class PaywallScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Row(
+                    Wrap(
+                      spacing: SpacingTokens.sm,
+                      runSpacing: SpacingTokens.xs,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: <Widget>[
-                        Flexible(
-                          child: Text(
-                            package.title,
-                            style: typography.cardTitle.copyWith(
-                              color: colors.textPrimary,
-                            ),
+                        Text(
+                          package.title,
+                          style: typography.cardTitle.copyWith(
+                            color: colors.textPrimary,
                           ),
                         ),
-                        if (isBestValue) ...<Widget>[
-                          const SizedBox(width: SpacingTokens.sm),
+                        if (isBestValue)
                           const MzChip(
                             label: 'BEST VALUE',
                             isSelected: true,
                           ),
-                        ],
                       ],
                     ),
                     const SizedBox(height: SpacingTokens.xs),

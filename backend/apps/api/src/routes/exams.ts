@@ -13,6 +13,7 @@ import {
   microDrills,
   vocabDeckCards,
 } from '@mockza/db';
+import { extractQuestionMaxWords, normalizeQuestionType } from '@mockza/domain';
 import { and, asc, count, eq, inArray } from 'drizzle-orm';
 import type { RequestVariables } from '../middleware/request-id.js';
 
@@ -140,10 +141,15 @@ export function registerContentRoutes(
           questionId: q.questionId,
           sectionId: q.sectionId,
           questionNumber: q.questionNumber,
-          questionType: q.questionType,
+          questionType: normalizeQuestionType(q.questionType),
           prompt: q.prompt,
           options: q.optionsJson ?? null,
           acceptedAnswers: q.acceptedAnswersJson,
+          maxWords: extractQuestionMaxWords({
+            evidence: q.evidenceJson ?? null,
+            prompt: q.prompt,
+            acceptedAnswers: q.acceptedAnswersJson,
+          }),
           evidence: q.evidenceJson ?? null,
           cueTimestampMs: q.cueTimestampMs ?? null,
         })),

@@ -32,5 +32,10 @@
   "loadingLabel": "در حال بارگذاری...",
   "syncNowLabel": "همگام‌سازی محتوا",
   "micTestLabel": "تست میکروفون",
-  "fullMockTitle": "آزمون کامل آزمایشی"
+  "fullMockTitle": "آزمون کامل آزمایشی",
+  "startAudioLabel": "شروع پخش صدا",
+  "exportStudyDataLabel": "خروجی داده‌های مطالعه (JSON)",
+  "comingSoonLabel": "به‌زودی",
+  "partialEstimateLabel": "برآورد جزئی",
+  "readingPassagesLabel": "متن‌های ریدینگ"
 }

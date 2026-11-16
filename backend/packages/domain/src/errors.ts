@@ -10,6 +10,9 @@ export const API_ERROR_CODES = {
   UPLOAD_NOT_FOUND: 'upload_not_found',
   UPLOAD_TOO_LARGE: 'upload_too_large',
   MODEL_UNAVAILABLE: 'model_unavailable',
+  BILLING_UNAVAILABLE: 'billing_unavailable',
+  PROVIDER_NOT_CONFIGURED: 'provider_not_configured',
+  ERASURE_INCOMPLETE: 'erasure_incomplete',
   NOT_FOUND: 'not_found',
   INTERNAL_ERROR: 'internal_error',
 } as const;

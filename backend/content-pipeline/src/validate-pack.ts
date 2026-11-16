@@ -4,13 +4,16 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { z } from 'zod';
 
-/** Banned trademark / copyright string patterns for clean-room assurance */
+/** Canonical banned trademark / copyright string patterns shared by all content validators (TD-31). */
 export const BANNED_PATTERNS = [
   /\bcambridge\s+(ielts|esol|university\s+press)\b/i,
+  /\bcambridge\s+english\b/i,
+  /\beducational\s+testing\s+service\b/i,
   /\bets\b/i,
   /\bpearson\s+plc\b/i,
   /\bbritish\s+council\b/i,
   /\bidp\s+education\b/i,
+  /\bcc\s+by-nc\b/i,
 ];
 
 /** Enforces ADR-008 content provenance, SHA-256 checksum, and evidence spans. */
@@ -60,17 +63,53 @@ interface ParsedExamBundle {
     sha256: string;
     contentOrigin: string;
     humanQaReviewed: boolean;
+    mediaObjectKey?: string | null;
   };
   sections: Array<{
     sectionId: string;
+    sectionIndex: number;
+    sectionType: string;
+    title: string;
+    instructions: string;
     contentText: string;
     paragraphsJson?: Record<string, string> | null;
+    transcriptJson?: unknown[] | null;
+    mediaObjectKey?: string | null;
+    durationSeconds: number;
+    wordCount: number;
+    metadataJson?: Record<string, unknown> | null;
   }>;
   questions: Array<{
     questionId: string;
+    sectionId: string;
+    questionNumber: number;
+    questionType: string;
+    prompt: string;
+    optionsJson?: string[] | null;
+    acceptedAnswersJson: string[];
     evidenceJson?: Record<string, unknown> | null;
+    cueTimestampMs?: number | null;
   }>;
 }
+
+const VALID_SEED_QUESTION_TYPES = new Set([
+  'tfng',
+  'true_false_not_given',
+  'ynng',
+  'yes_no_not_given',
+  'mcq_single',
+  'mcq_multi',
+  'multiple_choice',
+  'matching_headings',
+  'summary_gap_fill',
+  'gap_fill',
+  'form_completion',
+  'short_answer',
+  'writing_prompt',
+  'speaking_part1',
+  'speaking_part2',
+  'speaking_part3',
+]);
 
 async function loadStarterBundles(currentFile: string): Promise<ParsedExamBundle[]> {
   const currentDir = dirname(currentFile);
@@ -133,6 +172,47 @@ export async function validateAllPacks(): Promise<ValidationSummary> {
     if (!/^[a-f0-9]{64}$/.test(bundle.pack.sha256)) {
       process.stderr.write(`FAIL: Invalid SHA-256 in exam ${bundle.pack.packId}\n`);
       sha256Ok = false;
+    }
+
+    const computedDigest = computeSha256(
+      JSON.stringify({ sections: bundle.sections, questions: bundle.questions }),
+    );
+    if (!/^[a-f0-9]{64}$/.test(computedDigest)) {
+      sha256Ok = false;
+    }
+
+    const seenSectionIds = new Set<string>();
+    for (const s of bundle.sections) {
+      if (seenSectionIds.has(s.sectionId)) {
+        process.stderr.write(
+          `FAIL: Duplicate sectionId ${s.sectionId} in exam ${bundle.pack.packId}\n`,
+        );
+        allEvidenceOk = false;
+      }
+      seenSectionIds.add(s.sectionId);
+    }
+
+    const seenQuestionIds = new Set<string>();
+    for (const q of bundle.questions) {
+      if (seenQuestionIds.has(q.questionId)) {
+        process.stderr.write(
+          `FAIL: Duplicate questionId ${q.questionId} in exam ${bundle.pack.packId}\n`,
+        );
+        allEvidenceOk = false;
+      }
+      seenQuestionIds.add(q.questionId);
+      if (!VALID_SEED_QUESTION_TYPES.has(q.questionType.trim().toLowerCase())) {
+        process.stderr.write(
+          `FAIL: Unknown questionType "${q.questionType}" in ${bundle.pack.packId} / ${q.questionId}\n`,
+        );
+        allEvidenceOk = false;
+      }
+      if (!seenSectionIds.has(q.sectionId)) {
+        process.stderr.write(
+          `FAIL: Question ${q.questionId} references missing sectionId ${q.sectionId}\n`,
+        );
+        allEvidenceOk = false;
+      }
     }
 
     if (!bundle.pack.humanQaReviewed) {

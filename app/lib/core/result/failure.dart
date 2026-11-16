@@ -46,6 +46,15 @@ final class UnauthorizedFailure extends Failure {
   String get code => 'unauthorized';
 }
 
+/// Pro subscription entitlement required for requested AI action (`HTTP 402`).
+final class EntitlementRequiredFailure extends Failure {
+  /// Creates an [EntitlementRequiredFailure].
+  const new(super.message);
+
+  @override
+  String get code => 'entitlement_required';
+}
+
 /// Remote AI evaluation or daily usage quota has been exhausted.
 final class QuotaExceededFailure extends Failure {
   /// Creates a [QuotaExceededFailure].

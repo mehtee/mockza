@@ -111,7 +111,12 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
               ),
           ],
         ),
-        body: _buildBody(context, state, notifier),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: _buildBody(context, state, notifier),
+          ),
+        ),
       ),
     );
   }

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { S3Client } from '@aws-sdk/client-s3';
 import type { OpenAPIHono } from '@hono/zod-openapi';
 import type { AppEnv } from '@mockza/config';
@@ -7,6 +8,7 @@ import {
   dailyQuotaUsage,
   devices,
   entitlements,
+  erasureRequests,
   evaluationJobs,
   type MockzaDb,
   monthlyQuotaUsage,
@@ -15,7 +17,7 @@ import {
   users,
 } from '@mockza/db';
 import { createAudioS3Client, deleteAllUserAudio } from '@mockza/storage';
-import { eq, or } from 'drizzle-orm';
+import { eq, inArray, or } from 'drizzle-orm';
 import { createDeviceAuthMiddleware } from '../middleware/auth.js';
 import type { RequestVariables } from '../middleware/request-id.js';
 
@@ -52,62 +54,107 @@ export function registerAccountRoutes(
         .where(eq(devices.deviceId, deviceId))
         .limit(1);
 
-      const linkedUserId = devRows[0]?.linkedUserId;
+      const linkedUserId = devRows[0]?.linkedUserId ?? null;
+      let affectedDeviceIds: string[] = [deviceId];
+
+      if (linkedUserId) {
+        const linkedDevs = await db
+          .select({ deviceId: devices.deviceId })
+          .from(devices)
+          .where(eq(devices.linkedUserId, linkedUserId));
+        const set = new Set<string>([deviceId, ...linkedDevs.map((d) => d.deviceId)]);
+        affectedDeviceIds = Array.from(set);
+      }
+
+      const accountKeys = linkedUserId
+        ? [...affectedDeviceIds, linkedUserId]
+        : [...affectedDeviceIds];
+      const erasureId = randomUUID();
 
       await db.transaction(async (tx) => {
-        // Delete related telemetry, feedback and audio records
-        await tx.delete(questionFlags).where(eq(questionFlags.deviceId, deviceId));
-        await tx.delete(audioAssets).where(eq(audioAssets.deviceId, deviceId));
-        await tx.delete(evaluationJobs).where(eq(evaluationJobs.deviceId, deviceId));
+        await tx.insert(erasureRequests).values({
+          erasureId,
+          accountKey: linkedUserId ?? deviceId,
+          deviceIdsJson: affectedDeviceIds,
+          status: 'pending',
+        });
+
+        await tx.delete(questionFlags).where(inArray(questionFlags.deviceId, affectedDeviceIds));
+        await tx.delete(audioAssets).where(inArray(audioAssets.deviceId, affectedDeviceIds));
+        await tx
+          .delete(evaluationJobs)
+          .where(
+            or(
+              inArray(evaluationJobs.deviceId, affectedDeviceIds),
+              inArray(evaluationJobs.accountKey, accountKeys),
+            ),
+          );
+        await tx
+          .delete(quotaReservations)
+          .where(inArray(quotaReservations.accountKey, accountKeys));
+        await tx.delete(dailyQuotaUsage).where(inArray(dailyQuotaUsage.accountKey, accountKeys));
+        await tx
+          .delete(monthlyQuotaUsage)
+          .where(inArray(monthlyQuotaUsage.accountKey, accountKeys));
 
         if (linkedUserId) {
           await tx
-            .delete(quotaReservations)
+            .delete(entitlements)
             .where(
               or(
-                eq(quotaReservations.accountKey, deviceId),
-                eq(quotaReservations.accountKey, linkedUserId),
+                inArray(entitlements.deviceId, affectedDeviceIds),
+                eq(entitlements.userId, linkedUserId),
               ),
             );
-          await tx
-            .delete(dailyQuotaUsage)
-            .where(
-              or(
-                eq(dailyQuotaUsage.accountKey, deviceId),
-                eq(dailyQuotaUsage.accountKey, linkedUserId),
-              ),
-            );
-          await tx
-            .delete(monthlyQuotaUsage)
-            .where(
-              or(
-                eq(monthlyQuotaUsage.accountKey, deviceId),
-                eq(monthlyQuotaUsage.accountKey, linkedUserId),
-              ),
-            );
-          await tx.delete(entitlements).where(eq(entitlements.deviceId, deviceId));
           await tx.delete(accountLinks).where(eq(accountLinks.userId, linkedUserId));
-          await tx.delete(devices).where(eq(devices.deviceId, deviceId));
+          await tx.delete(devices).where(inArray(devices.deviceId, affectedDeviceIds));
           await tx.delete(users).where(eq(users.userId, linkedUserId));
         } else {
-          await tx.delete(quotaReservations).where(eq(quotaReservations.accountKey, deviceId));
-          await tx.delete(dailyQuotaUsage).where(eq(dailyQuotaUsage.accountKey, deviceId));
-          await tx.delete(monthlyQuotaUsage).where(eq(monthlyQuotaUsage.accountKey, deviceId));
-          await tx.delete(entitlements).where(eq(entitlements.deviceId, deviceId));
-          await tx.delete(devices).where(eq(devices.deviceId, deviceId));
+          await tx.delete(entitlements).where(inArray(entitlements.deviceId, affectedDeviceIds));
+          await tx.delete(devices).where(inArray(devices.deviceId, affectedDeviceIds));
         }
       });
 
-      // Purge all user audio files from S3/SeaweedFS
+      // Purge all S3 audio across every affected device; never swallow errors.
       try {
-        purgedAudioCount = await deleteAllUserAudio({
-          client: internalS3,
-          bucket: env.S3_BUCKET,
-          deviceId,
-        });
-      } catch (_s3Error) {
-        // Safe to ignore in test mocks
+        for (const targetDevId of affectedDeviceIds) {
+          purgedAudioCount += await deleteAllUserAudio({
+            client: internalS3,
+            bucket: env.S3_BUCKET,
+            deviceId: targetDevId,
+          });
+        }
+        await db
+          .update(erasureRequests)
+          .set({ status: 'completed', lastError: null, updatedAt: new Date() })
+          .where(eq(erasureRequests.erasureId, erasureId));
+      } catch (s3Error) {
+        await db
+          .update(erasureRequests)
+          .set({
+            status: 'partial',
+            lastError: (s3Error as Error).message.slice(0, 500),
+            updatedAt: new Date(),
+          })
+          .where(eq(erasureRequests.erasureId, erasureId));
+
+        return c.json(
+          {
+            code: 'erasure_incomplete',
+            message:
+              'Account records were erased, but media storage deletion failed and has been queued for retry.',
+            requestId: c.get('requestId'),
+            erasureId,
+          },
+          503,
+        );
       }
+    } else if (s3Client) {
+      purgedAudioCount = await deleteAllUserAudio({
+        client: s3Client,
+        bucket: env.S3_BUCKET,
+        deviceId,
+      });
     }
 
     return c.json(

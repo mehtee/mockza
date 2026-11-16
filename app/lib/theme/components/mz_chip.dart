@@ -107,11 +107,14 @@ class MzChip extends StatelessWidget {
             AppIcon(glyph!, size: 14, color: textColor),
             const SizedBox(width: SpacingTokens.xs + 2),
           ],
-          Text(
-            label,
-            style: typography.caption.copyWith(
-              color: textColor,
-              fontWeight: FontWeight.w600,
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: typography.caption.copyWith(
+                color: textColor,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],

@@ -24,7 +24,6 @@ import 'package:mockza/services/native/platform_audio_channel.dart';
 import 'package:mockza/services/network/dio_client.dart';
 import 'package:mockza/services/outbox_sync_service.dart';
 import 'package:mockza/services/secure_identity_service.dart';
-import 'package:mockza/services/telemetry_gateway.dart';
 
 /// Active edition runtime configuration (overridden in `bootstrap`).
 final Provider<EditionConfig> editionConfigProvider = Provider<EditionConfig>(
@@ -74,6 +73,7 @@ final Provider<ProfileRepository> profileRepositoryProvider =
       (ref) => ProfileRepository(
         db: ref.watch(appDatabaseProvider),
         clock: ref.watch(clockProvider),
+        generateFallbackDeviceId: ref.watch(entropySourceProvider).nextUuidV4,
       ),
     );
 
@@ -159,14 +159,17 @@ final Provider<ContentSyncService> contentSyncServiceProvider =
 
 /// Offline submission queue retry & 7-day local audio retention processor.
 final Provider<OutboxSyncService> outboxSyncServiceProvider =
-    Provider<OutboxSyncService>(
-      (ref) => OutboxSyncService(
+    Provider<OutboxSyncService>((ref) {
+      final service = OutboxSyncService(
         attemptRepository: ref.watch(attemptRepositoryProvider),
         gradingGateway: ref.watch(gradingGatewayProvider),
         authSession: ref.watch(authSessionServiceProvider),
         crashLog: ref.watch(crashLogProvider),
-      ),
-    );
+        clock: ref.watch(clockProvider),
+      );
+      ref.onDispose(service.dispose);
+      return service;
+    });
 
 /// Local downloaded exam bundle & speaking audio cache cleanup service.
 final Provider<CacheCleanupService> cacheCleanupServiceProvider =
@@ -203,21 +206,17 @@ final Provider<BillingGateway> billingGatewayProvider =
       ref,
     ) {
       final edition = ref.watch(editionConfigProvider).edition;
+      final identity = ref.watch(secureIdentityServiceProvider);
       return switch (edition) {
-        AppEdition.global => const RevenueCatBillingGateway(),
+        AppEdition.global => RevenueCatBillingGateway(
+          resolveAppUserId: () async {
+            final res = await identity.getOrCreateDeviceId();
+            return res.valueOrNull;
+          },
+        ),
         AppEdition.iran => const IranBillingGateway(),
       };
     });
-
-/// Opt-in telemetry gateway provider.
-final Provider<TelemetryGateway> telemetryGatewayProvider =
-    Provider<TelemetryGateway>(
-      (ref) => HttpTelemetryGateway(
-        dio: ref.watch(dioProvider),
-        config: ref.watch(editionConfigProvider),
-        clock: ref.watch(clockProvider),
-      ),
-    );
 
 /// Quarantined OS audio session method channel provider.
 final Provider<PlatformAudioChannel> platformAudioChannelProvider =

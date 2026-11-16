@@ -108,4 +108,19 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   String get fullMockTitle => 'آزمون کامل آزمایشی';
+
+  @override
+  String get startAudioLabel => 'شروع پخش صدا';
+
+  @override
+  String get exportStudyDataLabel => 'خروجی داده‌های مطالعه (JSON)';
+
+  @override
+  String get comingSoonLabel => 'به‌زودی';
+
+  @override
+  String get partialEstimateLabel => 'برآورد جزئی';
+
+  @override
+  String get readingPassagesLabel => 'متن‌های ریدینگ';
 }

@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mockza/core/exams/countdown_clock_tracker.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/exams/local_objective_scorer.dart';
 import 'package:mockza/core/models/attempt_status.dart';
@@ -98,6 +100,9 @@ class WritingSimState {
   /// Whether word count meets official minimum.
   bool get meetsWordMinimum => wordCount >= minimumWordCount;
 
+  /// True when strict Exam Mode countdown has expired (`TD-37`).
+  bool get isTimeExpired => isExamMode && remainingSeconds <= 0;
+
   /// Returns a copy with updated writing state.
   WritingSimState copyWith({
     String? packId,
@@ -152,8 +157,11 @@ class WritingSimState {
 class WritingSimNotifier extends Notifier<WritingSimState> {
   Timer? _countdownTimer;
   Timer? _autosaveDebounce;
+  CountdownClockTracker? _clockTracker;
   DateTime? _sessionStartTime;
   bool _isDisposed = false;
+  int _lastPersistedRemainingSec = -1;
+  Future<void>? _pendingSave;
 
   final Map<int, String> _draftsByIndex = <int, String>{};
   final Map<int, int> _remainingByIndex = <int, int>{};
@@ -161,7 +169,9 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
   @override
   WritingSimState build() {
     _isDisposed = false;
-    _sessionStartTime = ref.read(clockProvider).now();
+    final clock = ref.read(clockProvider);
+    _sessionStartTime = clock.now();
+    _clockTracker = CountdownClockTracker(clock: clock);
     ref.onDispose(() {
       _isDisposed = true;
       _countdownTimer?.cancel();
@@ -234,12 +244,16 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
 
       for (var i = 0; i < tasks.length; i++) {
         final t = tasks[i];
-        final draftKey = _draftKey(packId, i);
-        final saved = await attemptRepo.getWritingDraft(draftKey);
+        final stableKey = _draftKey(packId, t);
+        var saved = await attemptRepo.getWritingDraft(stableKey);
+        saved ??= await attemptRepo.getWritingDraft(
+          _legacyDraftKey(packId, i),
+        );
         if (_isDisposed) return;
         _draftsByIndex[i] = saved?.draftText ?? '';
-        _remainingByIndex[i] = (saved != null && saved.timerRemainingSec > 0)
-            ? saved.timerRemainingSec
+        // Preserve zero remaining time across reloads (`TD-37`).
+        _remainingByIndex[i] = saved != null
+            ? saved.timerRemainingSec.clamp(0, t.recommendedSeconds)
             : t.recommendedSeconds;
       }
 
@@ -258,7 +272,19 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
     }
   }
 
-  String _draftKey(String packId, int taskIndex) => 'draft-$packId-$taskIndex';
+  String _draftKey(String packId, WritingTaskSpec spec) =>
+      'draft-$packId-${spec.taskId}';
+
+  String _legacyDraftKey(String packId, int taskIndex) =>
+      'draft-$packId-$taskIndex';
+
+  String _activeDraftKey() {
+    final idx = state.activeTaskIndex;
+    if (idx >= 0 && idx < state.tasks.length) {
+      return _draftKey(state.packId, state.tasks[idx]);
+    }
+    return _legacyDraftKey(state.packId, idx);
+  }
 
   void _activateTaskIndex(int index) {
     if (index < 0 || index >= state.tasks.length) return;
@@ -266,6 +292,17 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
     final taskType = _parseTaskType(spec.taskType);
     final savedText = _draftsByIndex[index] ?? '';
     final remSecs = _remainingByIndex[index] ?? spec.recommendedSeconds;
+    _lastPersistedRemainingSec = remSecs;
+
+    (_clockTracker ??= CountdownClockTracker(
+      clock: ref.read(clockProvider),
+    )).start(
+      remainingSeconds: remSecs,
+      totalSeconds: spec.recommendedSeconds,
+    );
+    if (state.isPaused) {
+      _clockTracker?.pause();
+    }
 
     state = state.copyWith(
       activeTaskIndex: index,
@@ -282,9 +319,11 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
       chartCaption: spec.chartCaption,
       clearChartCaption:
           spec.chartCaption == null || spec.chartCaption!.isEmpty,
-      lastSavedText: savedText.isNotEmpty ? 'Restored draft' : 'Ready',
+      lastSavedText: savedText.isNotEmpty
+          ? 'Restored draft'
+          : (remSecs == 0 && state.isExamMode ? 'Time expired' : 'Ready'),
     );
-    if (!state.isPaused) {
+    if (!state.isPaused && remSecs > 0) {
       _startCountdown();
     }
   }
@@ -297,29 +336,54 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
 
   void _startCountdown() {
     _countdownTimer?.cancel();
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_isDisposed || state.isPaused) {
-        timer.cancel();
-        return;
-      }
-      if (state.remainingSeconds > 0) {
-        final nextSec = state.remainingSeconds - 1;
-        _remainingByIndex[state.activeTaskIndex] = nextSec;
-        state = state.copyWith(remainingSeconds: nextSec);
-      } else {
-        timer.cancel();
-      }
-    });
+    _countdownTimer = Timer.periodic(
+      const Duration(milliseconds: 500),
+      (timer) {
+        if (_isDisposed || state.isPaused) {
+          timer.cancel();
+          return;
+        }
+        reconcileTimer();
+      },
+    );
+  }
+
+  /// Reconciles remaining exam time against wall clock on ticks and lifecycle resume (`TD-37`).
+  void reconcileTimer() {
+    final tracker = _clockTracker;
+    if (_isDisposed || tracker == null || state.isPaused) return;
+    final nextSec = tracker.currentRemaining();
+    _remainingByIndex[state.activeTaskIndex] = nextSec;
+    if (nextSec != state.remainingSeconds) {
+      state = state.copyWith(remainingSeconds: nextSec);
+    }
+    if (nextSec == 0) {
+      _countdownTimer?.cancel();
+      unawaited(flushAutosaveNow());
+    } else if (_lastPersistedRemainingSec < 0 ||
+        (_lastPersistedRemainingSec - nextSec).abs() >= 10) {
+      // Periodically persist remaining time even when untouched (`TD-39`).
+      _lastPersistedRemainingSec = nextSec;
+      unawaited(flushAutosaveNow());
+    }
   }
 
   /// Toggles Study Mode countdown pause/resume.
   void togglePause() {
     if (state.isExamMode) return;
+    final tracker = _clockTracker ??= CountdownClockTracker(
+      clock: ref.read(clockProvider),
+    );
     final nextPaused = !state.isPaused;
-    state = state.copyWith(isPaused: nextPaused);
     if (nextPaused) {
+      final rem = tracker.pause();
+      _remainingByIndex[state.activeTaskIndex] = rem;
       _countdownTimer?.cancel();
+      state = state.copyWith(isPaused: true, remainingSeconds: rem);
+      unawaited(flushAutosaveNow());
     } else {
+      tracker.resume();
+      state = state.copyWith(isPaused: false);
       _startCountdown();
     }
   }
@@ -327,44 +391,75 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
   /// Switches active writing task (`0` for Task 1, `1` for Task 2).
   void selectTaskIndex(int index) {
     if (index == state.activeTaskIndex) return;
-    unawaited(_flushAutosaveNow());
+    unawaited(flushAutosaveNow());
     _activateTaskIndex(index);
   }
 
   /// Updates the active draft text and triggers a 500ms debounced autosave.
   void updateDraft(String text) {
+    if (state.isTimeExpired) return;
     final idx = state.activeTaskIndex;
     _draftsByIndex[idx] = text;
     state = state.copyWith(draftText: text, clearError: true);
 
     _autosaveDebounce?.cancel();
     _autosaveDebounce = Timer(const Duration(milliseconds: 500), () {
-      unawaited(_flushAutosaveNow());
+      unawaited(flushAutosaveNow());
     });
   }
 
-  Future<void> _flushAutosaveNow() async {
-    try {
+  /// Serializes and flushes the current writing draft + timer snapshot to SQLite (`TD-39`).
+  Future<void> flushAutosaveNow() async {
+    _autosaveDebounce?.cancel();
+    if (_isDisposed || state.tasks.isEmpty) return;
+
+    final previous = _pendingSave;
+    final future = () async {
+      if (previous != null) {
+        try {
+          await previous;
+        } on Object {
+          // Proceed with latest snapshot.
+        }
+      }
+      if (_isDisposed) return;
+
       final attemptRepo = ref.read(attemptRepositoryProvider);
       final idx = state.activeTaskIndex;
-      await attemptRepo.saveWritingDraft(
-        attemptId: _draftKey(state.packId, idx),
-        packId: state.packId,
-        taskType: state.taskType.name,
-        draftText: _draftsByIndex[idx] ?? state.draftText,
-        wordCount: state.wordCount,
-        timerRemainingSec: state.remainingSeconds,
-      );
-      if (!_isDisposed) {
-        state = state.copyWith(lastSavedText: 'Autosaved locally');
+      final remSec = _clockTracker?.currentRemaining() ?? state.remainingSeconds;
+      _remainingByIndex[idx] = remSec;
+      final draftKey = _activeDraftKey();
+      final textToSave = _draftsByIndex[idx] ?? state.draftText;
+
+      try {
+        await attemptRepo.saveWritingDraft(
+          attemptId: draftKey,
+          packId: state.packId,
+          taskType: state.taskType.name,
+          draftText: textToSave,
+          wordCount: LocalObjectiveScorer.countWords(textToSave),
+          timerRemainingSec: remSec,
+        );
+        _lastPersistedRemainingSec = remSec;
+        if (!_isDisposed) {
+          state = state.copyWith(lastSavedText: 'Autosaved locally');
+        }
+      } on MissingPluginException {
+        // Headless widget tests without database channels.
+      } on Object catch (err) {
+        if (!_isDisposed) {
+          state = state.copyWith(
+            lastSavedText: 'Autosave failed — check storage',
+            errorMessage: 'Could not save draft locally: $err',
+          );
+        }
       }
-    } on Object {
-      // Ignore in isolated widget tests without database plugin.
-    }
+    }();
+    _pendingSave = future;
+    await future;
   }
 
-  /// Submits the active essay draft to `/v1/evaluate/writing` (or outbox when offline)
-  /// and returns the real UUIDv4 `attemptId`.
+  /// Persists the essay atomically before remote submission and returns the `attemptId`.
   Future<String?> submitWriting() async {
     if (state.isSubmitting) return null;
     final trimmed = state.draftText.trim();
@@ -387,11 +482,9 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
     final entropy = ref.read(entropySourceProvider);
 
     final attemptId = entropy.nextUuidV4();
-    final draftKey = _draftKey(state.packId, state.activeTaskIndex);
-    final durationSeconds = (state.totalSeconds - state.remainingSeconds).clamp(
-      5,
-      7200,
-    );
+    final draftKey = _activeDraftKey();
+    final remNow = _clockTracker?.currentRemaining() ?? state.remainingSeconds;
+    final durationSeconds = (state.totalSeconds - remNow).clamp(5, 7200);
     final wordCount = state.wordCount;
 
     try {
@@ -410,15 +503,33 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
         'durationSeconds': durationSeconds,
       });
 
-      await attemptRepo.saveLocalSubmission(
+      final outboxPayload = jsonEncode({
+        'attemptId': attemptId,
+        'packId': state.packId,
+        'taskType': state.taskType.name,
+        'examId': examId,
+        'promptTitle': state.promptTitle,
+        'promptBody': state.promptDescription,
+        'essayText': state.draftText,
+        'durationSeconds': durationSeconds,
+        'wordCount': wordCount,
+      });
+
+      // Atomically persist attempt, delete draft, and enqueue outbox BEFORE network I/O (`TD-39`, `TD-43`).
+      final outboxId = await attemptRepo.saveDurableSubmissionWithOutbox(
         attemptId: attemptId,
         packId: state.packId,
         skill: SkillKind.writing,
         submissionJson: submissionJson,
+        actionType: 'submit_writing',
+        outboxPayloadJson: outboxPayload,
         examId: examId,
         startedAtUtcMs: _sessionStartTime?.toUtc().millisecondsSinceEpoch,
+        durationSeconds: durationSeconds,
+        usedStudyMode: !state.isExamMode,
+        deleteDraftId: draftKey,
       );
-      await attemptRepo.deleteWritingDraft(draftKey);
+
       await progressRepo.logTodayActivity(
         studySeconds: durationSeconds,
         completedItems: 1,
@@ -444,21 +555,11 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
           status: AttemptStatus.queuedRemote,
           remoteJobId: enqueueRes.valueOrNull,
         );
+        if (outboxId != null) {
+          await attemptRepo.deleteOutboxItem(outboxId);
+        }
       } else {
-        await attemptRepo.enqueueOutboxAction(
-          actionType: 'submit_writing',
-          payloadJson: jsonEncode({
-            'attemptId': attemptId,
-            'packId': state.packId,
-            'taskType': state.taskType.name,
-            'examId': examId,
-            'promptTitle': state.promptTitle,
-            'promptBody': state.promptDescription,
-            'essayText': state.draftText,
-            'durationSeconds': durationSeconds,
-            'wordCount': wordCount,
-          }),
-        );
+        ref.read(outboxSyncServiceProvider).notifyWorkEnqueued();
       }
 
       if (!_isDisposed) {

@@ -2,7 +2,7 @@ import 'package:mockza/data/repositories/attempt_repository.dart';
 import 'package:mockza/data/repositories/exam_catalog_repository.dart';
 import 'package:mockza/services/media_bytes_platform.dart';
 
-/// Manages offline cached pack cleanup & local speaking clip eviction.
+/// Manages offline cached pack cleanup without destroying pending learner recordings.
 final class CacheCleanupService {
   /// Creates a [CacheCleanupService].
   const new({
@@ -13,14 +13,12 @@ final class CacheCleanupService {
   final ExamCatalogRepository _catalogRepository;
   final AttemptRepository _attemptRepository;
 
-  /// Clears downloaded exam bundles (`ExamPayloads`) and deletes all expired
-  /// speaking audio clips from local disk / browser blob cache.
+  /// Clears downloaded exam bundles (`ExamPayloads`) and removes only expired,
+  /// already-completed speaking audio clips (`TD-40` protects pending work).
   Future<void> clearDownloadedCaches() async {
     await _catalogRepository.clearOfflineCache();
-    final expired = await _attemptRepository.findExpiredAudioRecordings(
-      retention: Duration.zero,
-    );
-    for (final rec in expired) {
+    final expiredCompleted = await _attemptRepository.findExpiredAudioRecordings();
+    for (final rec in expiredCompleted) {
       await deleteRecordedAudioClip(rec.localFilePath);
       await _attemptRepository.deleteAudioRecordingRow(rec.recordingId);
     }

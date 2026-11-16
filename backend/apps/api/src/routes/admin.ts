@@ -10,7 +10,12 @@ import {
   microDrills,
   vocabDeckCards,
 } from '@mockza/db';
-import { checkCleanRoomSafety, computeContentSha256 } from '@mockza/domain';
+import {
+  checkCleanRoomSafety,
+  computeBundleContentDigest,
+  extractQuestionMaxWords,
+  normalizeQuestionType,
+} from '@mockza/domain';
 import { contentTypeFromKey, putObjectBuffer } from '@mockza/storage';
 import { asc, eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
@@ -49,6 +54,7 @@ const AdminQuestionInputSchema = z.object({
   prompt: z.string().min(1),
   options: z.array(z.string()).nullable().optional(),
   acceptedAnswers: z.array(z.string()),
+  maxWords: z.number().int().positive().max(20).optional(),
   evidence: z.record(z.string(), z.unknown()).nullable().optional(),
   cueTimestampMs: z.number().int().nonnegative().nullable().optional(),
 });
@@ -184,8 +190,61 @@ export function createAdminRoutes(env: AppEnv, db?: MockzaDb, s3Client?: S3Clien
       );
     }
 
-    const sha256 = computeContentSha256(serialized);
-    const byteLength = Buffer.byteLength(serialized, 'utf8');
+    const normalizedQuestions = body.questions.map((q) => {
+      const mergedEvidence: Record<string, unknown> | null =
+        q.evidence || q.maxWords != null
+          ? { ...(q.evidence ?? {}), ...(q.maxWords != null ? { maxWords: q.maxWords } : {}) }
+          : null;
+      return {
+        questionId: q.questionId,
+        packId: body.packId,
+        sectionId: q.sectionId,
+        questionNumber: q.questionNumber,
+        questionType: normalizeQuestionType(q.questionType),
+        prompt: q.prompt,
+        optionsJson: q.options ?? null,
+        acceptedAnswersJson: q.acceptedAnswers,
+        evidenceJson: mergedEvidence,
+        cueTimestampMs: q.cueTimestampMs ?? null,
+      };
+    });
+
+    const sortedSections = [...body.sections].sort((a, b) => a.sectionIndex - b.sectionIndex);
+    const sortedQuestions = [...normalizedQuestions].sort(
+      (a, b) => a.questionNumber - b.questionNumber,
+    );
+    const { sha256, byteLength } = computeBundleContentDigest({
+      sections: sortedSections.map((s) => ({
+        sectionId: s.sectionId,
+        sectionIndex: s.sectionIndex,
+        sectionType: s.sectionType,
+        title: s.title,
+        instructions: s.instructions,
+        contentText: s.contentText,
+        paragraphs: s.paragraphs ?? null,
+        transcript: s.transcript ?? null,
+        mediaUrl: s.mediaObjectKey ? `/v1/media/${s.mediaObjectKey}` : null,
+        durationSeconds: s.durationSeconds,
+        wordCount: s.wordCount,
+        metadata: s.metadata ?? null,
+      })),
+      questions: sortedQuestions.map((q) => ({
+        questionId: q.questionId,
+        sectionId: q.sectionId,
+        questionNumber: q.questionNumber,
+        questionType: q.questionType,
+        prompt: q.prompt,
+        options: q.optionsJson ?? null,
+        acceptedAnswers: q.acceptedAnswersJson,
+        maxWords: extractQuestionMaxWords({
+          evidence: q.evidenceJson,
+          prompt: q.prompt,
+          acceptedAnswers: q.acceptedAnswersJson,
+        }),
+        evidence: q.evidenceJson,
+        cueTimestampMs: q.cueTimestampMs,
+      })),
+    });
     const now = new Date();
 
     await db.transaction(async (tx) => {
@@ -259,20 +318,7 @@ export function createAdminRoutes(env: AppEnv, db?: MockzaDb, s3Client?: S3Clien
         })),
       );
 
-      await tx.insert(examQuestions).values(
-        body.questions.map((q) => ({
-          questionId: q.questionId,
-          packId: body.packId,
-          sectionId: q.sectionId,
-          questionNumber: q.questionNumber,
-          questionType: q.questionType,
-          prompt: q.prompt,
-          optionsJson: q.options ?? null,
-          acceptedAnswersJson: q.acceptedAnswers,
-          evidenceJson: q.evidence ?? null,
-          cueTimestampMs: q.cueTimestampMs ?? null,
-        })),
-      );
+      await tx.insert(examQuestions).values(normalizedQuestions);
     });
 
     return c.json(

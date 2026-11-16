@@ -37,9 +37,12 @@ class OnboardingCompletedLatch extends Notifier<bool> {
   @override
   bool build() => false;
 
+  /// Synchronous completion flag.
+  bool get completed => state;
+
   /// Updates the synchronous onboarding completion latch.
-  void setCompleted({required bool completed}) {
-    state = completed;
+  set completed(bool value) {
+    state = value;
   }
 }
 

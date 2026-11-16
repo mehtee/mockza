@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/result/failure.dart';
@@ -6,6 +10,7 @@ import 'package:mockza/data/repositories/exam_catalog_repository.dart';
 import 'package:mockza/data/repositories/vocab_repository.dart';
 import 'package:mockza/services/auth_session_service.dart';
 import 'package:mockza/services/crash_log.dart';
+import 'package:mockza/services/media_bytes_platform.dart';
 
 /// Synchronizes exam catalog, bundles, micro-drills, and SM-2 vocabulary cards
 /// from PostgreSQL / SeaweedFS API routes into local SQLite / IndexedDB storage.
@@ -108,7 +113,8 @@ final class ContentSyncService {
     }
   }
 
-  /// Downloads an exam bundle from `GET /v1/exams/:packId` and persists it in SQLite.
+  /// Downloads an exam bundle from `GET /v1/exams/:packId`, verifies its canonical
+  /// SHA-256 digest and required media assets, and persists it for offline use (`TD-32`).
   Future<Result<Map<String, dynamic>, Failure>> downloadExamPack(
     String packId,
   ) async {
@@ -120,13 +126,25 @@ final class ContentSyncService {
       if (data == null) {
         return const Err(ValidationFailure('Empty exam bundle response'));
       }
-      final pack = (data['pack'] as Map<String, dynamic>?) ?? const {};
-      await _catalogRepository.saveExamPayload(
-        packId: packId,
-        bundle: data,
-      );
+      final pack =
+          (data['pack'] as Map<String, dynamic>?) ?? const <String, dynamic>{};
+      final declaredSha = (pack['sha256'] as String?)?.trim() ?? '';
+      if (RegExp(r'^[a-f0-9]{64}$').hasMatch(declaredSha)) {
+        final computedSha = computeCanonicalBundleSha256(
+          sections: data['sections'],
+          questions: data['questions'],
+        );
+        if (computedSha != declaredSha) {
+          return Err(
+            ValidationFailure(
+              'Exam bundle $packId failed SHA-256 integrity verification.',
+            ),
+          );
+        }
+      }
 
-      // Warm SeaweedFS binary media (SVG chart / Listening audio) opportunistically.
+      // Download & persist required media (SVG charts inline + Listening audio bytes)
+      // BEFORE marking the pack cached offline (`TD-32`, `UX-04`).
       final mediaUrls = <String>{
         if (pack['mediaUrl'] is String &&
             (pack['mediaUrl'] as String).isNotEmpty)
@@ -137,17 +155,77 @@ final class ContentSyncService {
               (s['mediaUrl'] as String).isNotEmpty)
             s['mediaUrl'] as String,
       };
+
+      final cachedMediaInline = <String, String>{};
+      final cachedMediaPaths = <String, String>{};
+      final skill = (pack['skill'] as String?) ?? '';
+
       for (final url in mediaUrls) {
         try {
-          await _dio.get<List<int>>(
+          final mediaRes = await _dio.get<List<int>>(
             _editionConfig.resolveMediaUrl(url),
             options: Options(responseType: ResponseType.bytes),
           );
-        } on Object {
-          // Non-fatal if media warm-up fails offline.
+          final rawBytes = mediaRes.data;
+          if (rawBytes == null || rawBytes.isEmpty) {
+            if (skill == 'listening') {
+              return Err(
+                NetworkFailure('Required listening audio for $packId is empty'),
+              );
+            }
+            continue;
+          }
+          final bytes = Uint8List.fromList(rawBytes);
+          final lowerUrl = url.toLowerCase();
+          if (lowerUrl.endsWith('.svg')) {
+            cachedMediaInline[url] = utf8.decode(bytes, allowMalformed: true);
+          } else {
+            final maybeSvgPrefix = utf8
+                .decode(
+                  bytes.sublist(0, bytes.length < 64 ? bytes.length : 64),
+                  allowMalformed: true,
+                )
+                .trimLeft();
+            if (maybeSvgPrefix.startsWith('<svg') ||
+                maybeSvgPrefix.startsWith('<?xml')) {
+              cachedMediaInline[url] = utf8.decode(bytes, allowMalformed: true);
+            } else {
+              final mediaKey = '${packId}_${url.hashCode.toRadixString(16)}';
+              final localRef = await persistCachedMediaBytes(bytes, mediaKey);
+              if (localRef.isNotEmpty) {
+                cachedMediaPaths[url] = localRef;
+              } else if (skill == 'listening') {
+                return const Err(
+                  StorageFailure(
+                    'Failed to persist offline listening audio bytes',
+                  ),
+                );
+              }
+            }
+          }
+        } on DioException catch (e) {
+          if (skill == 'listening') {
+            return Err(
+              NetworkFailure(
+                'Failed to download listening audio for $packId: ${e.message ?? 'offline'}',
+                statusCode: e.response?.statusCode,
+              ),
+            );
+          }
         }
       }
-      return Ok(data);
+
+      final bundleToPersist = <String, dynamic>{
+        ...data,
+        if (cachedMediaInline.isNotEmpty)
+          'cachedMediaInline': cachedMediaInline,
+        if (cachedMediaPaths.isNotEmpty) 'cachedMediaPaths': cachedMediaPaths,
+      };
+      await _catalogRepository.saveExamPayload(
+        packId: packId,
+        bundle: bundleToPersist,
+      );
+      return Ok(bundleToPersist);
     } on DioException catch (e) {
       return Err(
         NetworkFailure(
@@ -160,14 +238,62 @@ final class ContentSyncService {
     }
   }
 
-  /// Ensures [packId] JSON bundle is available locally, fetching from backend if missing.
+  /// Ensures [packId] JSON bundle is available locally and matches latest manifest version/hash.
   Future<Result<Map<String, dynamic>, Failure>> ensureExamBundle(
     String packId,
   ) async {
     final cached = await _catalogRepository.getCachedExamBundle(packId);
     if (cached != null) {
+      final manifestPack = await _catalogRepository.getInstalledPackById(
+        packId,
+      );
+      final cachedPack = cached['pack'];
+      final cachedVersion = cachedPack is Map ? cachedPack['version'] : null;
+      final cachedSha = cachedPack is Map ? cachedPack['sha256'] : null;
+      final isStale =
+          manifestPack != null &&
+          ((cachedVersion != null && manifestPack.version != cachedVersion) ||
+              (manifestPack.sha256.isNotEmpty &&
+                  cachedSha is String &&
+                  cachedSha.isNotEmpty &&
+                  manifestPack.sha256 != cachedSha));
+      if (!isStale) {
+        return Ok(cached);
+      }
+      final refreshed = await downloadExamPack(packId);
+      if (refreshed.isSuccess) return refreshed;
       return Ok(cached);
     }
     return await downloadExamPack(packId);
+  }
+
+  /// Computes deterministic sorted-key SHA-256 over `{'questions': ..., 'sections': ...}` matching backend `@mockza/domain`.
+  static String computeCanonicalBundleSha256({
+    required Object? sections,
+    required Object? questions,
+  }) {
+    final encoded = _stableJsonEncode(<String, Object?>{
+      'questions': questions ?? const <Object?>[],
+      'sections': sections ?? const <Object?>[],
+    });
+    return sha256.convert(utf8.encode(encoded)).toString();
+  }
+
+  static String _stableJsonEncode(Object? value) {
+    if (value == null) {
+      return 'null';
+    }
+    if (value is List) {
+      return '[${value.map(_stableJsonEncode).join(',')}]';
+    }
+    if (value is Map) {
+      final keys = value.keys.map((k) => k.toString()).toList()..sort();
+      final parts = <String>[];
+      for (final k in keys) {
+        parts.add('${jsonEncode(k)}:${_stableJsonEncode(value[k])}');
+      }
+      return '{${parts.join(',')}}';
+    }
+    return jsonEncode(value);
   }
 }

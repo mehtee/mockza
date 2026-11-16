@@ -1,4 +1,9 @@
 import { loadEnv } from '@mockza/config';
+import {
+  computeBundleContentDigest,
+  extractQuestionMaxWords,
+  normalizeQuestionType,
+} from '@mockza/domain';
 import { count, sql } from 'drizzle-orm';
 import { createDbClient, type MockzaDb } from './client.js';
 import {
@@ -56,10 +61,53 @@ export async function seedDatabase(
   await db.transaction(async (tx) => {
     for (const bundle of STARTER_EXAM_BUNDLES) {
       const p = bundle.pack;
+      const normalizedQuestions = bundle.questions.map((q) => ({
+        ...q,
+        questionType: normalizeQuestionType(q.questionType),
+      }));
+      const sortedSections = [...bundle.sections].sort((a, b) => a.sectionIndex - b.sectionIndex);
+      const sortedQuestions = [...normalizedQuestions].sort(
+        (a, b) => a.questionNumber - b.questionNumber,
+      );
+      const digest = computeBundleContentDigest({
+        sections: sortedSections.map((s) => ({
+          sectionId: s.sectionId,
+          sectionIndex: s.sectionIndex,
+          sectionType: s.sectionType,
+          title: s.title,
+          instructions: s.instructions,
+          contentText: s.contentText,
+          paragraphs: s.paragraphsJson ?? null,
+          transcript: s.transcriptJson ?? null,
+          mediaUrl: s.mediaObjectKey ? `/v1/media/${s.mediaObjectKey}` : null,
+          durationSeconds: s.durationSeconds,
+          wordCount: s.wordCount,
+          metadata: s.metadataJson ?? null,
+        })),
+        questions: sortedQuestions.map((q) => ({
+          questionId: q.questionId,
+          sectionId: q.sectionId,
+          questionNumber: q.questionNumber,
+          questionType: q.questionType,
+          prompt: q.prompt,
+          options: q.optionsJson ?? null,
+          acceptedAnswers: q.acceptedAnswersJson,
+          maxWords: extractQuestionMaxWords({
+            evidence: q.evidenceJson ?? null,
+            prompt: q.prompt,
+            acceptedAnswers: q.acceptedAnswersJson,
+          }),
+          evidence: q.evidenceJson ?? null,
+          cueTimestampMs: q.cueTimestampMs ?? null,
+        })),
+      });
+
       await tx
         .insert(catalogPacks)
         .values({
           ...p,
+          sha256: digest.sha256,
+          byteLength: digest.byteLength,
           publishedAt: p.isPublished ? now : null,
         })
         .onConflictDoUpdate({
@@ -76,8 +124,8 @@ export async function seedDatabase(
             accent: p.accent,
             mediaObjectKey: p.mediaObjectKey,
             version: p.version,
-            sha256: p.sha256,
-            byteLength: p.byteLength,
+            sha256: digest.sha256,
+            byteLength: digest.byteLength,
             cdnRelativePath: p.cdnRelativePath,
             contentOrigin: p.contentOrigin,
             humanQaReviewed: p.humanQaReviewed,
@@ -110,10 +158,10 @@ export async function seedDatabase(
         sectionsUpserted += bundle.sections.length;
       }
 
-      if (bundle.questions.length > 0) {
+      if (normalizedQuestions.length > 0) {
         await tx
           .insert(examQuestions)
-          .values(bundle.questions)
+          .values(normalizedQuestions)
           .onConflictDoUpdate({
             target: examQuestions.questionId,
             set: {
@@ -127,7 +175,7 @@ export async function seedDatabase(
               cueTimestampMs: sql`excluded.cue_timestamp_ms`,
             },
           });
-        questionsUpserted += bundle.questions.length;
+        questionsUpserted += normalizedQuestions.length;
       }
     }
 

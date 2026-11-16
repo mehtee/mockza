@@ -49,7 +49,11 @@ export function registerMediaRoutes(
       'Content-Type': obj.contentType,
       'Accept-Ranges': 'bytes',
       'Cache-Control': 'public, max-age=86400',
+      'X-Content-Type-Options': 'nosniff',
     };
+    if (obj.contentType.toLowerCase().includes('svg')) {
+      headers['Content-Security-Policy'] = 'sandbox';
+    }
     if (obj.contentLength > 0) {
       headers['Content-Length'] = String(obj.contentLength);
     }

@@ -73,22 +73,38 @@ abstract interface class BillingGateway {
 }
 
 /// Global flavor [BillingGateway] backed by `purchases_flutter` (RevenueCat)
-/// with safe guards for Web or unconfigured local dev builds.
+/// with explicit Mockza identity binding and safe guards for Web/unconfigured dev builds.
 final class RevenueCatBillingGateway implements BillingGateway {
   /// Creates a [RevenueCatBillingGateway].
-  const new();
+  const new({this.resolveAppUserId});
+
+  /// Resolves the canonical Mockza billing identity (`userId` or `deviceId`).
+  final Future<String?> Function()? resolveAppUserId;
 
   static const _rcApiKey = String.fromEnvironment('REVENUECAT_PUBLIC_KEY');
   static bool _configured = false;
+  static String? _boundAppUserId;
 
   Future<bool> _ensureConfigured() async {
     if (kIsWeb || _rcApiKey.isEmpty) {
       return false;
     }
-    if (_configured) return true;
+    final appUserId = await resolveAppUserId?.call();
+    if (appUserId == null || appUserId.isEmpty) {
+      return false;
+    }
     try {
-      await Purchases.configure(PurchasesConfiguration(_rcApiKey));
-      _configured = true;
+      if (!_configured) {
+        final cfg = PurchasesConfiguration(_rcApiKey)..appUserID = appUserId;
+        await Purchases.configure(cfg);
+        _configured = true;
+        _boundAppUserId = appUserId;
+        return true;
+      }
+      if (_boundAppUserId != appUserId) {
+        await Purchases.logIn(appUserId);
+        _boundAppUserId = appUserId;
+      }
       return true;
     } on Object {
       return false;

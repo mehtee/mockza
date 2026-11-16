@@ -11,6 +11,7 @@ export function registerHealthRoutes(
   env: Pick<AppEnv, 'EDITION' | 'S3_BUCKET'>,
   sqlClient?: postgres.Sql,
   s3Client?: S3Client,
+  isQueueReady?: () => boolean,
 ): void {
   const livenessRoute = createRoute({
     method: 'get',
@@ -78,12 +79,14 @@ export function registerHealthRoutes(
       }
     }
 
-    const ready = dbHealthy && s3Healthy;
+    const queueHealthy = isQueueReady ? isQueueReady() : true;
+    const ready = dbHealthy && s3Healthy && queueHealthy;
     const body = {
       status: 'ready' as const,
       edition: env.EDITION,
       database: dbHealthy,
       storage: s3Healthy,
+      queue: queueHealthy,
       service: 'mockza-api',
     };
 

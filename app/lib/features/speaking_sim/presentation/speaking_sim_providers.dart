@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mockza/features/speaking_sim/presentation/speaking_sim_notifier.dart';
 
-/// Provides [SpeakingSimState] via [SpeakingSimNotifier].
+/// Route-scoped [SpeakingSimState] so mic, preview, playback & timers release cleanly on exit.
 final NotifierProvider<SpeakingSimNotifier, SpeakingSimState>
 speakingSimNotifierProvider =
-    NotifierProvider<SpeakingSimNotifier, SpeakingSimState>(
+    NotifierProvider.autoDispose<SpeakingSimNotifier, SpeakingSimState>(
       SpeakingSimNotifier.new,
     );

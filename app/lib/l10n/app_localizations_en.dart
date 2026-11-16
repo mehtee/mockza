@@ -108,4 +108,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fullMockTitle => 'Full Mock Exam';
+
+  @override
+  String get startAudioLabel => 'Start Audio';
+
+  @override
+  String get exportStudyDataLabel => 'Export Study Data (JSON)';
+
+  @override
+  String get comingSoonLabel => 'Soon';
+
+  @override
+  String get partialEstimateLabel => 'Partial Estimate';
+
+  @override
+  String get readingPassagesLabel => 'Reading Passages';
 }

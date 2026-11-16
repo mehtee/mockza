@@ -8,6 +8,7 @@ import {
   real,
   text,
   timestamp,
+  unique,
   uuid,
 } from 'drizzle-orm/pg-core';
 
@@ -22,6 +23,8 @@ export const devices = pgTable('devices', {
   deviceId: uuid('device_id').primaryKey(),
   edition: text('edition').notNull(),
   appVersion: text('app_version'),
+  deviceSecretHash: text('device_secret_hash'),
+  tokenVersion: integer('token_version').default(1).notNull(),
   linkedUserId: uuid('linked_user_id').references(() => users.userId, { onDelete: 'set null' }),
   freeDiagnosticUsed: boolean('free_diagnostic_used').default(false).notNull(),
   lastAttestedAt: timestamp('last_attested_at', { withTimezone: true }),
@@ -29,15 +32,28 @@ export const devices = pgTable('devices', {
   lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const accountLinks = pgTable('account_links', {
-  linkId: uuid('link_id').primaryKey(),
-  userId: uuid('user_id')
-    .notNull()
-    .references(() => users.userId, { onDelete: 'cascade' }),
-  provider: text('provider').notNull(), // 'apple' | 'google'
-  providerSubject: text('provider_subject').notNull().unique(),
+export const authChallenges = pgTable('auth_challenges', {
+  challenge: text('challenge').primaryKey(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  consumedAt: timestamp('consumed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const accountLinks = pgTable(
+  'account_links',
+  {
+    linkId: uuid('link_id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.userId, { onDelete: 'cascade' }),
+    provider: text('provider').notNull(), // 'apple' | 'google'
+    providerSubject: text('provider_subject').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique('account_links_provider_subject_unique').on(table.provider, table.providerSubject),
+  ],
+);
 
 export const entitlements = pgTable('entitlements', {
   deviceId: uuid('device_id')
@@ -51,6 +67,17 @@ export const entitlements = pgTable('entitlements', {
   expiresAt: timestamp('expires_at', { withTimezone: true }),
   graceUntil: timestamp('grace_until', { withTimezone: true }),
   lastVerifiedAt: timestamp('last_verified_at', { withTimezone: true }),
+  lastEventAt: timestamp('last_event_at', { withTimezone: true }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const erasureRequests = pgTable('erasure_requests', {
+  erasureId: uuid('erasure_id').primaryKey(),
+  accountKey: text('account_key').notNull(),
+  deviceIdsJson: jsonb('device_ids_json').$type<string[]>().notNull(),
+  status: text('status').notNull(), // 'pending' | 'partial' | 'completed'
+  lastError: text('last_error'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -58,6 +85,7 @@ export const quotaReservations = pgTable('quota_reservations', {
   reservationId: uuid('reservation_id').primaryKey(),
   attemptId: uuid('attempt_id').notNull().unique(),
   accountKey: text('account_key').notNull(),
+  deviceId: uuid('device_id'),
   skill: text('skill').notNull(), // 'speaking' | 'writing'
   utcDay: text('utc_day').notNull(), // 'YYYY-MM-DD'
   utcMonth: text('utc_month').notNull(), // 'YYYY-MM'
@@ -110,6 +138,7 @@ export const evaluationJobs = pgTable(
     skill: text('skill').notNull(),
     status: text('status').notNull(), // 'queued' | 'processing_audio' | 'evaluating' | 'completed' | 'failed'
     stageDetail: text('stage_detail'),
+    inputHash: text('input_hash'),
     inputJson: jsonb('input_json'),
     resultJson: jsonb('result_json'),
     overallBand: real('overall_band'),
@@ -128,6 +157,19 @@ export const evaluationJobs = pgTable(
     index('idx_evaluation_jobs_status_updated').on(table.status, table.updatedAt),
   ],
 );
+
+export const jobDispatchOutbox = pgTable('job_dispatch_outbox', {
+  jobId: uuid('job_id')
+    .primaryKey()
+    .references(() => evaluationJobs.jobId, { onDelete: 'cascade' }),
+  queueName: text('queue_name').notNull(),
+  payloadJson: jsonb('payload_json').$type<Record<string, unknown>>().notNull(),
+  status: text('status').default('pending').notNull(), // 'pending' | 'dispatched'
+  attempts: integer('attempts').default(0).notNull(),
+  lastError: text('last_error'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
 
 export const audioAssets = pgTable('audio_assets', {
   objectKey: text('object_key').primaryKey(),

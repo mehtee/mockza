@@ -8,6 +8,7 @@ import 'package:mockza/core/exams/local_objective_scorer.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/providers.dart';
 import 'package:mockza/services/audio_player_gateway.dart';
+import 'package:mockza/services/media_bytes_platform.dart';
 
 /// Parsed Listening dialogue segment for interactive synced transcript.
 @immutable
@@ -281,7 +282,10 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
 
       final audioPath = spec.audioRelativePath.trim();
       if (audioPath.isNotEmpty) {
-        final resolvedUrl = editionConfig.resolveMediaUrl(audioPath);
+        final offlinePlayable = await resolveCachedAudioPlayableUrl(audioPath);
+        if (_isDisposed) return;
+        final resolvedUrl =
+            offlinePlayable ?? editionConfig.resolveMediaUrl(audioPath);
         await _loadAudioUrl(resolvedUrl, isExamMode: isExamMode);
       }
     } on Object catch (err) {

@@ -62,10 +62,12 @@ class _ProgressAttemptsScreenState
     }
 
     final cursor = reset ? null : _items.last.updatedAt;
+    final cursorId = reset ? null : _items.last.attemptId;
     final page = await ref
         .read(attemptRepositoryProvider)
         .fetchHistoryPage(
           cursorUpdatedAt: cursor,
+          cursorAttemptId: cursorId,
           filterSkill: skillFilter,
         );
 

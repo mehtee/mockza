@@ -15,15 +15,23 @@ async function main(): Promise<void> {
 
   let boss: PgBoss | undefined;
   try {
-    boss = new PgBoss(env.DATABASE_URL);
-    await boss.start();
+    const candidate = new PgBoss(env.DATABASE_URL);
+    await candidate.start();
+    boss = candidate;
   } catch (error) {
     process.stderr.write(
       `Warning: Failed to start pg-boss producer: ${(error as Error).message}\n`,
     );
+    boss = undefined;
   }
 
-  const app = createApiApp(env, { db, sql, boss, s3Client });
+  const app = createApiApp(env, {
+    db,
+    sql,
+    boss,
+    s3Client,
+    isQueueReady: () => Boolean(boss),
+  });
 
   const server = serve(
     {

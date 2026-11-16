@@ -41,10 +41,16 @@ final class FlutterSecureStorageGateway implements SecureStorageGateway {
     try {
       await _storage.write(key: key, value: value);
       return const Ok(null);
-    } on PlatformException {
+    } on MissingPluginException {
       return const Ok(null);
-    } on Object {
-      return const Ok(null);
+    } on PlatformException catch (e) {
+      return Err(
+        StorageFailure(
+          'Failed to write secure credential: ${e.message ?? e.code}',
+        ),
+      );
+    } on Object catch (e) {
+      return Err(StorageFailure('Failed to write secure credential: $e'));
     }
   }
 
@@ -68,8 +74,16 @@ final class FlutterSecureStorageGateway implements SecureStorageGateway {
     try {
       await _storage.delete(key: key);
       return const Ok(null);
-    } on Object {
+    } on MissingPluginException {
       return const Ok(null);
+    } on PlatformException catch (e) {
+      return Err(
+        StorageFailure(
+          'Failed to delete secure credential: ${e.message ?? e.code}',
+        ),
+      );
+    } on Object catch (e) {
+      return Err(StorageFailure('Failed to delete secure credential: $e'));
     }
   }
 }
@@ -83,6 +97,7 @@ final class SecureIdentityService {
   });
 
   static const _deviceIdKey = 'mockza_device_id_v1';
+  static const _deviceSecretKey = 'mockza_device_secret_v1';
   static const _accessTokenKey = 'mockza_access_token_v1';
 
   final SecureStorageGateway _storage;
@@ -104,6 +119,16 @@ final class SecureIdentityService {
     }
   }
 
+  /// Reads the server-issued device renewal secret if present.
+  Future<String?> readDeviceSecret() async {
+    final res = await _storage.read(key: _deviceSecretKey);
+    return res.valueOrNull;
+  }
+
+  /// Saves the server-issued device renewal secret into secure storage.
+  Future<Result<void, Failure>> saveDeviceSecret(String secret) =>
+      _storage.write(key: _deviceSecretKey, value: secret);
+
   /// Reads the cached API access token if present.
   Future<String?> readAccessToken() async {
     final res = await _storage.read(key: _accessTokenKey);
@@ -118,9 +143,13 @@ final class SecureIdentityService {
   Future<Result<void, Failure>> clearCredentials() =>
       _storage.delete(key: _accessTokenKey);
 
-  /// Clears both stored tokens and pseudonymous device UUID on full account deletion.
+  /// Clears tokens, device secret, and pseudonymous device UUID on full account deletion.
   Future<Result<void, Failure>> clearAll() async {
-    await _storage.delete(key: _accessTokenKey);
-    return await _storage.delete(key: _deviceIdKey);
+    final tokenRes = await _storage.delete(key: _accessTokenKey);
+    final secretRes = await _storage.delete(key: _deviceSecretKey);
+    final idRes = await _storage.delete(key: _deviceIdKey);
+    if (tokenRes case Err<void, Failure>()) return tokenRes;
+    if (secretRes case Err<void, Failure>()) return secretRes;
+    return idRes;
   }
 }

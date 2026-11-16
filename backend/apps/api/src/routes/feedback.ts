@@ -1,12 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { OpenAPIHono } from '@hono/zod-openapi';
 import type { AppEnv } from '@mockza/config';
-import {
-  FlagQuestionRequestSchema,
-  FlagQuestionResponseSchema,
-  TelemetryBatchRequestSchema,
-  TelemetryBatchResponseSchema,
-} from '@mockza/contracts';
+import { FlagQuestionRequestSchema, FlagQuestionResponseSchema } from '@mockza/contracts';
 import { type MockzaDb, questionFlags } from '@mockza/db';
 import { createDeviceAuthMiddleware } from '../middleware/auth.js';
 import type { RequestVariables } from '../middleware/request-id.js';
@@ -44,21 +39,5 @@ export function registerFeedbackRoutes(
     }
 
     return c.json(FlagQuestionResponseSchema.parse({ success: true, flagId }), 200);
-  });
-
-  // POST /v1/events (Telemetry batch sink)
-  app.post('/v1/events', authMiddleware, async (c) => {
-    const body = await c.req.json();
-    const parsed = TelemetryBatchRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      return c.json({ code: 'validation_error', message: 'Invalid events payload' }, 400);
-    }
-
-    return c.json(
-      TelemetryBatchResponseSchema.parse({
-        acceptedCount: parsed.data.events.length,
-      }),
-      200,
-    );
   });
 }

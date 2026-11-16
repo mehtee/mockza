@@ -130,10 +130,18 @@ void main() {
       },
     );
 
-    test('previewIntervals provides user-friendly labels for UI buttons', () {
+    test('previewIntervals strictly matches scheduled intervalDays across all ratings (TD-61, BF-11)', () {
       final initial = SrsCardState.initial(today);
       final previews = Sm2Scheduler.previewIntervals(initial);
-      expect(previews[ReviewQuality.again], '1m');
+      for (final q in ReviewQuality.values) {
+        final scheduled = Sm2Scheduler.schedule(
+          current: initial,
+          quality: q,
+          today: today,
+        );
+        expect(previews[q], Sm2Scheduler.formatDays(scheduled.intervalDays));
+      }
+      expect(previews[ReviewQuality.again], '1d');
       expect(previews[ReviewQuality.hard], '1d');
       expect(previews[ReviewQuality.good], '1d');
       expect(previews[ReviewQuality.easy], '4d');
@@ -145,8 +153,14 @@ void main() {
         dueDay: today,
       );
       final maturePreviews = Sm2Scheduler.previewIntervals(mature);
-      expect(maturePreviews[ReviewQuality.again], '10m');
-      expect(maturePreviews[ReviewQuality.good], '1mo');
+      for (final q in ReviewQuality.values) {
+        final scheduled = Sm2Scheduler.schedule(
+          current: mature,
+          quality: q,
+          today: today,
+        );
+        expect(maturePreviews[q], Sm2Scheduler.formatDays(scheduled.intervalDays));
+      }
     });
 
     test('SerialDay handles integer calendar days across leap years & DST without shifts', () {

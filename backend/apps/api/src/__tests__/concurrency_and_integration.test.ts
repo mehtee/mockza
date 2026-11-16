@@ -11,8 +11,8 @@ describe('Epic X2.2: Backend Integration & Concurrency Test Suite', () => {
   });
   const app = createApiApp(env);
 
-  describe('Parallel Quota Reservation Concurrency & Anti-Double-Spend', () => {
-    it('enforces atomic slots under Promise.all concurrent burst with zero double-spend', async () => {
+  describe('Local In-Memory Mutex Baseline (see @mockza/db quota-postgres-race.test.ts for real PostgreSQL advisory-lock concurrency)', () => {
+    it('demonstrates synchronous counter guard for local logic baseline', async () => {
       // Test the atomic quota reservation concurrency logic
       let remainingSlots = 5;
       let totalSpent = 0;

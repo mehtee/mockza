@@ -4,7 +4,7 @@ import {
   evaluateQuotaEligibility,
   QuotaExceededDomainError,
 } from '@mockza/domain';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, or, sql } from 'drizzle-orm';
 import type { MockzaDb } from './client.js';
 import {
   dailyQuotaUsage,
@@ -13,6 +13,8 @@ import {
   monthlyQuotaUsage,
   quotaReservations,
 } from './schema.js';
+
+export type DbOrTx = MockzaDb | Parameters<Parameters<MockzaDb['transaction']>[0]>[0];
 
 export function getUtcDayString(date: Date = new Date()): string {
   return date.toISOString().slice(0, 10);
@@ -23,7 +25,7 @@ export function getUtcMonthString(date: Date = new Date()): string {
 }
 
 export async function getAccountQuotaStatus(params: {
-  db: MockzaDb;
+  db: DbOrTx;
   accountKey: string;
   deviceId: string;
   now?: Date;
@@ -32,26 +34,37 @@ export async function getAccountQuotaStatus(params: {
   const utcDay = getUtcDayString(now);
   const utcMonth = getUtcMonthString(now);
 
+  const isLinkedUser = params.accountKey !== params.deviceId;
   const deviceRows = await params.db
     .select({
       freeDiagnosticUsed: devices.freeDiagnosticUsed,
     })
     .from(devices)
-    .where(eq(devices.deviceId, params.deviceId))
-    .limit(1);
+    .where(
+      isLinkedUser
+        ? or(eq(devices.deviceId, params.deviceId), eq(devices.linkedUserId, params.accountKey))
+        : eq(devices.deviceId, params.deviceId),
+    );
 
-  const freeDiagnosticUsed = deviceRows[0]?.freeDiagnosticUsed ?? false;
+  const freeDiagnosticUsed = deviceRows.some((r) => r.freeDiagnosticUsed);
 
   const entRows = await params.db
     .select({
       isPro: entitlements.isPro,
       expiresAt: entitlements.expiresAt,
+      graceUntil: entitlements.graceUntil,
     })
     .from(entitlements)
-    .where(eq(entitlements.deviceId, params.deviceId))
-    .limit(1);
+    .where(
+      isLinkedUser
+        ? or(eq(entitlements.deviceId, params.deviceId), eq(entitlements.userId, params.accountKey))
+        : eq(entitlements.deviceId, params.deviceId),
+    );
 
-  const isPro = Boolean(entRows[0]?.isPro && (!entRows[0].expiresAt || entRows[0].expiresAt > now));
+  const isPro = entRows.some(
+    (e) =>
+      e.isPro && (!e.expiresAt || e.expiresAt > now || Boolean(e.graceUntil && e.graceUntil > now)),
+  );
 
   const dailyKey = `${params.accountKey}:${utcDay}`;
   const dailyRows = await params.db
@@ -88,77 +101,123 @@ export async function getAccountQuotaStatus(params: {
   };
 }
 
+async function runWithAccountLockAndTx<T>(
+  db: DbOrTx,
+  accountKey: string,
+  fn: (tx: DbOrTx) => Promise<T>,
+): Promise<T> {
+  if ('transaction' in db && typeof db.transaction === 'function') {
+    return await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${accountKey}))`);
+      return await fn(tx);
+    });
+  }
+  await db.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${accountKey}))`);
+  return await fn(db);
+}
+
+/**
+ * Serializes quota eligibility checks and reservations under a per-account PostgreSQL
+ * advisory transaction lock so concurrent bursts never overspend limits (`TD-11`).
+ */
 export async function reserveQuotaAtomic(params: {
-  db: MockzaDb;
+  db: DbOrTx;
   accountKey: string;
   deviceId: string;
   attemptId: string;
   skill: 'speaking' | 'writing';
+  allowRetryRefunded?: boolean;
   now?: Date;
 }): Promise<{ isDiagnostic: boolean }> {
   const now = params.now ?? new Date();
   const utcDay = getUtcDayString(now);
   const utcMonth = getUtcMonthString(now);
 
-  const existingRes = await params.db
-    .select({
-      reservationId: quotaReservations.reservationId,
-      status: quotaReservations.status,
-      isDiagnostic: quotaReservations.isDiagnostic,
-    })
-    .from(quotaReservations)
-    .where(eq(quotaReservations.attemptId, params.attemptId))
-    .limit(1);
+  return await runWithAccountLockAndTx(params.db, params.accountKey, async (tx) => {
+    const existingRes = await tx
+      .select({
+        reservationId: quotaReservations.reservationId,
+        status: quotaReservations.status,
+        isDiagnostic: quotaReservations.isDiagnostic,
+      })
+      .from(quotaReservations)
+      .where(eq(quotaReservations.attemptId, params.attemptId))
+      .limit(1);
 
-  if (existingRes[0]) {
-    if (existingRes[0].status === 'reserved' || existingRes[0].status === 'committed') {
-      return { isDiagnostic: existingRes[0].isDiagnostic };
+    const existing = existingRes[0];
+    if (existing) {
+      if (existing.status === 'reserved' || existing.status === 'committed') {
+        return { isDiagnostic: existing.isDiagnostic };
+      }
+      if (existing.status === 'refunded' && !params.allowRetryRefunded) {
+        return { isDiagnostic: existing.isDiagnostic };
+      }
     }
-  }
 
-  const status = await getAccountQuotaStatus({
-    db: params.db,
-    accountKey: params.accountKey,
-    deviceId: params.deviceId,
-    now,
-  });
+    const status = await getAccountQuotaStatus({
+      db: tx,
+      accountKey: params.accountKey,
+      deviceId: params.deviceId,
+      now,
+    });
 
-  const eligibility = evaluateQuotaEligibility({
-    isPro: status.isPro,
-    freeDiagnosticUsed: status.freeDiagnosticUsed,
-    speakingUsedToday: status.speakingUsedToday,
-    writingUsedToday: status.writingUsedToday,
-    monthlyUsed: status.monthlyUsed,
-    skill: params.skill,
-    now,
-  });
+    const eligibility = evaluateQuotaEligibility({
+      isPro: status.isPro,
+      freeDiagnosticUsed: status.freeDiagnosticUsed,
+      speakingUsedToday: status.speakingUsedToday,
+      writingUsedToday: status.writingUsedToday,
+      monthlyUsed: status.monthlyUsed,
+      skill: params.skill,
+      now,
+    });
 
-  if (!eligibility.allowed) {
-    if (eligibility.reason === 'diagnostic_already_used') {
-      throw new EntitlementRequiredDomainError(
-        'Free diagnostic evaluation has already been used. Please subscribe to Mockza Pro to continue.',
+    if (!eligibility.allowed) {
+      if (eligibility.reason === 'diagnostic_already_used') {
+        throw new EntitlementRequiredDomainError(
+          'Free diagnostic evaluation has already been used. Please subscribe to Mockza Pro to continue.',
+        );
+      }
+      throw new QuotaExceededDomainError(
+        `Evaluation quota exceeded (${eligibility.reason ?? 'limit reached'}). Resets at ${eligibility.dailyResetAt}.`,
       );
     }
-    throw new QuotaExceededDomainError(
-      `Evaluation quota exceeded (${eligibility.reason ?? 'limit reached'}). Resets at ${eligibility.dailyResetAt}.`,
-    );
-  }
 
-  const reservationId = randomUUID();
-  const dailyKey = `${params.accountKey}:${utcDay}`;
-  const monthlyKey = `${params.accountKey}:${utcMonth}`;
+    const reservationId = existing?.reservationId ?? randomUUID();
+    const dailyKey = `${params.accountKey}:${utcDay}`;
+    const monthlyKey = `${params.accountKey}:${utcMonth}`;
 
-  await params.db.transaction(async (tx) => {
-    await tx.insert(quotaReservations).values({
-      reservationId,
-      attemptId: params.attemptId,
-      accountKey: params.accountKey,
-      skill: params.skill,
-      utcDay,
-      utcMonth,
-      status: 'reserved',
-      isDiagnostic: eligibility.isDiagnostic,
-    });
+    if (existing) {
+      // Explicit retry re-reserving a previously refunded reservation.
+      await tx
+        .update(quotaReservations)
+        .set({
+          accountKey: params.accountKey,
+          deviceId: params.deviceId,
+          utcDay,
+          utcMonth,
+          status: 'reserved',
+          isDiagnostic: eligibility.isDiagnostic,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(quotaReservations.attemptId, params.attemptId),
+            eq(quotaReservations.status, 'refunded'),
+          ),
+        );
+    } else {
+      await tx.insert(quotaReservations).values({
+        reservationId,
+        attemptId: params.attemptId,
+        accountKey: params.accountKey,
+        deviceId: params.deviceId,
+        skill: params.skill,
+        utcDay,
+        utcMonth,
+        status: 'reserved',
+        isDiagnostic: eligibility.isDiagnostic,
+      });
+    }
 
     await tx
       .insert(dailyQuotaUsage)
@@ -206,37 +265,74 @@ export async function reserveQuotaAtomic(params: {
         .set({ freeDiagnosticUsed: true })
         .where(eq(devices.deviceId, params.deviceId));
     }
-  });
 
-  return { isDiagnostic: eligibility.isDiagnostic };
+    return { isDiagnostic: eligibility.isDiagnostic };
+  });
 }
 
+/**
+ * Transitions a `reserved` quota reservation to `committed` conditionally so a late commit
+ * can never overwrite an already `refunded` reservation (`TD-12` / `TD-15`).
+ */
+export async function commitQuotaReservationAtomic(params: {
+  db: DbOrTx;
+  attemptId: string;
+  now?: Date;
+}): Promise<boolean> {
+  const now = params.now ?? new Date();
+  const updated = await params.db
+    .update(quotaReservations)
+    .set({ status: 'committed', updatedAt: now })
+    .where(
+      and(
+        eq(quotaReservations.attemptId, params.attemptId),
+        eq(quotaReservations.status, 'reserved'),
+      ),
+    )
+    .returning({ reservationId: quotaReservations.reservationId });
+  return updated.length === 1;
+}
+
+/**
+ * Conditionally refunds one eligible reservation inside a transaction.
+ * Concurrent refunds decrement shared counters at most once and restore
+ * `freeDiagnosticUsed` accurately across both device-scoped and linked accounts (`TD-12`).
+ */
 export async function refundQuotaAtomic(params: {
-  db: MockzaDb;
+  db: DbOrTx;
   attemptId: string;
   now?: Date;
 }): Promise<boolean> {
   const now = params.now ?? new Date();
 
-  const resRows = await params.db
-    .select()
+  const preRows = await params.db
+    .select({ accountKey: quotaReservations.accountKey })
     .from(quotaReservations)
     .where(eq(quotaReservations.attemptId, params.attemptId))
     .limit(1);
 
-  const res = resRows[0];
-  if (!res || res.status === 'refunded') {
-    return false;
-  }
+  const accountKey = preRows[0]?.accountKey;
+  if (!accountKey) return false;
 
-  const dailyKey = `${res.accountKey}:${res.utcDay}`;
-  const monthlyKey = `${res.accountKey}:${res.utcMonth}`;
-
-  await params.db.transaction(async (tx) => {
-    await tx
+  return await runWithAccountLockAndTx(params.db, accountKey, async (tx) => {
+    const transitioned = await tx
       .update(quotaReservations)
       .set({ status: 'refunded', updatedAt: now })
-      .where(eq(quotaReservations.attemptId, params.attemptId));
+      .where(
+        and(
+          eq(quotaReservations.attemptId, params.attemptId),
+          eq(quotaReservations.status, 'reserved'),
+        ),
+      )
+      .returning();
+
+    const res = transitioned[0];
+    if (!res) {
+      return false;
+    }
+
+    const dailyKey = `${res.accountKey}:${res.utcDay}`;
+    const monthlyKey = `${res.accountKey}:${res.utcMonth}`;
 
     await tx
       .update(dailyQuotaUsage)
@@ -262,12 +358,21 @@ export async function refundQuotaAtomic(params: {
       .where(eq(monthlyQuotaUsage.counterKey, monthlyKey));
 
     if (res.isDiagnostic) {
-      await tx
-        .update(devices)
-        .set({ freeDiagnosticUsed: false })
-        .where(eq(devices.deviceId, res.accountKey));
+      if (res.deviceId) {
+        await tx
+          .update(devices)
+          .set({ freeDiagnosticUsed: false })
+          .where(eq(devices.deviceId, res.deviceId));
+      } else {
+        await tx
+          .update(devices)
+          .set({ freeDiagnosticUsed: false })
+          .where(
+            or(eq(devices.deviceId, res.accountKey), eq(devices.linkedUserId, res.accountKey)),
+          );
+      }
     }
-  });
 
-  return true;
+    return true;
+  });
 }

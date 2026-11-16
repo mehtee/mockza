@@ -96,7 +96,11 @@ class _ListeningSimScreenState extends ConsumerState<ListeningSimScreen> {
         );
         if (shouldExit ?? false) {
           if (context.mounted) {
-            context.pop();
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(AppRoutes.home);
+            }
           }
         }
       },
@@ -434,23 +438,31 @@ class _QuestionsFormView extends StatelessWidget {
                   const SizedBox(height: SpacingTokens.sm),
                   if (isChoice)
                     ...List.generate(q.options.length, (idx) {
-                      final letter = String.fromCharCode(65 + idx);
-                      final optText = q.options[idx];
+                      final rawOpt = q.options[idx];
+                      final parsed = parseObjectiveChoiceOption(
+                        q.questionType,
+                        rawOpt,
+                        idx,
+                        q.acceptedVariants,
+                      );
                       final selected = isMulti
-                          ? (selectedMulti.contains(letter) ||
-                                selectedMulti.contains(optText))
-                          : (current == letter || current == optText);
+                          ? (selectedMulti.contains(parsed.value) ||
+                                selectedMulti.contains(parsed.label) ||
+                                selectedMulti.contains(rawOpt))
+                          : (current == parsed.value ||
+                                current == parsed.label ||
+                                current == rawOpt);
                       return Padding(
                         padding: const EdgeInsetsDirectional.only(
                           bottom: SpacingTokens.xs,
                         ),
                         child: _ChoiceOption(
-                          letter: letter,
-                          text: optText,
+                          letter: parsed.label,
+                          text: parsed.displayText,
                           isSelected: selected,
                           onTap: () => isMulti
-                              ? onToggleMulti(q.number, letter)
-                              : onAnswer(q.number, letter),
+                              ? onToggleMulti(q.number, parsed.value)
+                              : onAnswer(q.number, parsed.value),
                         ),
                       );
                     })

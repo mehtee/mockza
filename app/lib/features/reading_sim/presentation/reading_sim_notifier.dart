@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mockza/core/exams/countdown_clock_tracker.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/exams/local_objective_scorer.dart';
 import 'package:mockza/core/models/attempt_status.dart';
@@ -166,6 +167,7 @@ class ReadingSimState {
 /// `LocalObjectiveScorer` grading, and Study Mode AI explanations.
 class ReadingSimNotifier extends Notifier<ReadingSimState> {
   Timer? _timer;
+  CountdownClockTracker? _clockTracker;
   StreamSubscription<List<ReadingAnnotationItem>>? _annotationsSub;
   DateTime? _sessionStartTime;
   bool _isDisposed = false;
@@ -173,7 +175,9 @@ class ReadingSimNotifier extends Notifier<ReadingSimState> {
   @override
   ReadingSimState build() {
     _isDisposed = false;
-    _sessionStartTime = ref.read(clockProvider).now();
+    final clock = ref.read(clockProvider);
+    _sessionStartTime = clock.now();
+    _clockTracker = CountdownClockTracker(clock: clock);
     ref.onDispose(() {
       _isDisposed = true;
       _timer?.cancel();
@@ -242,6 +246,9 @@ class ReadingSimNotifier extends Notifier<ReadingSimState> {
         success: (bundle) {
           final pack = catalog.parseReadingPack(bundle);
           final dur = pack.durationSeconds > 0 ? pack.durationSeconds : 3600;
+          (_clockTracker ??= CountdownClockTracker(
+            clock: ref.read(clockProvider),
+          )).start(remainingSeconds: dur);
           state = state.copyWith(
             isLoadingPack: false,
             pack: pack,
@@ -270,27 +277,42 @@ class ReadingSimNotifier extends Notifier<ReadingSimState> {
 
   void _startCountdown() {
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _timer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
       if (_isDisposed || state.isPaused) {
         timer.cancel();
         return;
       }
-      if (state.remainingSeconds > 0) {
-        state = state.copyWith(remainingSeconds: state.remainingSeconds - 1);
-      } else {
-        timer.cancel();
-      }
+      reconcileTimer();
     });
+  }
+
+  /// Synchronizes countdown state against wall clock (`TD-37`).
+  void reconcileTimer() {
+    final tracker = _clockTracker;
+    if (_isDisposed || tracker == null || state.isPaused) return;
+    final rem = tracker.currentRemaining();
+    if (rem != state.remainingSeconds) {
+      state = state.copyWith(remainingSeconds: rem);
+    }
+    if (rem <= 0) {
+      _timer?.cancel();
+    }
   }
 
   /// Pauses or resumes timer in Study Mode.
   void togglePause() {
     if (state.isExamMode) return;
+    final tracker = _clockTracker ??= CountdownClockTracker(
+      clock: ref.read(clockProvider),
+    );
     final nextPaused = !state.isPaused;
-    state = state.copyWith(isPaused: nextPaused);
     if (nextPaused) {
+      final rem = tracker.pause();
       _timer?.cancel();
+      state = state.copyWith(isPaused: true, remainingSeconds: rem);
     } else {
+      tracker.resume();
+      state = state.copyWith(isPaused: false);
       _startCountdown();
     }
   }

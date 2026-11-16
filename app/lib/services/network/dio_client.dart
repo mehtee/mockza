@@ -1,8 +1,31 @@
 import 'package:dio/dio.dart';
 import 'package:mockza/core/config/edition_config.dart';
 
+bool _isSameApiOrigin(RequestOptions options, EditionConfig config) {
+  final rawPath = options.path;
+  if (!rawPath.startsWith('http://') && !rawPath.startsWith('https://')) {
+    return true;
+  }
+  final reqUri = Uri.tryParse(rawPath);
+  if (reqUri == null) return false;
+
+  if (config.apiBaseUrl.isEmpty) {
+    return reqUri.scheme == Uri.base.scheme &&
+        reqUri.host == Uri.base.host &&
+        reqUri.port == Uri.base.port;
+  }
+
+  final apiUri = Uri.tryParse(config.apiBaseUrl);
+  if (apiUri == null || apiUri.host.isEmpty) {
+    return false;
+  }
+  return reqUri.scheme == apiUri.scheme &&
+      reqUri.host == apiUri.host &&
+      reqUri.port == apiUri.port;
+}
+
 /// Builds the preconfigured [Dio] HTTP client for the Mockza API with bearer auth
-/// injection and automatic 401 token refresh support.
+/// injection scoped strictly to the configured API origin and 401 refresh support.
 Dio createApiDioClient({
   required EditionConfig config,
   required Future<String?> Function() readAccessToken,
@@ -27,9 +50,15 @@ Dio createApiDioClient({
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) async {
-        // Signed S3 / proxy PUT uploads carry their own query signature and should
-        // not accidentally forward an Authorization header unless same-origin needs it.
-        if (!options.path.contains('/v1/auth/')) {
+        final sameOrigin = _isSameApiOrigin(options, config);
+        final isAuthRoute = options.path.contains('/v1/auth/');
+        final isSignedPut = options.path.contains('/v1/uploads/signed-put');
+
+        if (!sameOrigin || isSignedPut) {
+          // Never send API credentials or custom edition headers to presigned S3 / external CDNs.
+          options.headers.remove('authorization');
+          options.headers.remove('x-mockza-edition');
+        } else if (!isAuthRoute) {
           final token = await readAccessToken();
           if (token != null && token.isNotEmpty) {
             options.headers['authorization'] = 'Bearer $token';
@@ -40,11 +69,13 @@ Dio createApiDioClient({
       onError: (error, handler) async {
         final status = error.response?.statusCode;
         final request = error.requestOptions;
+        final sameOrigin = _isSameApiOrigin(request, config);
         final alreadyRetried = request.extra['_authRetried'] == true;
         final isAuthRoute = request.path.contains('/v1/auth/');
         final isUploadRoute = request.path.contains('/v1/uploads/signed-put');
 
-        if (status == 401 &&
+        if (sameOrigin &&
+            status == 401 &&
             !alreadyRetried &&
             !isAuthRoute &&
             !isUploadRoute &&

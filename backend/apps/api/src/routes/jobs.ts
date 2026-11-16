@@ -16,6 +16,49 @@ type ValidJobStage =
   | 'completed'
   | 'failed';
 
+const VALID_JOB_STAGES: readonly ValidJobStage[] = [
+  'queued',
+  'processing_audio',
+  'transcoding',
+  'evaluating',
+  'repairing',
+  'completed',
+  'failed',
+];
+
+function normalizeJobStage(status: string): ValidJobStage {
+  return VALID_JOB_STAGES.includes(status as ValidJobStage) ? (status as ValidJobStage) : 'queued';
+}
+
+type AuthorizedJobResult =
+  | { kind: 'ok'; job: typeof evaluationJobs.$inferSelect }
+  | { kind: 'not_found' }
+  | { kind: 'forbidden' };
+
+async function findAuthorizedJob(
+  db: MockzaDb,
+  jobId: string,
+  deviceId: string,
+  accountKey: string,
+): Promise<AuthorizedJobResult> {
+  const jobRows = await db
+    .select()
+    .from(evaluationJobs)
+    .where(eq(evaluationJobs.jobId, jobId))
+    .limit(1);
+
+  const job = jobRows[0];
+  if (!job) {
+    return { kind: 'not_found' };
+  }
+
+  if (job.accountKey !== accountKey && job.deviceId !== deviceId) {
+    return { kind: 'forbidden' };
+  }
+
+  return { kind: 'ok', job };
+}
+
 export function registerJobRoutes(
   app: OpenAPIHono<{ Variables: RequestVariables }>,
   env: AppEnv,
@@ -51,7 +94,7 @@ export function registerJobRoutes(
     const deviceId = c.get('deviceId');
     const accountKey = c.get('accountKey') ?? deviceId;
 
-    if (!deviceId) {
+    if (!deviceId || !accountKey) {
       return c.json(
         {
           code: 'unauthorized' as const,
@@ -63,14 +106,8 @@ export function registerJobRoutes(
     }
 
     if (db) {
-      const jobRows = await db
-        .select()
-        .from(evaluationJobs)
-        .where(eq(evaluationJobs.jobId, jobId))
-        .limit(1);
-
-      const job = jobRows[0];
-      if (!job) {
+      const lookup = await findAuthorizedJob(db, jobId, deviceId, accountKey);
+      if (lookup.kind === 'not_found') {
         return c.json(
           {
             code: 'not_found' as const,
@@ -80,9 +117,7 @@ export function registerJobRoutes(
           404,
         );
       }
-
-      // Verify ownership
-      if (job.accountKey !== accountKey && job.deviceId !== deviceId) {
+      if (lookup.kind === 'forbidden') {
         return c.json(
           {
             code: 'unauthorized' as const,
@@ -93,7 +128,7 @@ export function registerJobRoutes(
         );
       }
 
-      // Check if refunded
+      const job = lookup.job;
       let quotaRefunded = false;
       if (job.status === 'failed') {
         const res = await db
@@ -104,27 +139,13 @@ export function registerJobRoutes(
         quotaRefunded = res[0]?.status === 'refunded';
       }
 
-      const validStatus: ValidJobStage = (
-        [
-          'queued',
-          'processing_audio',
-          'transcoding',
-          'evaluating',
-          'repairing',
-          'completed',
-          'failed',
-        ].includes(job.status)
-          ? job.status
-          : 'queued'
-      ) as ValidJobStage;
-
       return c.json(
         {
           jobId: job.jobId,
           attemptId: job.attemptId,
-          status: validStatus,
+          status: normalizeJobStage(job.status),
           stage: job.stageDetail ?? job.status,
-          result: job.resultJson ? (job.resultJson as any) : undefined,
+          result: job.resultJson ? (job.resultJson as never) : undefined,
           errorCode: job.errorCode ?? undefined,
           quotaRefunded,
           createdAt: job.createdAt.toISOString(),
@@ -147,40 +168,88 @@ export function registerJobRoutes(
     );
   });
 
-  // GET /v1/jobs/:jobId/events (SSE stream B4.4)
+  // GET /v1/jobs/:jobId/events (Authorized, SSE_ENABLED-gated SSE stream)
   app.get('/v1/jobs/:jobId/events', async (c) => {
+    if (!env.SSE_ENABLED) {
+      return c.json(
+        {
+          code: 'not_found',
+          message: 'Job event streaming is not enabled on this deployment.',
+          requestId: c.get('requestId'),
+        },
+        404,
+      );
+    }
+
     const jobId = c.req.param('jobId');
+    const deviceId = c.get('deviceId');
+    const accountKey = c.get('accountKey') ?? deviceId;
+
+    if (!deviceId || !accountKey) {
+      return c.json(
+        {
+          code: 'unauthorized',
+          message: 'Device auth required',
+          requestId: c.get('requestId'),
+        },
+        401,
+      );
+    }
+
+    if (db) {
+      const initialLookup = await findAuthorizedJob(db, jobId, deviceId, accountKey);
+      if (initialLookup.kind === 'not_found') {
+        return c.json(
+          {
+            code: 'not_found',
+            message: `Job ${jobId} not found.`,
+            requestId: c.get('requestId'),
+          },
+          404,
+        );
+      }
+      if (initialLookup.kind === 'forbidden') {
+        return c.json(
+          {
+            code: 'unauthorized',
+            message: 'Access denied to this evaluation job.',
+            requestId: c.get('requestId'),
+          },
+          401,
+        );
+      }
+    }
 
     return streamSSE(c, async (stream) => {
-      let completed = false;
-      let iterations = 0;
+      let aborted = false;
+      stream.onAbort(() => {
+        aborted = true;
+      });
 
-      while (!completed && iterations < 30) {
+      let iterations = 0;
+      const maxIterations = 30;
+
+      while (!aborted && iterations < maxIterations) {
         iterations += 1;
         if (db) {
-          const jobRows = await db
-            .select()
-            .from(evaluationJobs)
-            .where(eq(evaluationJobs.jobId, jobId))
-            .limit(1);
+          const lookup = await findAuthorizedJob(db, jobId, deviceId, accountKey);
+          if (lookup.kind !== 'ok') {
+            break;
+          }
+          const job = lookup.job;
+          await stream.writeSSE({
+            data: JSON.stringify({
+              jobId: job.jobId,
+              status: job.status,
+              stage: job.stageDetail ?? job.status,
+              result: job.resultJson,
+            }),
+            event: 'job-status',
+            id: String(iterations),
+          });
 
-          const job = jobRows[0];
-          if (job) {
-            await stream.writeSSE({
-              data: JSON.stringify({
-                jobId: job.jobId,
-                status: job.status,
-                stage: job.stageDetail ?? job.status,
-                result: job.resultJson,
-              }),
-              event: 'job-status',
-              id: String(iterations),
-            });
-
-            if (job.status === 'completed' || job.status === 'failed') {
-              completed = true;
-              break;
-            }
+          if (job.status === 'completed' || job.status === 'failed') {
+            break;
           }
         } else {
           await stream.writeSSE({

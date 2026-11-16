@@ -4,6 +4,11 @@ import {
   signUploadProxyParams,
   verifyUploadProxySignature,
 } from '../presign.js';
+import {
+  deleteAudioObjects,
+  deleteAudioObjectsDetailed,
+  IncompleteAudioPurgeError,
+} from '../purge.js';
 import { createAudioS3Client, createPublicSigningS3Client } from '../s3-client.js';
 import { verifyUploadedAudioObject } from '../verify.js';
 
@@ -72,5 +77,55 @@ describe('@mockza/storage S3 operations', () => {
         signature: sig,
       }),
     ).toBe(true);
+  });
+
+  it('tracks per-object DeleteObjects failures instead of claiming silent deletion', async () => {
+    const partialFailClient = {
+      async send() {
+        return {
+          Deleted: [{ Key: 'users/d1/clips/a1/part-1.m4a' }],
+          Errors: [{ Key: 'users/d1/clips/a2/part-1.m4a', Code: 'InternalError', Message: 'boom' }],
+        };
+      },
+    } as never;
+
+    const detail = await deleteAudioObjectsDetailed({
+      client: partialFailClient,
+      bucket: 'mockza-audio-private',
+      objectKeys: ['users/d1/clips/a1/part-1.m4a', 'users/d1/clips/a2/part-1.m4a'],
+    });
+    expect(detail.deletedKeys).toEqual(['users/d1/clips/a1/part-1.m4a']);
+    expect(detail.failedErrors).toHaveLength(1);
+
+    await expect(
+      deleteAudioObjects({
+        client: partialFailClient,
+        bucket: 'mockza-audio-private',
+        objectKeys: ['users/d1/clips/a1/part-1.m4a', 'users/d1/clips/a2/part-1.m4a'],
+      }),
+    ).rejects.toBeInstanceOf(IncompleteAudioPurgeError);
+  });
+
+  it('TD-21: creates distinct object keys for multiple turns in the same part', async () => {
+    const client = createAudioS3Client(dummyEnv);
+    const first = await createAudioPresignUrl({
+      client,
+      bucket: 'mockza-audio-private',
+      deviceId: '11111111-1111-1111-1111-111111111111',
+      attemptId: '22222222-2222-2222-2222-222222222222',
+      partIndex: 1,
+      turnId: 'p1_q1',
+      byteLength: 1024,
+    });
+    const second = await createAudioPresignUrl({
+      client,
+      bucket: 'mockza-audio-private',
+      deviceId: '11111111-1111-1111-1111-111111111111',
+      attemptId: '22222222-2222-2222-2222-222222222222',
+      partIndex: 1,
+      turnId: 'p1_q2',
+      byteLength: 1024,
+    });
+    expect(first.objectKey).not.toBe(second.objectKey);
   });
 });

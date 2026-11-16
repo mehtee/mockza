@@ -82,6 +82,7 @@ class TrendChart extends StatelessWidget {
             targetLineColor: colors.textTertiary.withValues(alpha: 0.5),
             pointFillColor: colors.surface,
             gridColor: colors.borderSubtle,
+            axisLabelColor: colors.textTertiary,
           ),
         ),
       ),
@@ -99,6 +100,7 @@ class _TrendChartPainter extends CustomPainter {
     required this.targetLineColor,
     required this.pointFillColor,
     required this.gridColor,
+    required this.axisLabelColor,
   });
 
   final List<ScoreTrendPoint> points;
@@ -109,30 +111,53 @@ class _TrendChartPainter extends CustomPainter {
   final Color targetLineColor;
   final Color pointFillColor;
   final Color gridColor;
+  final Color axisLabelColor;
 
   @override
   void paint(Canvas canvas, Size size) {
-    const bottomPadding = 20.0;
+    const leftPadding = 28.0;
+    const rightPadding = 8.0;
+    const bottomPadding = 22.0;
     const topPadding = 12.0;
     final chartHeight = size.height - bottomPadding - topPadding;
-    final chartWidth = size.width;
+    final chartWidth = size.width - leftPadding - rightPadding;
 
     final range = maxScore - minScore;
-    if (range <= 0) return;
+    if (range <= 0 || chartWidth <= 0) return;
 
     double getY(double score) {
       final fraction = ((score - minScore) / range).clamp(0.0, 1.0);
       return size.height - bottomPadding - (fraction * chartHeight);
     }
 
-    // Draw horizontal grid lines
+    void drawLabel(String text, Offset offset, {TextAlign align = TextAlign.left}) {
+      TextPainter(
+        text: TextSpan(
+          text: text,
+          style: TextStyle(color: axisLabelColor, fontSize: 10),
+        ),
+        textDirection: TextDirection.ltr,
+        textAlign: align,
+      )
+        ..layout()
+        ..paint(canvas, offset);
+    }
+
+    // Draw horizontal grid lines and Y-axis band labels (`UX-12`)
     final gridPaint = Paint()
       ..color = gridColor
       ..strokeWidth = 1.0;
 
     for (var s = minScore; s <= maxScore; s += 1.0) {
       final y = getY(s);
-      canvas.drawLine(Offset(0, y), Offset(chartWidth, y), gridPaint);
+      canvas.drawLine(
+        Offset(leftPadding, y),
+        Offset(leftPadding + chartWidth, y),
+        gridPaint,
+      );
+      if (s == minScore || s == maxScore || s == ((minScore + maxScore) / 2).roundToDouble()) {
+        drawLabel(s.toStringAsFixed(1), Offset(0, y - 6));
+      }
     }
 
     // Draw dashed target line
@@ -143,21 +168,24 @@ class _TrendChartPainter extends CustomPainter {
 
     const dashWidth = 5.0;
     const dashSpace = 4.0;
-    var startX = 0.0;
-    while (startX < chartWidth) {
+    var startX = leftPadding;
+    while (startX < leftPadding + chartWidth) {
       canvas.drawLine(
         Offset(startX, targetY),
-        Offset(startX + dashWidth, targetY),
+        Offset((startX + dashWidth).clamp(leftPadding, leftPadding + chartWidth), targetY),
         targetPaint,
       );
       startX += dashWidth + dashSpace;
     }
 
     if (points.length < 2) {
-      // Single point
       final pY = getY(points.first.score);
-      final pX = chartWidth / 2;
+      final pX = leftPadding + (chartWidth / 2);
       canvas.drawCircle(Offset(pX, pY), 5, Paint()..color = lineColor);
+      drawLabel(
+        points.first.dateLabel,
+        Offset(pX - 16, size.height - bottomPadding + 4),
+      );
       return;
     }
 
@@ -165,10 +193,20 @@ class _TrendChartPainter extends CustomPainter {
     final dx = chartWidth / (points.length - 1);
     final offsets = <Offset>[];
     for (var i = 0; i < points.length; i++) {
-      final x = i * dx;
+      final x = leftPadding + (i * dx);
       final y = getY(points[i].score);
       offsets.add(Offset(x, y));
     }
+
+    // Draw X-axis start & end date labels (`UX-12`)
+    drawLabel(
+      points.first.dateLabel,
+      Offset(leftPadding, size.height - bottomPadding + 4),
+    );
+    drawLabel(
+      points.last.dateLabel,
+      Offset((leftPadding + chartWidth - 28).clamp(leftPadding, size.width), size.height - bottomPadding + 4),
+    );
 
     // Draw trend line
     final linePath = Path()..moveTo(offsets.first.dx, offsets.first.dy);

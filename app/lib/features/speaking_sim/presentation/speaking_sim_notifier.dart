@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mockza/core/exams/countdown_clock_tracker.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/providers.dart';
@@ -228,12 +229,15 @@ class SpeakingSimState {
 /// SeaweedFS upload, and AI grading enqueueing.
 class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
   Timer? _countdownTimer;
+  CountdownClockTracker? _clockTracker;
+  bool _clockForRecording = false;
   StreamSubscription<double>? _ampSub;
   StreamSubscription<bool>? _playSub;
   String? _previewPath;
   DateTime? _turnStartTime;
   DateTime? _sessionStartTime;
   bool _isDisposed = false;
+  int _initGeneration = 0;
 
   @override
   SpeakingSimState build() {
@@ -249,7 +253,7 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
       sessionId: entropy.nextUuidV4(),
       sessionTitle: 'Speaking Simulator',
       isExamMode: true,
-      isLoadingPack: false,
+      isLoadingPack: true,
       prompts: const <SpeakingPromptSpec>[],
       currentTurnIndex: 0,
       phase: SpeakingPhase.prepOrReady,
@@ -276,7 +280,9 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
   }) async {
     final entropy = ref.read(entropySourceProvider);
     final clock = ref.read(clockProvider);
+    final gen = ++_initGeneration;
     _sessionStartTime = clock.now();
+    _clockTracker ??= CountdownClockTracker(clock: clock);
 
     state = state.copyWith(
       packId: packId,
@@ -287,16 +293,17 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
       recordedTurns: const <String, RecordedSpeakingTurn>{},
     );
 
-    await _loadPackBundle(packId);
+    await _loadPackBundle(packId, gen);
+    if (_isDisposed || gen != _initGeneration) return;
     await _configureMicAndStartPreview();
   }
 
-  Future<void> _loadPackBundle(String packId) async {
+  Future<void> _loadPackBundle(String packId, int gen) async {
     try {
       final sync = ref.read(contentSyncServiceProvider);
       final catalog = ref.read(examCatalogRepositoryProvider);
       final bundleRes = await sync.ensureExamBundle(packId);
-      if (_isDisposed) return;
+      if (_isDisposed || gen != _initGeneration) return;
 
       bundleRes.when(
         success: (bundle) {
@@ -459,23 +466,46 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
 
   void _startPrepCountdown(int seconds) {
     _countdownTimer?.cancel();
+    _clockForRecording = false;
+    (_clockTracker ??= CountdownClockTracker(
+      clock: ref.read(clockProvider),
+    )).start(remainingSeconds: seconds);
     state = state.copyWith(
       phase: SpeakingPhase.prepOrReady,
       remainingSeconds: seconds,
       totalSeconds: seconds,
     );
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _countdownTimer = Timer.periodic(const Duration(milliseconds: 500), (
+      timer,
+    ) {
       if (_isDisposed) {
         timer.cancel();
         return;
       }
-      if (state.remainingSeconds > 1) {
-        state = state.copyWith(remainingSeconds: state.remainingSeconds - 1);
-      } else {
-        timer.cancel();
+      reconcileTimer();
+    });
+  }
+
+  /// Synchronizes countdown state against wall clock after resume or tick (`TD-37`).
+  void reconcileTimer() {
+    final tracker = _clockTracker;
+    if (_isDisposed || tracker == null) return;
+    if (state.phase == SpeakingPhase.recorded) return;
+    if (!_clockForRecording && (state.currentPrompt?.prepSeconds ?? 0) <= 0) {
+      return;
+    }
+    final rem = tracker.currentRemaining();
+    if (rem != state.remainingSeconds) {
+      state = state.copyWith(remainingSeconds: rem);
+    }
+    if (rem <= 0) {
+      _countdownTimer?.cancel();
+      if (_clockForRecording && state.phase == SpeakingPhase.recording) {
+        unawaited(finishResponse());
+      } else if (!_clockForRecording && state.phase == SpeakingPhase.prepOrReady) {
         unawaited(startSpeaking());
       }
-    });
+    }
   }
 
   /// Starts active microphone recording for the current Speaking turn.
@@ -509,6 +539,10 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
     startRes.when(
       success: (_) {
         _turnStartTime = ref.read(clockProvider).now();
+        _clockForRecording = true;
+        (_clockTracker ??= CountdownClockTracker(
+          clock: ref.read(clockProvider),
+        )).start(remainingSeconds: speakSecs);
         state = state.copyWith(
           hasMicPermission: true,
           isPreviewingMic: false,
@@ -520,20 +554,16 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
           clearError: true,
         );
         _attachAmplitudeListener();
-        _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-          if (_isDisposed) {
-            timer.cancel();
-            return;
-          }
-          if (state.remainingSeconds > 1) {
-            state = state.copyWith(
-              remainingSeconds: state.remainingSeconds - 1,
-            );
-          } else {
-            timer.cancel();
-            unawaited(finishResponse());
-          }
-        });
+        _countdownTimer = Timer.periodic(
+          const Duration(milliseconds: 500),
+          (timer) {
+            if (_isDisposed) {
+              timer.cancel();
+              return;
+            }
+            reconcileTimer();
+          },
+        );
       },
       failure: (f) {
         state = state.copyWith(
@@ -570,11 +600,16 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
       state.recordedTurns,
     );
     if (prompt != null && recordedPath != null && recordedPath.isNotEmpty) {
+      final durablePath = await persistRecordedAudioClip(
+        recordedPath,
+        '${state.sessionId}_${prompt.promptId}',
+      );
+      if (_isDisposed) return;
       updatedTurns[prompt.promptId] = RecordedSpeakingTurn(
         partIndex: prompt.partIndex,
         promptId: prompt.promptId,
         promptText: prompt.promptText,
-        localPathOrUrl: recordedPath,
+        localPathOrUrl: durablePath,
         durationMs: elapsedMs,
         contentType: recorder.activeContentType,
       );
@@ -716,67 +751,28 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
       final orderedTurns = state.recordedTurns.values.toList()
         ..sort((a, b) => a.partIndex.compareTo(b.partIndex));
 
-      await authSession.ensureAuthenticated();
+      final canonicalPartSequence = orderedTurns.length >= 3
+          ? 'full'
+          : 'part${orderedTurns.first.partIndex}';
 
-      final uploadedTurnsPayload =
-          <
-            ({
-              int partIndex,
-              String promptText,
-              String objectKey,
-              int? durationMs,
-            })
-          >[];
-      final outboxTurnsPayload = <Map<String, dynamic>>[];
-      String? primaryObjectKey;
+      final turnEntries = orderedTurns.map((turn) {
+        final recordingId = entropy.nextUuidV4();
+        return (turn: turn, recordingId: recordingId);
+      }).toList(growable: false);
 
-      for (final turn in orderedTurns) {
-        outboxTurnsPayload.add({
-          'partIndex': turn.partIndex,
-          'promptText': turn.promptText,
-          'localFilePath': turn.localPathOrUrl,
-          'contentType': turn.contentType,
-          'durationMs': turn.durationMs,
-        });
-
-        final bytes = await readRecordedAudioBytes(turn.localPathOrUrl);
-        String? uploadedKey;
-        if (bytes != null && bytes.isNotEmpty) {
-          final presignRes = await gradingGateway.presignAudioUpload(
-            attemptId: attemptId,
-            partIndex: turn.partIndex,
-            byteLength: bytes.length,
-            contentType: turn.contentType,
-          );
-          if (presignRes.isSuccess) {
-            final target = presignRes.valueOrNull!;
-            final putRes = await gradingGateway.uploadAudioBytes(
-              uploadUrl: target.uploadUrl,
-              bytes: bytes,
-              contentType: turn.contentType,
-            );
-            if (putRes.isSuccess) {
-              uploadedKey = target.objectKey;
-              primaryObjectKey ??= target.objectKey;
-              uploadedTurnsPayload.add((
-                partIndex: turn.partIndex,
-                promptText: turn.promptText,
-                objectKey: target.objectKey,
-                durationMs: turn.durationMs,
-              ));
-            }
-          }
-        }
-
-        await attemptRepo.saveAudioRecording(
-          recordingId: entropy.nextUuidV4(),
-          attemptId: attemptId,
-          partIndex: turn.partIndex,
-          localFilePath: turn.localPathOrUrl,
-          durationMs: turn.durationMs,
-          remoteObjectKey: uploadedKey,
-        );
-      }
+      final outboxTurnsPayload = turnEntries
+          .map(
+            (e) => <String, Object?>{
+              'recordingId': e.recordingId,
+              'turnId': e.turn.promptId,
+              'partIndex': e.turn.partIndex,
+              'promptText': e.turn.promptText,
+              'localFilePath': e.turn.localPathOrUrl,
+              'contentType': e.turn.contentType,
+              'durationMs': e.turn.durationMs,
+            },
+          )
+          .toList(growable: false);
 
       final submissionJson = jsonEncode({
         'packId': state.packId,
@@ -791,13 +787,37 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
               (acc, t) => acc + (t.durationMs ~/ 1000),
             );
 
-      await attemptRepo.saveLocalSubmission(
+      final outboxPayloadMap = <String, Object?>{
+        'attemptId': attemptId,
+        'packId': state.packId,
+        'examId': examId,
+        'partSequence': canonicalPartSequence,
+        'turns': outboxTurnsPayload,
+      };
+
+      // Persist parent Attempt, child AudioRecordings, and Outbox entry atomically BEFORE network I/O (`TD-18` & `TD-43`).
+      final outboxId = await attemptRepo.saveDurableSubmissionWithOutbox(
         attemptId: attemptId,
         packId: state.packId,
         skill: SkillKind.speaking,
         submissionJson: submissionJson,
+        actionType: 'submit_speaking',
+        outboxPayloadJson: jsonEncode(outboxPayloadMap),
         examId: examId,
         startedAtUtcMs: _sessionStartTime?.toUtc().millisecondsSinceEpoch,
+        durationSeconds: elapsedSeconds,
+        usedStudyMode: !state.isExamMode,
+        recordings: turnEntries
+            .map(
+              (e) => (
+                recordingId: e.recordingId,
+                partIndex: e.turn.partIndex,
+                localFilePath: e.turn.localPathOrUrl,
+                durationMs: e.turn.durationMs,
+                remoteObjectKey: null,
+              ),
+            )
+            .toList(growable: false),
       );
 
       await progressRepo.logTodayActivity(
@@ -805,16 +825,73 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
         completedItems: 1,
       );
 
-      if (uploadedTurnsPayload.isNotEmpty && primaryObjectKey != null) {
+      await authSession.ensureAuthenticated();
+
+      final uploadedTurnsPayload =
+          <
+            ({
+              int partIndex,
+              String promptText,
+              String objectKey,
+              int? durationMs,
+            })
+          >[];
+      String? primaryObjectKey;
+
+      for (var i = 0; i < turnEntries.length; i++) {
+        final entry = turnEntries[i];
+        final turn = entry.turn;
+        final bytes = await readRecordedAudioBytes(turn.localPathOrUrl);
+        if (bytes == null || bytes.isEmpty) continue;
+
+        final presignRes = await gradingGateway.presignAudioUpload(
+          attemptId: attemptId,
+          partIndex: turn.partIndex,
+          turnId: turn.promptId,
+          byteLength: bytes.length,
+          contentType: turn.contentType,
+        );
+        if (presignRes.isSuccess) {
+          final target = presignRes.valueOrNull!;
+          final putRes = await gradingGateway.uploadAudioBytes(
+            uploadUrl: target.uploadUrl,
+            bytes: bytes,
+            contentType: turn.contentType,
+          );
+          if (putRes.isSuccess) {
+            primaryObjectKey ??= target.objectKey;
+            outboxTurnsPayload[i]['objectKey'] = target.objectKey;
+            await attemptRepo.updateAudioRecordingRemoteKey(
+              recordingId: entry.recordingId,
+              remoteObjectKey: target.objectKey,
+            );
+            uploadedTurnsPayload.add((
+              partIndex: turn.partIndex,
+              promptText: turn.promptText,
+              objectKey: target.objectKey,
+              durationMs: turn.durationMs,
+            ));
+          }
+        }
+      }
+
+      if (outboxId != null && uploadedTurnsPayload.isNotEmpty) {
+        await attemptRepo.updateOutboxPayload(
+          id: outboxId,
+          payloadJson: jsonEncode(outboxPayloadMap),
+        );
+      }
+
+      // Only submit when EVERY recorded turn succeeded (`TD-19`).
+      if (uploadedTurnsPayload.length == orderedTurns.length &&
+          primaryObjectKey != null) {
         final enqueueRes = await gradingGateway.enqueueSpeakingEvaluation(
           attemptId: attemptId,
           packId: state.packId,
           audioObjectKey: primaryObjectKey,
           partIndex: orderedTurns.first.partIndex,
           examId: examId,
-          partSequence: orderedTurns.length >= 3
-              ? 'full'
-              : 'part_${orderedTurns.first.partIndex}',
+          partSequence: canonicalPartSequence,
           turns: uploadedTurnsPayload,
         );
         if (enqueueRes.isSuccess) {
@@ -823,6 +900,9 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
             status: AttemptStatus.queuedRemote,
             remoteJobId: enqueueRes.valueOrNull,
           );
+          if (outboxId != null) {
+            await attemptRepo.deleteOutboxItem(outboxId);
+          }
           if (!_isDisposed) {
             state = state.copyWith(isSubmitting: false);
           }
@@ -830,19 +910,8 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
         }
       }
 
-      // Offline or transient upload/enqueue failure: queue in outbox for auto-retry.
-      await attemptRepo.enqueueOutboxAction(
-        actionType: 'submit_speaking',
-        payloadJson: jsonEncode({
-          'attemptId': attemptId,
-          'packId': state.packId,
-          'examId': examId,
-          'partSequence': orderedTurns.length >= 3
-              ? 'full'
-              : 'part_${orderedTurns.first.partIndex}',
-          'turns': outboxTurnsPayload,
-        }),
-      );
+      // Retain checkpointed outbox item and schedule foreground retry (`TD-42`).
+      ref.read(outboxSyncServiceProvider).notifyWorkEnqueued();
       if (!_isDisposed) {
         state = state.copyWith(isSubmitting: false);
       }
@@ -863,6 +932,16 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
     _countdownTimer?.cancel();
     unawaited(_ampSub?.cancel());
     unawaited(_playSub?.cancel());
+    try {
+      unawaited(ref.read(audioRecorderGatewayProvider).stopRecording());
+    } on Object {
+      // Ignore if recorder uninitialized.
+    }
+    try {
+      unawaited(ref.read(audioPlayerGatewayProvider).pause());
+    } on Object {
+      // Ignore if player uninitialized.
+    }
     if (_previewPath != null) {
       unawaited(deleteRecordedAudioClip(_previewPath!));
     }

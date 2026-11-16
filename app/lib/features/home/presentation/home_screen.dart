@@ -129,6 +129,7 @@ class HomeScreen extends ConsumerWidget {
                         ],
                       ),
                     ),
+                    const SizedBox(width: SpacingTokens.sm),
                     MzChip(
                       label: targetChipText,
                       variant: MzChipVariant.target,

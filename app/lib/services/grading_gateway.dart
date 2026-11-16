@@ -88,6 +88,7 @@ abstract interface class GradingGateway {
     required String attemptId,
     required int partIndex,
     required int byteLength,
+    String? turnId,
     String contentType = 'audio/mp4',
   });
 
@@ -115,6 +116,11 @@ abstract interface class GradingGateway {
   /// Checks whether a remote Speaking evaluation job has completed.
   Future<Result<SpeakingEvaluationResult?, Failure>> pollSpeakingResult({
     required String jobId,
+  });
+
+  /// Re-queues a terminally failed remote evaluation job (`TD-16`).
+  Future<Result<String, Failure>> retryEvaluation({
+    required String attemptId,
   });
 
   /// Explains why an answer was incorrect or addresses learner confusion in Reading/Listening.
@@ -241,6 +247,7 @@ final class HttpGradingGateway implements GradingGateway {
     required String attemptId,
     required int partIndex,
     required int byteLength,
+    String? turnId,
     String contentType = 'audio/mp4',
   }) async {
     try {
@@ -249,6 +256,7 @@ final class HttpGradingGateway implements GradingGateway {
         data: <String, Object?>{
           'attemptId': attemptId,
           'partIndex': partIndex,
+          if (turnId != null && turnId.isNotEmpty) 'turnId': turnId,
           'byteLength': byteLength,
           'contentType': contentType,
         },
@@ -324,7 +332,7 @@ final class HttpGradingGateway implements GradingGateway {
           'attemptId': attemptId,
           'packId': packId,
           'examId': _normalizeBackendExamId(examId),
-          'partSequence': partSequence,
+          'partSequence': _normalizePartSequence(partSequence),
           'turns': resolvedTurns
               .map(
                 (t) => <String, Object?>{
@@ -365,6 +373,27 @@ final class HttpGradingGateway implements GradingGateway {
           );
         }
         return Ok(value.asSpeakingResult());
+    }
+  }
+
+  @override
+  Future<Result<String, Failure>> retryEvaluation({
+    required String attemptId,
+  }) async {
+    try {
+      final response = await _dio.post<Map<String, Object?>>(
+        '/v1/evaluate/retry',
+        data: <String, Object?>{'attemptId': attemptId},
+      );
+      final jobId = response.data?['jobId'] as String?;
+      if (jobId == null || jobId.isEmpty) {
+        return const Err(
+          ValidationFailure('Missing jobId in retry evaluation response'),
+        );
+      }
+      return Ok(jobId);
+    } on DioException catch (e) {
+      return Err(_mapDioException(e));
     }
   }
 
@@ -461,6 +490,14 @@ final class HttpGradingGateway implements GradingGateway {
 
   static String _normalizeBackendExamId(String raw) =>
       raw.contains('general') ? 'ielts_general' : 'ielts_academic';
+
+  static String _normalizePartSequence(String raw) => switch (raw.trim()) {
+    'part_1' || 'part1' => 'part1',
+    'part_2' || 'part2' => 'part2',
+    'part_3' || 'part3' => 'part3',
+    'diagnostic' => 'diagnostic',
+    _ => 'full',
+  };
 
   static List<CriterionScore> _parseCriteria(
     Object? raw, {
@@ -691,7 +728,7 @@ final class HttpGradingGateway implements GradingGateway {
       );
     }
     if (status == 402) {
-      return UnauthorizedFailure(
+      return EntitlementRequiredFailure(
         serverMessage ?? 'Pro subscription required for this feature',
       );
     }

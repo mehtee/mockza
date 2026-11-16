@@ -103,8 +103,8 @@ abstract final class Sm2Scheduler {
 
     final nextReps = current.repetitions + 1;
     final nextInterval = switch (nextReps) {
-      1 => 1,
-      2 => 6,
+      1 => q >= 5 ? 4 : 1,
+      2 => q >= 5 ? 8 : 6,
       _ => (current.intervalDays * nextEaseDouble).round().clamp(1, 3650),
     };
 
@@ -116,41 +116,15 @@ abstract final class Sm2Scheduler {
     );
   }
 
-  /// Calculates dynamic preview intervals for the 4 SM-2 buttons.
-  /// Formatted as user-friendly strings (e.g. `'1m'`, `'1d'`, `'4d'`, `'7d'`).
+  /// Calculates dynamic preview intervals for the 4 SM-2 buttons strictly matching
+  /// what [schedule] will persist (`TD-61`, `BF-11`).
   static Map<ReviewQuality, String> previewIntervals(SrsCardState current) {
-    // Again: immediate review / next session
-    final againStr = current.repetitions == 0 ? '1m' : '10m';
-
-    // Hard: interval 1 day if new, else 1.2x
-    final hardDays = current.repetitions == 0
-        ? 1
-        : (current.intervalDays * 1.2).round().clamp(1, 365);
-    final hardStr = formatDays(hardDays);
-
-    // Good: standard next interval
-    final goodDays = switch (current.repetitions) {
-      0 => 1,
-      1 => 6,
-      _ => (current.intervalDays * (current.easeFactorMilli / 1000.0)).round(),
-    };
-    final goodStr = formatDays(goodDays);
-
-    // Easy: standard interval + bonus
-    final easyDays = switch (current.repetitions) {
-      0 => 4,
-      1 => 8,
-      _ =>
-        (current.intervalDays * ((current.easeFactorMilli + 150) / 1000.0))
-            .round(),
-    };
-    final easyStr = formatDays(easyDays);
-
+    const anchor = SerialDay(0);
     return <ReviewQuality, String>{
-      ReviewQuality.again: againStr,
-      ReviewQuality.hard: hardStr,
-      ReviewQuality.good: goodStr,
-      ReviewQuality.easy: easyStr,
+      for (final q in ReviewQuality.values)
+        q: formatDays(
+          schedule(current: current, quality: q, today: anchor).intervalDays,
+        ),
     };
   }
 

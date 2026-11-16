@@ -295,6 +295,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Full Mock Exam'**
   String get fullMockTitle;
+
+  /// No description provided for @startAudioLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Start Audio'**
+  String get startAudioLabel;
+
+  /// No description provided for @exportStudyDataLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Export Study Data (JSON)'**
+  String get exportStudyDataLabel;
+
+  /// No description provided for @comingSoonLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Soon'**
+  String get comingSoonLabel;
+
+  /// No description provided for @partialEstimateLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Partial Estimate'**
+  String get partialEstimateLabel;
+
+  /// No description provided for @readingPassagesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading Passages'**
+  String get readingPassagesLabel;
 }
 
 class _AppLocalizationsDelegate

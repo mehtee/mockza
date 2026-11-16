@@ -23,6 +23,23 @@ export interface AudioPresignResult {
   expiresInSeconds: number;
 }
 
+/** Builds a deterministic, collision-free audio clip object key scoped to device, attempt, part, and optional turnId. */
+export function buildAudioClipObjectKey(params: {
+  deviceId: string;
+  attemptId: string;
+  partIndex: number;
+  contentType?: SupportedAudioContentType;
+  turnId?: string;
+}): string {
+  const ext = extensionForAudioContentType(params.contentType ?? 'audio/mp4');
+  const safeTurn = params.turnId?.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const fileName =
+    safeTurn && safeTurn.length > 0
+      ? `part-${params.partIndex}-${safeTurn}.${ext}`
+      : `part-${params.partIndex}.${ext}`;
+  return `users/${params.deviceId}/clips/${params.attemptId}/${fileName}`;
+}
+
 /** Creates an S3 presigned PUT URL (and locked objectKey) for private device audio uploads. */
 export async function createAudioPresignUrl(params: {
   client: S3Client;
@@ -30,14 +47,20 @@ export async function createAudioPresignUrl(params: {
   deviceId: string;
   attemptId: string;
   partIndex: number;
+  turnId?: string;
   byteLength: number;
   contentType?: SupportedAudioContentType;
   expiresInSeconds?: number;
 }): Promise<AudioPresignResult> {
   const expiresInSeconds = params.expiresInSeconds ?? 300;
   const contentType = params.contentType ?? 'audio/mp4';
-  const ext = extensionForAudioContentType(contentType);
-  const objectKey = `users/${params.deviceId}/clips/${params.attemptId}/part-${params.partIndex}.${ext}`;
+  const objectKey = buildAudioClipObjectKey({
+    deviceId: params.deviceId,
+    attemptId: params.attemptId,
+    partIndex: params.partIndex,
+    contentType,
+    turnId: params.turnId,
+  });
 
   const command = new PutObjectCommand({
     Bucket: params.bucket,

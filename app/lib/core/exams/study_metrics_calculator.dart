@@ -14,6 +14,8 @@ class EstimatedBandSummary {
     required this.scaleMax,
     required this.sampleSize,
     required this.diagnosticRecommended,
+    this.attemptedSkillsCount = 0,
+    this.isFullFourSkillEstimate = false,
     this.targetBand,
     this.changeThisMonth,
     this.scaleLabel = 'Band',
@@ -28,11 +30,19 @@ class EstimatedBandSummary {
   }) : overallBand = null,
        isEstimated = true,
        sampleSize = 0,
+       attemptedSkillsCount = 0,
+       isFullFourSkillEstimate = false,
        diagnosticRecommended = true,
        changeThisMonth = null;
 
   /// Overall estimated score (e.g. 6.5 for IELTS, 65 for PTE). Null if unestimated.
   final double? overallBand;
+
+  /// Number of distinct core IELTS skills (`0..4`) contributing to [overallBand].
+  final int attemptedSkillsCount;
+
+  /// True only when all 4 core IELTS skills contribute (`TD-35`).
+  final bool isFullFourSkillEstimate;
 
   /// Whether this score is an AI/heuristic estimate.
   final bool isEstimated;
@@ -243,6 +253,8 @@ abstract final class StudyMetricsCalculator {
       scaleMin: track.minScore,
       scaleMax: track.maxScore,
       sampleSize: scoredAttempts.length,
+      attemptedSkillsCount: skillScores.length,
+      isFullFourSkillEstimate: skillScores.length >= 4,
       diagnosticRecommended: scoredAttempts.length < 4,
       targetBand: targetBand,
       changeThisMonth: changeThisMonth,

@@ -173,7 +173,7 @@ class HomeNotifier extends Notifier<HomeState> {
     final progressRepo = ref.read(progressRepositoryProvider);
     final catalogRepo = ref.read(examCatalogRepositoryProvider);
 
-    _attemptsSub = attemptRepo.watchRecentAttempts(limit: 100).listen(
+    _attemptsSub = attemptRepo.watchRecentAttempts(limit: 500).listen(
       (attempts) {
         _latestAttempts = attempts;
         _recomputeDashboard();
@@ -205,12 +205,14 @@ class HomeNotifier extends Notifier<HomeState> {
     final nowUtcMs = now.toUtc().millisecondsSinceEpoch;
 
     final scoredAttempts = _latestAttempts
-        .where((a) => a.overallBand != null)
+        .where(
+          (a) => a.overallBand != null && a.skill != SkillKind.vocabulary,
+        )
         .map(
           (a) => (
             score: a.overallBand!,
             skill: a.skill,
-            completedAtUtcMs: a.updatedAt.millisecondsSinceEpoch,
+            completedAtUtcMs: a.effectiveCompletedAtUtcMs,
           ),
         )
         .toList(growable: false);
@@ -234,7 +236,13 @@ class HomeNotifier extends Notifier<HomeState> {
     final studyDays = <SerialDay>{
       for (final log in _latestLogs)
         if (log.studySeconds > 0 || log.completedItems > 0) log.serialDay,
-      for (final a in _latestAttempts) SerialDay.fromUtcDateTime(a.updatedAt),
+      for (final a in _latestAttempts)
+        SerialDay.fromUtcDateTime(
+          DateTime.fromMillisecondsSinceEpoch(
+            a.effectiveCompletedAtUtcMs,
+            isUtc: true,
+          ),
+        ),
     };
 
     final streak = StudyMetricsCalculator.calculateCurrentStreak(

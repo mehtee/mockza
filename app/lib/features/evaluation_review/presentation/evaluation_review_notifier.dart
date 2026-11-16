@@ -283,12 +283,15 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
   Timer? _pollTimer;
   bool _isDisposed = false;
   bool _isPollingRequestInFlight = false;
+  int _activeLoadGen = 0;
 
   @override
   EvaluationReviewState build() {
     _isDisposed = false;
+    _activeLoadGen = 0;
     ref.onDispose(() {
       _isDisposed = true;
+      _activeLoadGen++;
       _stopPolling();
     });
     return const EvaluationReviewState(
@@ -310,6 +313,8 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
   /// Loads [attemptId] from Drift DB, computes real comparison, and polls AI job if needed.
   Future<void> loadAttempt(String attemptId) async {
     _stopPolling();
+    _isPollingRequestInFlight = false;
+    final gen = ++_activeLoadGen;
     if (_isDisposed) return;
 
     state = state.copyWith(
@@ -341,7 +346,7 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
     final row = await attemptRepo.getAttemptRow(attemptId);
     final profile = await profileRepo.loadOrInitializePrimary();
 
-    if (_isDisposed) return;
+    if (_isDisposed || gen != _activeLoadGen) return;
 
     if (row == null) {
       state = state.copyWith(
@@ -426,7 +431,7 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
       currentTotalCount: totalCount,
     );
 
-    if (_isDisposed) return;
+    if (_isDisposed || gen != _activeLoadGen) return;
 
     state = state.copyWith(
       attemptId: row.attemptId,
@@ -457,16 +462,18 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
         status != AttemptStatus.failedRetryable) {
       final jobId = row.remoteJobId;
       if (jobId != null && jobId.isNotEmpty) {
-        _startPolling(jobId);
+        _startPolling(jobId, expectedAttemptId: row.attemptId, requestGen: gen);
       } else {
-        unawaited(_flushOutboxAndReload(row.attemptId));
+        unawaited(_flushOutboxAndReload(row.attemptId, requestGen: gen));
       }
     }
   }
 
-  /// Flushes outbox queue and retries remote grading or reloads status.
+  /// Flushes outbox queue or triggers a genuine server retry on a failed remote job (`TD-16`).
   Future<void> retryEvaluation() async {
     if (state.isRetrying || state.attemptId.isEmpty) return;
+    final targetAttemptId = state.attemptId;
+    final gen = _activeLoadGen;
     state = state.copyWith(
       isRetrying: true,
       clearErrorMessage: true,
@@ -474,41 +481,98 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
     );
     try {
       await ref.read(authSessionServiceProvider).ensureAuthenticated();
+      if (_isDisposed || gen != _activeLoadGen || !ref.mounted) return;
       await ref.read(outboxSyncServiceProvider).processPendingQueue();
-      final row = await ref
-          .read(attemptRepositoryProvider)
-          .getAttemptRow(state.attemptId);
-      if (_isDisposed) return;
-      if (row != null &&
-          row.remoteJobId != null &&
+      if (_isDisposed || gen != _activeLoadGen || !ref.mounted) return;
+
+      final attemptRepo = ref.read(attemptRepositoryProvider);
+      final row = await attemptRepo.getAttemptRow(targetAttemptId);
+      if (_isDisposed || gen != _activeLoadGen || row == null) return;
+
+      final currentStatus = AttemptStatus.values.byName(row.status);
+      if (currentStatus == AttemptStatus.failedRetryable &&
+          row.evaluationJson == null) {
+        final retryRes = await ref
+            .read(gradingGatewayProvider)
+            .retryEvaluation(attemptId: targetAttemptId);
+        if (_isDisposed || gen != _activeLoadGen) return;
+
+        switch (retryRes) {
+          case Ok<String, Failure>(:final value):
+            await attemptRepo.updateAttemptEvaluation(
+              attemptId: targetAttemptId,
+              status: AttemptStatus.queuedRemote,
+              remoteJobId: value,
+            );
+            if (_isDisposed || gen != _activeLoadGen) return;
+            await loadAttempt(targetAttemptId);
+            return;
+          case Err<String, Failure>(:final failure):
+            state = state.copyWith(
+              isRetrying: false,
+              errorMessage: 'Retry failed: ${failure.message}',
+            );
+            return;
+        }
+      }
+
+      if (row.remoteJobId != null &&
           row.remoteJobId!.isNotEmpty &&
           row.evaluationJson == null) {
-        await pollNow(row.remoteJobId!);
-        if (!_isDisposed && state.isPendingRemote) {
-          _startPolling(row.remoteJobId!);
+        await pollNow(
+          row.remoteJobId!,
+          expectedAttemptId: targetAttemptId,
+          requestGen: gen,
+        );
+        if (!_isDisposed && gen == _activeLoadGen && state.isPendingRemote) {
+          _startPolling(
+            row.remoteJobId!,
+            expectedAttemptId: targetAttemptId,
+            requestGen: gen,
+          );
         }
       } else {
-        await loadAttempt(state.attemptId);
+        await loadAttempt(targetAttemptId);
       }
     } finally {
-      if (!_isDisposed) {
+      if (!_isDisposed && gen == _activeLoadGen) {
         state = state.copyWith(isRetrying: false);
       }
     }
   }
 
   /// Manually checks [jobId] status once via `GET /v1/jobs/:jobId`.
-  Future<void> pollNow(String jobId) async {
-    if (_isDisposed || _isPollingRequestInFlight || jobId.isEmpty) return;
+  Future<void> pollNow(
+    String jobId, {
+    String? expectedAttemptId,
+    int? requestGen,
+  }) async {
+    final boundAttemptId = expectedAttemptId ?? state.attemptId;
+    final boundGen = requestGen ?? _activeLoadGen;
+    if (_isDisposed ||
+        _isPollingRequestInFlight ||
+        jobId.isEmpty ||
+        boundAttemptId.isEmpty) {
+      return;
+    }
     _isPollingRequestInFlight = true;
     try {
       final res = await ref
           .read(gradingGatewayProvider)
           .pollJobStatus(jobId: jobId);
-      if (_isDisposed) return;
+      // Drop stale responses if user navigated to another attempt while request was in flight (`TD-17`).
+      if (_isDisposed ||
+          boundGen != _activeLoadGen ||
+          state.attemptId != boundAttemptId) {
+        return;
+      }
       switch (res) {
         case Ok<JobPollSnapshot, Failure>(:final value):
-          await _applyPollSnapshot(value);
+          await _applyPollSnapshot(
+            value,
+            expectedAttemptId: boundAttemptId,
+            requestGen: boundGen,
+          );
         case Err<JobPollSnapshot, Failure>(:final failure):
           state = state.copyWith(
             pollStageLabel: 'Waiting for network (${failure.message})',
@@ -634,14 +698,26 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
     return buf.toString().trim();
   }
 
-  Future<void> _flushOutboxAndReload(String attemptId) async {
+  Future<void> _flushOutboxAndReload(
+    String attemptId, {
+    required int requestGen,
+  }) async {
     await ref.read(authSessionServiceProvider).ensureAuthenticated();
     await ref.read(outboxSyncServiceProvider).processPendingQueue();
-    if (_isDisposed) return;
+    if (_isDisposed ||
+        requestGen != _activeLoadGen ||
+        state.attemptId != attemptId) {
+      return;
+    }
     final refreshed = await ref
         .read(attemptRepositoryProvider)
         .getAttemptRow(attemptId);
-    if (_isDisposed || refreshed == null) return;
+    if (_isDisposed ||
+        refreshed == null ||
+        requestGen != _activeLoadGen ||
+        state.attemptId != attemptId) {
+      return;
+    }
     if (refreshed.remoteJobId != null &&
         refreshed.remoteJobId!.isNotEmpty &&
         refreshed.evaluationJson == null) {
@@ -653,15 +729,35 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
           refreshed.remoteJobId,
         ),
       );
-      _startPolling(refreshed.remoteJobId!);
+      _startPolling(
+        refreshed.remoteJobId!,
+        expectedAttemptId: attemptId,
+        requestGen: requestGen,
+      );
     }
   }
 
-  void _startPolling(String jobId) {
+  void _startPolling(
+    String jobId, {
+    required String expectedAttemptId,
+    required int requestGen,
+  }) {
     _stopPolling();
-    unawaited(pollNow(jobId));
+    unawaited(
+      pollNow(
+        jobId,
+        expectedAttemptId: expectedAttemptId,
+        requestGen: requestGen,
+      ),
+    );
     _pollTimer = Timer.periodic(const Duration(milliseconds: 2500), (_) {
-      unawaited(pollNow(jobId));
+      unawaited(
+        pollNow(
+          jobId,
+          expectedAttemptId: expectedAttemptId,
+          requestGen: requestGen,
+        ),
+      );
     });
   }
 
@@ -670,7 +766,20 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
     _pollTimer = null;
   }
 
-  Future<void> _applyPollSnapshot(JobPollSnapshot snapshot) async {
+  Future<void> _applyPollSnapshot(
+    JobPollSnapshot snapshot, {
+    required String expectedAttemptId,
+    required int requestGen,
+  }) async {
+    if (_isDisposed ||
+        requestGen != _activeLoadGen ||
+        state.attemptId != expectedAttemptId) {
+      return;
+    }
+    if (snapshot.attemptId.isNotEmpty &&
+        snapshot.attemptId != expectedAttemptId) {
+      return;
+    }
     final attemptRepo = ref.read(attemptRepositoryProvider);
     if (snapshot.status == 'completed' && snapshot.rawResultJson != null) {
       _stopPolling();
@@ -678,13 +787,18 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
       final rawBand = (raw['overallBand'] as num?)?.toDouble();
 
       await attemptRepo.updateAttemptEvaluation(
-        attemptId: state.attemptId,
+        attemptId: expectedAttemptId,
         status: AttemptStatus.scored,
         remoteJobId: snapshot.jobId,
         evaluationJson: jsonEncode(raw),
         overallBand: rawBand,
       );
-      await loadAttempt(state.attemptId);
+      if (_isDisposed ||
+          requestGen != _activeLoadGen ||
+          state.attemptId != expectedAttemptId) {
+        return;
+      }
+      await loadAttempt(expectedAttemptId);
       return;
     }
 
@@ -692,12 +806,16 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
       _stopPolling();
       final errorText = snapshot.errorCode ?? 'Evaluation failed on worker';
       await attemptRepo.updateAttemptEvaluation(
-        attemptId: state.attemptId,
+        attemptId: expectedAttemptId,
         status: AttemptStatus.failedRetryable,
         remoteJobId: snapshot.jobId,
         errorCode: errorText,
       );
-      if (_isDisposed) return;
+      if (_isDisposed ||
+          requestGen != _activeLoadGen ||
+          state.attemptId != expectedAttemptId) {
+        return;
+      }
       state = state.copyWith(
         status: AttemptStatus.failedRetryable,
         errorMessage: errorText,
@@ -707,7 +825,11 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
       return;
     }
 
-    if (_isDisposed) return;
+    if (_isDisposed ||
+        requestGen != _activeLoadGen ||
+        state.attemptId != expectedAttemptId) {
+      return;
+    }
     state = state.copyWith(
       pollStageLabel: _formatWorkerStage(snapshot.status, snapshot.stage),
     );

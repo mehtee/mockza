@@ -144,6 +144,31 @@ final class ExamCatalogRepository {
     return controller.stream;
   }
 
+  /// Looks up a single manifest pack summary by [packId].
+  Future<InstalledExamPack?> getInstalledPackById(String packId) async {
+    final row = await _db.catalogDao.getPackById(packId);
+    if (row == null) return null;
+    final payload = await _db.catalogDao.getExamPayload(packId);
+    return InstalledExamPack(
+      packId: row.packId,
+      track: row.track,
+      skill: SkillKind.values.firstWhere(
+        (e) => e.name == row.skill,
+        orElse: () => SkillKind.reading,
+      ),
+      title: row.title,
+      description: row.description,
+      durationSeconds: row.durationSeconds,
+      questionCount: row.questionCount,
+      accent: row.accent,
+      mediaUrl: row.mediaUrl,
+      version: row.version,
+      sha256: row.sha256,
+      localPath: row.localPath,
+      isCachedOffline: payload != null,
+    );
+  }
+
   /// Registers or updates a single catalog pack entry.
   Future<void> registerPack({
     required String packId,
@@ -383,10 +408,17 @@ final class ExamCatalogRepository {
         })
         .toList(growable: false);
 
+    final rawAudioUrl = (pack['mediaUrl'] as String?) ?? '';
+    final cachedPaths = bundle['cachedMediaPaths'];
+    final resolvedAudioPath =
+        (cachedPaths is Map && cachedPaths[rawAudioUrl] is String)
+        ? cachedPaths[rawAudioUrl] as String
+        : rawAudioUrl;
+
     return ListeningPackSpec(
       packId: (pack['packId'] as String?) ?? '',
       title: (pack['title'] as String?) ?? 'Listening Test',
-      audioRelativePath: (pack['mediaUrl'] as String?) ?? '',
+      audioRelativePath: resolvedAudioPath,
       sha256: (pack['sha256'] as String?) ?? '',
       sections: sections,
       durationSeconds: (pack['durationSeconds'] as num?)?.toInt() ?? 1800,
@@ -399,6 +431,7 @@ final class ExamCatalogRepository {
         (bundle['pack'] as Map<String, dynamic>?) ?? const <String, dynamic>{};
     final rawSections =
         (bundle['sections'] as List<dynamic>?) ?? const <dynamic>[];
+    final cachedInline = bundle['cachedMediaInline'];
     return rawSections
         .whereType<Map<String, dynamic>>()
         .map((s) {
@@ -417,6 +450,14 @@ final class ExamCatalogRepository {
                         : 'task1Academic')
                   : 'task2Essay',
           };
+          final rawMedia =
+              (s['mediaUrl'] as String?) ?? (pack['mediaUrl'] as String?);
+          final resolvedMedia =
+              (rawMedia != null &&
+                  cachedInline is Map &&
+                  cachedInline[rawMedia] is String)
+              ? cachedInline[rawMedia] as String
+              : rawMedia;
           return WritingTaskSpec(
             taskId: (s['sectionId'] as String?) ?? '${pack['packId']}-t',
             taskType: normalizedType,
@@ -432,48 +473,106 @@ final class ExamCatalogRepository {
             recommendedSeconds:
                 (s['durationSeconds'] as num?)?.toInt() ??
                 (isTask1 ? 1200 : 2400),
-            chartSvg:
-                (s['mediaUrl'] as String?) ?? (pack['mediaUrl'] as String?),
+            chartSvg: resolvedMedia,
             chartCaption: meta['chartCaption'] as String?,
           );
         })
         .toList(growable: false);
   }
 
-  /// Parses an exam bundle JSON map into a [SpeakingSessionSpec].
+  /// Parses an exam bundle JSON map into a [SpeakingSessionSpec] (`TD-30`).
   SpeakingSessionSpec parseSpeakingSession(Map<String, dynamic> bundle) {
     final pack =
         (bundle['pack'] as Map<String, dynamic>?) ?? const <String, dynamic>{};
     final rawSections =
         (bundle['sections'] as List<dynamic>?) ?? const <dynamic>[];
-    final prompts = rawSections
-        .whereType<Map<String, dynamic>>()
-        .map((s) {
-          final partIndex = (s['sectionIndex'] as num?)?.toInt() ?? 1;
-          final meta =
-              (s['metadata'] as Map<String, dynamic>?) ??
-              const <String, dynamic>{};
-          final rawBullets =
-              (meta['bulletPoints'] as List<dynamic>?) ??
-              (meta['cueCardBullets'] as List<dynamic>?) ??
-              const <dynamic>[];
-          return SpeakingPromptSpec(
-            promptId: (s['sectionId'] as String?) ?? 'part-$partIndex',
-            partIndex: partIndex,
-            promptText:
-                (s['contentText'] as String?) ?? (s['title'] as String?) ?? '',
-            bulletPoints: rawBullets
-                .map((b) => b.toString())
-                .toList(growable: false),
-            prepSeconds:
-                (meta['prepSeconds'] as num?)?.toInt() ??
-                (partIndex == 2 ? 60 : 0),
-            speakSeconds:
-                (s['durationSeconds'] as num?)?.toInt() ??
-                (partIndex == 2 ? 120 : 60),
+    final rawQuestions =
+        (bundle['questions'] as List<dynamic>?) ?? const <dynamic>[];
+
+    final questionsBySection = <String, List<Map<String, dynamic>>>{};
+    for (final q in rawQuestions.whereType<Map<String, dynamic>>()) {
+      final secId = (q['sectionId'] as String?) ?? '';
+      questionsBySection
+          .putIfAbsent(secId, () => <Map<String, dynamic>>[])
+          .add(q);
+    }
+    for (final list in questionsBySection.values) {
+      list.sort(
+        (a, b) => ((a['questionNumber'] as num?)?.toInt() ?? 0).compareTo(
+          (b['questionNumber'] as num?)?.toInt() ?? 0,
+        ),
+      );
+    }
+
+    final prompts = <SpeakingPromptSpec>[];
+    for (final s in rawSections.whereType<Map<String, dynamic>>()) {
+      final secId = (s['sectionId'] as String?) ?? '';
+      final partIndex = (s['sectionIndex'] as num?)?.toInt() ?? 1;
+      final meta =
+          (s['metadata'] as Map<String, dynamic>?) ?? const <String, dynamic>{};
+      final rawBullets =
+          (meta['bulletPoints'] as List<dynamic>?) ??
+          (meta['cueCardBullets'] as List<dynamic>?) ??
+          const <dynamic>[];
+      final contentText = (s['contentText'] as String?) ?? '';
+      final bullets = rawBullets.isNotEmpty
+          ? rawBullets.map((b) => b.toString()).toList(growable: false)
+          : contentText
+                .split('\n')
+                .map((line) => line.trim())
+                .where((line) => line.startsWith('- '))
+                .map((line) => line.substring(2).trim())
+                .where((line) => line.isNotEmpty)
+                .toList(growable: false);
+
+      final prepSeconds =
+          (meta['prepDurationSeconds'] as num?)?.toInt() ??
+          (meta['prepSeconds'] as num?)?.toInt() ??
+          (partIndex == 2 ? 60 : 0);
+      final sectionSpeakSeconds =
+          (meta['speakDurationSeconds'] as num?)?.toInt() ??
+          (s['durationSeconds'] as num?)?.toInt() ??
+          (partIndex == 2 ? 120 : 60);
+
+      final secQuestions = questionsBySection[secId] ?? const [];
+      if (secQuestions.isNotEmpty) {
+        final perQuestionSpeakSeconds = partIndex == 2
+            ? sectionSpeakSeconds
+            : (sectionSpeakSeconds / secQuestions.length).round().clamp(
+                30,
+                90,
+              );
+        for (final q in secQuestions) {
+          prompts.add(
+            SpeakingPromptSpec(
+              promptId: (q['questionId'] as String?) ?? '$secId-q',
+              partIndex: partIndex,
+              promptText:
+                  (q['prompt'] as String?) ??
+                  (contentText.isNotEmpty
+                      ? contentText
+                      : (s['title'] as String?) ?? ''),
+              bulletPoints: partIndex == 2 ? bullets : const <String>[],
+              prepSeconds: prepSeconds,
+              speakSeconds: perQuestionSpeakSeconds,
+            ),
           );
-        })
-        .toList(growable: false);
+        }
+      } else {
+        prompts.add(
+          SpeakingPromptSpec(
+            promptId: secId.isNotEmpty ? secId : 'part-$partIndex',
+            partIndex: partIndex,
+            promptText: contentText.isNotEmpty
+                ? contentText
+                : (s['title'] as String?) ?? '',
+            bulletPoints: bullets,
+            prepSeconds: prepSeconds,
+            speakSeconds: sectionSpeakSeconds,
+          ),
+        );
+      }
+    }
 
     return SpeakingSessionSpec(
       sessionId: (pack['packId'] as String?) ?? '',
@@ -489,15 +588,31 @@ final class ExamCatalogRepository {
         .whereType<Map<String, dynamic>>()
         .map((item) {
           final opts = (item['options'] as List<dynamic>?) ?? const <dynamic>[];
-          final ans =
-              (item['acceptedAnswers'] as List<dynamic>?) ?? const <dynamic>[];
+          final accepted = <String>[];
+          final rawMulti = item['acceptedAnswers'];
+          if (rawMulti is List) {
+            for (final a in rawMulti) {
+              final s = a.toString().trim();
+              if (s.isNotEmpty && !accepted.contains(s)) {
+                accepted.add(s);
+              }
+            }
+          }
+          final rawSingle = item['answer'];
+          if (rawSingle is String && rawSingle.trim().isNotEmpty) {
+            final clean = rawSingle.trim();
+            if (!accepted.contains(clean)) {
+              accepted.add(clean);
+            }
+          }
           return MicroDrillItemSpec(
-            itemId: (item['itemId'] as String?) ?? '',
+            itemId:
+                (item['itemId'] as String?) ??
+                (item['id'] as String?) ??
+                '',
             prompt: (item['prompt'] as String?) ?? '',
             options: opts.map((o) => o.toString()).toList(growable: false),
-            acceptedAnswers: ans
-                .map((a) => a.toString())
-                .toList(growable: false),
+            acceptedAnswers: accepted,
             explanation: (item['explanation'] as String?) ?? '',
           );
         })
@@ -517,17 +632,23 @@ final class ExamCatalogRepository {
     final rawType = ((qItem['questionType'] as String?) ?? 'short_answer')
         .toLowerCase();
     final qType = switch (rawType) {
-      'tfng' => ObjectiveQuestionType.tfng,
-      'ynng' => ObjectiveQuestionType.ynng,
-      'mcq_single' || 'mcqsingle' || 'mcq' => ObjectiveQuestionType.mcqSingle,
-      'mcq_multi' || 'mcqmulti' => ObjectiveQuestionType.mcqMulti,
+      'tfng' || 'true_false_not_given' => ObjectiveQuestionType.tfng,
+      'ynng' || 'yes_no_not_given' => ObjectiveQuestionType.ynng,
+      'mcq_single' ||
+      'mcqsingle' ||
+      'mcq' ||
+      'multiple_choice' => ObjectiveQuestionType.mcqSingle,
+      'mcq_multi' ||
+      'mcqmulti' ||
+      'multiple_choice_multi' => ObjectiveQuestionType.mcqMulti,
       'matching_headings' ||
       'matchingheadings' ||
       'matching' => ObjectiveQuestionType.matchingHeadings,
       'summary_gap_fill' ||
       'summarygapfill' ||
       'gap_fill' ||
-      'form_completion' => ObjectiveQuestionType.summaryGapFill,
+      'form_completion' ||
+      'sentence_completion' => ObjectiveQuestionType.summaryGapFill,
       _ => ObjectiveQuestionType.shortAnswer,
     };
 
@@ -551,6 +672,14 @@ final class ExamCatalogRepository {
         ? rawAnswers.map((e) => e.toString()).toList(growable: false)
         : const <String>[];
 
+    final explicitMaxWords =
+        (qItem['maxWords'] as num?)?.toInt() ??
+        (rawEv?['maxWords'] as num?)?.toInt();
+    final maxWords =
+        explicitMaxWords ??
+        _inferMaxWords(qItem['prompt'] as String?, accepted) ??
+        3;
+
     return QuestionSpec(
       questionId: (qItem['questionId'] as String?) ?? '',
       number: (qItem['questionNumber'] as num?)?.toInt() ?? 1,
@@ -558,8 +687,29 @@ final class ExamCatalogRepository {
       questionType: qType,
       acceptedVariants: accepted,
       options: options,
+      maxWords: maxWords,
       evidenceSpan: evidenceSpan,
       distractorExplanation: rawEv?['distractorExplanation'] as String?,
     );
+  }
+
+  int? _inferMaxWords(String? prompt, List<String> acceptedAnswers) {
+    final upper = (prompt ?? '').toUpperCase();
+    if (upper.contains('ONE WORD ONLY') ||
+        upper.contains('NO MORE THAN ONE WORD')) {
+      return 1;
+    }
+    if (upper.contains('NO MORE THAN TWO WORDS')) return 2;
+    if (upper.contains('NO MORE THAN THREE WORDS')) return 3;
+    var maxFound = 0;
+    for (final ans in acceptedAnswers) {
+      final count = ans
+          .trim()
+          .split(RegExp(r'\s+'))
+          .where((s) => s.isNotEmpty)
+          .length;
+      if (count > maxFound) maxFound = count;
+    }
+    return maxFound > 3 ? maxFound : null;
   }
 }

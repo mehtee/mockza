@@ -329,6 +329,22 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
+          const SizedBox(height: SpacingTokens.sm),
+          SecondaryButton(
+            label: 'Export Study Data (JSON)',
+            glyph: LucideGlyph.download,
+            onPressed: () async {
+              final json = await notifier.exportStudyDataJson();
+              await Clipboard.setData(ClipboardData(text: json));
+              if (context.mounted) {
+                showMzToast(
+                  context,
+                  message:
+                      'Study backup (${json.length} chars) copied as JSON.',
+                );
+              }
+            },
+          ),
         ],
       ),
     );

@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:clock/clock.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/core/models/writing_evaluation.dart';
 import 'package:mockza/core/result/failure.dart';
@@ -10,7 +12,8 @@ import 'package:mockza/services/crash_log.dart';
 import 'package:mockza/services/grading_gateway.dart';
 import 'package:mockza/services/media_bytes_platform.dart';
 
-/// Processes offline-queued uploads/evaluations and enforces 7-day audio retention.
+/// Processes offline-queued uploads/evaluations with foreground scheduling,
+/// full-batch draining, per-turn upload checkpointing, and pending-media protection.
 final class OutboxSyncService {
   /// Creates an [OutboxSyncService].
   new({
@@ -18,6 +21,7 @@ final class OutboxSyncService {
     required this._gradingGateway,
     required this._authSession,
     required this._crashLog,
+    this.clock = const Clock(),
   });
 
   final AttemptRepository _attemptRepository;
@@ -25,31 +29,70 @@ final class OutboxSyncService {
   final AuthSessionService _authSession;
   final CrashLog _crashLog;
 
-  bool _isFlushing = false;
+  /// Wall clock used for scheduling retry timers.
+  final Clock clock;
 
-  /// Flushes ready items in `OutboxSyncQueue` and purges expired local audio files.
-  Future<int> processPendingQueue({int batchSize = 10}) async {
-    if (_isFlushing) return 0;
+  bool _isFlushing = false;
+  bool _isDisposed = false;
+  Timer? _nextDrainTimer;
+
+  /// Releases pending foreground retry timers.
+  void dispose() {
+    _isDisposed = true;
+    _nextDrainTimer?.cancel();
+    _nextDrainTimer = null;
+  }
+
+  /// Triggers an immediate non-blocking drain after a new outbox entry is queued.
+  void notifyWorkEnqueued() {
+    if (_isDisposed) return;
+    unawaited(processPendingQueue());
+  }
+
+  /// Drains ready items in `OutboxSyncQueue` across batches (up to [maxPerPass])
+  /// and schedules a bounded timer for the earliest upcoming retry if any remain.
+  Future<int> processPendingQueue({
+    int batchSize = 10,
+    int maxPerPass = 50,
+  }) async {
+    if (_isFlushing || _isDisposed) return 0;
     _isFlushing = true;
+    _nextDrainTimer?.cancel();
     var processed = 0;
 
     try {
       await purgeExpiredAudio();
-      final readyItems = await _attemptRepository.fetchReadyOutboxItems(
-        limit: batchSize,
-      );
-      if (readyItems.isEmpty) return 0;
 
-      await _authSession.ensureAuthenticated();
-
-      for (final item in readyItems) {
-        final ok = await _dispatchItem(
-          id: item.id,
-          actionType: item.actionType,
-          payloadJson: item.payloadJson,
-          retryCount: item.retryCount,
+      while (!_isDisposed && processed < maxPerPass) {
+        final remainingBudget = maxPerPass - processed;
+        final fetchLimit = batchSize < remainingBudget
+            ? batchSize
+            : remainingBudget;
+        final readyItems = await _attemptRepository.fetchReadyOutboxItems(
+          limit: fetchLimit,
         );
-        if (ok) processed++;
+        if (readyItems.isEmpty) break;
+
+        await _authSession.ensureAuthenticated();
+
+        var attemptedInBatch = 0;
+        for (final item in readyItems) {
+          attemptedInBatch++;
+          final ok = await _dispatchItem(
+            id: item.id,
+            actionType: item.actionType,
+            payloadJson: item.payloadJson,
+            retryCount: item.retryCount,
+          );
+          if (ok) {
+            processed++;
+          }
+        }
+        // If no items succeeded or the batch was smaller than fetchLimit, exit loop
+        // so failing items wait for their scheduled exponential backoff.
+        if (readyItems.length < fetchLimit || attemptedInBatch == 0) {
+          break;
+        }
       }
       return processed;
     } on Object catch (e, st) {
@@ -57,6 +100,31 @@ final class OutboxSyncService {
       return processed;
     } finally {
       _isFlushing = false;
+      if (!_isDisposed) {
+        unawaited(_scheduleNextDrain());
+      }
+    }
+  }
+
+  Future<void> _scheduleNextDrain() async {
+    if (_isDisposed) return;
+    try {
+      final nextAt = await _attemptRepository.nextOutboxAttemptTime();
+      if (_isDisposed || nextAt == null) return;
+      final delay = nextAt.difference(clock.now().toUtc());
+      final boundedDelay = delay.isNegative
+          ? const Duration(seconds: 2)
+          : delay > const Duration(minutes: 15)
+          ? const Duration(minutes: 15)
+          : delay;
+      _nextDrainTimer?.cancel();
+      _nextDrainTimer = Timer(boundedDelay, () {
+        if (!_isDisposed) {
+          unawaited(processPendingQueue());
+        }
+      });
+    } on Object {
+      // Ignore scheduling failures when DB is already closed in tests.
     }
   }
 
@@ -66,8 +134,20 @@ final class OutboxSyncService {
     required String payloadJson,
     required int retryCount,
   }) async {
+    final Map<String, Object?> payload;
     try {
-      final payload = jsonDecode(payloadJson) as Map<String, Object?>;
+      final decoded = jsonDecode(payloadJson);
+      if (decoded is! Map<String, Object?>) {
+        throw const FormatException('Outbox payload root must be a JSON object');
+      }
+      payload = decoded;
+    } on FormatException catch (e) {
+      _crashLog.info('Corrupt outbox JSON $id quarantined: $e');
+      await _attemptRepository.deleteOutboxItem(id);
+      return false;
+    }
+
+    try {
       switch (actionType) {
         case 'submit_writing':
         case 'evaluate_writing':
@@ -103,9 +183,13 @@ final class OutboxSyncService {
           await _attemptRepository.deleteOutboxItem(id);
           return false;
       }
-    } on Object catch (e) {
-      _crashLog.info('Invalid outbox payload $id: $e');
-      await _attemptRepository.deleteOutboxItem(id);
+    } on Object catch (e, st) {
+      // Never silently drop valid queued learner work on unexpected execution errors.
+      _crashLog.recordError(e, st);
+      await _attemptRepository.scheduleOutboxRetry(
+        id: id,
+        currentRetryCount: retryCount,
+      );
       return false;
     }
   }
@@ -140,7 +224,6 @@ final class OutboxSyncService {
       attemptId: attemptId,
       retryCount: retryCount,
       enqueueResult: enqueueRes,
-      originalSubmission: payload,
     );
   }
 
@@ -152,6 +235,17 @@ final class OutboxSyncService {
     final attemptId = payload['attemptId'] as String? ?? '';
     final packId = payload['packId'] as String? ?? '';
     final rawTurns = (payload['turns'] as List<dynamic>?) ?? const [];
+    final turnMaps = rawTurns.whereType<Map<String, Object?>>().toList();
+
+    if (turnMaps.isEmpty) {
+      await _attemptRepository.updateAttemptEvaluation(
+        attemptId: attemptId,
+        status: AttemptStatus.failedRetryable,
+        errorCode: 'NO_CLIPS_ATTACHED',
+      );
+      await _attemptRepository.deleteOutboxItem(id);
+      return false;
+    }
 
     final uploadedTurns =
         <
@@ -163,8 +257,16 @@ final class OutboxSyncService {
           })
         >[];
 
-    for (final rawTurn in rawTurns.whereType<Map<String, Object?>>()) {
+    var checkpointDirty = false;
+
+    for (var i = 0; i < turnMaps.length; i++) {
+      final rawTurn = turnMaps[i];
       final partIndex = (rawTurn['partIndex'] as num?)?.toInt() ?? 2;
+      final turnId =
+          rawTurn['turnId'] as String? ??
+          rawTurn['promptId'] as String? ??
+          't$i';
+      final recordingId = rawTurn['recordingId'] as String?;
       final promptText = rawTurn['promptText'] as String? ?? '';
       final localPath = rawTurn['localFilePath'] as String? ?? '';
       final durationMs = (rawTurn['durationMs'] as num?)?.toInt();
@@ -185,6 +287,7 @@ final class OutboxSyncService {
         final presignRes = await _gradingGateway.presignAudioUpload(
           attemptId: attemptId,
           partIndex: partIndex,
+          turnId: turnId,
           byteLength: bytes.length,
           contentType: contentType,
         );
@@ -192,6 +295,12 @@ final class OutboxSyncService {
             case Err<({String uploadUrl, String objectKey}), Failure>(
               :final failure,
             )) {
+          if (checkpointDirty) {
+            await _attemptRepository.updateOutboxPayload(
+              id: id,
+              payloadJson: jsonEncode({...payload, 'turns': turnMaps}),
+            );
+          }
           return await _handleDispatchFailure(
             outboxId: id,
             attemptId: attemptId,
@@ -208,6 +317,12 @@ final class OutboxSyncService {
           contentType: contentType,
         );
         if (putRes case Err<void, Failure>(:final failure)) {
+          if (checkpointDirty) {
+            await _attemptRepository.updateOutboxPayload(
+              id: id,
+              payloadJson: jsonEncode({...payload, 'turns': turnMaps}),
+            );
+          }
           return await _handleDispatchFailure(
             outboxId: id,
             attemptId: attemptId,
@@ -216,6 +331,15 @@ final class OutboxSyncService {
           );
         }
         objectKey = presign.objectKey;
+        rawTurn['objectKey'] = objectKey;
+        checkpointDirty = true;
+
+        if (recordingId != null && recordingId.isNotEmpty) {
+          await _attemptRepository.updateAudioRecordingRemoteKey(
+            recordingId: recordingId,
+            remoteObjectKey: objectKey,
+          );
+        }
       }
 
       uploadedTurns.add((
@@ -226,13 +350,19 @@ final class OutboxSyncService {
       ));
     }
 
-    if (uploadedTurns.isEmpty) {
-      await _attemptRepository.updateAttemptEvaluation(
-        attemptId: attemptId,
-        status: AttemptStatus.failedRetryable,
-        errorCode: 'NO_CLIPS_ATTACHED',
+    if (checkpointDirty) {
+      await _attemptRepository.updateOutboxPayload(
+        id: id,
+        payloadJson: jsonEncode({...payload, 'turns': turnMaps}),
       );
-      await _attemptRepository.deleteOutboxItem(id);
+    }
+
+    // Never submit a partial multi-turn session (`TD-19`).
+    if (uploadedTurns.length < turnMaps.length) {
+      await _attemptRepository.scheduleOutboxRetry(
+        id: id,
+        currentRetryCount: retryCount,
+      );
       return false;
     }
 
@@ -251,7 +381,6 @@ final class OutboxSyncService {
       attemptId: attemptId,
       retryCount: retryCount,
       enqueueResult: enqueueRes,
-      originalSubmission: payload,
     );
   }
 
@@ -260,7 +389,6 @@ final class OutboxSyncService {
     required String attemptId,
     required int retryCount,
     required Result<String, Failure> enqueueResult,
-    required Map<String, Object?> originalSubmission,
   }) async {
     switch (enqueueResult) {
       case Ok<String, Failure>(:final value):
@@ -288,6 +416,7 @@ final class OutboxSyncService {
     required Failure failure,
   }) async {
     if (failure is QuotaExceededFailure ||
+        failure is EntitlementRequiredFailure ||
         failure is UnauthorizedFailure ||
         failure is ValidationFailure ||
         retryCount >= 6) {
@@ -306,7 +435,8 @@ final class OutboxSyncService {
     return false;
   }
 
-  /// Purges local audio recordings whose 7-day retention deadline has elapsed.
+  /// Purges local audio recordings whose 7-day retention deadline has elapsed
+  /// and whose parent attempts are no longer pending/retryable.
   Future<int> purgeExpiredAudio() async {
     final expired = await _attemptRepository.findExpiredAudioRecordings();
     var removed = 0;

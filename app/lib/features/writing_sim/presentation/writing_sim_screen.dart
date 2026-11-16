@@ -12,6 +12,7 @@ import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
+import 'package:mockza/theme/components/chart_stage_card.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
@@ -39,13 +40,15 @@ class WritingSimScreen extends ConsumerStatefulWidget {
   ConsumerState<WritingSimScreen> createState() => _WritingSimScreenState();
 }
 
-class _WritingSimScreenState extends ConsumerState<WritingSimScreen> {
+class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
+    with WidgetsBindingObserver {
   late final TextEditingController _controller;
   int _lastSyncedNonce = -1;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _controller = TextEditingController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -58,7 +61,20 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final notifier = ref.read(writingSimNotifierProvider.notifier);
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      unawaited(notifier.flushAutosaveNow());
+    } else if (state == AppLifecycleState.resumed) {
+      notifier.reconcileTimer();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     super.dispose();
   }
@@ -110,8 +126,13 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen> {
           ),
         );
         if (shouldExit ?? false) {
+          await notifier.flushAutosaveNow();
           if (context.mounted) {
-            context.pop();
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(AppRoutes.home);
+            }
           }
         }
       },
@@ -317,13 +338,16 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen> {
                               const SizedBox(height: SpacingTokens.xs),
                               TextField(
                                 controller: _controller,
+                                readOnly: state.isTimeExpired,
                                 maxLines: 15,
                                 autocorrect: !state.isExamMode,
                                 enableSuggestions: !state.isExamMode,
                                 style: typography.readingPassage,
                                 decoration: InputDecoration(
                                   border: InputBorder.none,
-                                  hintText: 'Begin typing your response here... Drafts autosave automatically.',
+                                  hintText: state.isTimeExpired
+                                      ? 'Time expired — submit your response below.'
+                                      : 'Begin typing your response here... Drafts autosave automatically.',
                                   hintStyle: typography.body.copyWith(
                                     color: colors.textTertiary,
                                   ),
@@ -436,43 +460,17 @@ class _TaskChartView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final shapes = AppShapes.of(context);
-    final typography = AppTypography.of(context);
-
     final isInlineSvg = chartSvgOrPath.trimLeft().startsWith('<svg');
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceAlt,
-        borderRadius: shapes.compactRadius,
-        border: Border.all(color: colors.borderSubtle),
-      ),
-      padding: const EdgeInsetsDirectional.all(SpacingTokens.sm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          SizedBox(
-            height: 220,
-            child: isInlineSvg
-                ? SvgPicture.string(chartSvgOrPath)
-                : SvgPicture.network(
-                    resolvedUrl,
-                    placeholderBuilder: (_) => const Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                  ),
-          ),
-          if (caption != null && caption!.isNotEmpty) ...<Widget>[
-            const SizedBox(height: SpacingTokens.xs),
-            Text(
-              caption!,
-              textAlign: TextAlign.center,
-              style: typography.caption.copyWith(color: colors.textSecondary),
+    Widget buildSvgWidget(BuildContext _) => isInlineSvg
+        ? SvgPicture.string(chartSvgOrPath)
+        : SvgPicture.network(
+            resolvedUrl,
+            placeholderBuilder: (_) => const Center(
+              child: CircularProgressIndicator(),
             ),
-          ],
-        ],
-      ),
-    );
+          );
+
+    return ChartStageCard(chartBuilder: buildSvgWidget, caption: caption);
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:clock/clock.dart';
 import 'package:drift/drift.dart';
 import 'package:meta/meta.dart';
@@ -18,6 +20,8 @@ class AttemptSummary {
     this.examId = 'ielts_academic',
     this.durationSeconds = 0,
     this.usedStudyMode = false,
+    this.startedAtUtcMs,
+    this.completedAtUtcMs,
   });
 
   /// Client-assigned attempt UUID.
@@ -46,6 +50,16 @@ class AttemptSummary {
 
   /// Whether completed in untimed study mode.
   final bool usedStudyMode;
+
+  /// Original start timestamp in UTC milliseconds, if recorded.
+  final int? startedAtUtcMs;
+
+  /// Immutable completion/submission timestamp in UTC milliseconds (`BF-12`, `TD-35`).
+  final int? completedAtUtcMs;
+
+  /// Best available immutable completion timestamp for analytics ordering & 30-day deltas.
+  int get effectiveCompletedAtUtcMs =>
+      completedAtUtcMs ?? startedAtUtcMs ?? updatedAt.millisecondsSinceEpoch;
 }
 
 /// In-progress essay draft auto-saved every 500ms.
@@ -148,19 +162,23 @@ final class AttemptRepository {
                 examId: row.examId,
                 durationSeconds: row.durationSeconds,
                 usedStudyMode: row.usedStudyMode,
+                startedAtUtcMs: row.startedAtUtcMs,
+                completedAtUtcMs: row.completedAtUtcMs,
               ),
             )
             .toList(growable: false),
       );
 
-  /// Keyset-cursor paginated query for full history browsing.
+  /// Keyset-cursor paginated query for full history browsing with composite `(updatedAt, attemptId)` cursor (`TD-47`).
   Future<List<AttemptSummary>> fetchHistoryPage({
     DateTime? cursorUpdatedAt,
+    String? cursorAttemptId,
     int limit = 20,
     SkillKind? filterSkill,
   }) async {
     final rows = await _db.attemptDao.fetchHistoryPage(
       cursorUpdatedAt: cursorUpdatedAt,
+      cursorAttemptId: cursorAttemptId,
       limit: limit,
       filterSkill: filterSkill?.name,
     );
@@ -176,6 +194,8 @@ final class AttemptRepository {
             examId: row.examId,
             durationSeconds: row.durationSeconds,
             usedStudyMode: row.usedStudyMode,
+            startedAtUtcMs: row.startedAtUtcMs,
+            completedAtUtcMs: row.completedAtUtcMs,
           ),
         )
         .toList(growable: false);
@@ -315,6 +335,107 @@ final class AttemptRepository {
   Future<List<AudioRecordingRow>> getRecordingsForAttempt(String attemptId) =>
       _db.attemptDao.getRecordingsForAttempt(attemptId);
 
+  /// Atomically persists a new attempt, optional child audio recordings, optional draft cleanup,
+  /// and an initial `OutboxSyncQueue` item inside a single SQLite transaction before network I/O.
+  Future<int?> saveDurableSubmissionWithOutbox({
+    required String attemptId,
+    required String packId,
+    required SkillKind skill,
+    required String submissionJson,
+    required String actionType,
+    required String outboxPayloadJson,
+    String examId = 'ielts_academic',
+    int? startedAtUtcMs,
+    int durationSeconds = 0,
+    bool usedStudyMode = false,
+    String? deleteDraftId,
+    List<
+      ({
+        String recordingId,
+        int partIndex,
+        String localFilePath,
+        int durationMs,
+        String? remoteObjectKey,
+      })
+    >
+    recordings = const [],
+  }) {
+    final now = _clock.now().toUtc();
+    return _db.transaction(() async {
+      await _db.attemptDao.upsertAttempt(
+        ExamAttemptsCompanion.insert(
+          attemptId: attemptId,
+          packId: packId,
+          skill: skill.name,
+          status: AttemptStatus.submittedLocal.name,
+          submissionJson: submissionJson,
+          examId: Value(examId),
+          startedAtUtcMs: Value(startedAtUtcMs),
+          durationSeconds: Value(durationSeconds),
+          usedStudyMode: Value(usedStudyMode),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+
+      for (final rec in recordings) {
+        await _db.attemptDao.upsertAudioRecording(
+          AudioRecordingsCompanion.insert(
+            recordingId: rec.recordingId,
+            attemptId: attemptId,
+            partIndex: rec.partIndex,
+            localFilePath: rec.localFilePath,
+            durationMs: rec.durationMs,
+            remoteObjectKey: Value(rec.remoteObjectKey),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+      }
+
+      if (deleteDraftId != null && deleteDraftId.isNotEmpty) {
+        await _db.attemptDao.deleteWritingDraft(deleteDraftId);
+      }
+
+      return await _db.attemptDao.enqueueOutbox(
+        OutboxSyncQueueCompanion.insert(
+          actionType: actionType,
+          payloadJson: outboxPayloadJson,
+          nextAttemptAt: now,
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+    });
+  }
+
+  /// Persists checkpointed [payloadJson] into an existing outbox item [id].
+  Future<int> updateOutboxPayload({
+    required int id,
+    required String payloadJson,
+  }) => _db.attemptDao.updateOutboxPayload(
+    id: id,
+    payloadJson: payloadJson,
+    updatedAt: _clock.now().toUtc(),
+  );
+
+  /// Updates [remoteObjectKey] on an existing local audio recording row.
+  Future<int> updateAudioRecordingRemoteKey({
+    required String recordingId,
+    required String remoteObjectKey,
+  }) => _db.attemptDao.updateAudioRemoteKey(
+    recordingId: recordingId,
+    remoteObjectKey: remoteObjectKey,
+    updatedAt: _clock.now().toUtc(),
+  );
+
+  /// Returns earliest scheduled retry timestamp across pending outbox items, or null.
+  Future<DateTime?> nextOutboxAttemptTime() =>
+      _db.attemptDao.nextOutboxAttemptTime();
+
+  /// Counts total pending items in `OutboxSyncQueue`.
+  Future<int> countOutboxItems() => _db.attemptDao.countOutboxItems();
+
   /// Enqueues an offline sync action (upload/evaluate/feedback) into `OutboxSyncQueue`.
   Future<int> enqueueOutboxAction({
     required String actionType,
@@ -366,9 +487,19 @@ final class AttemptRepository {
   Future<int> deleteAudioRecordingRow(String recordingId) =>
       _db.attemptDao.deleteAudioRecording(recordingId);
 
-  /// Deletes a draft when test is submitted or deliberately discarded.
+  /// Deletes a draft when test is submitted or deliberately discarded,
+  /// removing any synthetic `inProgress` placeholder parent attempt row (`TD-39`).
   Future<int> deleteWritingDraft(String attemptId) =>
-      _db.attemptDao.deleteWritingDraft(attemptId);
+      _db.transaction(() async {
+        final deleted = await _db.attemptDao.deleteWritingDraft(attemptId);
+        final parent = await _db.attemptDao.getAttemptById(attemptId);
+        if (parent != null && parent.status == AttemptStatus.inProgress.name) {
+          await (_db.delete(
+            _db.examAttempts,
+          )..where((t) => t.attemptId.equals(attemptId))).go();
+        }
+        return deleted;
+      });
 
   // --- Reading Annotations ---
 
@@ -421,4 +552,89 @@ final class AttemptRepository {
   /// Soft-deletes a reading annotation.
   Future<int> deleteReadingAnnotation(String annotationId) =>
       _db.attemptDao.softDeleteAnnotation(annotationId, _clock.now().toUtc());
+
+  /// Exports local learner study data (profiles, attempts, study logs, vocab) as portable JSON (`TD-47`).
+  Future<String> exportStudyDataJson() async {
+    final profiles = await _db.select(_db.userProfiles).get();
+    final attempts = await (_db.select(
+      _db.examAttempts,
+    )..orderBy([(t) => OrderingTerm.desc(t.updatedAt)])).get();
+    final vocabCards = await _db.select(_db.vocabCards).get();
+    final reviewLogs = await _db.select(_db.vocabReviewLogs).get();
+    final studyLogs = await _db.select(_db.dailyStudyLogs).get();
+
+    final payload = <String, Object?>{
+      'schemaVersion': 1,
+      'exportedAtUtc': _clock.now().toUtc().toIso8601String(),
+      'profiles': profiles
+          .map(
+            (p) => <String, Object?>{
+              'deviceId': p.deviceId,
+              'examId': p.examId,
+              'examModule': p.examModule,
+              'targetBand': p.targetBand,
+              'targetDateSerial': p.targetDateSerial,
+              'onboardingCompleted': p.onboardingCompleted,
+              'themeMode': p.themeMode,
+            },
+          )
+          .toList(growable: false),
+      'attempts': attempts
+          .map(
+            (a) => <String, Object?>{
+              'attemptId': a.attemptId,
+              'packId': a.packId,
+              'examId': a.examId,
+              'skill': a.skill,
+              'status': a.status,
+              'overallBand': a.overallBand,
+              'durationSeconds': a.durationSeconds,
+              'usedStudyMode': a.usedStudyMode,
+              'startedAtUtcMs': a.startedAtUtcMs,
+              'completedAtUtcMs': a.completedAtUtcMs,
+              'submissionJson': a.submissionJson,
+              'evaluationJson': a.evaluationJson,
+              'updatedAt': a.updatedAt.toUtc().toIso8601String(),
+            },
+          )
+          .toList(growable: false),
+      'vocabCards': vocabCards
+          .map(
+            (v) => <String, Object?>{
+              'cardId': v.cardId,
+              'headword': v.headword,
+              'definition': v.definition,
+              'topicTag': v.topicTag,
+              'repetitions': v.repetitions,
+              'intervalDays': v.intervalDays,
+              'easeFactorMilli': v.easeFactorMilli,
+              'dueDay': v.dueDay,
+              'sourceSkill': v.sourceSkill,
+              'sourceAttemptId': v.sourceAttemptId,
+            },
+          )
+          .toList(growable: false),
+      'vocabReviewLogs': reviewLogs
+          .map(
+            (l) => <String, Object?>{
+              'logId': l.logId,
+              'cardId': l.cardId,
+              'rating': l.rating,
+              'reviewedDaySerial': l.reviewedDaySerial,
+              'reviewedAtUtcMs': l.reviewedAtUtcMs,
+            },
+          )
+          .toList(growable: false),
+      'studyLogs': studyLogs
+          .map(
+            (s) => <String, Object?>{
+              'serialDay': s.serialDay,
+              'studySeconds': s.studySeconds,
+              'completedItems': s.completedItems,
+            },
+          )
+          .toList(growable: false),
+    };
+    return const JsonEncoder.withIndent('  ').convert(payload);
+  }
 }

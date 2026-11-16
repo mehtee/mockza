@@ -12,6 +12,9 @@ export const ApiErrorCodeSchema = z.enum([
   'upload_not_found',
   'upload_too_large',
   'model_unavailable',
+  'billing_unavailable',
+  'provider_not_configured',
+  'erasure_incomplete',
   'not_found',
   'internal_error',
 ]);
@@ -40,14 +43,22 @@ export const ReadyResponseSchema = z
     edition: z.enum(['glb', 'irn']),
     database: z.boolean(),
     storage: z.boolean(),
+    queue: z.boolean().optional(),
     service: z.string(),
   })
   .openapi('ReadyResponse');
+
+export const RetryEvaluationRequestSchema = z
+  .object({
+    attemptId: z.string().uuid(),
+  })
+  .openapi('RetryEvaluationRequest');
 
 export const AnonymousAuthRequestSchema = z
   .object({
     deviceId: z.string().uuid(),
     appVersion: z.string().optional(),
+    deviceSecret: z.string().min(16).max(256).optional(),
   })
   .openapi('AnonymousAuthRequest');
 
@@ -56,6 +67,7 @@ export const AnonymousAuthResponseSchema = z
     accessToken: z.string(),
     deviceId: z.string().uuid(),
     expiresAt: z.string(),
+    deviceSecret: z.string().min(16).max(256).optional(),
   })
   .openapi('AnonymousAuthResponse');
 
@@ -79,6 +91,7 @@ export const PresignUploadRequestSchema = z
   .object({
     attemptId: z.string().uuid(),
     partIndex: z.number().int().min(1).max(3),
+    turnId: z.string().min(1).max(64).optional(),
     byteLength: z
       .number()
       .int()
@@ -114,9 +127,12 @@ export const EvaluateWritingRequestSchema = z
 export const SpeakingTurnSchema = z
   .object({
     partIndex: z.number().int().min(1).max(3),
+    turnId: z.string().min(1).max(64).optional(),
     promptText: z.string().default(''),
     objectKey: z.string().min(1),
     durationMs: z.number().int().nonnegative().optional(),
+    byteLength: z.number().int().positive().optional(),
+    sha256Base64: z.string().optional(),
   })
   .openapi('SpeakingTurn');
 
@@ -126,8 +142,8 @@ export const EvaluateSpeakingRequestSchema = z
     packId: z.string().min(1).max(120),
     examId: z.enum(['ielts_academic', 'ielts_general']).default('ielts_academic'),
     partSequence: z.enum(['part1', 'part2', 'part3', 'full', 'diagnostic']).default('full'),
-    turns: z.array(SpeakingTurnSchema).min(1).max(3),
-    audioObjectKeys: z.array(z.string().min(1)).min(1).max(3).optional(),
+    turns: z.array(SpeakingTurnSchema).min(1).max(12),
+    audioObjectKeys: z.array(z.string().min(1)).min(1).max(12).optional(),
   })
   .openapi('EvaluateSpeakingRequest');
 
@@ -350,6 +366,7 @@ export const ExamQuestionSchema = z
     prompt: z.string(),
     options: z.array(z.string()).nullable().optional(),
     acceptedAnswers: z.array(z.string()),
+    maxWords: z.number().int().positive().nullable().optional(),
     evidence: z.record(z.string(), z.unknown()).nullable().optional(),
     cueTimestampMs: z.number().int().nonnegative().nullable().optional(),
   })

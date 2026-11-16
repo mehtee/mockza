@@ -192,7 +192,8 @@ final class VocabRepository {
     return next;
   }
 
-  /// 1-tap capture of an exam mistake or lexical upgrade directly into the active SRS review deck.
+  /// 1-tap capture of an exam mistake or lexical upgrade directly into the active SRS review deck
+  /// without clobbering existing SM-2 schedule progress if the card already exists (`TD-46`).
   Future<void> captureMistakeToDeck({
     required String cardId,
     required String headword,
@@ -204,33 +205,36 @@ final class VocabRepository {
     String? sourceSkill,
     String? sourceAttemptId,
     String? sourceRefLabel,
-  }) {
+  }) async {
     final now = _clock.now().toUtc();
     final today = SerialDay.fromUtcDateTime(now);
+    final existing = await _db.vocabDao.getCardById(cardId);
 
-    return _db.vocabDao.upsertCard(
+    await _db.vocabDao.upsertCard(
       VocabCardsCompanion.insert(
         cardId: cardId,
         headword: headword,
-        ipa: Value(ipa),
+        ipa: Value(ipa ?? existing?.ipa),
         definition: definition,
         topicTag: topicTag,
-        dueDay: today.value,
-        dueDaySerial: Value(today.value),
-        easeFactorMilli: const Value(2500),
-        easeFactor: const Value(2.5),
-        contextSentence: Value(contextSentence),
-        usageNote: Value(usageNote),
-        sourceSkill: Value(sourceSkill),
-        sourceAttemptId: Value(sourceAttemptId),
-        sourceRefLabel: Value(sourceRefLabel),
-        createdAt: now,
+        repetitions: Value(existing?.repetitions ?? 0),
+        intervalDays: Value(existing?.intervalDays ?? 0),
+        dueDay: existing?.dueDay ?? today.value,
+        dueDaySerial: Value(existing?.dueDaySerial ?? today.value),
+        easeFactorMilli: Value(existing?.easeFactorMilli ?? 2500),
+        easeFactor: Value(existing?.easeFactor ?? 2.5),
+        contextSentence: Value(contextSentence ?? existing?.contextSentence),
+        usageNote: Value(usageNote ?? existing?.usageNote),
+        sourceSkill: Value(sourceSkill ?? existing?.sourceSkill),
+        sourceAttemptId: Value(sourceAttemptId ?? existing?.sourceAttemptId),
+        sourceRefLabel: Value(sourceRefLabel ?? existing?.sourceRefLabel),
+        createdAt: existing?.createdAt ?? now,
         updatedAt: now,
       ),
     );
   }
 
-  /// Seeds a card into the deck if it does not yet exist.
+  /// Seeds a card into the deck if it does not yet exist, preserving SM-2 schedule if present (`TD-46`).
   Future<void> upsertSeedCard({
     required String cardId,
     required String headword,
@@ -238,22 +242,25 @@ final class VocabRepository {
     required String topicTag,
     String? ipa,
     String? contextSentence,
-  }) {
+  }) async {
     final now = _clock.now().toUtc();
     final today = SerialDay.fromUtcDateTime(now);
-    return _db.vocabDao.upsertCard(
+    final existing = await _db.vocabDao.getCardById(cardId);
+    await _db.vocabDao.upsertCard(
       VocabCardsCompanion.insert(
         cardId: cardId,
         headword: headword,
-        ipa: Value(ipa),
+        ipa: Value(ipa ?? existing?.ipa),
         definition: definition,
         topicTag: topicTag,
-        contextSentence: Value(contextSentence),
-        dueDay: today.value,
-        dueDaySerial: Value(today.value),
-        easeFactorMilli: const Value(2500),
-        easeFactor: const Value(2.5),
-        createdAt: now,
+        contextSentence: Value(contextSentence ?? existing?.contextSentence),
+        repetitions: Value(existing?.repetitions ?? 0),
+        intervalDays: Value(existing?.intervalDays ?? 0),
+        dueDay: existing?.dueDay ?? today.value,
+        dueDaySerial: Value(existing?.dueDaySerial ?? today.value),
+        easeFactorMilli: Value(existing?.easeFactorMilli ?? 2500),
+        easeFactor: Value(existing?.easeFactor ?? 2.5),
+        createdAt: existing?.createdAt ?? now,
         updatedAt: now,
       ),
     );

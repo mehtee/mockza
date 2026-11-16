@@ -106,7 +106,11 @@ class _SpeakingSimScreenState extends ConsumerState<SpeakingSimScreen> {
         if (shouldExit ?? false) {
           await notifier.stopMicPreview();
           if (context.mounted) {
-            context.pop();
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(AppRoutes.home);
+            }
           }
         }
       },
@@ -123,28 +127,35 @@ class _SpeakingSimScreenState extends ConsumerState<SpeakingSimScreen> {
                 bottom: SpacingTokens.xs,
               ),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
                   IconButton(
                     icon: const AppIcon(LucideGlyph.x, size: 20),
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsetsDirectional.symmetric(
-                      horizontal: SpacingTokens.md,
-                      vertical: SpacingTokens.xs,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colors.surfaceAlt,
-                      borderRadius: shapes.pillRadius,
-                      border: Border.all(color: colors.borderSubtle),
-                    ),
-                    child: Text(
-                      'Part ${state.activePart} • Turn ${state.currentTurnIndex + 1}/${state.prompts.isEmpty ? 1 : state.prompts.length}',
-                      style: typography.caption.copyWith(color: colors.primary),
+                  const SizedBox(width: SpacingTokens.xs),
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsetsDirectional.symmetric(
+                        horizontal: SpacingTokens.md,
+                        vertical: SpacingTokens.xs,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceAlt,
+                        borderRadius: shapes.pillRadius,
+                        border: Border.all(color: colors.borderSubtle),
+                      ),
+                      child: Text(
+                        'Part ${state.activePart} • Turn ${state.currentTurnIndex + 1}/${state.prompts.isEmpty ? 1 : state.prompts.length}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: typography.caption.copyWith(
+                          color: colors.primary,
+                        ),
+                      ),
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: SpacingTokens.xs),
                   MzChip(
                     label: widget.isExamMode ? 'Exam' : 'Study',
                   ),
@@ -596,9 +607,14 @@ class _PromptAndMicCheckView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
-                    Text('Live Microphone Check', style: typography.cardTitle),
+                    Expanded(
+                      child: Text(
+                        'Live Microphone Check',
+                        style: typography.cardTitle,
+                      ),
+                    ),
+                    const SizedBox(width: SpacingTokens.xs),
                     TextButton(
                       onPressed: state.hasMicPermission
                           ? (state.isPreviewingMic
@@ -607,7 +623,7 @@ class _PromptAndMicCheckView extends StatelessWidget {
                           : notifier.retryMicPermission,
                       child: Text(
                         !state.hasMicPermission
-                            ? 'Grant Access'
+                            ? 'Allow Mic'
                             : (state.isPreviewingMic
                                   ? 'Pause Check'
                                   : 'Test Mic'),
@@ -626,22 +642,42 @@ class _PromptAndMicCheckView extends StatelessWidget {
                 ),
                 if (!state.hasMicPermission) ...<Widget>[
                   const SizedBox(height: SpacingTokens.sm),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: SecondaryButton(
-                          label: 'Retry Permission',
-                          onPressed: notifier.retryMicPermission,
-                        ),
-                      ),
-                      const SizedBox(width: SpacingTokens.sm),
-                      Expanded(
-                        child: SecondaryButton(
-                          label: 'Open Settings',
-                          onPressed: notifier.openMicSettings,
-                        ),
-                      ),
-                    ],
+                  LayoutBuilder(
+                    builder: (ctx, constraints) {
+                      if (constraints.maxWidth < 340) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: <Widget>[
+                            SecondaryButton(
+                              label: 'Retry Permission',
+                              onPressed: notifier.retryMicPermission,
+                            ),
+                            const SizedBox(height: SpacingTokens.xs),
+                            SecondaryButton(
+                              label: 'Open Settings',
+                              onPressed: notifier.openMicSettings,
+                            ),
+                          ],
+                        );
+                      }
+                      return Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: SecondaryButton(
+                              label: 'Retry Permission',
+                              onPressed: notifier.retryMicPermission,
+                            ),
+                          ),
+                          const SizedBox(width: SpacingTokens.sm),
+                          Expanded(
+                            child: SecondaryButton(
+                              label: 'Open Settings',
+                              onPressed: notifier.openMicSettings,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ],

@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/models/attempt_status.dart';
+import 'package:mockza/core/models/user_profile.dart';
+import 'package:mockza/core/result/failure.dart';
 import 'package:mockza/core/result/result.dart';
 import 'package:mockza/providers.dart';
 import 'package:mockza/routing/app_router.dart';
@@ -106,11 +108,15 @@ class SettingsState {
 /// Manages edition readout, preferences, quota, cache cleanup & full account wipe.
 class SettingsNotifier extends Notifier<SettingsState> {
   bool _isDisposed = false;
+  StreamSubscription<UserProfile?>? _profileSub;
 
   @override
   SettingsState build() {
     _isDisposed = false;
-    ref.onDispose(() => _isDisposed = true);
+    ref.onDispose(() {
+      _isDisposed = true;
+      unawaited(_profileSub?.cancel());
+    });
     final initial = SettingsState(
       edition: ref.watch(editionConfigProvider).edition,
       examModule: ExamModuleType.academic,
@@ -121,8 +127,30 @@ class SettingsNotifier extends Notifier<SettingsState> {
       writingRemaining: 1,
       appUserId: 'initializing...',
     );
+    _watchPrimaryProfile();
     unawaited(_loadInitialData());
     return initial;
+  }
+
+  void _watchPrimaryProfile() {
+    unawaited(_profileSub?.cancel());
+    try {
+      _profileSub = ref.read(profileRepositoryProvider).watchPrimaryProfile().listen(
+        (profile) {
+          if (profile == null || _isDisposed) return;
+          state = state.copyWith(
+            examModule: profile.examModule,
+            targetBand: profile.targetBand,
+            themeMode: profile.themeMode,
+            isPro: profile.isPro,
+            appUserId: profile.appUserId ?? profile.deviceId,
+          );
+        },
+        onError: (_) {},
+      );
+    } on Object {
+      // Ignore in isolated widget tests without DB plugin.
+    }
   }
 
   Future<void> _loadInitialData() async {
@@ -141,8 +169,13 @@ class SettingsNotifier extends Notifier<SettingsState> {
     }
 
     try {
+      final deviceIdRes = await ref
+          .read(secureIdentityServiceProvider)
+          .getOrCreateDeviceId();
       final profileRepo = ref.read(profileRepositoryProvider);
-      final profile = await profileRepo.loadOrInitializePrimary();
+      final profile = await profileRepo.loadOrInitializePrimary(
+        fallbackDeviceId: deviceIdRes.valueOrNull,
+      );
       if (!_isDisposed) {
         state = state.copyWith(
           examModule: profile.examModule,
@@ -315,15 +348,31 @@ class SettingsNotifier extends Notifier<SettingsState> {
     }
   }
 
-  /// Deletes remote account, local credentials, cached files & all Drift SQLite tables.
+  /// Exports portable learner study data JSON (`TD-47`).
+  Future<String> exportStudyDataJson() =>
+      ref.read(attemptRepositoryProvider).exportStudyDataJson();
+
+  /// Deletes remote account first, then clears local credentials, caches & Drift tables.
+  /// Leaves local credentials intact if remote deletion fails so the user can retry.
   Future<void> wipeAllData() async {
     state = state.copyWith(isBusy: true, clearStatusMessage: true);
-    await ref.read(authSessionServiceProvider).deleteRemoteAccount();
+    final remoteResult = await ref
+        .read(authSessionServiceProvider)
+        .deleteRemoteAccount();
+
+    if (remoteResult case Err<void, Failure>(:final failure)) {
+      if (_isDisposed) return;
+      state = state.copyWith(
+        isBusy: false,
+        statusMessage:
+            'Could not erase server records (${failure.message}). Your credentials were kept so you can retry.',
+      );
+      return;
+    }
+
     await ref.read(cacheCleanupServiceProvider).clearDownloadedCaches();
     await ref.read(profileRepositoryProvider).resetAllLocalData();
-    ref
-        .read(onboardingCompletedLatchProvider.notifier)
-        .setCompleted(completed: false);
+    ref.read(onboardingCompletedLatchProvider.notifier).completed = false;
 
     if (_isDisposed) return;
     state = SettingsState(

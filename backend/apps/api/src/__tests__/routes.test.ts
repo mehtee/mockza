@@ -79,7 +79,7 @@ describe('@mockza/api full route suite', () => {
     const authRes = await app.request('/v1/auth/anonymous', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deviceId: '123e4567-e89b-12d3-a456-426614174000' }),
+      body: JSON.stringify({ deviceId: '123e4567-e89b-12d3-a456-426614174011' }),
     });
     const { accessToken } = (await authRes.json()) as { accessToken: string };
 
@@ -110,7 +110,7 @@ describe('@mockza/api full route suite', () => {
     const authRes = await app.request('/v1/auth/anonymous', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deviceId: '123e4567-e89b-12d3-a456-426614174000' }),
+      body: JSON.stringify({ deviceId: '123e4567-e89b-12d3-a456-426614174012' }),
     });
     const { accessToken } = (await authRes.json()) as { accessToken: string };
 
@@ -130,7 +130,7 @@ describe('@mockza/api full route suite', () => {
     const authRes = await app.request('/v1/auth/anonymous', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deviceId: '123e4567-e89b-12d3-a456-426614174000' }),
+      body: JSON.stringify({ deviceId: '123e4567-e89b-12d3-a456-426614174013' }),
     });
     const { accessToken } = (await authRes.json()) as { accessToken: string };
 

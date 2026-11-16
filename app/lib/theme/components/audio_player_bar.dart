@@ -134,14 +134,29 @@ class AudioPlayerBar extends StatelessWidget {
           // Controls and timestamps row
           Row(
             children: <Widget>[
-              // Play/Pause button
+              // Play/Start button (`BF-04` / `UX-07`: Exam Mode must still expose a Start control)
               if (!isExam)
                 IconButton(
+                  tooltip: isPlaying ? 'Pause audio' : 'Play audio',
                   onPressed: onTapPlayPause,
                   icon: AppIcon(
                     isPlaying ? LucideGlyph.pause : LucideGlyph.play,
                     size: 20,
                     color: colors.textPrimary,
+                  ),
+                )
+              else if (!isPlaying)
+                Semantics(
+                  button: true,
+                  label: position > Duration.zero
+                      ? 'Resume exam audio'
+                      : 'Start listening test audio',
+                  child: FilledButton.tonalIcon(
+                    onPressed: onTapPlayPause,
+                    icon: const AppIcon(LucideGlyph.play, size: 16),
+                    label: Text(
+                      position > Duration.zero ? 'Resume' : 'Start Audio',
+                    ),
                   ),
                 )
               else

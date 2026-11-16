@@ -24,22 +24,31 @@ class OnboardingScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(onboardingNotifierProvider);
     final notifier = ref.read(onboardingNotifierProvider.notifier);
+    final disableAnimations =
+        MediaQuery.maybeDisableAnimationsOf(context) ?? false;
 
     return MzScaffold(
       mode: MzScaffoldMode.onboarding,
-      body: AnimatedSwitcher(
-        duration: AppMotion.standard.sheetDuration,
-        child: state.step == 0
-            ? _ExamSelectionStep(
-                key: const ValueKey('step_0'),
-                state: state,
-                notifier: notifier,
-              )
-            : _GoalSetupStep(
-                key: const ValueKey('step_1'),
-                state: state,
-                notifier: notifier,
-              ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: AnimatedSwitcher(
+            duration: disableAnimations
+                ? Duration.zero
+                : AppMotion.standard.sheetDuration,
+            child: state.step == 0
+                ? _ExamSelectionStep(
+                    key: const ValueKey('step_0'),
+                    state: state,
+                    notifier: notifier,
+                  )
+                : _GoalSetupStep(
+                    key: const ValueKey('step_1'),
+                    state: state,
+                    notifier: notifier,
+                  ),
+          ),
+        ),
       ),
     );
   }
@@ -104,17 +113,20 @@ class _ExamSelectionStep extends StatelessWidget {
           const SizedBox(height: SpacingTokens.sm),
           _ExamCard(
             title: 'PTE Academic',
-            description: '10–90 automated scoring calibration powered by IELTS core modules.',
-            isSelected: state.selectedTrack == ExamTrack.pteAcademic,
-            onTap: () => notifier.selectTrack(ExamTrack.pteAcademic),
+            description:
+                'Coming soon — 10–90 automated PTE scoring packs are in development.',
+            isSelected: false,
+            isComingSoon: true,
+            onTap: () {},
           ),
           const SizedBox(height: SpacingTokens.sm),
           _ExamCard(
             title: 'TOEFL iBT',
             description:
-                '0–120 target scale calibration using shared academic drills.',
-            isSelected: state.selectedTrack == ExamTrack.toeflIbt,
-            onTap: () => notifier.selectTrack(ExamTrack.toeflIbt),
+                'Coming soon — 0–120 TOEFL iBT full simulations are in development.',
+            isSelected: false,
+            isComingSoon: true,
+            onTap: () {},
           ),
           const SizedBox(height: SpacingTokens.xl),
           PrimaryButton(
@@ -141,12 +153,14 @@ class _ExamCard extends StatelessWidget {
     required this.description,
     required this.isSelected,
     required this.onTap,
+    this.isComingSoon = false,
   });
 
   final String title;
   final String description;
   final bool isSelected;
   final VoidCallback onTap;
+  final bool isComingSoon;
 
   @override
   Widget build(BuildContext context) {
@@ -155,45 +169,80 @@ class _ExamCard extends StatelessWidget {
     final shapes = AppShapes.of(context);
 
     return Semantics(
-      button: true,
-      label: '$title. $description',
+      button: !isComingSoon,
+      enabled: !isComingSoon,
+      excludeSemantics: true,
+      label: isComingSoon
+          ? '$title, Coming soon. $description'
+          : '$title. $description',
       child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: AppMotion.standard.standardDuration,
-          padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
-          decoration: BoxDecoration(
-            color: isSelected ? colors.surfaceAlt : colors.surface,
-            borderRadius: shapes.cardRadius,
-            border: Border.all(
-              color: isSelected ? colors.primary : colors.borderSubtle,
-              width: isSelected ? 2 : 1,
+        onTap: isComingSoon ? null : onTap,
+        child: Opacity(
+          opacity: isComingSoon ? 0.65 : 1.0,
+          child: AnimatedContainer(
+            duration: AppMotion.standard.standardDuration,
+            padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
+            decoration: BoxDecoration(
+              color: isSelected ? colors.surfaceAlt : colors.surface,
+              borderRadius: shapes.cardRadius,
+              border: Border.all(
+                color: isSelected ? colors.primary : colors.borderSubtle,
+                width: isSelected ? 2 : 1,
+              ),
             ),
-          ),
-          child: Row(
-            children: <Widget>[
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(title, style: typography.cardTitle),
-                    const SizedBox(height: SpacingTokens.xs),
-                    Text(
-                      description,
-                      style: typography.secondary.copyWith(
-                        color: colors.textSecondary,
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          Flexible(
+                            child: Text(title, style: typography.cardTitle),
+                          ),
+                          if (isComingSoon) ...<Widget>[
+                            const SizedBox(width: SpacingTokens.xs),
+                            Container(
+                              padding: const EdgeInsetsDirectional.symmetric(
+                                horizontal: SpacingTokens.xs,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colors.surfaceAlt,
+                                borderRadius: shapes.pillRadius,
+                                border: Border.all(color: colors.borderSubtle),
+                              ),
+                              child: Text(
+                                'Soon',
+                                style: typography.caption.copyWith(
+                                  color: colors.textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: SpacingTokens.xs),
+                      Text(
+                        description,
+                        style: typography.secondary.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: SpacingTokens.sm),
-              AppIcon(
-                isSelected ? LucideGlyph.check : LucideGlyph.chevronRight,
-                color: isSelected ? colors.primary : colors.textTertiary,
-                size: 20,
-              ),
-            ],
+                const SizedBox(width: SpacingTokens.sm),
+                if (!isComingSoon)
+                  AppIcon(
+                    isSelected ? LucideGlyph.check : LucideGlyph.chevronRight,
+                    color: isSelected ? colors.primary : colors.textTertiary,
+                    size: 20,
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -225,6 +274,7 @@ class _GoalSetupStep extends ConsumerWidget {
           Align(
             alignment: AlignmentDirectional.centerStart,
             child: IconButton(
+              tooltip: 'Back to exam selection',
               icon: const AppIcon(LucideGlyph.arrowLeft, size: 20),
               onPressed: notifier.previousStep,
             ),
@@ -246,22 +296,30 @@ class _GoalSetupStep extends ConsumerWidget {
               style: typography.heroScore.copyWith(color: colors.primary),
             ),
           ),
-          Slider(
-            value: state.targetBand.clamp(
-              state.selectedTrack.minScore,
-              state.selectedTrack.maxScore,
+          Semantics(
+            label: 'Target IELTS band score',
+            value: state.formattedTargetScore,
+            child: Slider(
+              value: state.targetBand.clamp(
+                state.selectedTrack.minScore,
+                state.selectedTrack.maxScore,
+              ),
+              min: state.selectedTrack.minScore,
+              max: state.selectedTrack.maxScore,
+              divisions: state.isIeltsScale
+                  ? ((state.selectedTrack.maxScore -
+                                state.selectedTrack.minScore) *
+                            2)
+                        .toInt()
+                  : (state.selectedTrack.maxScore -
+                            state.selectedTrack.minScore)
+                        .toInt(),
+              semanticFormatterCallback: (val) => state.isIeltsScale
+                  ? 'Band ${val.toStringAsFixed(1)}'
+                  : '${val.round()} pts',
+              activeColor: colors.primary,
+              onChanged: notifier.selectTargetBand,
             ),
-            min: state.selectedTrack.minScore,
-            max: state.selectedTrack.maxScore,
-            divisions: state.isIeltsScale
-                ? ((state.selectedTrack.maxScore -
-                              state.selectedTrack.minScore) *
-                          2)
-                      .toInt()
-                : (state.selectedTrack.maxScore - state.selectedTrack.minScore)
-                      .toInt(),
-            activeColor: colors.primary,
-            onChanged: notifier.selectTargetBand,
           ),
           const SizedBox(height: SpacingTokens.xl),
           Text(
@@ -316,12 +374,12 @@ class _GoalSetupStep extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
-                          'Start with a 15-min Diagnostic Test',
+                          'Start with a Free Baseline Test',
                           style: typography.cardTitle,
                         ),
                         const SizedBox(height: SpacingTokens.xs),
                         Text(
-                          'Evaluates Speaking & Writing immediately to calibrate your baseline.',
+                          'Opens the Speaking baseline simulator right away so Mockza can estimate your starting band.',
                           style: typography.secondary.copyWith(
                             color: colors.textSecondary,
                           ),
