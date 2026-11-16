@@ -1,6 +1,25 @@
 COMPOSE ?= docker compose
 
-.PHONY: build-backend build-web build up down logs ps status migrate s3-init check check-backend check-flutter check-gates loadtest clean
+.PHONY: build-backend build-web build up down logs ps status migrate s3-init check check-backend check-flutter check-gates loadtest clean dev-infra dev-up dev-web dev-down dev-status dev-logs
+
+## Lightweight Option-2 local dev (<5 GB): Postgres + SeaweedFS in Docker, backend & Flutter on host
+dev-infra:
+	./scripts/dev_local.sh infra
+
+dev-up:
+	./scripts/dev_local.sh up
+
+dev-web:
+	./scripts/dev_local.sh web
+
+dev-down:
+	./scripts/dev_local.sh down
+
+dev-status:
+	./scripts/dev_local.sh status
+
+dev-logs:
+	./scripts/dev_local.sh logs
 
 ## Sequential low-memory builds (prevents Flutter Web & TypeScript OOM spikes on 8 GiB hosts)
 build-backend:

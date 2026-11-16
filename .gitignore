@@ -57,3 +57,4 @@ backend/data/
 *.log
 npm-debug.log*
 pnpm-debug.log*
+.local-dev/
