@@ -514,4 +514,139 @@ describe('@mockza/ai model registry, fail-closed guarantees, and audio processor
       'rose sharply',
     );
   });
+
+  it('loads speaking prompt from YAML and normalizes v2 rich JSON contract', async () => {
+    let capturedPrompt = '';
+    const result = await gradeSpeakingGraph.invoke(
+      {
+        attemptId: '123e4567-e89b-12d3-a456-426614174102',
+        packId: 'speaking-pack-01',
+        examId: 'ielts_academic',
+        partSequence: 'part1',
+        turns: [
+          {
+            partIndex: 1,
+            promptText: 'Describe your hometown.',
+            objectKey: 'k1',
+            durationMs: 5000,
+          },
+        ],
+        base64AudioData: Buffer.from('fake-audio').toString('base64'),
+      },
+      {
+        client: {
+          async createChatCompletion(req) {
+            const parts = Array.isArray(req.messages[0]?.content) ? req.messages[0].content : [];
+            const textPart = parts.find(
+              (p): p is { type: 'text'; text: string } => p.type === 'text',
+            );
+            capturedPrompt = textPart?.text ?? '';
+            return {
+              id: 'v2-speaking',
+              choices: [
+                {
+                  finish_reason: 'stop',
+                  message: {
+                    role: 'assistant',
+                    content: JSON.stringify({
+                      assessment: { status: 'complete', overallBand: 7.0 },
+                      criteria: [
+                        {
+                          code: 'FC',
+                          label: 'Fluency and Coherence',
+                          band: 7,
+                          evidence: [{ segmentId: 's1', quote: 'I grew up in Shiraz' }],
+                          strengths: ['Smooth pacing.'],
+                          limitations: [],
+                        },
+                        {
+                          code: 'LR',
+                          label: 'Lexical Resource',
+                          band: 7,
+                          evidenceExcerpt: 'vibrant cultural heritage',
+                          feedbackNote: 'Natural collocations.',
+                        },
+                        {
+                          code: 'GRA',
+                          label: 'Grammatical Range and Accuracy',
+                          band: 6,
+                          evidenceExcerpt: 'it have many gardens',
+                          feedbackNote: 'Occasional subject-verb agreement slip.',
+                        },
+                        {
+                          code: 'PR',
+                          label: 'Pronunciation',
+                          band: 7,
+                          evidenceExcerpt: 'distinctive architecture',
+                          feedbackNote: 'Clear stress and intonation.',
+                        },
+                      ],
+                      transcriptSegments: [
+                        {
+                          segmentId: 's1',
+                          audioIndex: 1,
+                          partIndex: 1,
+                          startMs: null,
+                          endMs: null,
+                          text: 'I grew up in Shiraz and it have many gardens.',
+                          annotations: [
+                            {
+                              issueId: 'i1',
+                              criterionCode: 'GRA',
+                              category: 'grammar',
+                              startMs: null,
+                              endMs: null,
+                              note: 'Subject-verb agreement slip',
+                            },
+                          ],
+                        },
+                      ],
+                      issues: [
+                        {
+                          id: 'i1',
+                          criterionCode: 'GRA',
+                          category: 'grammar',
+                          suggestedCorrection: 'it has many gardens',
+                          explanation: 'Singular subject requires "has".',
+                        },
+                      ],
+                      vocabUpgrades: [
+                        {
+                          id: 'u1',
+                          term: 'renowned for',
+                          ipa: null,
+                          definition: 'well known for',
+                          contextSentence: 'Shiraz is renowned for its gardens.',
+                          paraphrases: ['famous for'],
+                          bandRationale: 'Natural collocation.',
+                        },
+                      ],
+                      recommendedDrill: {
+                        drillType: 'grammar_error_correction',
+                        weakestCriterionCode: null,
+                        title: 'Third-person singular agreement',
+                        durationMinutes: 4,
+                      },
+                    }),
+                  },
+                },
+              ],
+            };
+          },
+        },
+      },
+    );
+
+    expect(capturedPrompt).toContain('# ROLE AND PROFESSIONAL STANDARD');
+    expect(capturedPrompt).toContain('Audio #1 (Part 1): Describe your hometown.');
+    expect(result.overallBand).toBe(7.0);
+    expect(result.transcriptSegments?.[0]?.startMs).toBe(0);
+    expect(result.transcriptSegments?.[0]?.annotations[0]).toMatchObject({
+      type: 'grammar',
+      suggestion: 'it has many gardens',
+      rationale: 'Subject-verb agreement slip',
+    });
+    expect(result.vocabUpgrades[0]?.ipa).toBeUndefined();
+    expect(result.recommendedDrill?.weakestCriterionCode).toBe('GRA');
+  });
 });

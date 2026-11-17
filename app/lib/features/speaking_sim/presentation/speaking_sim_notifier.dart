@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mockza/core/exams/countdown_clock_tracker.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/models/attempt_status.dart';
+import 'package:mockza/core/result/failure.dart';
+import 'package:mockza/core/result/result.dart';
 import 'package:mockza/data/repositories/attempt_repository.dart';
 import 'package:mockza/providers.dart';
 import 'package:mockza/services/audio_player_gateway.dart';
@@ -1163,6 +1165,25 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
             state = state.copyWith(isSubmitting: false);
           }
           return attemptId;
+        }
+        if (enqueueRes case Err<String, Failure>(
+          failure: final QuotaExceededFailure quotaFailure,
+        )) {
+          await attemptRepo.updateAttemptEvaluation(
+            attemptId: attemptId,
+            status: AttemptStatus.failedRetryable,
+            errorCode: quotaFailure.code,
+          );
+          if (outboxId != null) {
+            await attemptRepo.deleteOutboxItem(outboxId);
+          }
+          if (!_isDisposed) {
+            state = state.copyWith(
+              isSubmitting: false,
+              errorMessage: quotaFailure.message,
+            );
+          }
+          return null;
         }
       }
 

@@ -22,6 +22,7 @@
     "@mockza/contracts": "workspace:*",
     "@mockza/domain": "workspace:*",
     "langfuse": "^3.37.2",
+    "yaml": "^2.9.1",
     "zod": "^3.25.0"
   }
 }

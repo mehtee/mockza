@@ -242,10 +242,21 @@ describe('@mockza/worker job execution handlers', () => {
 
   it('TD-20: fetches and submits ALL speaking turns to the evaluator', async () => {
     let seenAudioParts = 0;
-    const validWav = Buffer.alloc(64);
+    const dataSize = 16_000;
+    const validWav = Buffer.alloc(44 + dataSize);
     validWav.write('RIFF', 0);
-    validWav.writeUInt32LE(56, 4);
+    validWav.writeUInt32LE(36 + dataSize, 4);
     validWav.write('WAVE', 8);
+    validWav.write('fmt ', 12);
+    validWav.writeUInt32LE(16, 16); // PCM chunk size
+    validWav.writeUInt16LE(1, 20); // PCM format
+    validWav.writeUInt16LE(1, 22); // mono
+    validWav.writeUInt32LE(16_000, 24); // sample rate
+    validWav.writeUInt32LE(32_000, 28); // byte rate
+    validWav.writeUInt16LE(2, 32); // block align
+    validWav.writeUInt16LE(16, 34); // bits per sample
+    validWav.write('data', 36);
+    validWav.writeUInt32LE(dataSize, 40);
 
     const mockS3 = {
       async send() {

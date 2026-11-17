@@ -9,6 +9,8 @@ import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/exams/local_objective_scorer.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/core/models/writing_evaluation.dart';
+import 'package:mockza/core/result/failure.dart';
+import 'package:mockza/core/result/result.dart';
 import 'package:mockza/data/repositories/attempt_repository.dart';
 import 'package:mockza/providers.dart';
 
@@ -650,6 +652,24 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
         if (outboxId != null) {
           await attemptRepo.deleteOutboxItem(outboxId);
         }
+      } else if (enqueueRes case Err<String, Failure>(
+        failure: final QuotaExceededFailure quotaFailure,
+      )) {
+        await attemptRepo.updateAttemptEvaluation(
+          attemptId: attemptId,
+          status: AttemptStatus.failedRetryable,
+          errorCode: quotaFailure.code,
+        );
+        if (outboxId != null) {
+          await attemptRepo.deleteOutboxItem(outboxId);
+        }
+        if (!_isDisposed) {
+          state = state.copyWith(
+            isSubmitting: false,
+            errorMessage: quotaFailure.message,
+          );
+        }
+        return null;
       } else if (!_isDisposed) {
         ref.read(outboxSyncServiceProvider).notifyWorkEnqueued();
       }
