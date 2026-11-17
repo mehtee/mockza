@@ -77,8 +77,10 @@ class VocabFlipCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
               if (sourceLabel != null)
-                MzChip(
-                  label: sourceLabel!,
+                Flexible(
+                  child: MzChip(
+                    label: sourceLabel!,
+                  ),
                 )
               else
                 const SizedBox.shrink(),

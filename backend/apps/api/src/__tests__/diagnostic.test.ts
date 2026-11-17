@@ -51,9 +51,9 @@ describe('Diagnostic API: sessions, bundle quota, server recomputation, & single
       listeningBlocks: Array<{ blockId: string; mediaUrl?: string }>;
       preflightAudioUrl: string;
     };
-    expect(body.budgetSeconds.collectionTotal).toBe(540);
-    expect(body.budgetSeconds.resultsWindow).toBe(60);
-    expect(body.budgetSeconds.total).toBe(600);
+    expect(body.budgetSeconds.collectionTotal).toBe(900);
+    expect(body.budgetSeconds.resultsWindow).toBe(90);
+    expect(body.budgetSeconds.total).toBe(990);
     expect(body.readingBlocks.length).toBeGreaterThanOrEqual(13);
     expect(body.listeningBlocks.length).toBeGreaterThanOrEqual(13);
     expect(body.preflightAudioUrl).toContain('preflight_check.m4a');

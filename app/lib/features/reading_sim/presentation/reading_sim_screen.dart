@@ -8,6 +8,7 @@ import 'package:mockza/data/repositories/attempt_repository.dart';
 import 'package:mockza/features/reading_sim/presentation/reading_sim_notifier.dart';
 import 'package:mockza/features/reading_sim/presentation/reading_sim_providers.dart';
 import 'package:mockza/routing/routes.dart';
+import 'package:mockza/routing/safe_pop.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
@@ -50,6 +51,8 @@ class ReadingSimScreen extends ConsumerStatefulWidget {
 }
 
 class _ReadingSimScreenState extends ConsumerState<ReadingSimScreen> {
+  bool _focusedQuestionMode = true;
+
   @override
   void initState() {
     super.initState();
@@ -114,262 +117,265 @@ class _ReadingSimScreenState extends ConsumerState<ReadingSimScreen> {
         );
         if (shouldExit ?? false) {
           if (context.mounted) {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go(AppRoutes.home);
-            }
+            context.safePopOrGo(AppRoutes.home);
           }
         }
       },
       child: MzScaffold(
         mode: MzScaffoldMode.immersive,
-        body: SafeArea(
-          child: Column(
-            children: <Widget>[
-              // Top Control Bar
+        centerOnWide: false,
+        padding: EdgeInsetsDirectional.zero,
+        body: Column(
+          children: <Widget>[
+            // Top Control Bar
+            Padding(
+              padding: const EdgeInsetsDirectional.only(
+                top: SpacingTokens.md,
+                start: SpacingTokens.md,
+                end: SpacingTokens.md,
+                bottom: SpacingTokens.xs,
+              ),
+              child: Row(
+                children: <Widget>[
+                  MzIconButton(
+                    glyph: LucideGlyph.x,
+                    semanticLabel: 'Exit reading test',
+                    onPressed: () => Navigator.of(context).maybePop(),
+                  ),
+                  const SizedBox(width: SpacingTokens.xs),
+                  if (passages.isNotEmpty)
+                    Expanded(
+                      child: Align(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Container(
+                            padding: const EdgeInsetsDirectional.all(2),
+                            decoration: BoxDecoration(
+                              color: colors.surfaceAlt,
+                              borderRadius: shapes.pillRadius,
+                              border: Border.all(color: colors.borderSubtle),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: List.generate(passages.length, (i) {
+                                return _PassageTab(
+                                  label: 'Passage ${i + 1}',
+                                  isSelected: state.passageIndex == i,
+                                  onTap: () => notifier.selectPassage(i),
+                                );
+                              }),
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    const Spacer(),
+                  const SizedBox(width: SpacingTokens.xs),
+                  Container(
+                    padding: const EdgeInsetsDirectional.symmetric(
+                      horizontal: SpacingTokens.sm,
+                      vertical: SpacingTokens.xs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.surfaceAlt,
+                      borderRadius: shapes.pillRadius,
+                    ),
+                    child: Text(
+                      '${state.answeredCount}/${totalQuestions > 0 ? totalQuestions : '-'} answered',
+                      style: typography.caption.copyWith(
+                        color: colors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Timer Bar
+            TimerBar(
+              remainingSeconds: state.remainingSeconds,
+              totalSeconds: state.totalSeconds > 0 ? state.totalSeconds : 3600,
+              phase: state.isPaused
+                  ? TimerPhase.paused
+                  : (state.remainingSeconds == 0
+                        ? TimerPhase.expired
+                        : TimerPhase.response),
+              isStudyMode: !state.isExamMode,
+              onTapPauseResume: state.isExamMode ? null : notifier.togglePause,
+            ),
+            const SizedBox(height: SpacingTokens.xs),
+
+            // Responsive Passage + Questions Body
+            Expanded(
+              child: state.isLoadingPack
+                  ? const Center(child: CircularProgressIndicator())
+                  : currentPassage == null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsetsDirectional.all(
+                          SpacingTokens.lg,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            AppIcon(
+                              LucideGlyph.alertCircle,
+                              size: 36,
+                              color: colors.error,
+                            ),
+                            const SizedBox(height: SpacingTokens.md),
+                            Text(
+                              state.errorMessage ?? 'Reading pack unavailable.',
+                              textAlign: TextAlign.center,
+                              style: typography.body.copyWith(
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: SpacingTokens.lg),
+                            PrimaryButton(
+                              label: 'Retry Loading Pack',
+                              onPressed: () => notifier.initialize(
+                                widget.packId,
+                                isExamMode: widget.isExamMode,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isWide = constraints.maxWidth >= 768;
+                        final passagePane = _PassagePane(
+                          passage: currentPassage,
+                          passageIndex: state.passageIndex,
+                          activeColor: state.activeHighlightColor,
+                          annotations: state.annotations,
+                          stagedSelection: state.stagedSelection,
+                          highlightedParagraphIndex:
+                              state.highlightedParagraphIndex,
+                          onSelectColor: notifier.setHighlightColor,
+                          onSelectionChanged: (pIdx, sel, text) =>
+                              notifier.stageTextSelection(
+                                paragraphIndex: pIdx,
+                                selection: sel,
+                                paragraphText: text,
+                              ),
+                          onTapHighlightSelection:
+                              notifier.saveStagedAnnotation,
+                          onTapAddNote: () => _openAddNoteDialog(
+                            context,
+                            notifier,
+                          ),
+                          onDeleteAnnotation: notifier.removeAnnotation,
+                        );
+                        final questionsPane = _QuestionsPane(
+                          questions: currentPassage.questions,
+                          answers: state.answers,
+                          allowAiExplain: !state.isExamMode,
+                          focusedMode: _focusedQuestionMode,
+                          activeQuestionNumber: state.currentQuestionIndex,
+                          onToggleFocusedMode: (val) =>
+                              setState(() => _focusedQuestionMode = val),
+                          onSelectQuestionNumber: notifier.selectQuestion,
+                          onAnswer: notifier.setAnswer,
+                          onToggleMulti: notifier.toggleMultiAnswer,
+                          onAskAi: (q) => _showAskAiSheet(context, notifier, q),
+                        );
+
+                        if (isWide) {
+                          return Row(
+                            children: <Widget>[
+                              Expanded(child: passagePane),
+                              VerticalDivider(
+                                width: 1,
+                                color: colors.borderSubtle,
+                              ),
+                              Expanded(child: questionsPane),
+                            ],
+                          );
+                        }
+
+                        return Column(
+                          children: <Widget>[
+                            Padding(
+                              padding: const EdgeInsetsDirectional.symmetric(
+                                horizontal: SpacingTokens.md,
+                                vertical: SpacingTokens.xs,
+                              ),
+                              child: Row(
+                                children: <Widget>[
+                                  Expanded(
+                                    child: _ViewTabButton(
+                                      label: 'Passage',
+                                      glyph: LucideGlyph.bookOpen,
+                                      isSelected: state.activeTab == 0,
+                                      onTap: () => notifier.selectTab(0),
+                                    ),
+                                  ),
+                                  const SizedBox(width: SpacingTokens.sm),
+                                  Expanded(
+                                    child: _ViewTabButton(
+                                      label:
+                                          'Questions (${state.answeredCount}/$totalQuestions)',
+                                      glyph: LucideGlyph.checkCircle2,
+                                      isSelected: state.activeTab == 1,
+                                      onTap: () => notifier.selectTab(1),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              child: state.activeTab == 0
+                                  ? passagePane
+                                  : questionsPane,
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+            ),
+
+            if (state.errorMessage != null && currentPassage != null)
               Padding(
-                padding: const EdgeInsetsDirectional.only(
-                  top: SpacingTokens.md,
-                  start: SpacingTokens.md,
-                  end: SpacingTokens.md,
-                  bottom: SpacingTokens.xs,
+                padding: const EdgeInsetsDirectional.symmetric(
+                  horizontal: SpacingTokens.md,
+                ),
+                child: Text(
+                  state.errorMessage!,
+                  style: typography.caption.copyWith(color: colors.error),
+                ),
+              ),
+
+            // Bottom Question Palette & Submit Bar
+            if (currentPassage != null)
+              Container(
+                padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  border: Border(top: BorderSide(color: colors.borderSubtle)),
                 ),
                 child: Row(
                   children: <Widget>[
-                    MzIconButton(
-                      glyph: LucideGlyph.x,
-                      semanticLabel: 'Exit reading test',
-                      onPressed: () => Navigator.of(context).maybePop(),
-                    ),
-                    const SizedBox(width: SpacingTokens.xs),
-                    if (passages.isNotEmpty)
-                      Expanded(
-                        child: Align(
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Container(
-                              padding: const EdgeInsetsDirectional.all(2),
-                              decoration: BoxDecoration(
-                                color: colors.surfaceAlt,
-                                borderRadius: shapes.pillRadius,
-                                border: Border.all(color: colors.borderSubtle),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: List.generate(passages.length, (i) {
-                                  return _PassageTab(
-                                    label: 'Passage ${i + 1}',
-                                    isSelected: state.passageIndex == i,
-                                    onTap: () => notifier.selectPassage(i),
-                                  );
-                                }),
-                              ),
-                            ),
-                          ),
-                        ),
-                      )
-                    else
-                      const Spacer(),
-                    const SizedBox(width: SpacingTokens.xs),
-                    Container(
-                      padding: const EdgeInsetsDirectional.symmetric(
-                        horizontal: SpacingTokens.sm,
-                        vertical: SpacingTokens.xs,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colors.surfaceAlt,
-                        borderRadius: shapes.pillRadius,
-                      ),
-                      child: Text(
-                        '${state.answeredCount}/${totalQuestions > 0 ? totalQuestions : '-'} answered',
-                        style: typography.caption.copyWith(
-                          color: colors.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Timer Bar
-              TimerBar(
-                remainingSeconds: state.remainingSeconds,
-                totalSeconds: state.totalSeconds > 0
-                    ? state.totalSeconds
-                    : 3600,
-                phase: state.isPaused
-                    ? TimerPhase.paused
-                    : (state.remainingSeconds == 0
-                          ? TimerPhase.expired
-                          : TimerPhase.response),
-                isStudyMode: !state.isExamMode,
-                onTapPauseResume: state.isExamMode
-                    ? null
-                    : notifier.togglePause,
-              ),
-              const SizedBox(height: SpacingTokens.xs),
-
-              // Responsive Passage + Questions Body
-              Expanded(
-                child: state.isLoadingPack
-                    ? const Center(child: CircularProgressIndicator())
-                    : currentPassage == null
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsetsDirectional.all(
-                            SpacingTokens.lg,
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              AppIcon(
-                                LucideGlyph.alertCircle,
-                                size: 36,
-                                color: colors.error,
-                              ),
-                              const SizedBox(height: SpacingTokens.md),
-                              Text(
-                                state.errorMessage ??
-                                    'Reading pack unavailable.',
-                                textAlign: TextAlign.center,
-                                style: typography.body.copyWith(
-                                  color: colors.textSecondary,
-                                ),
-                              ),
-                              const SizedBox(height: SpacingTokens.lg),
-                              PrimaryButton(
-                                label: 'Retry Loading Pack',
-                                onPressed: () => notifier.initialize(
-                                  widget.packId,
-                                  isExamMode: widget.isExamMode,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    : LayoutBuilder(
-                        builder: (context, constraints) {
-                          final isWide = constraints.maxWidth >= 768;
-                          final passagePane = _PassagePane(
-                            passage: currentPassage,
-                            passageIndex: state.passageIndex,
-                            activeColor: state.activeHighlightColor,
-                            annotations: state.annotations,
-                            stagedSelection: state.stagedSelection,
-                            highlightedParagraphIndex:
-                                state.highlightedParagraphIndex,
-                            onSelectColor: notifier.setHighlightColor,
-                            onSelectionChanged: (pIdx, sel, text) =>
-                                notifier.stageTextSelection(
-                                  paragraphIndex: pIdx,
-                                  selection: sel,
-                                  paragraphText: text,
-                                ),
-                            onTapHighlightSelection:
-                                notifier.saveStagedAnnotation,
-                            onTapAddNote: () => _openAddNoteDialog(
-                              context,
-                              notifier,
-                            ),
-                            onDeleteAnnotation: notifier.removeAnnotation,
-                          );
-                          final questionsPane = _QuestionsPane(
-                            questions: currentPassage.questions,
-                            answers: state.answers,
-                            allowAiExplain: !state.isExamMode,
-                            onAnswer: notifier.setAnswer,
-                            onToggleMulti: notifier.toggleMultiAnswer,
-                            onAskAi: (q) =>
-                                _showAskAiSheet(context, notifier, q),
-                          );
-
-                          if (isWide) {
-                            return Row(
-                              children: <Widget>[
-                                Expanded(child: passagePane),
-                                VerticalDivider(
-                                  width: 1,
-                                  color: colors.borderSubtle,
-                                ),
-                                Expanded(child: questionsPane),
-                              ],
-                            );
-                          }
-
-                          return Column(
-                            children: <Widget>[
-                              Padding(
-                                padding: const EdgeInsetsDirectional.symmetric(
-                                  horizontal: SpacingTokens.md,
-                                  vertical: SpacingTokens.xs,
-                                ),
-                                child: Row(
-                                  children: <Widget>[
-                                    Expanded(
-                                      child: _ViewTabButton(
-                                        label: 'Passage',
-                                        glyph: LucideGlyph.bookOpen,
-                                        isSelected: state.activeTab == 0,
-                                        onTap: () => notifier.selectTab(0),
-                                      ),
-                                    ),
-                                    const SizedBox(width: SpacingTokens.sm),
-                                    Expanded(
-                                      child: _ViewTabButton(
-                                        label:
-                                            'Questions (${state.answeredCount}/$totalQuestions)',
-                                        glyph: LucideGlyph.checkCircle2,
-                                        isSelected: state.activeTab == 1,
-                                        onTap: () => notifier.selectTab(1),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Expanded(
-                                child: state.activeTab == 0
-                                    ? passagePane
-                                    : questionsPane,
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-              ),
-
-              if (state.errorMessage != null && currentPassage != null)
-                Padding(
-                  padding: const EdgeInsetsDirectional.symmetric(
-                    horizontal: SpacingTokens.md,
-                  ),
-                  child: Text(
-                    state.errorMessage!,
-                    style: typography.caption.copyWith(color: colors.error),
-                  ),
-                ),
-
-              // Bottom Question Palette & Submit Bar
-              if (currentPassage != null)
-                Container(
-                  padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
-                  decoration: BoxDecoration(
-                    color: colors.surface,
-                    border: Border(top: BorderSide(color: colors.borderSubtle)),
-                  ),
-                  child: Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: currentPassage.questions.map((q) {
-                              final isAnswered = (state.answers[q.number] ?? '')
-                                  .trim()
-                                  .isNotEmpty;
-                              return GestureDetector(
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: currentPassage.questions.map((q) {
+                            final isAnswered = (state.answers[q.number] ?? '')
+                                .trim()
+                                .isNotEmpty;
+                            final isCurrent =
+                                state.currentQuestionIndex == q.number;
+                            return Semantics(
+                              button: true,
+                              selected: isCurrent,
+                              label:
+                                  'Question ${q.number}${isAnswered ? ', answered' : ''}',
+                              child: GestureDetector(
                                 onTap: () {
                                   notifier
                                     ..selectQuestion(q.number)
@@ -379,17 +385,18 @@ class _ReadingSimScreenState extends ConsumerState<ReadingSimScreen> {
                                   margin: const EdgeInsetsDirectional.only(
                                     end: SpacingTokens.xs,
                                   ),
-                                  width: 32,
-                                  height: 32,
+                                  width: 44,
+                                  height: 44,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     color: isAnswered
                                         ? colors.primary
                                         : colors.surfaceAlt,
                                     border: Border.all(
-                                      color: isAnswered
+                                      color: isAnswered || isCurrent
                                           ? colors.primary
                                           : colors.borderSubtle,
+                                      width: isCurrent ? 2 : shapes.strokeWidth,
                                     ),
                                   ),
                                   child: Center(
@@ -397,41 +404,40 @@ class _ReadingSimScreenState extends ConsumerState<ReadingSimScreen> {
                                       '${q.number}',
                                       style: typography.caption.copyWith(
                                         color: isAnswered
-                                            ? colors.background
-                                            : colors.textSecondary,
-                                        fontWeight: FontWeight.w600,
+                                            ? colors.onPrimary
+                                            : (isCurrent
+                                                  ? colors.primary
+                                                  : colors.textSecondary),
+                                        fontWeight: FontWeight.w700,
                                       ),
                                     ),
                                   ),
                                 ),
-                              );
-                            }).toList(),
-                          ),
+                              ),
+                            );
+                          }).toList(),
                         ),
                       ),
-                      const SizedBox(width: SpacingTokens.md),
-                      PrimaryButton(
-                        label: state.isSubmitting
-                            ? 'Grading...'
-                            : 'Submit Test',
-                        isFullWidth: false,
-                        onPressed: state.isSubmitting
-                            ? null
-                            : () async {
-                                final attemptId = await notifier
-                                    .submitReading();
-                                if (attemptId != null && context.mounted) {
-                                  context.go(
-                                    AppRoutes.buildAttemptReview(attemptId),
-                                  );
-                                }
-                              },
-                      ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: SpacingTokens.md),
+                    PrimaryButton(
+                      label: state.isSubmitting ? 'Grading...' : 'Submit Test',
+                      isFullWidth: false,
+                      onPressed: state.isSubmitting
+                          ? null
+                          : () async {
+                              final attemptId = await notifier.submitReading();
+                              if (attemptId != null && context.mounted) {
+                                context.go(
+                                  AppRoutes.buildAttemptReview(attemptId),
+                                );
+                              }
+                            },
+                    ),
+                  ],
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );
@@ -760,6 +766,10 @@ class _QuestionsPane extends StatelessWidget {
     required this.questions,
     required this.answers,
     required this.allowAiExplain,
+    required this.focusedMode,
+    required this.activeQuestionNumber,
+    required this.onToggleFocusedMode,
+    required this.onSelectQuestionNumber,
     required this.onAnswer,
     required this.onToggleMulti,
     required this.onAskAi,
@@ -768,6 +778,10 @@ class _QuestionsPane extends StatelessWidget {
   final List<QuestionSpec> questions;
   final Map<int, String> answers;
   final bool allowAiExplain;
+  final bool focusedMode;
+  final int activeQuestionNumber;
+  final ValueChanged<bool> onToggleFocusedMode;
+  final ValueChanged<int> onSelectQuestionNumber;
   final void Function(int questionNumber, String answer) onAnswer;
   final void Function(int questionNumber, String optionLetter) onToggleMulti;
   final ValueChanged<QuestionSpec> onAskAi;
@@ -776,171 +790,261 @@ class _QuestionsPane extends StatelessWidget {
   Widget build(BuildContext context) {
     final typography = AppTypography.of(context);
     final colors = AppColors.of(context);
+    final shapes = AppShapes.of(context);
 
-    return ListView.separated(
+    if (questions.isEmpty) {
+      return Center(
+        child: Text(
+          'No questions in this passage.',
+          style: typography.secondary.copyWith(color: colors.textSecondary),
+        ),
+      );
+    }
+
+    final resolvedIdx = questions.indexWhere(
+      (q) => q.number == activeQuestionNumber,
+    );
+    final activeIdx = resolvedIdx >= 0 ? resolvedIdx : 0;
+    final activeQuestion = questions[activeIdx];
+    final visibleQuestions = focusedMode
+        ? <QuestionSpec>[activeQuestion]
+        : questions;
+
+    return ListView(
       padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
-      itemCount: questions.length,
-      separatorBuilder: (_, _) => const SizedBox(height: SpacingTokens.md),
-      itemBuilder: (context, idx) {
-        final q = questions[idx];
-        final current = answers[q.number];
-
-        if (q.questionType == ObjectiveQuestionType.tfng ||
-            q.questionType == ObjectiveQuestionType.ynng) {
-          final labels = q.questionType == ObjectiveQuestionType.ynng
-              ? const <String>['YES', 'NO', 'NOT GIVEN']
-              : const <String>['TRUE', 'FALSE', 'NOT GIVEN'];
-          return MzCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        '${q.number}. ${q.prompt}',
-                        style: typography.body.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    if (allowAiExplain)
-                      MzIconButton(
-                        glyph: LucideGlyph.info,
-                        semanticLabel: 'Ask AI why',
-                        onPressed: () => onAskAi(q),
-                      ),
-                  ],
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                focusedMode
+                    ? 'Question ${activeQuestion.number} (${activeIdx + 1} of ${questions.length})'
+                    : 'All ${questions.length} questions',
+                style: typography.caption.copyWith(
+                  color: colors.textSecondary,
+                  fontWeight: FontWeight.w600,
                 ),
-                const SizedBox(height: SpacingTokens.md),
-                Row(
-                  children: labels.map((lbl) {
-                    return Expanded(
-                      child: Padding(
-                        padding: const EdgeInsetsDirectional.only(end: 4),
-                        child: _ChoicePill(
-                          label: lbl,
-                          isSelected: current?.toUpperCase() == lbl,
-                          onTap: () => onAnswer(q.number, lbl),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
+              ),
             ),
-          );
-        }
-
-        if ((q.questionType == ObjectiveQuestionType.mcqSingle ||
-                q.questionType == ObjectiveQuestionType.mcqMulti ||
-                q.questionType == ObjectiveQuestionType.matchingHeadings) &&
-            q.options.isNotEmpty) {
-          final isMulti = q.questionType == ObjectiveQuestionType.mcqMulti;
-          final selectedMulti = (current ?? '')
-              .split(',')
-              .map((s) => s.trim())
-              .toSet();
-          return MzCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        '${q.number}. ${q.prompt}',
-                        style: typography.body.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    if (allowAiExplain)
-                      MzIconButton(
-                        glyph: LucideGlyph.info,
-                        semanticLabel: 'Ask AI why',
-                        onPressed: () => onAskAi(q),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: SpacingTokens.sm),
-                ...List.generate(q.options.length, (oIdx) {
-                  final rawOpt = q.options[oIdx];
-                  final parsed = parseObjectiveChoiceOption(
-                    q.questionType,
-                    rawOpt,
-                    oIdx,
-                    q.acceptedVariants,
-                  );
-                  final isSel = isMulti
-                      ? (selectedMulti.contains(parsed.value) ||
-                            selectedMulti.contains(parsed.label) ||
-                            selectedMulti.contains(rawOpt))
-                      : (current == parsed.value ||
-                            current == parsed.label ||
-                            current == rawOpt);
-                  return Padding(
-                    padding: const EdgeInsetsDirectional.only(
-                      bottom: SpacingTokens.xs,
-                    ),
-                    child: _McqOption(
-                      label: parsed.label,
-                      text: parsed.displayText,
-                      isSelected: isSel,
-                      onTap: () => isMulti
-                          ? onToggleMulti(q.number, parsed.value)
-                          : onAnswer(q.number, parsed.value),
-                    ),
-                  );
-                }),
-              ],
-            ),
-          );
-        }
-
-        // Gap-fill / short-answer with stateful controller
-        return MzCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            Container(
+              padding: const EdgeInsetsDirectional.all(2),
+              decoration: BoxDecoration(
+                color: colors.surfaceAlt,
+                borderRadius: shapes.pillRadius,
+                border: Border.all(color: colors.borderSubtle),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  Expanded(
-                    child: Text(
-                      '${q.number}. ${q.prompt}',
-                      style: typography.body.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                  _PassageTab(
+                    label: 'Focused',
+                    isSelected: focusedMode,
+                    onTap: () => onToggleFocusedMode(true),
                   ),
-                  if (allowAiExplain)
-                    MzIconButton(
-                      glyph: LucideGlyph.info,
-                      semanticLabel: 'Ask AI why',
-                      onPressed: () => onAskAi(q),
-                    ),
+                  _PassageTab(
+                    label: 'All',
+                    isSelected: !focusedMode,
+                    onTap: () => onToggleFocusedMode(false),
+                  ),
                 ],
               ),
-              const SizedBox(height: SpacingTokens.xs),
-              Text(
-                'Max ${q.maxWords} word${q.maxWords == 1 ? '' : 's'}',
-                style: typography.caption.copyWith(
-                  color: colors.textTertiary,
+            ),
+          ],
+        ),
+        const SizedBox(height: SpacingTokens.md),
+        ...visibleQuestions.map(
+          (q) => Padding(
+            padding: const EdgeInsetsDirectional.only(
+              bottom: SpacingTokens.md,
+            ),
+            child: _buildQuestionCard(context, q),
+          ),
+        ),
+        if (focusedMode && questions.length > 1)
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: SecondaryButton(
+                  label: 'Previous',
+                  onPressed: activeIdx > 0
+                      ? () => onSelectQuestionNumber(
+                          questions[activeIdx - 1].number,
+                        )
+                      : null,
                 ),
               ),
-              const SizedBox(height: SpacingTokens.sm),
-              _StatefulAnswerField(
-                value: current ?? '',
-                hint: 'Type answer...',
-                onChanged: (val) => onAnswer(q.number, val),
+              const SizedBox(width: SpacingTokens.sm),
+              Expanded(
+                child: SecondaryButton(
+                  label: 'Next',
+                  onPressed: activeIdx + 1 < questions.length
+                      ? () => onSelectQuestionNumber(
+                          questions[activeIdx + 1].number,
+                        )
+                      : null,
+                ),
               ),
             ],
           ),
-        );
-      },
+      ],
+    );
+  }
+
+  Widget _buildQuestionCard(BuildContext context, QuestionSpec q) {
+    final typography = AppTypography.of(context);
+    final colors = AppColors.of(context);
+    final current = answers[q.number];
+
+    if (q.questionType == ObjectiveQuestionType.tfng ||
+        q.questionType == ObjectiveQuestionType.ynng) {
+      final labels = q.questionType == ObjectiveQuestionType.ynng
+          ? const <String>['YES', 'NO', 'NOT GIVEN']
+          : const <String>['TRUE', 'FALSE', 'NOT GIVEN'];
+      return MzCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    '${q.number}. ${q.prompt}',
+                    style: typography.body.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (allowAiExplain)
+                  MzIconButton(
+                    glyph: LucideGlyph.info,
+                    semanticLabel: 'Ask AI why',
+                    onPressed: () => onAskAi(q),
+                  ),
+              ],
+            ),
+            const SizedBox(height: SpacingTokens.md),
+            Row(
+              children: labels.map((lbl) {
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsetsDirectional.only(end: 4),
+                    child: _ChoicePill(
+                      label: lbl,
+                      isSelected: current?.toUpperCase() == lbl,
+                      onTap: () => onAnswer(q.number, lbl),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if ((q.questionType == ObjectiveQuestionType.mcqSingle ||
+            q.questionType == ObjectiveQuestionType.mcqMulti ||
+            q.questionType == ObjectiveQuestionType.matchingHeadings) &&
+        q.options.isNotEmpty) {
+      final isMulti = q.questionType == ObjectiveQuestionType.mcqMulti;
+      final selectedMulti = (current ?? '')
+          .split(',')
+          .map((s) => s.trim())
+          .toSet();
+      return MzCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    '${q.number}. ${q.prompt}',
+                    style: typography.body.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (allowAiExplain)
+                  MzIconButton(
+                    glyph: LucideGlyph.info,
+                    semanticLabel: 'Ask AI why',
+                    onPressed: () => onAskAi(q),
+                  ),
+              ],
+            ),
+            const SizedBox(height: SpacingTokens.sm),
+            ...List.generate(q.options.length, (oIdx) {
+              final rawOpt = q.options[oIdx];
+              final parsed = parseObjectiveChoiceOption(
+                q.questionType,
+                rawOpt,
+                oIdx,
+                q.acceptedVariants,
+              );
+              final isSel = isMulti
+                  ? (selectedMulti.contains(parsed.value) ||
+                        selectedMulti.contains(parsed.label) ||
+                        selectedMulti.contains(rawOpt))
+                  : (current == parsed.value ||
+                        current == parsed.label ||
+                        current == rawOpt);
+              return Padding(
+                padding: const EdgeInsetsDirectional.only(
+                  bottom: SpacingTokens.xs,
+                ),
+                child: _McqOption(
+                  label: parsed.label,
+                  text: parsed.displayText,
+                  isSelected: isSel,
+                  onTap: () => isMulti
+                      ? onToggleMulti(q.number, parsed.value)
+                      : onAnswer(q.number, parsed.value),
+                ),
+              );
+            }),
+          ],
+        ),
+      );
+    }
+
+    // Gap-fill / short-answer with stateful controller
+    return MzCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  '${q.number}. ${q.prompt}',
+                  style: typography.body.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+              if (allowAiExplain)
+                MzIconButton(
+                  glyph: LucideGlyph.info,
+                  semanticLabel: 'Ask AI why',
+                  onPressed: () => onAskAi(q),
+                ),
+            ],
+          ),
+          const SizedBox(height: SpacingTokens.xs),
+          Text(
+            'Max ${q.maxWords} word${q.maxWords == 1 ? '' : 's'}',
+            style: typography.caption.copyWith(color: colors.textTertiary),
+          ),
+          const SizedBox(height: SpacingTokens.sm),
+          _StatefulAnswerField(
+            value: current ?? '',
+            hint: 'Type answer...',
+            onChanged: (val) => onAnswer(q.number, val),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1036,7 +1140,9 @@ class _ChoicePill extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        constraints: const BoxConstraints(minHeight: 44),
         padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: SpacingTokens.xs,
           vertical: SpacingTokens.sm,
         ),
         decoration: BoxDecoration(
@@ -1047,11 +1153,15 @@ class _ChoicePill extends StatelessWidget {
           ),
         ),
         child: Center(
-          child: Text(
-            label,
-            style: typography.caption.copyWith(
-              color: isSelected ? colors.background : colors.textPrimary,
-              fontWeight: FontWeight.w700,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              style: typography.caption.copyWith(
+                color: isSelected ? colors.onPrimary : colors.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ),
@@ -1105,7 +1215,7 @@ class _McqOption extends StatelessWidget {
                 child: Text(
                   label,
                   style: typography.caption.copyWith(
-                    color: isSelected ? colors.background : colors.textPrimary,
+                    color: isSelected ? colors.onPrimary : colors.textPrimary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -1184,7 +1294,9 @@ class _ViewTabButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        constraints: const BoxConstraints(minHeight: 44),
         padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: SpacingTokens.sm,
           vertical: SpacingTokens.xs,
         ),
         decoration: BoxDecoration(
@@ -1203,11 +1315,15 @@ class _ViewTabButton extends StatelessWidget {
               color: isSelected ? colors.primary : colors.textSecondary,
             ),
             const SizedBox(width: SpacingTokens.xs),
-            Text(
-              label,
-              style: typography.secondary.copyWith(
-                color: isSelected ? colors.primary : colors.textSecondary,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: typography.secondary.copyWith(
+                  color: isSelected ? colors.primary : colors.textSecondary,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                ),
               ),
             ),
           ],

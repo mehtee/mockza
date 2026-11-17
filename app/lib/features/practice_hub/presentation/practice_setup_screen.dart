@@ -7,6 +7,7 @@ import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/data/repositories/exam_catalog_repository.dart';
 import 'package:mockza/features/practice_hub/presentation/practice_hub_providers.dart';
 import 'package:mockza/routing/routes.dart';
+import 'package:mockza/routing/safe_pop.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_typography.dart';
@@ -54,12 +55,14 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const AppIcon(LucideGlyph.arrowLeft, size: 20),
-          onPressed: () => context.pop(),
+          onPressed: () => context.safePopOrGo(AppRoutes.practice),
         ),
         title: Text('${_skillKind.name.toUpperCase()} Practice Setup'),
       ),
       body: ListView(
-        padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
+        padding: const EdgeInsetsDirectional.symmetric(
+          vertical: SpacingTokens.md,
+        ),
         children: <Widget>[
           Text('Choose Mode', style: typography.cardTitle),
           const SizedBox(height: SpacingTokens.sm),
@@ -73,9 +76,16 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: <Widget>[
-                            Text('Exam Mode', style: typography.cardTitle),
+                            Expanded(
+                              child: Text(
+                                'Exam Mode',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: typography.cardTitle,
+                              ),
+                            ),
+                            const SizedBox(width: SpacingTokens.xs),
                             AppIcon(
                               _isExamMode
                                   ? LucideGlyph.checkCircle2
@@ -108,9 +118,16 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: <Widget>[
-                            Text('Study Mode', style: typography.cardTitle),
+                            Expanded(
+                              child: Text(
+                                'Study Mode',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: typography.cardTitle,
+                              ),
+                            ),
+                            const SizedBox(width: SpacingTokens.xs),
                             AppIcon(
                               !_isExamMode
                                   ? LucideGlyph.checkCircle2

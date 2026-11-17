@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:mockza/features/paywall/presentation/paywall_notifier.dart';
 import 'package:mockza/features/paywall/presentation/paywall_providers.dart';
 import 'package:mockza/routing/routes.dart';
+import 'package:mockza/routing/safe_pop.dart';
 import 'package:mockza/services/billing_gateway.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
@@ -35,13 +35,7 @@ class PaywallScreen extends ConsumerWidget {
       appBar: AppBar(
         leading: IconButton(
           icon: const AppIcon(LucideGlyph.x, size: 20),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go(AppRoutes.home);
-            }
-          },
+          onPressed: () => context.safePopOrGo(AppRoutes.home),
         ),
         title: const Text('Mockza Pro'),
       ),
@@ -247,10 +241,8 @@ class PaywallScreen extends ConsumerWidget {
           ),
           child: Row(
             children: <Widget>[
-              Icon(
-                isSelected
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_off,
+              AppIcon(
+                isSelected ? LucideGlyph.circleDot : LucideGlyph.circle,
                 color: isSelected ? colors.primary : colors.textTertiary,
                 size: 20,
               ),

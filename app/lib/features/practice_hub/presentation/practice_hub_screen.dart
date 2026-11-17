@@ -22,18 +22,26 @@ import 'package:mockza/theme/components/task_card.dart';
 import 'package:mockza/theme/primitives.dart';
 
 /// Practice Hub test catalog and simulator launcher screen (Screens 02 & 03).
-class PracticeHubScreen extends ConsumerWidget {
+class PracticeHubScreen extends ConsumerStatefulWidget {
   /// Creates a [PracticeHubScreen].
   const new({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PracticeHubScreen> createState() => _PracticeHubScreenState();
+}
+
+class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
+  bool _isExamMode = true;
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(practiceHubNotifierProvider);
     final notifier = ref.read(practiceHubNotifierProvider.notifier);
     final packsAsync = ref.watch(installedExamPacksProvider);
     final drillsAsync = ref.watch(drillsCatalogProvider);
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
+    final shapes = AppShapes.of(context);
 
     final allPacks = packsAsync.asData?.value ?? const <InstalledExamPack>[];
     final filteredPacks = allPacks
@@ -60,7 +68,6 @@ class PracticeHubScreen extends ConsumerWidget {
         children: <Widget>[
           Padding(
             padding: const EdgeInsetsDirectional.symmetric(
-              horizontal: SpacingTokens.md,
               vertical: SpacingTokens.sm,
             ),
             child: Row(
@@ -102,25 +109,51 @@ class PracticeHubScreen extends ConsumerWidget {
             ),
           ),
           if (state.statusMessage != null)
-            Padding(
-              padding: const EdgeInsetsDirectional.symmetric(
-                horizontal: SpacingTokens.md,
-              ),
-              child: Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: Text(
-                  state.statusMessage!,
-                  style: typography.caption.copyWith(color: colors.primary),
-                ),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                state.statusMessage!,
+                style: typography.caption.copyWith(color: colors.primary),
               ),
             ),
           Expanded(
             child: ListView(
               padding: const EdgeInsetsDirectional.symmetric(
-                horizontal: SpacingTokens.md,
                 vertical: SpacingTokens.sm,
               ),
               children: <Widget>[
+                // Mode Segmented Switch (Study vs Exam)
+                Container(
+                  padding: const EdgeInsetsDirectional.all(3),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceAlt,
+                    borderRadius: shapes.pillRadius,
+                    border: Border.all(color: colors.borderSubtle),
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: _ModeTogglePill(
+                          label: 'Exam Mode',
+                          subtitle: 'Timed',
+                          isSelected: _isExamMode,
+                          onTap: () => setState(() => _isExamMode = true),
+                        ),
+                      ),
+                      const SizedBox(width: SpacingTokens.xs),
+                      Expanded(
+                        child: _ModeTogglePill(
+                          label: 'Study Mode',
+                          subtitle: 'Untimed & hints',
+                          isSelected: !_isExamMode,
+                          onTap: () => setState(() => _isExamMode = false),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: SpacingTokens.md),
+
                 // Skill Filter Chips Strip
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -185,7 +218,7 @@ class PracticeHubScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: SpacingTokens.lg),
+                const SizedBox(height: SpacingTokens.md),
 
                 // Core Skill Simulators Quick-Launch
                 if (state.selectedSkill == null ||
@@ -195,10 +228,13 @@ class PracticeHubScreen extends ConsumerWidget {
                     subtitle: '3-Part Live Cue Card & AI Band Evaluation',
                     glyph: LucideGlyph.mic,
                     tint: IconWellTint.blue,
-                    durationText: '14 min',
+                    durationText: _isExamMode ? '14 min' : 'Untimed',
                     questionsText: '3 Parts',
                     onTap: () => context.push(
-                      AppRoutes.buildSpeakingSim(),
+                      AppRoutes.buildSpeakingSim(
+                        'ielts-speaking-seed-01',
+                        _isExamMode,
+                      ),
                     ),
                   ),
                 if (state.selectedSkill == null ||
@@ -208,13 +244,14 @@ class PracticeHubScreen extends ConsumerWidget {
                     subtitle: 'Task 1 Visual Chart & Task 2 Essay Evaluator',
                     glyph: LucideGlyph.pencil,
                     tint: IconWellTint.violet,
-                    durationText: '60 min',
+                    durationText: _isExamMode ? '60 min' : 'Untimed',
                     questionsText: '2 Tasks',
                     onTap: () => context.push(
                       AppRoutes.buildWritingSim(
                         state.selectedTrack == 'general'
                             ? 'ielts-writing-gt-01'
                             : 'ielts-writing-seed-01',
+                        _isExamMode,
                       ),
                     ),
                   ),
@@ -226,13 +263,14 @@ class PracticeHubScreen extends ConsumerWidget {
                         'Passage Highlighting, Notes & Instant Band Score',
                     glyph: LucideGlyph.bookOpen,
                     tint: IconWellTint.mint,
-                    durationText: '60 min',
+                    durationText: _isExamMode ? '60 min' : 'Untimed',
                     questionsText: '3 Passages',
                     onTap: () => context.push(
                       AppRoutes.buildReadingSim(
                         state.selectedTrack == 'general'
                             ? 'ielts-gt-reading-seed-01'
                             : 'ielts-acad-reading-seed-01',
+                        _isExamMode,
                       ),
                     ),
                   ),
@@ -243,16 +281,43 @@ class PracticeHubScreen extends ConsumerWidget {
                     subtitle: '4-Section Audio Track & Synced Transcript',
                     glyph: LucideGlyph.headphones,
                     tint: IconWellTint.blue,
-                    durationText: '30 min',
+                    durationText: _isExamMode ? '30 min' : 'Study Mode',
                     questionsText: '4 Sections',
                     onTap: () => context.push(
-                      AppRoutes.buildListeningSim(),
+                      AppRoutes.buildListeningSim(
+                        'ielts-listening-seed-01',
+                        _isExamMode,
+                      ),
                     ),
                   ),
-                const SizedBox(height: SpacingTokens.md),
+                if (state.selectedSkill != null)
+                  Padding(
+                    padding: const EdgeInsetsDirectional.only(
+                      bottom: SpacingTokens.md,
+                    ),
+                    child: SecondaryButton(
+                      label:
+                          'Browse & Configure ${state.selectedSkill!.name.toUpperCase()} Packs',
+                      onPressed: () => context.push(
+                        AppRoutes.buildPracticeSetup(
+                          state.selectedSkill!.name,
+                        ),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: SpacingTokens.sm),
 
-                // Featured Full Mock Exam Banner Card
+                // Quick 4-Skill Check & Full Mock Planner
                 if (state.selectedSkill == null) ...<Widget>[
+                  TaskCard(
+                    title: 'Quick 4-Skill Starting Check',
+                    subtitle: 'Short adaptive check to calibrate your starting practice tier.',
+                    glyph: LucideGlyph.sparkles,
+                    tint: IconWellTint.blue,
+                    durationText: '~5–10 min',
+                    questionsText: '4 Skills',
+                    onTap: () => context.push(AppRoutes.buildDiagnosticIntro()),
+                  ),
                   MzCard(
                     variant: MzCardVariant.hero,
                     child: Column(
@@ -457,6 +522,7 @@ class PracticeHubScreen extends ConsumerWidget {
             skill: pack.skill.name,
             duration: _formatDuration(pack),
             questions: _formatCountLabel(pack),
+            initialExamMode: _isExamMode,
             onStart: (isExamMode) {
               Navigator.of(sheetCtx).pop();
               final route = switch (pack.skill) {
@@ -531,12 +597,75 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
+class _ModeTogglePill extends StatelessWidget {
+  const new({
+    required this.label,
+    required this.subtitle,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final String subtitle;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final typography = AppTypography.of(context);
+    final shapes = AppShapes.of(context);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: AppMotion.standard.microDuration,
+        constraints: const BoxConstraints(minHeight: 44),
+        padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: SpacingTokens.sm,
+          vertical: SpacingTokens.xs,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? colors.surface : Colors.transparent,
+          borderRadius: shapes.pillRadius,
+          border: Border.all(
+            color: isSelected ? colors.primary : Colors.transparent,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: typography.secondary.copyWith(
+                color: isSelected ? colors.primary : colors.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Text(
+              subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: typography.caption.copyWith(
+                color: colors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _TestSetupContent extends StatefulWidget {
   const new({
     required this.title,
     required this.skill,
     required this.duration,
     required this.questions,
+    required this.initialExamMode,
     required this.onStart,
   });
 
@@ -544,6 +673,7 @@ class _TestSetupContent extends StatefulWidget {
   final String skill;
   final String duration;
   final String questions;
+  final bool initialExamMode;
   final ValueChanged<bool> onStart;
 
   @override
@@ -551,7 +681,7 @@ class _TestSetupContent extends StatefulWidget {
 }
 
 class _TestSetupContentState extends State<_TestSetupContent> {
-  bool isExamMode = true;
+  late bool isExamMode = widget.initialExamMode;
 
   @override
   Widget build(BuildContext context) {

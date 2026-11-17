@@ -4,10 +4,11 @@ import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/primitives.dart';
+import 'package:mockza/theme/responsive_layout.dart';
 
 /// Top identity area from design.md Sec. 4.1 & 4.3.
 /// Features the custom gradient "M" wordmark, product title, compact exam selector pill,
-/// and top-right settings button.
+/// and top-right settings button with tight-screen (`320dp`) overflow protection.
 class BrandHeader extends StatelessWidget {
   /// Creates a [BrandHeader].
   const new({
@@ -43,6 +44,7 @@ class BrandHeader extends StatelessWidget {
     final colors = AppColors.of(context);
     final shapes = AppShapes.of(context);
     final typography = AppTypography.of(context);
+    final isTight = MzResponsive.isTightPhoneOf(context);
 
     if (title != null) {
       return Column(
@@ -55,7 +57,8 @@ class BrandHeader extends StatelessWidget {
               Expanded(
                 child: Text(
                   title!,
-                  style: typography.headline,
+                  style: typography.sectionHeading,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -78,77 +81,92 @@ class BrandHeader extends StatelessWidget {
               style: typography.secondary.copyWith(
                 color: colors.textSecondary,
               ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ],
       );
     }
 
-    return Row(
-      children: <Widget>[
-        const MockzaMark(size: 26),
-        const SizedBox(width: SpacingTokens.sm),
-        Text(
-          'Mockza',
-          style: typography.cardTitle.copyWith(
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.4,
-          ),
-        ),
-        const SizedBox(width: SpacingTokens.xs),
-        // Exam selector pill
-        Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: InkWell(
-              onTap: onTapExamSelector,
-              borderRadius: shapes.pillRadius,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: SpacingTokens.sm,
-                  vertical: SpacingTokens.xs + 2,
-                ),
-                decoration: BoxDecoration(
-                  color: colors.surfaceAlt,
+    return Padding(
+      padding: const EdgeInsetsDirectional.symmetric(
+        vertical: SpacingTokens.xs,
+      ),
+      child: Row(
+        children: <Widget>[
+          MockzaMark(size: isTight ? 24 : 26),
+          const SizedBox(width: SpacingTokens.sm),
+          if (!isTight) ...<Widget>[
+            Text(
+              'Mockza',
+              style: typography.cardTitle.copyWith(
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.4,
+              ),
+            ),
+            const SizedBox(width: SpacingTokens.sm),
+          ],
+          Expanded(
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 220),
+                child: InkWell(
+                  onTap: onTapExamSelector,
                   borderRadius: shapes.pillRadius,
-                  border: Border.all(
-                    color: colors.borderSubtle,
-                    width: shapes.strokeWidth,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Text(
-                      selectedExam,
-                      style: typography.caption.copyWith(
-                        color: colors.textPrimary,
-                        fontWeight: FontWeight.w600,
+                  child: Container(
+                    padding: const EdgeInsetsDirectional.symmetric(
+                      horizontal: SpacingTokens.sm,
+                      vertical: SpacingTokens.xs + 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.surfaceAlt,
+                      borderRadius: shapes.pillRadius,
+                      border: Border.all(
+                        color: colors.borderSubtle,
+                        width: shapes.strokeWidth,
                       ),
                     ),
-                    const SizedBox(width: SpacingTokens.xs),
-                    AppIcon(
-                      LucideGlyph.chevronDown,
-                      size: 14,
-                      color: colors.textSecondary,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Flexible(
+                          child: Text(
+                            selectedExam,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: typography.caption.copyWith(
+                              color: colors.textPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: SpacingTokens.xs),
+                        AppIcon(
+                          LucideGlyph.chevronDown,
+                          size: 14,
+                          color: colors.textSecondary,
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        if (showSettings)
-          IconButton(
-            tooltip: 'Settings',
-            onPressed: onTapSettings,
-            icon: AppIcon(
-              LucideGlyph.settings,
-              size: 22,
-              color: colors.textSecondary,
+          if (showSettings && onTapSettings != null)
+            IconButton(
+              tooltip: 'Settings',
+              onPressed: onTapSettings,
+              icon: AppIcon(
+                LucideGlyph.settings,
+                size: 22,
+                color: colors.textSecondary,
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }

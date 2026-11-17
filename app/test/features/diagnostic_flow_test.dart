@@ -71,8 +71,8 @@ class _PollingDiagnosticGateway extends FakeDiagnosticGateway {
       contentVersion: 'diag-2026-11-17.v1',
       status: returnPendingFirst ? 'submitted' : 'completed',
       startedAtIso: '2026-11-17T14:00:00.000Z',
-      collectionDeadlineAtIso: '2026-11-17T14:09:00.000Z',
-      resultsDeadlineAtIso: '2026-11-17T14:10:00.000Z',
+      collectionDeadlineAtIso: '2026-11-17T14:15:00.000Z',
+      resultsDeadlineAtIso: '2026-11-17T14:16:30.000Z',
       resultRevision: 1,
       reading: const DiagnosticSkillOutcomeSnapshot(
         skill: 'reading',
@@ -334,10 +334,10 @@ void main() {
           container.read(diagnosticNotifierProvider).sessionSnapshot,
           isNotNull,
         );
-        // Launching with fixed clock sets resultsRemainingSeconds = 60.
+        // Launching with fixed clock sets resultsRemainingSeconds = 90.
         expect(
           container.read(diagnosticNotifierProvider).resultsRemainingSeconds,
-          60,
+          90,
         );
         expect(initialSnap!.writing.status, DiagnosticSkillStatus.pending);
         expect(initialSnap.speaking.status, DiagnosticSkillStatus.unscorable);

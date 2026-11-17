@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mockza/theme/primitives.dart';
 
 /// Semantic gradient tokens specified in design.md Sec. 2.1 & 12.
 @immutable
@@ -11,70 +12,88 @@ class AppGradients extends ThemeExtension<AppGradients> {
     required this.recommendationCard,
   });
 
-  /// Canonical dark mode gradients.
+  /// Canonical dark mode gradients (Midnight Indigo default).
   static const dark = AppGradients(
     primaryButton: LinearGradient(
       begin: Alignment(-0.8, -0.6),
       end: Alignment(0.8, 0.6),
-      colors: <Color>[Color(0xFF6B8CFF), Color(0xFF8D70F7)],
+      colors: <Color>[
+        PalettePrimitives.indigoBtnStart,
+        PalettePrimitives.indigoBtnEnd,
+      ],
     ),
     scoreFill: LinearGradient(
-      colors: <Color>[Color(0xFF6CCEFF), Color(0xFF917AFB)],
+      colors: <Color>[
+        PalettePrimitives.indigoScoreStart,
+        PalettePrimitives.indigoScoreEnd,
+      ],
     ),
     heroCard: LinearGradient(
       begin: Alignment(-0.8, -0.6),
       end: Alignment(0.8, 0.6),
       stops: <double>[0, 0.63, 1],
       colors: <Color>[
-        Color(0xFF222840),
-        Color(0xFF1C2036),
-        Color(0xFF28234C),
+        PalettePrimitives.indigoHero1,
+        PalettePrimitives.indigoHero2,
+        PalettePrimitives.indigoHero3,
       ],
     ),
     recommendationCard: LinearGradient(
       begin: Alignment(-0.7, -0.7),
       end: Alignment(0.7, 0.7),
-      colors: <Color>[Color(0xFF252841), Color(0xFF211F38)],
+      colors: <Color>[
+        PalettePrimitives.indigoRecStart,
+        PalettePrimitives.indigoRecEnd,
+      ],
     ),
   );
 
-  /// Canonical light mode gradients.
+  /// Canonical light mode gradients (Midnight Indigo default).
   static const light = AppGradients(
     primaryButton: LinearGradient(
       begin: Alignment(-0.8, -0.6),
       end: Alignment(0.8, 0.6),
-      colors: <Color>[Color(0xFF5E4CCF), Color(0xFF7A65DF)],
+      colors: <Color>[
+        PalettePrimitives.lightAccent,
+        PalettePrimitives.darkAccentPressed,
+      ],
     ),
     scoreFill: LinearGradient(
-      colors: <Color>[Color(0xFF1968BD), Color(0xFF6049BA)],
+      colors: <Color>[
+        PalettePrimitives.lightBlue,
+        PalettePrimitives.lightViolet,
+      ],
     ),
     heroCard: LinearGradient(
       begin: Alignment(-0.8, -0.6),
       end: Alignment(0.8, 0.6),
       stops: <double>[0, 0.63, 1],
       colors: <Color>[
-        Color(0xFFF0F2FA),
-        Color(0xFFE8ECF7),
-        Color(0xFFE2E7F5),
+        PalettePrimitives.lightSurfaceAlt,
+        PalettePrimitives.lightHeroMid,
+        PalettePrimitives.lightHeroEnd,
       ],
     ),
     recommendationCard: LinearGradient(
       begin: Alignment(-0.7, -0.7),
       end: Alignment(0.7, 0.7),
-      colors: <Color>[Color(0xFFF0F2FA), Color(0xFFE5E8F5)],
+      colors: <Color>[
+        PalettePrimitives.lightSurfaceAlt,
+        PalettePrimitives.lightSurfaceHover,
+      ],
     ),
   );
 
-  /// Primary CTA button gradient (`110deg #6B8CFF -> #8D70F7`).
+  /// Primary CTA button gradient.
   final LinearGradient primaryButton;
 
-  /// Score progress fill gradient (`90deg #6CCEFF -> #917AFB`).
+  /// Score progress fill gradient.
   final LinearGradient scoreFill;
 
-  /// Dashboard hero card background gradient (`125deg #222840 -> #1C2036 63% -> #28234C`).
+  /// Dashboard hero card background gradient.
   final LinearGradient heroCard;
 
-  /// Recommendation & action card background gradient (`135deg #252841 -> #211F38`).
+  /// Recommendation & action card background gradient.
   final LinearGradient recommendationCard;
 
   /// Resolves [AppGradients] from [context].

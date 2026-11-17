@@ -248,26 +248,30 @@ class MzIconButton extends StatelessWidget {
     return Semantics(
       label: semanticLabel,
       button: true,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: colors.surfaceAlt,
-          borderRadius: shapes.controlRadius,
-          border: Border.all(
-            color: isDestructive
-                ? colors.error.withValues(alpha: 0.5)
-                : colors.borderSubtle,
-            width: shapes.strokeWidth,
-          ),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onPressed,
+      child: Tooltip(
+        message: semanticLabel,
+        excludeFromSemantics: true,
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: colors.surfaceAlt,
             borderRadius: shapes.controlRadius,
-            child: Center(
-              child: AppIcon(glyph, size: iconSize, color: inkColor),
+            border: Border.all(
+              color: isDestructive
+                  ? colors.error.withValues(alpha: 0.5)
+                  : colors.borderSubtle,
+              width: shapes.strokeWidth,
+            ),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onPressed,
+              borderRadius: shapes.controlRadius,
+              child: Center(
+                child: AppIcon(glyph, size: iconSize, color: inkColor),
+              ),
             ),
           ),
         ),

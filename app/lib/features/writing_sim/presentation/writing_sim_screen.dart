@@ -8,6 +8,7 @@ import 'package:mockza/core/models/writing_evaluation.dart';
 import 'package:mockza/features/writing_sim/presentation/writing_sim_providers.dart';
 import 'package:mockza/providers.dart';
 import 'package:mockza/routing/routes.dart';
+import 'package:mockza/routing/safe_pop.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
@@ -138,10 +139,12 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
             actions: <Widget>[
               SecondaryButton(
                 label: 'Cancel',
+                isFullWidth: false,
                 onPressed: () => Navigator.of(ctx).pop(false),
               ),
               PrimaryButton(
                 label: 'Exit',
+                isFullWidth: false,
                 onPressed: () => Navigator.of(ctx).pop(true),
               ),
             ],
@@ -150,11 +153,7 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
         if (shouldExit ?? false) {
           await notifier.flushAutosaveNow();
           if (context.mounted) {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go(AppRoutes.home);
-            }
+            context.safePopOrGo(AppRoutes.home);
           }
         }
       },
@@ -165,9 +164,7 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
             // Immersive Top Bar
             Padding(
               padding: const EdgeInsetsDirectional.only(
-                top: SpacingTokens.md,
-                start: SpacingTokens.md,
-                end: SpacingTokens.md,
+                top: SpacingTokens.xs,
                 bottom: SpacingTokens.xs,
               ),
               child: Row(
@@ -176,29 +173,41 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
                     icon: const AppIcon(LucideGlyph.x, size: 20),
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: SpacingTokens.xs),
                   if (state.tasks.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsetsDirectional.all(2),
-                      decoration: BoxDecoration(
-                        color: colors.surfaceAlt,
-                        borderRadius: shapes.pillRadius,
-                        border: Border.all(color: colors.borderSubtle),
+                    Expanded(
+                      child: Align(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Container(
+                            padding: const EdgeInsetsDirectional.all(2),
+                            decoration: BoxDecoration(
+                              color: colors.surfaceAlt,
+                              borderRadius: shapes.pillRadius,
+                              border: Border.all(color: colors.borderSubtle),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: List.generate(state.tasks.length, (i) {
+                                final taskSpec = state.tasks[i];
+                                final isTask1 = !taskSpec.taskType.contains(
+                                  '2',
+                                );
+                                return _TaskTabButton(
+                                  label:
+                                      '${isTask1 ? 'Task 1' : 'Task 2'} (${taskSpec.minWords}w)',
+                                  isSelected: state.activeTaskIndex == i,
+                                  onTap: () => notifier.selectTaskIndex(i),
+                                );
+                              }),
+                            ),
+                          ),
+                        ),
                       ),
-                      child: Row(
-                        children: List.generate(state.tasks.length, (i) {
-                          final taskSpec = state.tasks[i];
-                          final isTask1 = !taskSpec.taskType.contains('2');
-                          return _TaskTabButton(
-                            label:
-                                '${isTask1 ? 'Task 1' : 'Task 2'} (${taskSpec.minWords}w)',
-                            isSelected: state.activeTaskIndex == i,
-                            onTap: () => notifier.selectTaskIndex(i),
-                          );
-                        }),
-                      ),
-                    ),
-                  const Spacer(),
+                    )
+                  else
+                    const Spacer(),
+                  const SizedBox(width: SpacingTokens.xs),
                   Container(
                     padding: const EdgeInsetsDirectional.symmetric(
                       horizontal: SpacingTokens.sm,
@@ -282,9 +291,7 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
                       ),
                     )
                   : ListView(
-                      padding: const EdgeInsetsDirectional.symmetric(
-                        horizontal: SpacingTokens.md,
-                      ),
+                      padding: EdgeInsetsDirectional.zero,
                       children: <Widget>[
                         if (state.isEphemeralStorage) ...<Widget>[
                           const StatusBanner(
@@ -366,19 +373,26 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: <Widget>[
                               Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
                                 children: <Widget>[
-                                  Text(
-                                    'Your Response',
-                                    style: typography.caption.copyWith(
-                                      color: colors.textTertiary,
+                                  Expanded(
+                                    child: Text(
+                                      'Your Response',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: typography.caption.copyWith(
+                                        color: colors.textTertiary,
+                                      ),
                                     ),
                                   ),
-                                  Text(
-                                    state.lastSavedText,
-                                    style: typography.caption.copyWith(
-                                      color: colors.textTertiary,
+                                  const SizedBox(width: SpacingTokens.sm),
+                                  Flexible(
+                                    child: Text(
+                                      state.lastSavedText,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: typography.caption.copyWith(
+                                        color: colors.textTertiary,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -426,7 +440,9 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
 
             if (state.tasks.isNotEmpty)
               Padding(
-                padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
+                padding: const EdgeInsetsDirectional.symmetric(
+                  vertical: SpacingTokens.sm,
+                ),
                 child: PrimaryButton(
                   label: state.isSubmitting
                       ? 'Submitting to Examiner AI...'

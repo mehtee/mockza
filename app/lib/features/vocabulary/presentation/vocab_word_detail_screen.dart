@@ -2,10 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:mockza/core/vocab/sm2_scheduler.dart';
 import 'package:mockza/data/repositories/vocab_repository.dart';
 import 'package:mockza/features/vocabulary/presentation/vocabulary_providers.dart';
+import 'package:mockza/routing/routes.dart';
+import 'package:mockza/routing/safe_pop.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_typography.dart';
@@ -38,7 +39,7 @@ class VocabWordDetailScreen extends ConsumerWidget {
         appBar: AppBar(
           leading: IconButton(
             icon: const AppIcon(LucideGlyph.chevronLeft, size: 22),
-            onPressed: () => context.pop(),
+            onPressed: () => context.safePopOrGo(AppRoutes.vocabulary),
           ),
           title: const Text('Word Details'),
         ),
@@ -55,7 +56,7 @@ class VocabWordDetailScreen extends ConsumerWidget {
         appBar: AppBar(
           leading: IconButton(
             icon: const AppIcon(LucideGlyph.chevronLeft, size: 22),
-            onPressed: () => context.pop(),
+            onPressed: () => context.safePopOrGo(AppRoutes.vocabulary),
           ),
           title: const Text('Word Details'),
         ),
@@ -65,7 +66,7 @@ class VocabWordDetailScreen extends ConsumerWidget {
           description:
               'This vocabulary card could not be found in your local deck.',
           actionLabel: 'Back to Vocabulary',
-          onTapAction: () => context.pop(),
+          onTapAction: () => context.safePopOrGo(AppRoutes.vocabulary),
         ),
       );
     }
@@ -74,12 +75,14 @@ class VocabWordDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         leading: IconButton(
           icon: const AppIcon(LucideGlyph.chevronLeft, size: 22),
-          onPressed: () => context.pop(),
+          onPressed: () => context.safePopOrGo(AppRoutes.vocabulary),
         ),
         title: const Text('Word Details'),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsetsDirectional.all(SpacingTokens.lg),
+        padding: const EdgeInsetsDirectional.symmetric(
+          vertical: SpacingTokens.lg,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
@@ -130,14 +133,15 @@ class VocabWordDetailScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Row(
+          Wrap(
+            spacing: SpacingTokens.sm,
+            runSpacing: SpacingTokens.xs,
             children: <Widget>[
               if (card.sourceSkill != null)
                 MzChip(
                   label: card.sourceSkill!,
                   isSelected: true,
                 ),
-              const Spacer(),
               MzChip(label: card.topicTag),
             ],
           ),
@@ -255,25 +259,32 @@ class VocabWordDetailScreen extends ConsumerWidget {
           ),
           const SizedBox(height: SpacingTokens.md),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
-              _buildStatItem(
-                'Repetitions',
-                '${card.schedule.repetitions}',
-                typography,
-                colors,
+              Expanded(
+                child: _buildStatItem(
+                  'Repetitions',
+                  '${card.schedule.repetitions}',
+                  typography,
+                  colors,
+                ),
               ),
-              _buildStatItem(
-                'Interval',
-                '${card.schedule.intervalDays}d',
-                typography,
-                colors,
+              const SizedBox(width: SpacingTokens.xs),
+              Expanded(
+                child: _buildStatItem(
+                  'Interval',
+                  '${card.schedule.intervalDays}d',
+                  typography,
+                  colors,
+                ),
               ),
-              _buildStatItem(
-                'Ease Factor',
-                (card.schedule.easeFactorMilli / 1000).toStringAsFixed(2),
-                typography,
-                colors,
+              const SizedBox(width: SpacingTokens.xs),
+              Expanded(
+                child: _buildStatItem(
+                  'Ease Factor',
+                  (card.schedule.easeFactorMilli / 1000).toStringAsFixed(2),
+                  typography,
+                  colors,
+                ),
               ),
             ],
           ),
@@ -288,10 +299,12 @@ class VocabWordDetailScreen extends ConsumerWidget {
     AppTypography typography,
     AppColors colors,
   ) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
     children: <Widget>[
       Text(
         label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
         style: typography.caption.copyWith(color: colors.textSecondary),
       ),
       const SizedBox(height: SpacingTokens.xs),

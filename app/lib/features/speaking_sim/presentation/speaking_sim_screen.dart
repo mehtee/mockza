@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mockza/features/speaking_sim/presentation/speaking_sim_notifier.dart';
 import 'package:mockza/features/speaking_sim/presentation/speaking_sim_providers.dart';
 import 'package:mockza/routing/routes.dart';
+import 'package:mockza/routing/safe_pop.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
@@ -108,10 +109,12 @@ class _SpeakingSimScreenState extends ConsumerState<SpeakingSimScreen> {
             actions: <Widget>[
               SecondaryButton(
                 label: 'Cancel',
+                isFullWidth: false,
                 onPressed: () => Navigator.of(ctx).pop(false),
               ),
               PrimaryButton(
                 label: 'Exit',
+                isFullWidth: false,
                 onPressed: () => Navigator.of(ctx).pop(true),
               ),
             ],
@@ -120,11 +123,7 @@ class _SpeakingSimScreenState extends ConsumerState<SpeakingSimScreen> {
         if (shouldExit ?? false) {
           await notifier.stopMicPreview();
           if (context.mounted) {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go(AppRoutes.home);
-            }
+            context.safePopOrGo(AppRoutes.home);
           }
         }
       },

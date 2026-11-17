@@ -72,7 +72,9 @@ class VocabularyScreen extends ConsumerWidget {
             ),
           ),
           SliverPadding(
-            padding: const EdgeInsetsDirectional.all(SpacingTokens.lg),
+            padding: const EdgeInsetsDirectional.symmetric(
+              vertical: SpacingTokens.lg,
+            ),
             sliver: SliverList(
               delegate: SliverChildListDelegate(
                 <Widget>[
@@ -111,13 +113,15 @@ class VocabularyScreen extends ConsumerWidget {
                   const SizedBox(height: SpacingTokens.xl),
                   Row(
                     children: <Widget>[
-                      Text(
-                        'Saved Words & Phrases',
-                        style: typography.cardTitle.copyWith(
-                          color: colors.textPrimary,
+                      Expanded(
+                        child: Text(
+                          'Saved Words & Phrases',
+                          style: typography.cardTitle.copyWith(
+                            color: colors.textPrimary,
+                          ),
                         ),
                       ),
-                      const Spacer(),
+                      const SizedBox(width: SpacingTokens.sm),
                       Text(
                         '${filteredCards.length} saved',
                         style: typography.caption.copyWith(
@@ -442,7 +446,10 @@ class VocabularyScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Row(
+                    Wrap(
+                      spacing: SpacingTokens.sm,
+                      runSpacing: SpacingTokens.xs,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: <Widget>[
                         Text(
                           card.headword,
@@ -450,15 +457,13 @@ class VocabularyScreen extends ConsumerWidget {
                             color: colors.textPrimary,
                           ),
                         ),
-                        if (card.ipa != null) ...<Widget>[
-                          const SizedBox(width: SpacingTokens.sm),
+                        if (card.ipa != null)
                           Text(
                             card.ipa!,
                             style: typography.caption.copyWith(
                               color: colors.textSecondary,
                             ),
                           ),
-                        ],
                       ],
                     ),
                     const SizedBox(height: SpacingTokens.xs),

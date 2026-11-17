@@ -376,7 +376,7 @@ export function registerEvaluateRoutes(
       } catch (err) {
         if (err instanceof DomainError) {
           return c.json(
-            { code: err.code as any, message: err.message, requestId: c.get('requestId') },
+            { code: err.code, message: err.message, requestId: c.get('requestId') },
             err.status as 401 | 402 | 409 | 429,
           );
         }
@@ -652,7 +652,7 @@ export function registerEvaluateRoutes(
         } catch (err) {
           if (err instanceof DomainError) {
             return c.json(
-              { code: err.code as any, message: err.message, requestId: c.get('requestId') },
+              { code: err.code, message: err.message, requestId: c.get('requestId') },
               err.status as 400 | 401 | 403 | 404,
             );
           }
@@ -701,7 +701,7 @@ export function registerEvaluateRoutes(
       } catch (err) {
         if (err instanceof DomainError) {
           return c.json(
-            { code: err.code as any, message: err.message, requestId: c.get('requestId') },
+            { code: err.code, message: err.message, requestId: c.get('requestId') },
             err.status as 401 | 402 | 409 | 429,
           );
         }
@@ -976,7 +976,7 @@ export function registerEvaluateRoutes(
       } catch (err) {
         if (err instanceof DomainError) {
           return c.json(
-            { code: err.code as any, message: err.message, requestId: c.get('requestId') },
+            { code: err.code, message: err.message, requestId: c.get('requestId') },
             err.status as 401 | 402 | 409 | 429,
           );
         }

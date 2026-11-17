@@ -555,7 +555,8 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
       if (_clockForRecording && state.phase == SpeakingPhase.recording) {
         unawaited(finishResponse());
       } else if (!_clockForRecording &&
-          state.phase == SpeakingPhase.prepOrReady) {
+          state.phase == SpeakingPhase.prepOrReady &&
+          state.isExamMode) {
         unawaited(startSpeaking());
       }
     }

@@ -10,6 +10,7 @@ import 'package:mockza/core/models/evaluation_models.dart';
 import 'package:mockza/features/progress/presentation/progress_providers.dart';
 import 'package:mockza/providers.dart';
 import 'package:mockza/routing/routes.dart';
+import 'package:mockza/routing/safe_pop.dart';
 import 'package:mockza/services/grading_gateway.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
@@ -217,7 +218,7 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const AppIcon(LucideGlyph.chevronLeft, size: 22),
-          onPressed: () => context.pop(),
+          onPressed: () => context.safePopOrGo(AppRoutes.progress),
         ),
         title: Text('$skillName Analytics'),
       ),
@@ -237,7 +238,9 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
                     ),
                   )
                 : SingleChildScrollView(
-                    padding: const EdgeInsetsDirectional.all(SpacingTokens.lg),
+                    padding: const EdgeInsetsDirectional.symmetric(
+                      vertical: SpacingTokens.lg,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[

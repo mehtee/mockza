@@ -20,9 +20,10 @@ import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
+import 'package:mockza/theme/components/mz_sticky_bottom_bar.dart';
 import 'package:mockza/theme/components/status_banner.dart';
-import 'package:mockza/theme/components/timer_bar.dart';
 import 'package:mockza/theme/primitives.dart';
+import 'package:mockza/theme/responsive_layout.dart';
 
 /// Active 4-skill rapid diagnostic workspace (`/diagnostic/session/:diagId`).
 class DiagnosticSessionScreen extends ConsumerStatefulWidget {
@@ -47,6 +48,8 @@ class _DiagnosticSessionScreenState
   final TextEditingController _writingFollowUpController =
       TextEditingController();
   bool _navigatedToResults = false;
+  int _focusedQuestionIndex = 0;
+  bool _writingPromptCollapsed = false;
 
   @override
   void initState() {
@@ -137,6 +140,13 @@ class _DiagnosticSessionScreenState
           !_navigatedToResults) {
         _navigateToResults(next.diagId);
       }
+      if (prev?.activeBlock?.blockId != next.activeBlock?.blockId &&
+          _focusedQuestionIndex != 0) {
+        setState(() => _focusedQuestionIndex = 0);
+      }
+      if (prev?.stage != next.stage && _writingPromptCollapsed) {
+        setState(() => _writingPromptCollapsed = false);
+      }
       if (next.writingBaseText != _writingBaseController.text &&
           next.stage != DiagnosticFlowStage.writingBase) {
         _writingBaseController.text = next.writingBaseText;
@@ -147,6 +157,8 @@ class _DiagnosticSessionScreenState
       }
     });
 
+    final bottomBar = _buildStickyBottomBar(context, state, notifier);
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -156,6 +168,7 @@ class _DiagnosticSessionScreenState
       },
       child: MzScaffold(
         appBar: AppBar(
+          toolbarHeight: 48,
           leading: IconButton(
             tooltip: 'Exit check',
             onPressed: _confirmExit,
@@ -183,28 +196,284 @@ class _DiagnosticSessionScreenState
             ),
           ],
         ),
-        body: SafeArea(
+        bottomBar: bottomBar,
+        body: Column(
+          children: <Widget>[
+            _CompactProgressHeader(state: state),
+            Expanded(
+              child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsetsDirectional.symmetric(
+                  vertical: SpacingTokens.sm,
+                ),
+                child: _buildStageContent(context, state, notifier),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget? _buildStickyBottomBar(
+    BuildContext context,
+    DiagnosticState state,
+    DiagnosticNotifier notifier,
+  ) {
+    final bank = state.bank;
+    if (state.isLoadingBank || bank == null) return null;
+
+    switch (state.stage) {
+      case DiagnosticFlowStage.intro:
+        return MzStickyBottomBar(
+          child: PrimaryButton(
+            label: 'Begin Reading Check',
+            onPressed: notifier.startLiveReadingBlocks,
+          ),
+        );
+
+      case DiagnosticFlowStage.readingExample:
+        return MzStickyBottomBar(
           child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              _HeaderProgressStrip(state: state),
-              Expanded(
-                child: SingleChildScrollView(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsetsDirectional.fromSTEB(
-                    SpacingTokens.lg,
-                    SpacingTokens.sm,
-                    SpacingTokens.lg,
-                    SpacingTokens.xxl,
-                  ),
-                  child: _buildStageContent(context, state, notifier),
+              PrimaryButton(
+                label: 'Start Reading',
+                trailingGlyph: LucideGlyph.arrowRight,
+                onPressed: notifier.startLiveReadingBlocks,
+              ),
+              Align(
+                child: TextButton(
+                  onPressed: notifier.skipObjectiveStage,
+                  child: const Text('Skip Reading'),
                 ),
               ),
             ],
           ),
-        ),
-      ),
-    );
+        );
+
+      case DiagnosticFlowStage.listeningExample:
+        return MzStickyBottomBar(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              PrimaryButton(
+                label: 'Start Listening',
+                trailingGlyph: LucideGlyph.arrowRight,
+                onPressed: notifier.startLiveListeningBlocks,
+              ),
+              Align(
+                child: TextButton(
+                  onPressed: notifier.skipObjectiveStage,
+                  child: const Text('Skip Listening'),
+                ),
+              ),
+            ],
+          ),
+        );
+
+      case DiagnosticFlowStage.readingBlock:
+      case DiagnosticFlowStage.listeningBlock:
+        if (state.activeBlock == null) return null;
+        final isListening = state.stage == DiagnosticFlowStage.listeningBlock;
+        final bothSelected =
+            state.selectedOptionQ0 != null && state.selectedOptionQ1 != null;
+        return MzStickyBottomBar(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              PrimaryButton(
+                label: 'Next',
+                trailingGlyph: LucideGlyph.arrowRight,
+                onPressed: bothSelected
+                    ? notifier.submitCurrentObjectiveBlock
+                    : null,
+              ),
+              const SizedBox(height: SpacingTokens.xs),
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: SpacingTokens.sm,
+                children: <Widget>[
+                  TextButton(
+                    onPressed: notifier.markCurrentBlockDontKnow,
+                    child: const Text("I don't know"),
+                  ),
+                  TextButton(
+                    onPressed: notifier.skipObjectiveStage,
+                    child: Text(
+                      isListening ? 'Skip Listening' : 'Skip Reading',
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+
+      case DiagnosticFlowStage.transitionToListening:
+      case DiagnosticFlowStage.transitionToWriting:
+      case DiagnosticFlowStage.transitionToSpeaking:
+        return MzStickyBottomBar(
+          child: PrimaryButton(
+            label: 'Continue now',
+            trailingGlyph: LucideGlyph.arrowRight,
+            onPressed: notifier.skipTransitionNow,
+          ),
+        );
+
+      case DiagnosticFlowStage.writingBase:
+        return MzStickyBottomBar(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              PrimaryButton(
+                label: 'Continue',
+                trailingGlyph: LucideGlyph.arrowRight,
+                onPressed: () => unawaited(notifier.completeWritingBase()),
+              ),
+              const SizedBox(height: SpacingTokens.xs),
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: SpacingTokens.sm,
+                children: <Widget>[
+                  TextButton(
+                    onPressed: () => unawaited(
+                      notifier.completeWritingBase(
+                        forceSupportiveHelper: true,
+                      ),
+                    ),
+                    child: const Text('Simpler prompt'),
+                  ),
+                  TextButton(
+                    onPressed: () =>
+                        unawaited(notifier.completeWritingStage(skipped: true)),
+                    child: const Text('Skip Writing'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+
+      case DiagnosticFlowStage.writingFollowUp:
+        return MzStickyBottomBar(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              PrimaryButton(
+                label: 'Next skill',
+                trailingGlyph: LucideGlyph.arrowRight,
+                onPressed: () => unawaited(notifier.completeWritingStage()),
+              ),
+              Align(
+                child: TextButton(
+                  onPressed: () => unawaited(notifier.completeWritingStage()),
+                  child: const Text('Finish Writing now'),
+                ),
+              ),
+            ],
+          ),
+        );
+
+      case DiagnosticFlowStage.speakingPrep:
+        return MzStickyBottomBar(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              PrimaryButton(
+                label: 'Start speaking now',
+                glyph: LucideGlyph.mic,
+                onPressed: () => unawaited(notifier.startSpeakingRecording()),
+              ),
+              Align(
+                child: TextButton(
+                  onPressed: () => unawaited(notifier.skipSpeakingAndSubmit()),
+                  child: const Text('Skip Speaking'),
+                ),
+              ),
+            ],
+          ),
+        );
+
+      case DiagnosticFlowStage.speakingRecording:
+      case DiagnosticFlowStage.speakingFollowUp:
+        if (state.isUploadingSpeaking) return null;
+        final isFollowUp = state.stage == DiagnosticFlowStage.speakingFollowUp;
+        if (state.isSpeakingRecording) {
+          return MzStickyBottomBar(
+            child: PrimaryButton(
+              label: 'Done speaking',
+              glyph: LucideGlyph.check,
+              onPressed: () => unawaited(
+                notifier.stopSpeakingRecordingAndUpload(
+                  partIndex: isFollowUp ? 2 : 1,
+                  autoSubmitAfter: isFollowUp,
+                ),
+              ),
+            ),
+          );
+        }
+        if (isFollowUp) {
+          return MzStickyBottomBar(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                PrimaryButton(
+                  label:
+                      'Record follow-up (up to ${DiagnosticBudget.speakingFollowUpMaxSeconds}s)',
+                  glyph: LucideGlyph.mic,
+                  onPressed: () =>
+                      unawaited(notifier.startSpeakingRecording(partIndex: 2)),
+                ),
+                const SizedBox(height: SpacingTokens.xs),
+                SecondaryButton(
+                  label: 'Finish & See Results',
+                  onPressed: () => unawaited(notifier.submitAllAndGoResults()),
+                ),
+              ],
+            ),
+          );
+        }
+        return MzStickyBottomBar(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              PrimaryButton(
+                label: 'Start speaking',
+                glyph: LucideGlyph.mic,
+                onPressed: () => unawaited(notifier.startSpeakingRecording()),
+              ),
+              Align(
+                child: TextButton(
+                  onPressed: () => unawaited(
+                    notifier.skipSpeakingAndSubmit(
+                      reason:
+                          state.speakingNoEvidenceReason ??
+                          NoEvidenceReason.skipped,
+                    ),
+                  ),
+                  child: const Text('Finish without Speaking'),
+                ),
+              ),
+            ],
+          ),
+        );
+
+      case DiagnosticFlowStage.submitting:
+      case DiagnosticFlowStage.results:
+        return null;
+    }
   }
 
   Widget _buildStageContent(
@@ -230,10 +499,7 @@ class _DiagnosticSessionScreenState
 
     switch (state.stage) {
       case DiagnosticFlowStage.intro:
-        return PrimaryButton(
-          label: 'Begin Reading Check',
-          onPressed: notifier.startLiveReadingBlocks,
-        );
+        return const SizedBox.shrink();
       case DiagnosticFlowStage.readingExample:
         return _WorkedExampleView(
           skillLabel: 'Reading',
@@ -243,21 +509,21 @@ class _DiagnosticSessionScreenState
           isAudioPlaying: false,
           onPlayAudio: null,
           onSelectOption: notifier.selectWorkedExampleOption,
-          onStartSkill: notifier.startLiveReadingBlocks,
-          onSkipSkill: notifier.skipObjectiveStage,
         );
       case DiagnosticFlowStage.readingBlock:
         return _ObjectiveBlockView(
           isListening: false,
           state: state,
           notifier: notifier,
+          focusedQuestionIndex: _focusedQuestionIndex,
+          onSelectFocusedQuestion: (idx) =>
+              setState(() => _focusedQuestionIndex = idx),
         );
       case DiagnosticFlowStage.transitionToListening:
-        return _TransitionView(
+        return const _TransitionView(
           glyph: LucideGlyph.headphones,
           title: 'Next: Short Listening',
-          description: 'You will hear 2 or 3 everyday clips. Each clip plays once in standard mode.',
-          onContinue: notifier.skipTransitionNow,
+          description: 'You will hear 2 or 3 short clips. Each clip plays once in standard mode.',
         );
       case DiagnosticFlowStage.listeningExample:
         return _WorkedExampleView(
@@ -268,21 +534,22 @@ class _DiagnosticSessionScreenState
           isAudioPlaying: state.isAudioPlaying,
           onPlayAudio: notifier.playWorkedListeningExample,
           onSelectOption: notifier.selectWorkedExampleOption,
-          onStartSkill: notifier.startLiveListeningBlocks,
-          onSkipSkill: notifier.skipObjectiveStage,
         );
       case DiagnosticFlowStage.listeningBlock:
         return _ObjectiveBlockView(
           isListening: true,
           state: state,
           notifier: notifier,
+          focusedQuestionIndex: _focusedQuestionIndex,
+          onSelectFocusedQuestion: (idx) =>
+              setState(() => _focusedQuestionIndex = idx),
         );
       case DiagnosticFlowStage.transitionToWriting:
-        return _TransitionView(
+        return const _TransitionView(
           glyph: LucideGlyph.pencil,
           title: 'Next: Short Writing',
-          description: 'Write a short everyday response (~35–55 words) in your own words.',
-          onContinue: notifier.skipTransitionNow,
+          description:
+              'Write a short response (~35–55 words) in your own words.',
         );
       case DiagnosticFlowStage.writingBase:
         return _WritingStageView(
@@ -291,12 +558,11 @@ class _DiagnosticSessionScreenState
           guidanceLabel: bank.writingPrompt.suggestedWordsLabel,
           controller: _writingBaseController,
           isFollowUp: false,
-          onChanged: notifier.updateWritingBaseText,
-          onSubmit: () => unawaited(notifier.completeWritingBase()),
-          onNeedStarter: () => unawaited(
-            notifier.completeWritingBase(forceSupportiveHelper: true),
+          isPromptCollapsed: _writingPromptCollapsed,
+          onTogglePromptCollapsed: () => setState(
+            () => _writingPromptCollapsed = !_writingPromptCollapsed,
           ),
-          onSkip: () => unawaited(notifier.completeWritingStage(skipped: true)),
+          onChanged: notifier.updateWritingBaseText,
         );
       case DiagnosticFlowStage.writingFollowUp:
         return _WritingStageView(
@@ -307,18 +573,18 @@ class _DiagnosticSessionScreenState
           guidanceLabel: 'Suggested: 15–30 words (optional extra sentence)',
           controller: _writingFollowUpController,
           isFollowUp: true,
+          isPromptCollapsed: _writingPromptCollapsed,
+          onTogglePromptCollapsed: () => setState(
+            () => _writingPromptCollapsed = !_writingPromptCollapsed,
+          ),
           onChanged: notifier.updateWritingFollowUpText,
-          onSubmit: () => unawaited(notifier.completeWritingStage()),
-          onNeedStarter: null,
-          onSkip: () => unawaited(notifier.completeWritingStage()),
         );
       case DiagnosticFlowStage.transitionToSpeaking:
-        return _TransitionView(
+        return const _TransitionView(
           glyph: LucideGlyph.mic,
           title: 'Final Step: Short Speaking',
           description:
-              '15 seconds to think, then up to 45 seconds speaking naturally.',
-          onContinue: notifier.skipTransitionNow,
+              '${DiagnosticBudget.speakingPrepMaxSeconds}s to think, then up to ${DiagnosticBudget.speakingMainMaxSeconds}s speaking naturally.',
         );
       case DiagnosticFlowStage.speakingPrep:
       case DiagnosticFlowStage.speakingRecording:
@@ -326,7 +592,6 @@ class _DiagnosticSessionScreenState
         return _SpeakingStageView(
           prompt: bank.speakingPrompt,
           state: state,
-          notifier: notifier,
         );
       case DiagnosticFlowStage.submitting:
       case DiagnosticFlowStage.results:
@@ -343,7 +608,7 @@ class _DiagnosticSessionScreenState
   };
 }
 
-class _HeaderProgressStrip extends StatelessWidget {
+class _CompactProgressHeader extends StatelessWidget {
   const new({required this.state});
 
   final DiagnosticState state;
@@ -351,6 +616,7 @@ class _HeaderProgressStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
+    final shapes = AppShapes.of(context);
     final typography = AppTypography.of(context);
 
     final activeIdx = switch (state.stage) {
@@ -372,72 +638,116 @@ class _HeaderProgressStrip extends StatelessWidget {
     };
 
     const labels = <String>['Reading', 'Listening', 'Writing', 'Speaking'];
+    final activeLabel = state.retakeSkill != null
+        ? 'Single-Skill Retake'
+        : '${activeIdx + 1}/4 ${labels[activeIdx]}';
+
+    final String timerLabel;
+    final Color timerColor;
+    if (!state.isTimed) {
+      timerLabel = 'Untimed';
+      timerColor = colors.success;
+    } else if (state.isUnscoredStage) {
+      timerLabel = 'Unscored';
+      timerColor = colors.textSecondary;
+    } else if (state.stage == DiagnosticFlowStage.listeningBlock &&
+        (state.isAudioLoading || state.isAudioPlaying)) {
+      timerLabel = 'Audio playing';
+      timerColor = colors.listeningAccent;
+    } else if (state.stage == DiagnosticFlowStage.speakingFollowUp &&
+        !state.isSpeakingRecording) {
+      timerLabel = 'Ready';
+      timerColor = colors.textSecondary;
+    } else {
+      timerLabel = _formatClock(state.stageRemainingSeconds);
+      timerColor = state.stageRemainingSeconds <= 20
+          ? colors.error
+          : colors.textPrimary;
+    }
 
     return Padding(
-      padding: const EdgeInsetsDirectional.fromSTEB(
-        SpacingTokens.lg,
-        SpacingTokens.xs,
-        SpacingTokens.lg,
-        SpacingTokens.sm,
+      padding: const EdgeInsetsDirectional.only(
+        top: SpacingTokens.xs,
+        bottom: SpacingTokens.xs,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           if (state.retakeSkill == null)
-            Wrap(
-              spacing: SpacingTokens.xs,
-              runSpacing: SpacingTokens.xs,
+            Row(
               children: <Widget>[
-                for (var i = 0; i < labels.length; i += 1)
-                  MzChip(
-                    label: '${i + 1}. ${labels[i]}',
-                    variant: i == activeIdx
-                        ? MzChipVariant.target
-                        : (i < activeIdx
-                              ? MzChipVariant.positive
-                              : MzChipVariant.neutral),
+                for (var i = 0; i < 4; i += 1) ...<Widget>[
+                  Expanded(
+                    child: Container(
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: i < activeIdx
+                            ? colors.success
+                            : (i == activeIdx ? colors.primary : colors.track),
+                        borderRadius: shapes.pillRadius,
+                      ),
+                    ),
                   ),
+                  if (i < 3) const SizedBox(width: SpacingTokens.xs),
+                ],
               ],
             ),
-          const SizedBox(height: SpacingTokens.sm),
-          if (state.isTimed) ...<Widget>[
-            TimerBar(
-              remainingSeconds: state.stageRemainingSeconds,
-              totalSeconds: _totalForStage(state.stage),
-              phase: state.stage == DiagnosticFlowStage.speakingPrep
-                  ? TimerPhase.prep
-                  : TimerPhase.response,
-            ),
-            const SizedBox(height: SpacingTokens.xs),
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: Text(
-                'Check total left: ${_formatClock(state.globalRemainingSeconds)}',
-                style: typography.caption.copyWith(color: colors.textSecondary),
+          const SizedBox(height: SpacingTokens.xs),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  activeLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: typography.secondary.copyWith(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
-            ),
-          ] else
-            const StatusBanner(
-              message: 'Extended Help (Untimed) — work at your own pace.',
-              variant: StatusBannerVariant.offline,
-            ),
+              Container(
+                padding: const EdgeInsetsDirectional.symmetric(
+                  horizontal: SpacingTokens.sm,
+                  vertical: SpacingTokens.xs,
+                ),
+                decoration: BoxDecoration(
+                  color: colors.surfaceAlt,
+                  borderRadius: shapes.pillRadius,
+                  border: Border.all(
+                    color:
+                        state.isTimed &&
+                            state.stageRemainingSeconds <= 20 &&
+                            !state.isTimerPaused
+                        ? colors.error
+                        : colors.borderSubtle,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    AppIcon(
+                      LucideGlyph.timer,
+                      size: 14,
+                      color: timerColor,
+                    ),
+                    const SizedBox(width: SpacingTokens.xs),
+                    Text(
+                      timerLabel,
+                      style: typography.caption.copyWith(
+                        color: timerColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
-
-  int _totalForStage(DiagnosticFlowStage stage) => switch (stage) {
-    DiagnosticFlowStage.readingExample ||
-    DiagnosticFlowStage.readingBlock => DiagnosticBudget.readingMaxSeconds,
-    DiagnosticFlowStage.listeningExample ||
-    DiagnosticFlowStage.listeningBlock => DiagnosticBudget.listeningMaxSeconds,
-    DiagnosticFlowStage.writingBase ||
-    DiagnosticFlowStage.writingFollowUp => DiagnosticBudget.writingMaxSeconds,
-    DiagnosticFlowStage.speakingPrep => 15,
-    DiagnosticFlowStage.speakingRecording => 45,
-    DiagnosticFlowStage.speakingFollowUp => 25,
-    _ => DiagnosticBudget.collectionTotalSeconds,
-  };
 
   String _formatClock(int totalSec) {
     final m = (totalSec ~/ 60).toString().padLeft(2, '0');
@@ -455,8 +765,6 @@ class _WorkedExampleView extends StatelessWidget {
     required this.isAudioPlaying,
     required this.onPlayAudio,
     required this.onSelectOption,
-    required this.onStartSkill,
-    required this.onSkipSkill,
   });
 
   final String skillLabel;
@@ -466,8 +774,6 @@ class _WorkedExampleView extends StatelessWidget {
   final bool isAudioPlaying;
   final VoidCallback? onPlayAudio;
   final ValueChanged<int> onSelectOption;
-  final VoidCallback onStartSkill;
-  final VoidCallback onSkipSkill;
 
   @override
   Widget build(BuildContext context) {
@@ -477,20 +783,20 @@ class _WorkedExampleView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        const MzChip(
-          label: 'Example — does not affect your level',
-          glyph: LucideGlyph.info,
+        const Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: MzChip(
+            label: 'Example — does not affect your level',
+            glyph: LucideGlyph.info,
+          ),
         ),
-        const SizedBox(height: SpacingTokens.md),
+        const SizedBox(height: SpacingTokens.sm),
         MzCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(
-                'Sample $skillLabel',
-                style: typography.cardTitle,
-              ),
-              const SizedBox(height: SpacingTokens.sm),
+              Text('Sample $skillLabel', style: typography.cardTitle),
+              const SizedBox(height: SpacingTokens.xs),
               if (onPlayAudio != null) ...<Widget>[
                 SecondaryButton(
                   label: isAudioPlaying
@@ -498,16 +804,18 @@ class _WorkedExampleView extends StatelessWidget {
                       : 'Play sample clip',
                   onPressed: isAudioPlaying ? null : onPlayAudio,
                 ),
-                const SizedBox(height: SpacingTokens.sm),
+                const SizedBox(height: SpacingTokens.xs),
               ],
               Text(
                 example.passageOrTranscript,
-                style: typography.body.copyWith(color: colors.textPrimary),
+                style: typography.secondary.copyWith(
+                  color: colors.textPrimary,
+                ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: SpacingTokens.md),
+        const SizedBox(height: SpacingTokens.sm),
         MzCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -520,7 +828,8 @@ class _WorkedExampleView extends StatelessWidget {
                   isSelected: selectedOption == i,
                   onTap: () => onSelectOption(i),
                 ),
-                const SizedBox(height: SpacingTokens.xs),
+                if (i < example.options.length - 1)
+                  const SizedBox(height: SpacingTokens.xs),
               ],
               if (revealed) ...<Widget>[
                 const SizedBox(height: SpacingTokens.sm),
@@ -534,16 +843,6 @@ class _WorkedExampleView extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: SpacingTokens.lg),
-        PrimaryButton(
-          label: 'Start $skillLabel',
-          onPressed: onStartSkill,
-        ),
-        const SizedBox(height: SpacingTokens.sm),
-        TextButton(
-          onPressed: onSkipSkill,
-          child: Text('Skip $skillLabel'),
-        ),
       ],
     );
   }
@@ -554,28 +853,37 @@ class _ObjectiveBlockView extends StatelessWidget {
     required this.isListening,
     required this.state,
     required this.notifier,
+    required this.focusedQuestionIndex,
+    required this.onSelectFocusedQuestion,
   });
 
   final bool isListening;
   final DiagnosticState state;
   final DiagnosticNotifier notifier;
+  final int focusedQuestionIndex;
+  final ValueChanged<int> onSelectFocusedQuestion;
 
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
+    final shapes = AppShapes.of(context);
     final block = state.activeBlock;
+    final isCompact = MzResponsive.isCompactOf(context);
 
     if (block == null) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final bothSelected =
-        state.selectedOptionQ0 != null && state.selectedOptionQ1 != null;
     final canPlayAudio =
         state.audioPlayCount == 0 ||
         state.mode == DiagnosticMode.accessible ||
         state.audioFailed;
+
+    final clampedFocus = focusedQuestionIndex.clamp(
+      0,
+      block.questions.length - 1,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -585,22 +893,30 @@ class _ObjectiveBlockView extends StatelessWidget {
             Expanded(
               child: Text(
                 block.title,
-                style: typography.sectionHeading,
+                style: typography.cardTitle.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
+            const SizedBox(width: SpacingTokens.sm),
             MzChip(
               label:
-                  'Part ${state.currentBlockNumber} of up to ${state.currentBlockLimit}',
+                  'Part ${state.currentBlockNumber}/${state.currentBlockLimit}',
             ),
           ],
         ),
-        const SizedBox(height: SpacingTokens.md),
+        const SizedBox(height: SpacingTokens.sm),
 
         if (!isListening && block.passageText != null)
           MzCard(
             child: SelectableText(
               block.passageText!,
-              style: typography.body.copyWith(color: colors.textPrimary),
+              style: typography.body.copyWith(
+                color: colors.textPrimary,
+                height: 1.5,
+              ),
             ),
           ),
 
@@ -614,8 +930,8 @@ class _ObjectiveBlockView extends StatelessWidget {
                     const IconWell(
                       glyph: LucideGlyph.headphones,
                       tint: IconWellTint.blue,
-                      size: 36,
-                      iconSize: 18,
+                      size: 32,
+                      iconSize: 16,
                     ),
                     const SizedBox(width: SpacingTokens.sm),
                     Expanded(
@@ -623,12 +939,15 @@ class _ObjectiveBlockView extends StatelessWidget {
                         state.mode == DiagnosticMode.accessible
                             ? 'Audio Clip (Replay available)'
                             : 'Audio Clip (Plays once)',
-                        style: typography.cardTitle,
+                        style: typography.secondary.copyWith(
+                          color: colors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: SpacingTokens.md),
+                const SizedBox(height: SpacingTokens.sm),
                 PrimaryButton(
                   label: state.isAudioLoading
                       ? 'Loading audio...'
@@ -656,7 +975,7 @@ class _ObjectiveBlockView extends StatelessWidget {
                     !state.audioFailed) ...<Widget>[
                   const SizedBox(height: SpacingTokens.xs),
                   Text(
-                    'Audio plays automatically; tap Play clip if your browser paused playback.',
+                    'Tap Play clip if your browser paused auto-play.',
                     style: typography.caption.copyWith(
                       color: colors.textSecondary,
                     ),
@@ -675,7 +994,7 @@ class _ObjectiveBlockView extends StatelessWidget {
                 if (state.mode == DiagnosticMode.accessible &&
                     state.audioCompleted &&
                     block.scriptText != null) ...<Widget>[
-                  const SizedBox(height: SpacingTokens.sm),
+                  const SizedBox(height: SpacingTokens.xs),
                   TextButton(
                     onPressed: notifier.toggleAccessibleTranscript,
                     child: Text(
@@ -701,48 +1020,134 @@ class _ObjectiveBlockView extends StatelessWidget {
             ),
           ),
 
-        const SizedBox(height: SpacingTokens.md),
+        const SizedBox(height: SpacingTokens.sm),
 
-        for (
-          var qIdx = 0;
-          qIdx < block.questions.length;
-          qIdx += 1
-        ) ...<Widget>[
+        if (isCompact && block.questions.length == 2) ...<Widget>[
+          Row(
+            children: <Widget>[
+              for (var i = 0; i < 2; i += 1) ...<Widget>[
+                Expanded(
+                  child: _QuestionStepPill(
+                    label: 'Question ${i + 1}',
+                    isSelected: clampedFocus == i,
+                    isAnswered: i == 0
+                        ? state.selectedOptionQ0 != null
+                        : state.selectedOptionQ1 != null,
+                    shapes: shapes,
+                    onTap: () => onSelectFocusedQuestion(i),
+                  ),
+                ),
+                if (i == 0) const SizedBox(width: SpacingTokens.sm),
+              ],
+            ],
+          ),
+          const SizedBox(height: SpacingTokens.sm),
           _QuestionCard(
-            questionIndex: qIdx,
-            question: block.questions[qIdx],
-            selectedIndex: qIdx == 0
+            questionIndex: clampedFocus,
+            question: block.questions[clampedFocus],
+            selectedIndex: clampedFocus == 0
                 ? state.selectedOptionQ0
                 : state.selectedOptionQ1,
-            onSelect: (optIdx) => notifier.selectBlockOption(
-              questionIndex: qIdx,
-              optionIndex: optIdx,
-            ),
+            onSelect: (optIdx) {
+              notifier.selectBlockOption(
+                questionIndex: clampedFocus,
+                optionIndex: optIdx,
+              );
+              if (clampedFocus == 0 && state.selectedOptionQ1 == null) {
+                onSelectFocusedQuestion(1);
+              }
+            },
           ),
-          const SizedBox(height: SpacingTokens.md),
+        ] else ...<Widget>[
+          for (
+            var qIdx = 0;
+            qIdx < block.questions.length;
+            qIdx += 1
+          ) ...<Widget>[
+            _QuestionCard(
+              questionIndex: qIdx,
+              question: block.questions[qIdx],
+              selectedIndex: qIdx == 0
+                  ? state.selectedOptionQ0
+                  : state.selectedOptionQ1,
+              onSelect: (optIdx) => notifier.selectBlockOption(
+                questionIndex: qIdx,
+                optionIndex: optIdx,
+              ),
+            ),
+            if (qIdx < block.questions.length - 1)
+              const SizedBox(height: SpacingTokens.sm),
+          ],
         ],
-
-        PrimaryButton(
-          label: 'Next',
-          onPressed: bothSelected ? notifier.submitCurrentObjectiveBlock : null,
-        ),
-        const SizedBox(height: SpacingTokens.sm),
-        SecondaryButton(
-          label: "I don't know",
-          onPressed: notifier.markCurrentBlockDontKnow,
-        ),
-        const SizedBox(height: SpacingTokens.xs),
-        Text(
-          "Too hard? Tapping \"I don't know\" helps adjust without guessing.",
-          textAlign: TextAlign.center,
-          style: typography.caption.copyWith(color: colors.textSecondary),
-        ),
-        const SizedBox(height: SpacingTokens.sm),
-        TextButton(
-          onPressed: notifier.skipObjectiveStage,
-          child: Text(isListening ? 'Skip Listening' : 'Skip Reading'),
-        ),
       ],
+    );
+  }
+}
+
+class _QuestionStepPill extends StatelessWidget {
+  const new({
+    required this.label,
+    required this.isSelected,
+    required this.isAnswered,
+    required this.shapes,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final bool isAnswered;
+  final AppShapes shapes;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final typography = AppTypography.of(context);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: shapes.controlRadius,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 44),
+        padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: SpacingTokens.sm,
+          vertical: SpacingTokens.xs,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? colors.surfaceAlt : colors.surface,
+          borderRadius: shapes.controlRadius,
+          border: Border.all(
+            color: isSelected
+                ? colors.primary
+                : (isAnswered ? colors.success : colors.borderSubtle),
+            width: isSelected ? 1.5 : shapes.strokeWidth,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            if (isAnswered) ...<Widget>[
+              AppIcon(
+                LucideGlyph.checkCircle2,
+                size: 16,
+                color: colors.success,
+              ),
+              const SizedBox(width: SpacingTokens.xs),
+            ],
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: typography.secondary.copyWith(
+                  color: isSelected ? colors.primary : colors.textPrimary,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -804,8 +1209,9 @@ class _OptionButton extends StatelessWidget {
     final shapes = AppShapes.of(context);
     final typography = AppTypography.of(context);
 
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
+      borderRadius: shapes.controlRadius,
       child: Container(
         constraints: const BoxConstraints(minHeight: 44),
         padding: const EdgeInsetsDirectional.symmetric(
@@ -849,13 +1255,11 @@ class _TransitionView extends StatelessWidget {
     required this.glyph,
     required this.title,
     required this.description,
-    required this.onContinue,
   });
 
   final LucideGlyph glyph;
   final String title;
   final String description;
-  final VoidCallback onContinue;
 
   @override
   Widget build(BuildContext context) {
@@ -887,11 +1291,6 @@ class _TransitionView extends StatelessWidget {
             textAlign: TextAlign.center,
             style: typography.body.copyWith(color: colors.textSecondary),
           ),
-          const SizedBox(height: SpacingTokens.lg),
-          PrimaryButton(
-            label: 'Continue now',
-            onPressed: onContinue,
-          ),
         ],
       ),
     );
@@ -905,10 +1304,9 @@ class _WritingStageView extends StatelessWidget {
     required this.guidanceLabel,
     required this.controller,
     required this.isFollowUp,
+    required this.isPromptCollapsed,
+    required this.onTogglePromptCollapsed,
     required this.onChanged,
-    required this.onSubmit,
-    required this.onNeedStarter,
-    required this.onSkip,
   });
 
   final String title;
@@ -916,10 +1314,9 @@ class _WritingStageView extends StatelessWidget {
   final String guidanceLabel;
   final TextEditingController controller;
   final bool isFollowUp;
+  final bool isPromptCollapsed;
+  final VoidCallback onTogglePromptCollapsed;
   final ValueChanged<String> onChanged;
-  final VoidCallback onSubmit;
-  final VoidCallback? onNeedStarter;
-  final VoidCallback onSkip;
 
   @override
   Widget build(BuildContext context) {
@@ -941,10 +1338,22 @@ class _WritingStageView extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(title, style: typography.cardTitle),
-                  const SizedBox(height: SpacingTokens.sm),
-                  Text(promptText, style: typography.body),
-                  const SizedBox(height: SpacingTokens.sm),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(title, style: typography.cardTitle),
+                      ),
+                      TextButton(
+                        onPressed: onTogglePromptCollapsed,
+                        child: Text(isPromptCollapsed ? 'Show prompt' : 'Hide'),
+                      ),
+                    ],
+                  ),
+                  if (!isPromptCollapsed) ...<Widget>[
+                    const SizedBox(height: SpacingTokens.xs),
+                    Text(promptText, style: typography.body),
+                    const SizedBox(height: SpacingTokens.sm),
+                  ],
                   Wrap(
                     spacing: SpacingTokens.sm,
                     runSpacing: SpacingTokens.xs,
@@ -956,12 +1365,12 @@ class _WritingStageView extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: SpacingTokens.md),
+            const SizedBox(height: SpacingTokens.sm),
             TextField(
               controller: controller,
               onChanged: onChanged,
-              minLines: 5,
-              maxLines: 9,
+              minLines: 6,
+              maxLines: 10,
               textInputAction: TextInputAction.newline,
               decoration: InputDecoration(
                 hintText: isFollowUp
@@ -970,23 +1379,6 @@ class _WritingStageView extends StatelessWidget {
                 filled: true,
                 fillColor: colors.surface,
               ),
-            ),
-            const SizedBox(height: SpacingTokens.lg),
-            PrimaryButton(
-              label: isFollowUp ? 'Next skill' : 'Continue',
-              onPressed: onSubmit,
-            ),
-            if (!isFollowUp && onNeedStarter != null) ...<Widget>[
-              const SizedBox(height: SpacingTokens.sm),
-              SecondaryButton(
-                label: 'Show a simpler follow-up question',
-                onPressed: onNeedStarter,
-              ),
-            ],
-            const SizedBox(height: SpacingTokens.sm),
-            TextButton(
-              onPressed: onSkip,
-              child: Text(isFollowUp ? 'Finish Writing now' : 'Skip Writing'),
             ),
           ],
         );
@@ -999,19 +1391,16 @@ class _SpeakingStageView extends StatelessWidget {
   const new({
     required this.prompt,
     required this.state,
-    required this.notifier,
   });
 
   final DiagnosticSpeakingPromptSpec prompt;
   final DiagnosticState state;
-  final DiagnosticNotifier notifier;
 
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
 
-    final isPrep = state.stage == DiagnosticFlowStage.speakingPrep;
     final isFollowUp = state.stage == DiagnosticFlowStage.speakingFollowUp;
 
     return Column(
@@ -1046,7 +1435,6 @@ class _SpeakingStageView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: SpacingTokens.md),
-
         AudioLevelMeter(
           normalizedLevel: state.speakingAmplitude,
           isRecording: state.isSpeakingRecording,
@@ -1061,56 +1449,9 @@ class _SpeakingStageView extends StatelessWidget {
             style: typography.secondary.copyWith(color: colors.textSecondary),
           ),
         ],
-        const SizedBox(height: SpacingTokens.lg),
-
-        if (state.isUploadingSpeaking)
-          const Center(child: CircularProgressIndicator())
-        else if (isPrep) ...<Widget>[
-          PrimaryButton(
-            label: 'Start speaking now',
-            onPressed: () => unawaited(notifier.startSpeakingRecording()),
-          ),
-          const SizedBox(height: SpacingTokens.sm),
-          TextButton(
-            onPressed: () => unawaited(notifier.skipSpeakingAndSubmit()),
-            child: const Text('Skip Speaking'),
-          ),
-        ] else if (state.isSpeakingRecording) ...<Widget>[
-          PrimaryButton(
-            label: 'Done speaking',
-            onPressed: () => unawaited(
-              notifier.stopSpeakingRecordingAndUpload(
-                partIndex: isFollowUp ? 2 : 1,
-                autoSubmitAfter: isFollowUp,
-              ),
-            ),
-          ),
-        ] else if (isFollowUp) ...<Widget>[
-          PrimaryButton(
-            label: 'Record follow-up (up to 25s)',
-            onPressed: () =>
-                unawaited(notifier.startSpeakingRecording(partIndex: 2)),
-          ),
-          const SizedBox(height: SpacingTokens.sm),
-          SecondaryButton(
-            label: 'Finish & See Results',
-            onPressed: () => unawaited(notifier.submitAllAndGoResults()),
-          ),
-        ] else ...<Widget>[
-          PrimaryButton(
-            label: 'Start speaking',
-            onPressed: () => unawaited(notifier.startSpeakingRecording()),
-          ),
-          const SizedBox(height: SpacingTokens.sm),
-          SecondaryButton(
-            label: 'Finish without Speaking',
-            onPressed: () => unawaited(
-              notifier.skipSpeakingAndSubmit(
-                reason:
-                    state.speakingNoEvidenceReason ?? NoEvidenceReason.skipped,
-              ),
-            ),
-          ),
+        if (state.isUploadingSpeaking) ...<Widget>[
+          const SizedBox(height: SpacingTokens.md),
+          const Center(child: CircularProgressIndicator()),
         ],
       ],
     );
@@ -1158,10 +1499,7 @@ class _SubmittingView extends StatelessWidget {
         children: <Widget>[
           const CircularProgressIndicator(),
           const SizedBox(height: SpacingTokens.md),
-          Text(
-            'Saving your responses...',
-            style: typography.cardTitle,
-          ),
+          Text('Saving your responses...', style: typography.cardTitle),
           const SizedBox(height: SpacingTokens.xs),
           Text(
             'Preparing your 4-skill starting check results.',

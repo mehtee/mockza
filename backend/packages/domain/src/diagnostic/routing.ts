@@ -14,15 +14,15 @@ import {
 export const DIAGNOSTIC_POLICY_VERSION = '2026-11-17.v1';
 
 export const STANDARD_DIAGNOSTIC_BUDGET_SECONDS = {
-  intro: 45,
-  reading: 120,
-  listening: 120,
-  writing: 135,
-  speaking: 105,
+  intro: 60,
+  reading: 210,
+  listening: 210,
+  writing: 240,
+  speaking: 150,
   transitions: 15,
-  collectionTotal: 540,
-  resultsWindow: 60,
-  total: 600,
+  collectionTotal: 900,
+  resultsWindow: 90,
+  total: 990,
 } as const;
 
 export const DIAGNOSTIC_STAGE_LIMITS = {

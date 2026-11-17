@@ -28,7 +28,7 @@ describe('@mockza/storage S3 operations', () => {
     expect(signing).toBeDefined();
   });
 
-  it('creates presigned URL with locked key format users/${deviceId}/clips/${attemptId}/part-${partIndex}.m4a', async () => {
+  it('creates presigned URL with locked key format users/<deviceId>/clips/<attemptId>/part-<partIndex>.m4a', async () => {
     const client = createAudioS3Client(dummyEnv);
     const res = await createAudioPresignUrl({
       client,

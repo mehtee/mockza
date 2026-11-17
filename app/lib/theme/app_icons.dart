@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:mockza/theme/app_gradients.dart';
+import 'package:mockza/theme/primitives.dart';
 
 /// Supported vector icon identifiers matching design.md Sec. 3 Lucide family.
 enum LucideGlyph {
@@ -31,6 +32,30 @@ enum LucideGlyph {
 
   /// Chevron left navigation arrow.
   chevronLeft,
+
+  /// Chevron up expand/collapse glyph.
+  chevronUp,
+
+  /// Minus decrement glyph.
+  minus,
+
+  /// Plus increment glyph.
+  plus,
+
+  /// Unselected radio circle glyph.
+  circle,
+
+  /// Selected radio circle dot glyph.
+  circleDot,
+
+  /// Eye visibility show glyph.
+  eye,
+
+  /// Eye-off visibility hide glyph.
+  eyeOff,
+
+  /// Sliders configuration glyph.
+  slidersHorizontal,
 
   /// Target bullseye glyph.
   target,
@@ -162,7 +187,7 @@ class AppIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveColor =
-        color ?? IconTheme.of(context).color ?? const Color(0xFFF6F8FC);
+        color ?? IconTheme.of(context).color ?? PalettePrimitives.darkText;
 
     final iconWidget = SizedBox(
       width: size,
@@ -776,6 +801,82 @@ class _LucidePainter extends CustomPainter {
         path.lineTo(14, 3);
         path.cubicTo(14.55, 3, 15, 3.45, 15, 4);
         path.lineTo(15, 6);
+        canvas.drawPath(path, stroke);
+
+      case LucideGlyph.chevronUp:
+        path.moveTo(18, 15);
+        path.lineTo(12, 9);
+        path.lineTo(6, 15);
+        canvas.drawPath(path, stroke);
+
+      case LucideGlyph.minus:
+        path.moveTo(5, 12);
+        path.lineTo(19, 12);
+        canvas.drawPath(path, stroke);
+
+      case LucideGlyph.plus:
+        path.moveTo(5, 12);
+        path.lineTo(19, 12);
+        path.moveTo(12, 5);
+        path.lineTo(12, 19);
+        canvas.drawPath(path, stroke);
+
+      case LucideGlyph.circle:
+        canvas.drawCircle(const Offset(12, 12), 9, stroke);
+
+      case LucideGlyph.circleDot:
+        canvas.drawCircle(const Offset(12, 12), 9, stroke);
+        final fill = Paint()
+          ..color = color
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(const Offset(12, 12), 4, fill);
+
+      case LucideGlyph.eye:
+        path.moveTo(2, 12);
+        path.cubicTo(5, 6.5, 8.5, 5, 12, 5);
+        path.cubicTo(15.5, 5, 19, 6.5, 22, 12);
+        path.cubicTo(19, 17.5, 15.5, 19, 12, 19);
+        path.cubicTo(8.5, 19, 5, 17.5, 2, 12);
+        path.close();
+        canvas.drawPath(path, stroke);
+        canvas.drawCircle(const Offset(12, 12), 3, stroke);
+
+      case LucideGlyph.eyeOff:
+        path.moveTo(9.88, 9.88);
+        path.cubicTo(9.3, 10.45, 9, 11.2, 9, 12);
+        path.cubicTo(9, 13.66, 10.34, 15, 12, 15);
+        path.cubicTo(12.8, 15, 13.55, 14.7, 14.12, 14.12);
+        path.moveTo(10.73, 5.08);
+        path.cubicTo(11.15, 5.03, 11.57, 5, 12, 5);
+        path.cubicTo(17, 5, 20.3, 8.3, 22, 12);
+        path.cubicTo(21.4, 13.3, 20.6, 14.6, 19.6, 15.7);
+        path.moveTo(6.6, 6.6);
+        path.cubicTo(4.6, 7.9, 3, 9.8, 2, 12);
+        path.cubicTo(3.7, 15.7, 7, 19, 12, 19);
+        path.cubicTo(13.8, 19, 15.4, 18.5, 16.8, 17.7);
+        path.moveTo(2, 2);
+        path.lineTo(22, 22);
+        canvas.drawPath(path, stroke);
+
+      case LucideGlyph.slidersHorizontal:
+        path.moveTo(21, 4);
+        path.lineTo(14, 4);
+        path.moveTo(10, 4);
+        path.lineTo(3, 4);
+        path.moveTo(21, 12);
+        path.lineTo(12, 12);
+        path.moveTo(8, 12);
+        path.lineTo(3, 12);
+        path.moveTo(21, 20);
+        path.lineTo(16, 20);
+        path.moveTo(12, 20);
+        path.lineTo(3, 20);
+        path.moveTo(14, 2);
+        path.lineTo(14, 6);
+        path.moveTo(8, 10);
+        path.lineTo(8, 14);
+        path.moveTo(16, 18);
+        path.lineTo(16, 22);
         canvas.drawPath(path, stroke);
     }
   }

@@ -146,16 +146,20 @@ class AudioPlayerBar extends StatelessWidget {
                   ),
                 )
               else if (!isPlaying)
-                Semantics(
-                  button: true,
-                  label: position > Duration.zero
-                      ? 'Resume exam audio'
-                      : 'Start listening test audio',
-                  child: FilledButton.tonalIcon(
-                    onPressed: onTapPlayPause,
-                    icon: const AppIcon(LucideGlyph.play, size: 16),
-                    label: Text(
-                      position > Duration.zero ? 'Resume' : 'Start Audio',
+                Flexible(
+                  child: Semantics(
+                    button: true,
+                    label: position > Duration.zero
+                        ? 'Resume exam audio'
+                        : 'Start listening test audio',
+                    child: FilledButton.tonalIcon(
+                      onPressed: onTapPlayPause,
+                      icon: const AppIcon(LucideGlyph.play, size: 16),
+                      label: Text(
+                        position > Duration.zero ? 'Resume' : 'Start Audio',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
                 )
@@ -171,15 +175,19 @@ class AudioPlayerBar extends StatelessWidget {
                   ),
                 ),
               const SizedBox(width: SpacingTokens.xs),
-              Text(
-                '$posStr / $durStr',
-                style: typography.timerMono.copyWith(
-                  color: colors.textSecondary,
-                  fontSize: 14,
+              if (isExam) ...<Widget>[
+                Flexible(
+                  child: Text(
+                    '$posStr / $durStr',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: typography.timerMono.copyWith(
+                      color: colors.textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(width: SpacingTokens.xs),
-              if (isExam)
+                const SizedBox(width: SpacingTokens.xs),
                 Expanded(
                   child: Align(
                     alignment: AlignmentDirectional.centerEnd,
@@ -192,34 +200,47 @@ class AudioPlayerBar extends StatelessWidget {
                       ),
                     ),
                   ),
-                )
-              else if (onTapSpeed != null) ...<Widget>[
-                const Spacer(),
-                InkWell(
-                  onTap: onTapSpeed,
-                  borderRadius: shapes.pillRadius,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: SpacingTokens.sm,
-                      vertical: SpacingTokens.xs,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colors.surface,
-                      borderRadius: shapes.pillRadius,
-                      border: Border.all(
-                        color: colors.borderSubtle,
-                        width: shapes.strokeWidth,
-                      ),
-                    ),
-                    child: Text(
-                      '${playbackSpeed}x',
-                      style: typography.caption.copyWith(
-                        color: colors.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
+                ),
+              ] else ...<Widget>[
+                Expanded(
+                  child: Text(
+                    '$posStr / $durStr',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: typography.timerMono.copyWith(
+                      color: colors.textSecondary,
+                      fontSize: 14,
                     ),
                   ),
                 ),
+                if (onTapSpeed != null) ...<Widget>[
+                  const SizedBox(width: SpacingTokens.xs),
+                  InkWell(
+                    onTap: onTapSpeed,
+                    borderRadius: shapes.pillRadius,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: SpacingTokens.sm,
+                        vertical: SpacingTokens.xs,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: shapes.pillRadius,
+                        border: Border.all(
+                          color: colors.borderSubtle,
+                          width: shapes.strokeWidth,
+                        ),
+                      ),
+                      child: Text(
+                        '${playbackSpeed}x',
+                        style: typography.caption.copyWith(
+                          color: colors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ],
           ),

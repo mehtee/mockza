@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mockza/features/settings/presentation/settings_providers.dart';
 import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/providers.dart';
 import 'package:mockza/routing/app_router.dart';
 import 'package:mockza/theme/app_theme.dart';
+import 'package:mockza/theme/theme_catalog.dart';
 
 /// Root Mockza widget wiring themes, localization, lifecycle sync, and `GoRouter`.
 class MockzaApp extends ConsumerStatefulWidget {
@@ -62,10 +62,9 @@ class _MockzaAppState extends ConsumerState<MockzaApp>
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(appRouterProvider);
-    final themeModeStr = ref.watch(
-      settingsNotifierProvider.select((s) => s.themeMode),
-    );
-    final themeMode = switch (themeModeStr) {
+    final appearance = ref.watch(appearanceSettingsProvider);
+    final preset = MzThemeCatalog.resolvePreset(appearance.presetId);
+    final themeMode = switch (appearance.themeModeKey) {
       'light' => ThemeMode.light,
       'dark' => ThemeMode.dark,
       _ => ThemeMode.system,
@@ -73,8 +72,8 @@ class _MockzaAppState extends ConsumerState<MockzaApp>
     return MaterialApp.router(
       onGenerateTitle: (ctx) => AppLocalizations.of(ctx).appTitle,
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
+      theme: AppTheme.build(preset: preset, brightness: Brightness.light),
+      darkTheme: AppTheme.build(preset: preset, brightness: Brightness.dark),
       themeMode: themeMode,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,

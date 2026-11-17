@@ -212,10 +212,10 @@ void main() {
   });
 
   group('DiagnosticBudget wall-clock calculations', () {
-    test('enforces 540s collection + 60s results = 600s budget', () {
-      expect(DiagnosticBudget.collectionTotalSeconds, 540);
-      expect(DiagnosticBudget.resultsWindowSeconds, 60);
-      expect(DiagnosticBudget.totalSessionSeconds, 600);
+    test('enforces 900s collection + 90s results = 990s budget', () {
+      expect(DiagnosticBudget.collectionTotalSeconds, 900);
+      expect(DiagnosticBudget.resultsWindowSeconds, 90);
+      expect(DiagnosticBudget.totalSessionSeconds, 990);
 
       final fixedNow = DateTime.utc(2026, 11, 17, 14);
       final clock = Clock.fixed(fixedNow);

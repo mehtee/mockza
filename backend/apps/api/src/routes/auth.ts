@@ -159,10 +159,13 @@ export function registerAuthRoutes(
           );
         }
 
+        const existingSecretHash = existing.deviceSecretHash;
         const secretMatches =
-          Boolean(deviceSecret) &&
-          Boolean(existing.deviceSecretHash) &&
-          timingSafeHexEqual(sha256Hex(deviceSecret!), existing.deviceSecretHash!);
+          typeof deviceSecret === 'string' &&
+          deviceSecret.length > 0 &&
+          typeof existingSecretHash === 'string' &&
+          existingSecretHash.length > 0 &&
+          timingSafeHexEqual(sha256Hex(deviceSecret), existingSecretHash);
         const bearerMatches = await verifyBearerForDevice(
           authHeader,
           deviceId,
@@ -210,8 +213,9 @@ export function registerAuthRoutes(
         issuedSecret = newSecret;
       } else {
         const secretMatches =
-          Boolean(deviceSecret) &&
-          timingSafeHexEqual(sha256Hex(deviceSecret!), existing.secretHash);
+          typeof deviceSecret === 'string' &&
+          deviceSecret.length > 0 &&
+          timingSafeHexEqual(sha256Hex(deviceSecret), existing.secretHash);
         const bearerMatches = await verifyBearerForDevice(
           authHeader,
           deviceId,

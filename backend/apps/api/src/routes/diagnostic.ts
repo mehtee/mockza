@@ -475,7 +475,10 @@ export function registerDiagnosticRoutes(
       row = inserted;
     }
 
-    const responsePayload = await assembleSessionResponse(db, row!);
+    if (!row) {
+      throw new DomainError('internal_error', 'Failed to create or load diagnostic session.');
+    }
+    const responsePayload = await assembleSessionResponse(db, row);
     return c.json(responsePayload, 200);
   });
 
@@ -644,35 +647,36 @@ export function registerDiagnosticRoutes(
               writingAttemptId = payload.writing.attemptId;
               writingJobId = existingWriting[0].jobId;
             } else {
+              const writingInput = payload.writing;
               const jId = randomUUID();
               const jobPayload = {
                 jobId: jId,
                 executionGeneration: 1,
-                attemptId: payload.writing.attemptId,
+                attemptId: writingInput.attemptId,
                 packId: 'diag-writing-pack-v1',
                 examId: payload.examId ?? session.examId,
                 taskType: 'diagnostic_writing' as const,
-                promptTitle: payload.writing.promptTitle,
-                promptBody: payload.writing.basePrompt,
-                basePrompt: payload.writing.basePrompt,
-                followUpPrompt: payload.writing.followUpPrompt,
-                baseResponse: payload.writing.baseResponse,
-                followUpResponse: payload.writing.followUpResponse,
+                promptTitle: writingInput.promptTitle,
+                promptBody: writingInput.basePrompt,
+                basePrompt: writingInput.basePrompt,
+                followUpPrompt: writingInput.followUpPrompt,
+                baseResponse: writingInput.baseResponse,
+                followUpResponse: writingInput.followUpResponse,
                 essayText: combined,
               };
-              const dispatchKey = `${payload.writing.attemptId}:gen:1`;
+              const dispatchKey = `${writingInput.attemptId}:gen:1`;
               await db.transaction(async (tx) => {
                 await reserveQuotaAtomic({
                   db: tx,
                   accountKey,
                   deviceId,
-                  attemptId: payload.writing!.attemptId,
+                  attemptId: writingInput.attemptId,
                   skill: 'writing',
                   diagSessionId: diagId,
                 });
                 await tx.insert(evaluationJobs).values({
                   jobId: jId,
-                  attemptId: payload.writing!.attemptId,
+                  attemptId: writingInput.attemptId,
                   accountKey,
                   deviceId,
                   packId: 'diag-writing-pack-v1',
@@ -789,31 +793,32 @@ export function registerDiagnosticRoutes(
               speakingAttemptId = payload.speaking.attemptId;
               speakingJobId = existingSpeaking[0].jobId;
             } else {
+              const speakingInput = payload.speaking;
               const jId = randomUUID();
               const jobPayload = {
                 jobId: jId,
                 executionGeneration: 1,
-                attemptId: payload.speaking.attemptId,
+                attemptId: speakingInput.attemptId,
                 packId: 'diag-speaking-pack-v1',
                 examId: payload.examId ?? session.examId,
                 partSequence: 'diagnostic' as const,
-                basePrompt: payload.speaking.basePrompt,
-                followUpPrompt: payload.speaking.followUpPrompt,
-                turns: payload.speaking.turns,
+                basePrompt: speakingInput.basePrompt,
+                followUpPrompt: speakingInput.followUpPrompt,
+                turns: speakingInput.turns,
               };
-              const dispatchKey = `${payload.speaking.attemptId}:gen:1`;
+              const dispatchKey = `${speakingInput.attemptId}:gen:1`;
               await db.transaction(async (tx) => {
                 await reserveQuotaAtomic({
                   db: tx,
                   accountKey,
                   deviceId,
-                  attemptId: payload.speaking!.attemptId,
+                  attemptId: speakingInput.attemptId,
                   skill: 'speaking',
                   diagSessionId: diagId,
                 });
                 await tx.insert(evaluationJobs).values({
                   jobId: jId,
-                  attemptId: payload.speaking!.attemptId,
+                  attemptId: speakingInput.attemptId,
                   accountKey,
                   deviceId,
                   packId: 'diag-speaking-pack-v1',
@@ -922,7 +927,7 @@ export function registerDiagnosticRoutes(
       .where(eq(diagnosticSessions.diagId, diagId))
       .returning();
 
-    const responsePayload = await assembleSessionResponse(db, updatedRow!);
+    const responsePayload = await assembleSessionResponse(db, updatedRow ?? session);
     return c.json(responsePayload, 200);
   });
 
@@ -1122,37 +1127,37 @@ export function registerDiagnosticRoutes(
         }),
       );
     } else if (payload.skill === 'writing' && payload.writing) {
-      const combined =
-        `${payload.writing.baseResponse} ${payload.writing.followUpResponse ?? ''}`.trim();
+      const writingInput = payload.writing;
+      const combined = `${writingInput.baseResponse} ${writingInput.followUpResponse ?? ''}`.trim();
       const jId = randomUUID();
       const jobPayload = {
         jobId: jId,
         executionGeneration: 1,
-        attemptId: payload.writing.attemptId,
+        attemptId: writingInput.attemptId,
         packId: 'diag-writing-pack-v1',
         examId: session.examId,
         taskType: 'diagnostic_writing' as const,
-        promptTitle: payload.writing.promptTitle,
-        promptBody: payload.writing.basePrompt,
-        basePrompt: payload.writing.basePrompt,
-        followUpPrompt: payload.writing.followUpPrompt,
-        baseResponse: payload.writing.baseResponse,
-        followUpResponse: payload.writing.followUpResponse,
+        promptTitle: writingInput.promptTitle,
+        promptBody: writingInput.basePrompt,
+        basePrompt: writingInput.basePrompt,
+        followUpPrompt: writingInput.followUpPrompt,
+        baseResponse: writingInput.baseResponse,
+        followUpResponse: writingInput.followUpResponse,
         essayText: combined,
       };
-      const dispatchKey = `${payload.writing.attemptId}:gen:1`;
+      const dispatchKey = `${writingInput.attemptId}:gen:1`;
       try {
         await db.transaction(async (tx) => {
           await reserveQuotaAtomic({
             db: tx,
             accountKey,
             deviceId,
-            attemptId: payload.writing!.attemptId,
+            attemptId: writingInput.attemptId,
             skill: 'writing',
           });
           await tx.insert(evaluationJobs).values({
             jobId: jId,
-            attemptId: payload.writing!.attemptId,
+            attemptId: writingInput.attemptId,
             accountKey,
             deviceId,
             packId: 'diag-writing-pack-v1',
@@ -1173,7 +1178,7 @@ export function registerDiagnosticRoutes(
             status: 'pending',
           });
         });
-        nextWritingAttemptId = payload.writing.attemptId;
+        nextWritingAttemptId = writingInput.attemptId;
         nextWritingJobId = jId;
         toDispatch.push({ jobId: jId, queueName: WRITING_QUEUE, dispatchKey, payload: jobPayload });
       } catch (err) {
@@ -1199,8 +1204,9 @@ export function registerDiagnosticRoutes(
       payload.speaking &&
       payload.speaking.turns.length > 0
     ) {
+      const speakingInput = payload.speaking;
       const s3 = s3Client ?? createAudioS3Client(env);
-      for (const turn of payload.speaking.turns) {
+      for (const turn of speakingInput.turns) {
         const head = await verifyUploadedAudioObject({
           client: s3,
           bucket: env.S3_BUCKET,
@@ -1213,7 +1219,7 @@ export function registerDiagnosticRoutes(
           .values({
             objectKey: turn.objectKey,
             deviceId,
-            attemptId: payload.speaking.attemptId,
+            attemptId: speakingInput.attemptId,
             byteLength: head.byteLength,
             expiresAt: new Date(Date.now() + env.AUDIO_TTL_DAYS * 86_400_000),
           })
@@ -1223,27 +1229,27 @@ export function registerDiagnosticRoutes(
       const jobPayload = {
         jobId: jId,
         executionGeneration: 1,
-        attemptId: payload.speaking.attemptId,
+        attemptId: speakingInput.attemptId,
         packId: 'diag-speaking-pack-v1',
         examId: session.examId,
         partSequence: 'diagnostic' as const,
-        basePrompt: payload.speaking.basePrompt,
-        followUpPrompt: payload.speaking.followUpPrompt,
-        turns: payload.speaking.turns,
+        basePrompt: speakingInput.basePrompt,
+        followUpPrompt: speakingInput.followUpPrompt,
+        turns: speakingInput.turns,
       };
-      const dispatchKey = `${payload.speaking.attemptId}:gen:1`;
+      const dispatchKey = `${speakingInput.attemptId}:gen:1`;
       try {
         await db.transaction(async (tx) => {
           await reserveQuotaAtomic({
             db: tx,
             accountKey,
             deviceId,
-            attemptId: payload.speaking!.attemptId,
+            attemptId: speakingInput.attemptId,
             skill: 'speaking',
           });
           await tx.insert(evaluationJobs).values({
             jobId: jId,
-            attemptId: payload.speaking!.attemptId,
+            attemptId: speakingInput.attemptId,
             accountKey,
             deviceId,
             packId: 'diag-speaking-pack-v1',
@@ -1264,7 +1270,7 @@ export function registerDiagnosticRoutes(
             status: 'pending',
           });
         });
-        nextSpeakingAttemptId = payload.speaking.attemptId;
+        nextSpeakingAttemptId = speakingInput.attemptId;
         nextSpeakingJobId = jId;
         toDispatch.push({
           jobId: jId,
@@ -1325,7 +1331,7 @@ export function registerDiagnosticRoutes(
       .where(eq(diagnosticSessions.diagId, diagId))
       .returning();
 
-    const assembled = await assembleSessionResponse(db, updatedRow!);
+    const assembled = await assembleSessionResponse(db, updatedRow ?? session);
     return c.json(assembled, 200);
   });
 }

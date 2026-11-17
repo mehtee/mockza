@@ -1,34 +1,46 @@
 import 'package:clock/clock.dart';
 import 'package:mockza/core/diagnostic/diagnostic_models.dart';
 
-/// Standard 10-minute rapid starting-level budget constants (Sec. 2).
+/// Standard realistic rapid starting-level budget constants aligned with `@mockza/domain`.
 abstract final class DiagnosticBudget {
-  /// Intro & device-check allocation (`45s`).
-  static const int introMaxSeconds = 45;
+  /// Intro & device-check guidance window (`60s`, unscored & never deducted).
+  static const int introMaxSeconds = 60;
 
-  /// Reading stage allocation (`120s`).
-  static const int readingMaxSeconds = 120;
+  /// Live Reading stage allocation (`210s` = 3:30 across 3–4 short passages).
+  static const int readingMaxSeconds = 210;
 
-  /// Listening stage allocation (`120s`).
-  static const int listeningMaxSeconds = 120;
+  /// Live Listening answering window (`210s` = 3:30 across 3 clips, paused during playback).
+  static const int listeningMaxSeconds = 210;
 
-  /// Writing stage allocation (`135s`).
-  static const int writingMaxSeconds = 135;
+  /// Base Writing prompt allocation (`240s` = 4:00 for 35–55 words).
+  static const int writingMaxSeconds = 240;
 
-  /// Speaking stage allocation (`105s`).
-  static const int speakingMaxSeconds = 105;
+  /// Optional Writing follow-up allocation (`75s` = 1:15).
+  static const int writingFollowUpMaxSeconds = 75;
 
-  /// Three inter-stage transition caps (`5s` each).
+  /// Speaking cue-card preparation allocation (`35s`).
+  static const int speakingPrepMaxSeconds = 35;
+
+  /// Main Speaking response turn cap (`60s`).
+  static const int speakingMainMaxSeconds = 60;
+
+  /// Optional Speaking follow-up turn cap (`35s`).
+  static const int speakingFollowUpMaxSeconds = 35;
+
+  /// Combined Speaking stage budget (`150s`).
+  static const int speakingMaxSeconds = 150;
+
+  /// Three inter-stage transition caps (`5s` each, skippable immediately).
   static const int transitionMaxSeconds = 5;
 
-  /// Total standard response-collection budget (`540s` = 9:00).
-  static const int collectionTotalSeconds = 540;
+  /// Total standard response-collection ceiling (`900s` = 15:00).
+  static const int collectionTotalSeconds = 900;
 
-  /// Post-collection results/status window (`60s` = 1:00).
-  static const int resultsWindowSeconds = 60;
+  /// Post-collection results/status polling window (`90s` = 1:30).
+  static const int resultsWindowSeconds = 90;
 
-  /// Combined 10-minute session ceiling (`600s` = 10:00).
-  static const int totalSessionSeconds = 600;
+  /// Combined session ceiling (`990s` = 16:30).
+  static const int totalSessionSeconds = 990;
 
   /// Computes remaining whole seconds before [deadlineUtcMs], clamped at zero.
   static int remainingSeconds({

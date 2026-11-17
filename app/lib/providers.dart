@@ -4,6 +4,7 @@ import 'package:clock/clock.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mockza/core/config/edition_config.dart';
+import 'package:mockza/core/preferences/appearance_settings.dart';
 import 'package:mockza/data/db/app_database.dart';
 import 'package:mockza/data/db/connection.dart';
 import 'package:mockza/data/repositories/attempt_repository.dart';
@@ -11,6 +12,7 @@ import 'package:mockza/data/repositories/exam_catalog_repository.dart';
 import 'package:mockza/data/repositories/profile_repository.dart';
 import 'package:mockza/data/repositories/progress_repository.dart';
 import 'package:mockza/data/repositories/vocab_repository.dart';
+import 'package:mockza/services/appearance_storage_service.dart';
 import 'package:mockza/services/audio_player_gateway.dart';
 import 'package:mockza/services/audio_recorder_gateway.dart';
 import 'package:mockza/services/auth_session_service.dart';
@@ -233,3 +235,49 @@ final Provider<BillingGateway> billingGatewayProvider =
 /// Quarantined OS audio session method channel provider.
 final Provider<PlatformAudioChannel> platformAudioChannelProvider =
     Provider<PlatformAudioChannel>((ref) => const PlatformAudioChannel());
+
+/// Preloaded [AppearanceSettings] injected during `bootstrap`.
+final Provider<AppearanceSettings> initialAppearanceSettingsProvider =
+    Provider<AppearanceSettings>((ref) => const AppearanceSettings());
+
+/// Storage adapter persisting theme brightness & Open-Closed preset selection.
+final Provider<AppearanceStorageService> appearanceStorageServiceProvider =
+    Provider<AppearanceStorageService>(
+      (ref) =>
+          AppearanceStorageService(ref.watch(secureStorageGatewayProvider)),
+    );
+
+/// Manages live visual theme mode & palette preset without coupling UI to storage.
+class AppearanceSettingsNotifier extends Notifier<AppearanceSettings> {
+  @override
+  AppearanceSettings build() => ref.watch(initialAppearanceSettingsProvider);
+
+  /// Updates the active theme brightness mode (`dark`, `light`, or `system`).
+  void setThemeMode(String modeKey) {
+    state = state.copyWith(themeModeKey: modeKey);
+    unawaited(
+      ref.read(appearanceStorageServiceProvider).saveThemeMode(modeKey),
+    );
+  }
+
+  /// Updates the active Open-Closed theme preset identifier (`presetId`).
+  void setPresetId(String presetId) {
+    state = state.copyWith(presetId: presetId);
+    unawaited(
+      ref.read(appearanceStorageServiceProvider).savePresetId(presetId),
+    );
+  }
+
+  /// Resets visual theme preferences back to defaults.
+  void resetToDefaults() {
+    state = const AppearanceSettings();
+    unawaited(ref.read(appearanceStorageServiceProvider).reset());
+  }
+}
+
+/// Global reactive appearance settings provider consumed by `MockzaApp` and Settings.
+final NotifierProvider<AppearanceSettingsNotifier, AppearanceSettings>
+appearanceSettingsProvider =
+    NotifierProvider<AppearanceSettingsNotifier, AppearanceSettings>(
+      AppearanceSettingsNotifier.new,
+    );

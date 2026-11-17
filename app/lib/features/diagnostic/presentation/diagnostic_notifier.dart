@@ -355,6 +355,34 @@ class DiagnosticState {
   /// Whether current mode enforces standard bounded timing rules.
   bool get isTimed => mode != DiagnosticMode.extended;
 
+  /// Whether the active stage is an unscored orientation/example/transition view
+  /// whose time must not drain live assessment clocks.
+  bool get isUnscoredStage => switch (stage) {
+    DiagnosticFlowStage.intro ||
+    DiagnosticFlowStage.readingExample ||
+    DiagnosticFlowStage.listeningExample ||
+    DiagnosticFlowStage.transitionToListening ||
+    DiagnosticFlowStage.transitionToWriting ||
+    DiagnosticFlowStage.transitionToSpeaking ||
+    DiagnosticFlowStage.submitting ||
+    DiagnosticFlowStage.results => true,
+    DiagnosticFlowStage.readingBlock ||
+    DiagnosticFlowStage.listeningBlock ||
+    DiagnosticFlowStage.writingBase ||
+    DiagnosticFlowStage.writingFollowUp ||
+    DiagnosticFlowStage.speakingPrep ||
+    DiagnosticFlowStage.speakingRecording ||
+    DiagnosticFlowStage.speakingFollowUp => false,
+  };
+
+  /// Whether the active timed clock should pause (examples, audio playback,
+  /// or waiting before user taps Record Follow-Up).
+  bool get isTimerPaused =>
+      isUnscoredStage ||
+      (stage == DiagnosticFlowStage.listeningBlock &&
+          (isAudioLoading || isAudioPlaying)) ||
+      (stage == DiagnosticFlowStage.speakingFollowUp && !isSpeakingRecording);
+
   /// Current Reading/Listening block index (`1`-based).
   int get currentBlockNumber => stage == DiagnosticFlowStage.listeningBlock
       ? listeningHistory.length + 1
@@ -560,6 +588,7 @@ class DiagnosticNotifier extends Notifier<DiagnosticState> {
   bool _preflightPeakDetected = false;
   bool _disposed = false;
   int _playbackGeneration = 0;
+  int? _lastTickUtcMs;
 
   /// Optional callback invoked when global timeout auto-submits into `/diagnostic/results/:diagId`.
   void Function(String diagId)? onAutoSubmitted;
@@ -821,6 +850,7 @@ class DiagnosticNotifier extends Notifier<DiagnosticState> {
 
     final clock = ref.read(clockProvider);
     final nowMs = clock.now().toUtc().millisecondsSinceEpoch;
+    _lastTickUtcMs = nowMs;
     final collectionDeadline =
         nowMs + (DiagnosticBudget.collectionTotalSeconds * 1000);
     final resultsDeadline =
@@ -911,7 +941,7 @@ class DiagnosticNotifier extends Notifier<DiagnosticState> {
       'reading' => DiagnosticBudget.readingMaxSeconds,
       'listening' => DiagnosticBudget.listeningMaxSeconds,
       'writing' => DiagnosticBudget.writingMaxSeconds,
-      _ => 15,
+      _ => DiagnosticBudget.speakingPrepMaxSeconds,
     };
     final stageDeadline = DiagnosticBudget.computeBoundedStageDeadlineUtcMs(
       stageCapSeconds: capSeconds,
@@ -1106,12 +1136,31 @@ class DiagnosticNotifier extends Notifier<DiagnosticState> {
     if (bank == null) return;
     final clock = ref.read(clockProvider);
     final nowMs = clock.now().toUtc().millisecondsSinceEpoch;
+    _lastTickUtcMs = nowMs;
+    final globalDeadline =
+        state.collectionDeadlineUtcMs ??
+        (nowMs + (DiagnosticBudget.collectionTotalSeconds * 1000));
+    final freshStageDeadline =
+        DiagnosticBudget.computeBoundedStageDeadlineUtcMs(
+          stageCapSeconds: DiagnosticBudget.readingMaxSeconds,
+          globalCollectionDeadlineUtcMs: globalDeadline,
+          mode: state.mode,
+          clock: clock,
+        );
+    final freshStageSecs = DiagnosticBudget.remainingSeconds(
+      deadlineUtcMs: freshStageDeadline,
+      clock: clock,
+    );
+    final freshGlobalSecs = DiagnosticBudget.remainingSeconds(
+      deadlineUtcMs: globalDeadline,
+      clock: clock,
+    );
     final sel = DiagnosticRouter.selectNextObjectiveBlock(
       skill: 'reading',
       bank: bank.readingBlocks,
       history: const [],
-      remainingStageSeconds: state.stageRemainingSeconds,
-      remainingGlobalSeconds: state.globalRemainingSeconds,
+      remainingStageSeconds: freshStageSecs,
+      remainingGlobalSeconds: freshGlobalSecs,
       selectionSeed: state.selectionSeed,
       strictMode: state.isTimed,
     );
@@ -1121,6 +1170,9 @@ class DiagnosticNotifier extends Notifier<DiagnosticState> {
     }
     state = state.copyWith(
       stage: DiagnosticFlowStage.readingBlock,
+      stageDeadlineUtcMs: freshStageDeadline,
+      stageRemainingSeconds: freshStageSecs,
+      globalRemainingSeconds: freshGlobalSecs,
       activeBlock: sel.block,
       activeBlockStartedUtcMs: nowMs,
       clearSelections: true,
@@ -1354,12 +1406,31 @@ class DiagnosticNotifier extends Notifier<DiagnosticState> {
     if (bank == null) return;
     final clock = ref.read(clockProvider);
     final nowMs = clock.now().toUtc().millisecondsSinceEpoch;
+    _lastTickUtcMs = nowMs;
+    final globalDeadline =
+        state.collectionDeadlineUtcMs ??
+        (nowMs + (DiagnosticBudget.collectionTotalSeconds * 1000));
+    final freshStageDeadline =
+        DiagnosticBudget.computeBoundedStageDeadlineUtcMs(
+          stageCapSeconds: DiagnosticBudget.listeningMaxSeconds,
+          globalCollectionDeadlineUtcMs: globalDeadline,
+          mode: state.mode,
+          clock: clock,
+        );
+    final freshStageSecs = DiagnosticBudget.remainingSeconds(
+      deadlineUtcMs: freshStageDeadline,
+      clock: clock,
+    );
+    final freshGlobalSecs = DiagnosticBudget.remainingSeconds(
+      deadlineUtcMs: globalDeadline,
+      clock: clock,
+    );
     final sel = DiagnosticRouter.selectNextObjectiveBlock(
       skill: 'listening',
       bank: bank.listeningBlocks,
       history: const [],
-      remainingStageSeconds: state.stageRemainingSeconds,
-      remainingGlobalSeconds: state.globalRemainingSeconds,
+      remainingStageSeconds: freshStageSecs,
+      remainingGlobalSeconds: freshGlobalSecs,
       selectionSeed: state.selectionSeed,
       strictMode: state.isTimed,
     );
@@ -1372,6 +1443,9 @@ class DiagnosticNotifier extends Notifier<DiagnosticState> {
     }
     state = state.copyWith(
       stage: DiagnosticFlowStage.listeningBlock,
+      stageDeadlineUtcMs: freshStageDeadline,
+      stageRemainingSeconds: freshStageSecs,
+      globalRemainingSeconds: freshGlobalSecs,
       activeBlock: sel.block,
       activeBlockStartedUtcMs: nowMs,
       clearSelections: true,
@@ -1672,14 +1746,32 @@ class DiagnosticNotifier extends Notifier<DiagnosticState> {
         .length;
 
     if (bank != null &&
-        (!state.isTimed || state.stageRemainingSeconds >= 20) &&
+        (!state.isTimed || state.globalRemainingSeconds >= 30) &&
         state.writingFollowUpPrompt == null) {
       final prompt = (forceSupportiveHelper || words < 25)
           ? bank.writingPrompt.supportiveFollowUp
           : bank.writingPrompt.extensionFollowUp;
+      final clock = ref.read(clockProvider);
+      final nowMs = clock.now().toUtc().millisecondsSinceEpoch;
+      _lastTickUtcMs = nowMs;
+      final globalDeadline =
+          state.collectionDeadlineUtcMs ??
+          (nowMs + (DiagnosticBudget.writingFollowUpMaxSeconds * 1000));
+      final followUpDeadline =
+          DiagnosticBudget.computeBoundedStageDeadlineUtcMs(
+            stageCapSeconds: DiagnosticBudget.writingFollowUpMaxSeconds,
+            globalCollectionDeadlineUtcMs: globalDeadline,
+            mode: state.mode,
+            clock: clock,
+          );
       state = state.copyWith(
         stage: DiagnosticFlowStage.writingFollowUp,
         writingFollowUpPrompt: prompt,
+        stageDeadlineUtcMs: followUpDeadline,
+        stageRemainingSeconds: DiagnosticBudget.remainingSeconds(
+          deadlineUtcMs: followUpDeadline,
+          clock: clock,
+        ),
       );
       await _persistLocalState();
       return;
@@ -1714,11 +1806,11 @@ class DiagnosticNotifier extends Notifier<DiagnosticState> {
 
   void _enterSpeakingPrep() {
     final clock = ref.read(clockProvider);
-    final globalDeadline =
-        state.collectionDeadlineUtcMs ??
-        (clock.now().toUtc().millisecondsSinceEpoch + 120000);
+    final nowMs = clock.now().toUtc().millisecondsSinceEpoch;
+    _lastTickUtcMs = nowMs;
+    final globalDeadline = state.collectionDeadlineUtcMs ?? (nowMs + 150000);
     final stageDeadline = DiagnosticBudget.computeBoundedStageDeadlineUtcMs(
-      stageCapSeconds: 15,
+      stageCapSeconds: DiagnosticBudget.speakingPrepMaxSeconds,
       globalCollectionDeadlineUtcMs: globalDeadline,
       mode: state.mode,
       clock: clock,
@@ -1735,7 +1827,7 @@ class DiagnosticNotifier extends Notifier<DiagnosticState> {
     unawaited(_persistLocalState());
   }
 
-  /// Starts the main `45s` Speaking capture turn (`partIndex: 1`).
+  /// Starts the main Speaking capture turn (`partIndex: 1`, `60s`) or follow-up (`partIndex: 2`, `35s`).
   Future<void> startSpeakingRecording({int partIndex = 1}) async {
     if (state.isSpeakingRecording || state.isUploadingSpeaking) return;
     final recorder = ref.read(audioRecorderGatewayProvider);
@@ -1770,7 +1862,9 @@ class DiagnosticNotifier extends Notifier<DiagnosticState> {
     final globalDeadline =
         state.collectionDeadlineUtcMs ??
         (clock.now().toUtc().millisecondsSinceEpoch + 90000);
-    final turnCapSeconds = partIndex == 1 ? 45 : 25;
+    final turnCapSeconds = partIndex == 1
+        ? DiagnosticBudget.speakingMainMaxSeconds
+        : DiagnosticBudget.speakingFollowUpMaxSeconds;
     final stageDeadline = DiagnosticBudget.computeBoundedStageDeadlineUtcMs(
       stageCapSeconds: turnCapSeconds,
       globalCollectionDeadlineUtcMs: globalDeadline,
@@ -1928,25 +2022,12 @@ class DiagnosticNotifier extends Notifier<DiagnosticState> {
       final followPrompt = durationMs < 12000
           ? state.bank!.speakingPrompt.supportiveFollowUp
           : state.bank!.speakingPrompt.extensionFollowUp;
-      final clock = ref.read(clockProvider);
-      final globalDeadline =
-          state.collectionDeadlineUtcMs ??
-          (clock.now().toUtc().millisecondsSinceEpoch + 30000);
-      final stageDeadline = DiagnosticBudget.computeBoundedStageDeadlineUtcMs(
-        stageCapSeconds: 25,
-        globalCollectionDeadlineUtcMs: globalDeadline,
-        mode: state.mode,
-        clock: clock,
-      );
       state = state.copyWith(
         stage: DiagnosticFlowStage.speakingFollowUp,
         speakingFollowUpPrompt: followPrompt,
-        stageDeadlineUtcMs: stageDeadline,
-        stageRemainingSeconds: DiagnosticBudget.remainingSeconds(
-          deadlineUtcMs: stageDeadline,
-          clock: clock,
-        ),
-        speakingStatusMessage: 'Optional quick follow-up ready.',
+        clearStageDeadline: true,
+        stageRemainingSeconds: DiagnosticBudget.speakingFollowUpMaxSeconds,
+        speakingStatusMessage: 'Optional follow-up ready. Tap Record when you are ready to answer.',
       );
       return;
     }
@@ -2089,11 +2170,50 @@ class DiagnosticNotifier extends Notifier<DiagnosticState> {
     });
   }
 
+  /// Advances one collection timer tick against the injected `Clock`.
+  @visibleForTesting
+  void tickCollectionClockForTesting() => _onCollectionTick();
+
   void _onCollectionTick() {
     final clock = ref.read(clockProvider);
+    final nowMs = clock.now().toUtc().millisecondsSinceEpoch;
+    final prevMs = _lastTickUtcMs ?? nowMs;
+    final deltaMs = nowMs > prevMs ? (nowMs - prevMs) : 0;
+    _lastTickUtcMs = nowMs;
+
     final globalDeadline = state.collectionDeadlineUtcMs;
     final stageDeadline = state.stageDeadlineUtcMs;
     if (globalDeadline == null) return;
+
+    // Preserve active budgets while reading worked examples, transitioning,
+    // loading/playing Listening audio, or previewing optional Speaking follow-up.
+    if (state.isTimerPaused) {
+      if (deltaMs > 0) {
+        final shiftedGlobal = globalDeadline + deltaMs;
+        final shiftedStage = stageDeadline != null
+            ? stageDeadline + deltaMs
+            : null;
+        final shiftedResults = state.resultsDeadlineUtcMs != null
+            ? state.resultsDeadlineUtcMs! + deltaMs
+            : null;
+        state = state.copyWith(
+          collectionDeadlineUtcMs: shiftedGlobal,
+          stageDeadlineUtcMs: shiftedStage,
+          resultsDeadlineUtcMs: shiftedResults,
+          globalRemainingSeconds: DiagnosticBudget.remainingSeconds(
+            deadlineUtcMs: shiftedGlobal,
+            clock: clock,
+          ),
+          stageRemainingSeconds: shiftedStage != null
+              ? DiagnosticBudget.remainingSeconds(
+                  deadlineUtcMs: shiftedStage,
+                  clock: clock,
+                )
+              : state.stageRemainingSeconds,
+        );
+      }
+      return;
+    }
 
     final nextGlobal = DiagnosticBudget.remainingSeconds(
       deadlineUtcMs: globalDeadline,
@@ -2110,7 +2230,7 @@ class DiagnosticNotifier extends Notifier<DiagnosticState> {
       globalRemainingSeconds: nextGlobal,
       stageRemainingSeconds: nextStage,
       speakingElapsedMs: state.isSpeakingRecording
-          ? state.speakingElapsedMs + 1000
+          ? state.speakingElapsedMs + (deltaMs > 0 ? deltaMs : 1000)
           : state.speakingElapsedMs,
     );
 
@@ -2119,7 +2239,7 @@ class DiagnosticNotifier extends Notifier<DiagnosticState> {
       return;
     }
 
-    if (state.isTimed && nextStage <= 0) {
+    if (state.isTimed && stageDeadline != null && nextStage <= 0) {
       _handleStageTimeout();
     }
   }

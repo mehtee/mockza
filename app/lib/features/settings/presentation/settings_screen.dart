@@ -8,6 +8,7 @@ import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/features/settings/presentation/settings_notifier.dart';
 import 'package:mockza/features/settings/presentation/settings_providers.dart';
 import 'package:mockza/routing/routes.dart';
+import 'package:mockza/routing/safe_pop.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
@@ -18,6 +19,8 @@ import 'package:mockza/theme/components/mz_chip.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
 import 'package:mockza/theme/components/mz_toast.dart';
 import 'package:mockza/theme/primitives.dart';
+import 'package:mockza/theme/theme_catalog.dart';
+import 'package:mockza/theme/theme_preset.dart';
 
 /// Top-level Settings & Account management screen.
 class SettingsScreen extends ConsumerWidget {
@@ -37,59 +40,50 @@ class SettingsScreen extends ConsumerWidget {
         leading: IconButton(
           tooltip: 'Back',
           icon: const AppIcon(LucideGlyph.chevronLeft, size: 22),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go(AppRoutes.home);
-            }
-          },
+          onPressed: () => context.safePopOrGo(AppRoutes.home),
         ),
         title: const Text('Settings'),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsetsDirectional.all(SpacingTokens.lg),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 680),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                _buildSectionHeader(context, 'Exam Calibration'),
-                const SizedBox(height: SpacingTokens.sm),
-                _buildCalibrationCard(context, state, notifier),
-                const SizedBox(height: SpacingTokens.xl),
-                _buildSectionHeader(context, 'Appearance'),
-                const SizedBox(height: SpacingTokens.sm),
-                _buildThemeCard(context, state, notifier),
-                const SizedBox(height: SpacingTokens.xl),
-                _buildSectionHeader(context, 'Subscription & Daily Quota'),
-                const SizedBox(height: SpacingTokens.sm),
-                _buildSubscriptionCard(context, state, notifier),
-                const SizedBox(height: SpacingTokens.xl),
-                _buildSectionHeader(context, 'Account & Privacy'),
-                const SizedBox(height: SpacingTokens.sm),
-                _buildAccountCard(context, state, notifier),
-                const SizedBox(height: SpacingTokens.xl),
-                _buildSectionHeader(context, 'Offline Storage'),
-                const SizedBox(height: SpacingTokens.sm),
-                _buildStorageCard(
-                  context,
-                  state: state,
-                  notifier: notifier,
-                  cacheBytes: cacheBytes,
-                  cachedPacksCount: cachedPacksCount,
-                ),
-                const SizedBox(height: SpacingTokens.xl),
-                _buildDisclaimerCard(context),
-                const SizedBox(height: SpacingTokens.xl),
-                _buildDangerZone(context, state, notifier),
-                const SizedBox(height: SpacingTokens.xxl),
-                _buildFooter(context, state),
-                const SizedBox(height: SpacingTokens.xxl),
-              ],
+        padding: const EdgeInsetsDirectional.symmetric(
+          vertical: SpacingTokens.lg,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            _buildSectionHeader(context, 'Exam Calibration'),
+            const SizedBox(height: SpacingTokens.sm),
+            _buildCalibrationCard(context, state, notifier),
+            const SizedBox(height: SpacingTokens.xl),
+            _buildSectionHeader(context, 'Appearance'),
+            const SizedBox(height: SpacingTokens.sm),
+            _buildThemeCard(context, state, notifier),
+            const SizedBox(height: SpacingTokens.xl),
+            _buildSectionHeader(context, 'Subscription & Daily Quota'),
+            const SizedBox(height: SpacingTokens.sm),
+            _buildSubscriptionCard(context, state, notifier),
+            const SizedBox(height: SpacingTokens.xl),
+            _buildSectionHeader(context, 'Account & Privacy'),
+            const SizedBox(height: SpacingTokens.sm),
+            _buildAccountCard(context, state, notifier),
+            const SizedBox(height: SpacingTokens.xl),
+            _buildSectionHeader(context, 'Offline Storage'),
+            const SizedBox(height: SpacingTokens.sm),
+            _buildStorageCard(
+              context,
+              state: state,
+              notifier: notifier,
+              cacheBytes: cacheBytes,
+              cachedPacksCount: cachedPacksCount,
             ),
-          ),
+            const SizedBox(height: SpacingTokens.xl),
+            _buildDisclaimerCard(context),
+            const SizedBox(height: SpacingTokens.xl),
+            _buildDangerZone(context, state, notifier),
+            const SizedBox(height: SpacingTokens.xxl),
+            _buildFooter(context, state),
+            const SizedBox(height: SpacingTokens.xxl),
+          ],
         ),
       ),
     );
@@ -181,7 +175,7 @@ class SettingsScreen extends ConsumerWidget {
               ),
               IconButton(
                 tooltip: 'Decrease target band score',
-                icon: const Icon(Icons.remove_circle_outline),
+                icon: const AppIcon(LucideGlyph.minus, size: 20),
                 onPressed: state.targetBand > 5.0
                     ? () => notifier.setTargetBand(state.targetBand - 0.5)
                     : null,
@@ -192,7 +186,7 @@ class SettingsScreen extends ConsumerWidget {
               ),
               IconButton(
                 tooltip: 'Increase target band score',
-                icon: const Icon(Icons.add_circle_outline),
+                icon: const AppIcon(LucideGlyph.plus, size: 20),
                 onPressed: state.targetBand < 9.0
                     ? () => notifier.setTargetBand(state.targetBand + 0.5)
                     : null,
@@ -209,20 +203,159 @@ class SettingsScreen extends ConsumerWidget {
     SettingsState state,
     SettingsNotifier notifier,
   ) {
-    final modes = <String>['system', 'dark', 'light'];
+    final colors = AppColors.of(context);
+    final typography = AppTypography.of(context);
+    final shapes = AppShapes.of(context);
+    final modes = <({String key, String label})>[
+      (key: 'dark', label: 'Dark'),
+      (key: 'light', label: 'Light'),
+      (key: 'system', label: 'System'),
+    ];
+    final presets = MzThemeCatalog.allPresets;
+
     return MzCard(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: modes
-            .map((m) {
-              final isSelected = state.themeMode == m;
-              return MzChip(
-                label: m.toUpperCase(),
-                isSelected: isSelected,
-                onTap: () => notifier.setThemeMode(m),
-              );
-            })
-            .toList(growable: false),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'Brightness',
+            style: typography.secondary.copyWith(
+              color: colors.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: SpacingTokens.sm),
+          Wrap(
+            spacing: SpacingTokens.sm,
+            runSpacing: SpacingTokens.sm,
+            children: modes
+                .map((m) {
+                  final isSelected = state.themeMode == m.key;
+                  return MzChip(
+                    label: m.label,
+                    isSelected: isSelected,
+                    onTap: () => notifier.setThemeMode(m.key),
+                  );
+                })
+                .toList(growable: false),
+          ),
+          const Divider(height: SpacingTokens.xl),
+          Text(
+            'Color Theme',
+            style: typography.secondary.copyWith(
+              color: colors.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: SpacingTokens.xs),
+          Text(
+            'Choose any visual palette for reading comfort.',
+            style: typography.caption.copyWith(color: colors.textSecondary),
+          ),
+          const SizedBox(height: SpacingTokens.sm),
+          Column(
+            children: presets
+                .map((preset) {
+                  final selected = state.presetId == preset.id;
+                  return Padding(
+                    padding: const EdgeInsetsDirectional.only(
+                      bottom: SpacingTokens.sm,
+                    ),
+                    child: _buildPresetTile(
+                      context,
+                      preset: preset,
+                      selected: selected,
+                      colors: colors,
+                      typography: typography,
+                      shapes: shapes,
+                      onTap: () => notifier.setThemePreset(preset.id),
+                    ),
+                  );
+                })
+                .toList(growable: false),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPresetTile(
+    BuildContext context, {
+    required MzThemePreset preset,
+    required bool selected,
+    required AppColors colors,
+    required AppTypography typography,
+    required AppShapes shapes,
+    required VoidCallback onTap,
+  }) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '${preset.displayName} theme preset. ${preset.description}',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: shapes.controlRadius,
+        child: Container(
+          padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
+          decoration: BoxDecoration(
+            color: selected ? colors.surfaceAlt : colors.bgRaised,
+            borderRadius: shapes.controlRadius,
+            border: Border.all(
+              color: selected ? colors.primary : colors.borderSubtle,
+              width: selected ? 1.5 : shapes.strokeWidth,
+            ),
+          ),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: preset.previewBackgroundDark,
+                  borderRadius: shapes.pillRadius,
+                  border: Border.all(color: preset.previewPrimary, width: 2.5),
+                ),
+                child: Center(
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: preset.previewAccent,
+                      borderRadius: shapes.pillRadius,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: SpacingTokens.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      preset.displayName,
+                      style: typography.secondary.copyWith(
+                        color: colors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      preset.description,
+                      style: typography.caption.copyWith(
+                        color: colors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (selected)
+                AppIcon(
+                  LucideGlyph.checkCircle2,
+                  size: 20,
+                  color: colors.primary,
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -238,15 +371,18 @@ class SettingsScreen extends ConsumerWidget {
     return MzCard(
       variant: state.isPro ? MzCardVariant.hero : MzCardVariant.standard,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Row(
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: SpacingTokens.sm,
+            runSpacing: SpacingTokens.xs,
             children: <Widget>[
               MzChip(
                 label: state.isPro ? 'PRO ACTIVE' : 'FREE STARTER',
                 isSelected: state.isPro,
               ),
-              const Spacer(),
               if (!state.isPro)
                 TextButton(
                   onPressed: () => context.push(AppRoutes.paywall),
@@ -438,11 +574,13 @@ class SettingsScreen extends ConsumerWidget {
             children: <Widget>[
               const AppIcon(LucideGlyph.info, size: 18),
               const SizedBox(width: SpacingTokens.xs),
-              Text(
-                'Independent Practice Tool',
-                style: typography.caption.copyWith(
-                  color: colors.textPrimary,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Text(
+                  'Independent Practice Tool',
+                  style: typography.caption.copyWith(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],

@@ -16,6 +16,7 @@ import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
+import 'package:mockza/theme/components/mz_sticky_bottom_bar.dart';
 import 'package:mockza/theme/components/status_banner.dart';
 import 'package:mockza/theme/primitives.dart';
 
@@ -100,172 +101,177 @@ class _DiagnosticResultsScreenState
           ),
         ],
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsetsDirectional.fromSTEB(
-            SpacingTokens.lg,
-            SpacingTokens.md,
-            SpacingTokens.lg,
-            SpacingTokens.xxl,
-          ),
-          child: snapshot == null
-              ? _LoadingSnapshotCard(
-                  diagId: widget.diagId,
-                  onRetry: notifier.refreshResults,
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    // Provisional disclaimer banner / hero
-                    MzCard(
-                      variant: MzCardVariant.hero,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            'Your Starting Practice Placement',
-                            style: typography.sectionHeading,
+      bottomBar: snapshot == null
+          ? null
+          : MzStickyBottomBar(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  PrimaryButton(
+                    label: 'Start Recommended Practice',
+                    onPressed: () => context.go(
+                      _routeForSkill(snapshot.recommendedTargetSkill),
+                    ),
+                  ),
+                  const SizedBox(height: SpacingTokens.xs),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      TextButton(
+                        onPressed: () => context.go(AppRoutes.home),
+                        child: const Text('Continue to practice'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsetsDirectional.symmetric(
+          vertical: SpacingTokens.md,
+        ),
+        child: snapshot == null
+            ? _LoadingSnapshotCard(
+                diagId: widget.diagId,
+                onRetry: notifier.refreshResults,
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  // Provisional disclaimer banner / hero
+                  MzCard(
+                    variant: MzCardVariant.hero,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          'Your Starting Practice Placement',
+                          style: typography.sectionHeading,
+                        ),
+                        const SizedBox(height: SpacingTokens.xs),
+                        Text(
+                          'These provisional suggestions are based only on your short samples so we can tailor your first drills — never an official exam score.',
+                          style: typography.secondary.copyWith(
+                            color: colors.textSecondary,
                           ),
+                        ),
+                        const SizedBox(height: SpacingTokens.sm),
+                        Wrap(
+                          spacing: SpacingTokens.xs,
+                          runSpacing: SpacingTokens.xs,
+                          children: <Widget>[
+                            if (snapshot.mode == DiagnosticMode.extended)
+                              const MzChip(
+                                label: 'Completed with extended help',
+                              )
+                            else if (snapshot.mode == DiagnosticMode.accessible)
+                              const MzChip(
+                                label: 'Accessible audio mode',
+                              ),
+                            if (snapshot.hasPendingWork)
+                              MzChip(
+                                label: state.resultsRemainingSeconds > 0
+                                    ? 'Checking Writing/Speaking (${state.resultsRemainingSeconds}s)'
+                                    : 'Finishing in background',
+                                variant: MzChipVariant.target,
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: SpacingTokens.md),
+
+                  if (snapshot.hasPendingWork &&
+                      state.resultsRemainingSeconds <= 0 &&
+                      state.isTimed) ...<Widget>[
+                    StatusBanner(
+                      message: 'Your Reading & Listening results are ready now. Writing or Speaking feedback is still finishing in the background — start practice anytime.',
+                      variant: StatusBannerVariant.uploading,
+                      actionLabel: 'Check now',
+                      onTapAction: notifier.refreshResults,
+                    ),
+                    const SizedBox(height: SpacingTokens.md),
+                  ],
+
+                  // Recommended First Action
+                  MzCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Row(
+                          children: <Widget>[
+                            const IconWell(
+                              glyph: LucideGlyph.sparkles,
+                              tint: IconWellTint.blue,
+                              size: 36,
+                              iconSize: 18,
+                            ),
+                            const SizedBox(width: SpacingTokens.sm),
+                            Expanded(
+                              child: Text(
+                                snapshot.recommendedActionTitle,
+                                style: typography.cardTitle,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (snapshot
+                            .recommendedActionDescription
+                            .isNotEmpty) ...<Widget>[
                           const SizedBox(height: SpacingTokens.xs),
                           Text(
-                            'These provisional suggestions are based only on your short samples so we can tailor your first drills — never an official exam score.',
+                            snapshot.recommendedActionDescription,
                             style: typography.secondary.copyWith(
                               color: colors.textSecondary,
                             ),
                           ),
-                          const SizedBox(height: SpacingTokens.sm),
-                          Wrap(
-                            spacing: SpacingTokens.xs,
-                            runSpacing: SpacingTokens.xs,
-                            children: <Widget>[
-                              if (snapshot.mode == DiagnosticMode.extended)
-                                const MzChip(
-                                  label: 'Completed with extended help',
-                                )
-                              else if (snapshot.mode ==
-                                  DiagnosticMode.accessible)
-                                const MzChip(
-                                  label: 'Accessible audio mode',
-                                ),
-                              if (snapshot.hasPendingWork)
-                                MzChip(
-                                  label: state.resultsRemainingSeconds > 0
-                                      ? 'Checking Writing/Speaking (${state.resultsRemainingSeconds}s)'
-                                      : 'Finishing in background',
-                                  variant: MzChipVariant.target,
-                                ),
-                            ],
-                          ),
                         ],
-                      ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: SpacingTokens.lg),
+
+                  Text('Skill Breakdown', style: typography.sectionHeading),
+                  const SizedBox(height: SpacingTokens.sm),
+
+                  for (final outcome in <DiagnosticSkillOutcomeSnapshot>[
+                    snapshot.reading,
+                    snapshot.listening,
+                    snapshot.writing,
+                    snapshot.speaking,
+                  ]) ...<Widget>[
+                    _SkillOutcomeCard(
+                      outcome: outcome,
+                      onRetakeSkill: () async {
+                        final router = GoRouter.of(context);
+                        final id = await notifier.startSingleSkillRetake(
+                          outcome.skill,
+                        );
+                        if (id != null) {
+                          router.go(AppRoutes.buildDiagnosticSession(id));
+                        }
+                      },
                     ),
                     const SizedBox(height: SpacingTokens.md),
-
-                    if (snapshot.hasPendingWork &&
-                        state.resultsRemainingSeconds <= 0 &&
-                        state.isTimed) ...<Widget>[
-                      StatusBanner(
-                        message: 'Your Reading & Listening results are ready now. Writing or Speaking feedback is still finishing in the background — start practice anytime.',
-                        variant: StatusBannerVariant.uploading,
-                        actionLabel: 'Check now',
-                        onTapAction: notifier.refreshResults,
-                      ),
-                      const SizedBox(height: SpacingTokens.md),
-                    ],
-
-                    // Recommended First Action
-                    MzCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
-                          Row(
-                            children: <Widget>[
-                              const IconWell(
-                                glyph: LucideGlyph.sparkles,
-                                tint: IconWellTint.blue,
-                                size: 36,
-                                iconSize: 18,
-                              ),
-                              const SizedBox(width: SpacingTokens.sm),
-                              Expanded(
-                                child: Text(
-                                  snapshot.recommendedActionTitle,
-                                  style: typography.cardTitle,
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (snapshot
-                              .recommendedActionDescription
-                              .isNotEmpty) ...<Widget>[
-                            const SizedBox(height: SpacingTokens.sm),
-                            Text(
-                              snapshot.recommendedActionDescription,
-                              style: typography.secondary.copyWith(
-                                color: colors.textSecondary,
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: SpacingTokens.md),
-                          PrimaryButton(
-                            label: 'Start Recommended Practice',
-                            onPressed: () => context.go(
-                              _routeForSkill(snapshot.recommendedTargetSkill),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: SpacingTokens.lg),
-
-                    Text(
-                      'Skill Breakdown',
-                      style: typography.sectionHeading,
-                    ),
-                    const SizedBox(height: SpacingTokens.sm),
-
-                    for (final outcome in <DiagnosticSkillOutcomeSnapshot>[
-                      snapshot.reading,
-                      snapshot.listening,
-                      snapshot.writing,
-                      snapshot.speaking,
-                    ]) ...<Widget>[
-                      _SkillOutcomeCard(
-                        outcome: outcome,
-                        onRetakeSkill: () async {
-                          final router = GoRouter.of(context);
-                          final id = await notifier.startSingleSkillRetake(
-                            outcome.skill,
-                          );
-                          if (id != null) {
-                            router.go(AppRoutes.buildDiagnosticSession(id));
-                          }
-                        },
-                      ),
-                      const SizedBox(height: SpacingTokens.md),
-                    ],
-
-                    SecondaryButton(
-                      label: 'Continue to practice',
-                      onPressed: () => context.go(AppRoutes.home),
-                    ),
-                    const SizedBox(height: SpacingTokens.sm),
-                    TextButton(
-                      onPressed: () {
-                        unawaited(
-                          showDiagnosticExamScaleSheet(
-                            context,
-                            examScales:
-                                state.bank?.examScaleInfo ?? _defaultExamScales,
-                            activeExamId: snapshot.examId,
-                          ),
-                        );
-                      },
-                      child: const Text("About Your Exam's Scores"),
-                    ),
                   ],
-                ),
-        ),
+
+                  TextButton(
+                    onPressed: () {
+                      unawaited(
+                        showDiagnosticExamScaleSheet(
+                          context,
+                          examScales:
+                              state.bank?.examScaleInfo ?? _defaultExamScales,
+                          activeExamId: snapshot.examId,
+                        ),
+                      );
+                    },
+                    child: const Text("About Your Exam's Scores"),
+                  ),
+                ],
+              ),
       ),
     );
   }

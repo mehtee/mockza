@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mockza/core/exams/countdown_clock_tracker.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/exams/local_objective_scorer.dart';
 import 'package:mockza/core/models/attempt_status.dart';
@@ -52,6 +53,9 @@ class ListeningSimState {
     required this.answers,
     required this.showTranscript,
     required this.isSubmitting,
+    this.remainingSeconds = 1800,
+    this.totalSeconds = 1800,
+    this.isPaused = false,
     this.errorMessage,
   });
 
@@ -93,6 +97,15 @@ class ListeningSimState {
 
   /// Whether submission/grading is running.
   final bool isSubmitting;
+
+  /// Exam mode remaining session seconds (`30:00` standard IELTS Listening).
+  final int remainingSeconds;
+
+  /// Total exam session budget in seconds.
+  final int totalSeconds;
+
+  /// Whether Study Mode countdown timer is paused.
+  final bool isPaused;
 
   /// Non-fatal load/audio/submit error feedback.
   final String? errorMessage;
@@ -173,6 +186,9 @@ class ListeningSimState {
     Map<int, String>? answers,
     bool? showTranscript,
     bool? isSubmitting,
+    int? remainingSeconds,
+    int? totalSeconds,
+    bool? isPaused,
     String? errorMessage,
     bool clearError = false,
   }) => ListeningSimState(
@@ -189,6 +205,9 @@ class ListeningSimState {
     answers: answers ?? this.answers,
     showTranscript: showTranscript ?? this.showTranscript,
     isSubmitting: isSubmitting ?? this.isSubmitting,
+    remainingSeconds: remainingSeconds ?? this.remainingSeconds,
+    totalSeconds: totalSeconds ?? this.totalSeconds,
+    isPaused: isPaused ?? this.isPaused,
     errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
   );
 }
@@ -200,6 +219,8 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
   StreamSubscription<Duration>? _posSub;
   StreamSubscription<Duration?>? _durSub;
   StreamSubscription<bool>? _playSub;
+  Timer? _countdownTimer;
+  CountdownClockTracker? _clockTracker;
   DateTime? _sessionStartTime;
   bool _isDisposed = false;
   AudioPlayerGateway? _player;
@@ -212,6 +233,7 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
     _isDisposed = false;
     _player = ref.read(audioPlayerGatewayProvider);
     _sessionStartTime = ref.read(clockProvider).now();
+    _clockTracker = CountdownClockTracker(clock: ref.read(clockProvider));
     ref.onDispose(_cleanupAll);
 
     return const ListeningSimState(
@@ -240,8 +262,13 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
   }) async {
     _mockSessionId = mockSessionId;
     _mockStageKey = mockStageKey;
+    _countdownTimer?.cancel();
     await _cancelPlayerSubs();
-    _sessionStartTime = ref.read(clockProvider).now();
+    final clock = ref.read(clockProvider);
+    _sessionStartTime = clock.now();
+    (_clockTracker ??= CountdownClockTracker(clock: clock)).start(
+      remainingSeconds: 1800,
+    );
 
     state = state.copyWith(
       packId: packId,
@@ -253,6 +280,9 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
       playbackSpeed: 1,
       currentPosition: Duration.zero,
       answers: const <int, String>{},
+      remainingSeconds: 1800,
+      totalSeconds: 1800,
+      isPaused: false,
       clearError: true,
     );
 
@@ -276,6 +306,12 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
       final firstSecIndex = spec.sections.isNotEmpty
           ? spec.sections.first.sectionIndex
           : 1;
+      final budgetSecs = (spec.durationSeconds > 600)
+          ? (spec.durationSeconds + 600)
+          : 1800;
+      (_clockTracker ??= CountdownClockTracker(
+        clock: ref.read(clockProvider),
+      )).start(remainingSeconds: budgetSecs);
       state = state.copyWith(
         isLoadingPack: false,
         pack: spec,
@@ -283,8 +319,11 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
         totalDuration: spec.durationSeconds > 0
             ? Duration(seconds: spec.durationSeconds)
             : const Duration(minutes: 5),
+        remainingSeconds: budgetSecs,
+        totalSeconds: budgetSecs,
         clearError: true,
       );
+      _startExamCountdown();
 
       final audioPath = spec.audioRelativePath.trim();
       if (audioPath.isNotEmpty) {
@@ -375,6 +414,7 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
 
   void _cleanupAll() {
     _isDisposed = true;
+    _countdownTimer?.cancel();
     final posSub = _posSub;
     final durSub = _durSub;
     final playSub = _playSub;
@@ -413,6 +453,36 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
       // Ignore uninitialized player on teardown.
     }
     await _releaseActiveBlobUrl();
+  }
+
+  /// Toggles timer pause/resume in Study Mode.
+  void toggleTimerPause() {
+    if (state.isExamMode) return;
+    final nextPaused = !state.isPaused;
+    if (nextPaused) {
+      _clockTracker?.pause();
+    } else {
+      _clockTracker?.resume();
+    }
+    state = state.copyWith(isPaused: nextPaused);
+  }
+
+  void _startExamCountdown() {
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_isDisposed) {
+        timer.cancel();
+        return;
+      }
+      if (state.isPaused) return;
+      final rem = _clockTracker?.currentRemaining() ?? state.remainingSeconds;
+      if (rem != state.remainingSeconds) {
+        state = state.copyWith(remainingSeconds: rem);
+      }
+      if (rem <= 0) {
+        timer.cancel();
+      }
+    });
   }
 
   /// Toggles play / pause (in Exam Mode audio can start, and pauses are disabled once started).
@@ -503,6 +573,7 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
     final pack = state.pack;
     if (pack == null) return null;
 
+    _countdownTimer?.cancel();
     await _cancelPlayerSubs();
     state = state.copyWith(isSubmitting: true, clearError: true);
 

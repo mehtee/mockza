@@ -17,7 +17,7 @@ export function validateAndExtractCriterionBands(params: {
   const criteria = Array.isArray(params.rawCriteria)
     ? (params.rawCriteria as RubricCriterionInput[])
     : null;
-  if (!criteria || criteria.length !== 4) {
+  if (criteria?.length !== 4) {
     throw new EvaluationModelError(
       'model_invalid_output',
       `${params.skill === 'writing' ? 'Writing' : 'Speaking'} model output must contain exactly 4 criterion scores.`,

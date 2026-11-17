@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/core/models/user_profile.dart';
+import 'package:mockza/core/preferences/appearance_settings.dart';
 import 'package:mockza/core/result/failure.dart';
 import 'package:mockza/core/result/result.dart';
 import 'package:mockza/providers.dart';
@@ -24,6 +25,7 @@ class SettingsState {
     required this.speakingRemaining,
     required this.writingRemaining,
     required this.appUserId,
+    this.presetId = AppearanceSettings.defaultPresetId,
     this.appVersionLabel = 'v1.0.0',
     this.isBusy = false,
     this.isClearingCache = false,
@@ -42,6 +44,9 @@ class SettingsState {
 
   /// Current visual theme mode (`system`, `dark`, `light`).
   final String themeMode;
+
+  /// Active Open-Closed theme preset identifier in `MzThemeCatalog`.
+  final String presetId;
 
   /// Whether active user has Pro subscription entitlement.
   final bool isPro;
@@ -76,6 +81,7 @@ class SettingsState {
     ExamModuleType? examModule,
     double? targetBand,
     String? themeMode,
+    String? presetId,
     bool? isPro,
     int? speakingRemaining,
     int? writingRemaining,
@@ -91,6 +97,7 @@ class SettingsState {
     examModule: examModule ?? this.examModule,
     targetBand: targetBand ?? this.targetBand,
     themeMode: themeMode ?? this.themeMode,
+    presetId: presetId ?? this.presetId,
     isPro: isPro ?? this.isPro,
     speakingRemaining: speakingRemaining ?? this.speakingRemaining,
     writingRemaining: writingRemaining ?? this.writingRemaining,
@@ -117,11 +124,13 @@ class SettingsNotifier extends Notifier<SettingsState> {
       _isDisposed = true;
       unawaited(_profileSub?.cancel());
     });
+    final appearance = ref.watch(appearanceSettingsProvider);
     final initial = SettingsState(
       edition: ref.watch(editionConfigProvider).edition,
       examModule: ExamModuleType.academic,
       targetBand: 7.5,
-      themeMode: 'system',
+      themeMode: appearance.themeModeKey,
+      presetId: appearance.presetId,
       isPro: false,
       speakingRemaining: 1,
       writingRemaining: 1,
@@ -144,7 +153,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
               state = state.copyWith(
                 examModule: profile.examModule,
                 targetBand: profile.targetBand,
-                themeMode: profile.themeMode,
                 isPro: profile.isPro,
                 appUserId: profile.appUserId ?? profile.deviceId,
               );
@@ -183,7 +191,6 @@ class SettingsNotifier extends Notifier<SettingsState> {
         state = state.copyWith(
           examModule: profile.examModule,
           targetBand: profile.targetBand,
-          themeMode: profile.themeMode,
           isPro: profile.isPro,
           appUserId: profile.appUserId ?? profile.deviceId,
         );
@@ -231,10 +238,17 @@ class SettingsNotifier extends Notifier<SettingsState> {
     unawaited(_persistPreferences(examModule: module));
   }
 
-  /// Updates visual theme mode and persists to SQLite.
+  /// Updates visual theme mode and persists to secure storage & SQLite.
   void setThemeMode(String mode) {
     state = state.copyWith(themeMode: mode, clearStatusMessage: true);
+    ref.read(appearanceSettingsProvider.notifier).setThemeMode(mode);
     unawaited(_persistThemeMode(mode));
+  }
+
+  /// Updates the Open-Closed palette preset and persists selection.
+  void setThemePreset(String presetId) {
+    state = state.copyWith(presetId: presetId, clearStatusMessage: true);
+    ref.read(appearanceSettingsProvider.notifier).setPresetId(presetId);
   }
 
   Future<void> _persistPreferences({
@@ -411,11 +425,12 @@ class SettingsNotifier extends Notifier<SettingsState> {
     }
 
     if (_isDisposed) return;
+    ref.read(appearanceSettingsProvider.notifier).resetToDefaults();
     state = SettingsState(
       edition: state.edition,
       examModule: ExamModuleType.academic,
       targetBand: 7.5,
-      themeMode: 'system',
+      themeMode: AppearanceSettings.defaultThemeModeKey,
       isPro: false,
       speakingRemaining: 1,
       writingRemaining: 1,

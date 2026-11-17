@@ -107,7 +107,9 @@ class ProgressScreen extends ConsumerWidget {
             ),
           ),
           SliverPadding(
-            padding: const EdgeInsetsDirectional.all(SpacingTokens.lg),
+            padding: const EdgeInsetsDirectional.symmetric(
+              vertical: SpacingTokens.lg,
+            ),
             sliver: SliverList(
               delegate: SliverChildListDelegate(
                 <Widget>[
@@ -126,7 +128,11 @@ class ProgressScreen extends ConsumerWidget {
                   const SizedBox(height: SpacingTokens.sm),
                   _buildTrendCard(context, trendPoints, targetBand),
                   const SizedBox(height: SpacingTokens.xl),
-                  Row(
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: SpacingTokens.sm,
+                    runSpacing: SpacingTokens.xs,
                     children: <Widget>[
                       Text(
                         'Skill Breakdown',
@@ -134,7 +140,6 @@ class ProgressScreen extends ConsumerWidget {
                           color: colors.textPrimary,
                         ),
                       ),
-                      const Spacer(),
                       Text(
                         'Tap for detailed analytics',
                         style: typography.caption.copyWith(
@@ -222,23 +227,33 @@ class ProgressScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Row(
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: SpacingTokens.sm,
+            runSpacing: SpacingTokens.xs,
             children: <Widget>[
-              const AppIcon(LucideGlyph.target, size: 20),
-              const SizedBox(width: SpacingTokens.xs),
-              Text(
-                summary.overallBand == null
-                    ? 'ESTIMATED OVERALL BAND'
-                    : (summary.isFullFourSkillEstimate
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  const AppIcon(LucideGlyph.target, size: 20),
+                  const SizedBox(width: SpacingTokens.xs),
+                  Flexible(
+                    child: Text(
+                      summary.overallBand == null
                           ? 'ESTIMATED OVERALL BAND'
-                          : 'PARTIAL ESTIMATE (${summary.attemptedSkillsCount}/4 SKILLS)'),
-                style: typography.caption.copyWith(
-                  color: colors.textSecondary,
-                  letterSpacing: 1.2,
-                  fontWeight: FontWeight.w600,
-                ),
+                          : (summary.isFullFourSkillEstimate
+                                ? 'ESTIMATED OVERALL BAND'
+                                : 'PARTIAL ESTIMATE (${summary.attemptedSkillsCount}/4 SKILLS)'),
+                      style: typography.caption.copyWith(
+                        color: colors.textSecondary,
+                        letterSpacing: 1.2,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const Spacer(),
               if (summary.changeThisMonth != null)
                 MzChip(
                   label:

@@ -392,8 +392,10 @@ class _OverviewTab extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                spacing: SpacingTokens.sm,
+                runSpacing: SpacingTokens.xs,
                 children: <Widget>[
                   MzChip(
                     label: _skillTitle(state.skill),
@@ -634,21 +636,21 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Row(
+          Wrap(
+            spacing: SpacingTokens.sm,
+            runSpacing: SpacingTokens.xs,
             children: <Widget>[
               MzChip(
                 label: 'All (${state.objectiveQuestions.length})',
                 isSelected: _filter == 'all',
                 onTap: () => setState(() => _filter = 'all'),
               ),
-              const SizedBox(width: SpacingTokens.sm),
               MzChip(
                 label:
                     'Missed (${state.objectiveTotalCount - state.objectiveCorrectCount})',
                 isSelected: _filter == 'missed',
                 onTap: () => setState(() => _filter = 'missed'),
               ),
-              const SizedBox(width: SpacingTokens.sm),
               MzChip(
                 label: 'Correct (${state.objectiveCorrectCount})',
                 isSelected: _filter == 'correct',
@@ -685,14 +687,18 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: <Widget>[
-                                Text(
-                                  'Question ${q.questionNumber}',
-                                  style: typography.cardTitle.copyWith(
-                                    fontWeight: FontWeight.w700,
+                                Expanded(
+                                  child: Text(
+                                    'Question ${q.questionNumber}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: typography.cardTitle.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
                                 ),
+                                const SizedBox(width: SpacingTokens.sm),
                                 MzChip(
                                   label: q.isCorrect ? 'Correct' : 'Missed',
                                   glyph: q.isCorrect

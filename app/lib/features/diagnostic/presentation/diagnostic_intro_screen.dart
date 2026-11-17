@@ -8,6 +8,7 @@ import 'package:mockza/features/diagnostic/presentation/diagnostic_help_sheet.da
 import 'package:mockza/features/diagnostic/presentation/diagnostic_notifier.dart';
 import 'package:mockza/features/diagnostic/presentation/diagnostic_providers.dart';
 import 'package:mockza/routing/routes.dart';
+import 'package:mockza/routing/safe_pop.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
@@ -19,6 +20,7 @@ import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
+import 'package:mockza/theme/components/mz_sticky_bottom_bar.dart';
 import 'package:mockza/theme/components/status_banner.dart';
 import 'package:mockza/theme/primitives.dart';
 
@@ -65,13 +67,7 @@ class _DiagnosticIntroScreenState extends ConsumerState<DiagnosticIntroScreen> {
     );
   }
 
-  void _exitSafe() {
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go(AppRoutes.home);
-    }
-  }
+  void _exitSafe() => context.safePopOrGo(AppRoutes.home);
 
   @override
   Widget build(BuildContext context) {
@@ -106,12 +102,62 @@ class _DiagnosticIntroScreenState extends ConsumerState<DiagnosticIntroScreen> {
           ),
         ],
       ),
+      bottomBar: MzStickyBottomBar(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            PrimaryButton(
+              label: state.isLoadingBank
+                  ? 'Preparing questions...'
+                  : 'Start check',
+              onPressed: state.isLoadingBank || state.bank == null
+                  ? null
+                  : () async {
+                      final router = GoRouter.of(context);
+                      final diagId = await notifier.startDiagnosticSession();
+                      if (diagId != null) {
+                        router.go(AppRoutes.buildDiagnosticSession(diagId));
+                      }
+                    },
+            ),
+            const SizedBox(height: SpacingTokens.xs),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: SpacingTokens.md,
+              children: <Widget>[
+                if (!state.speakingOptOut)
+                  TextButton(
+                    onPressed: state.isLoadingBank || state.bank == null
+                        ? null
+                        : () async {
+                            notifier.setSpeakingOptOut(
+                              optOut: true,
+                              reason: NoEvidenceReason.skipped,
+                            );
+                            final router = GoRouter.of(context);
+                            final diagId = await notifier
+                                .startDiagnosticSession();
+                            if (diagId != null) {
+                              router.go(
+                                AppRoutes.buildDiagnosticSession(diagId),
+                              );
+                            }
+                          },
+                    child: const Text('Continue without Speaking'),
+                  ),
+                TextButton(
+                  onPressed: () => context.go(AppRoutes.home),
+                  child: const Text('Do this later'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsetsDirectional.fromSTEB(
-          SpacingTokens.lg,
-          SpacingTokens.md,
-          SpacingTokens.lg,
-          SpacingTokens.xxl,
+        padding: const EdgeInsetsDirectional.symmetric(
+          vertical: SpacingTokens.md,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -131,30 +177,30 @@ class _DiagnosticIntroScreenState extends ConsumerState<DiagnosticIntroScreen> {
                       const SizedBox(width: SpacingTokens.md),
                       Expanded(
                         child: Text(
-                          'Find Your Starting Level in ~10 Min',
-                          style: typography.sectionHeading,
+                          'Find Your Starting Level in ~5–10 Min',
+                          style: typography.cardTitle,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: SpacingTokens.md),
+                  const SizedBox(height: SpacingTokens.sm),
                   Text(
-                    'This is a starting estimate — not a pass/fail test. Hard questions are normal so we can calibrate your practice plan quickly across Reading, Listening, Writing, and Speaking.',
-                    style: typography.body.copyWith(
+                    'Not a pass/fail test. Quick samples across Reading, Listening, Writing, and Speaking calibrate your starting practice.',
+                    style: typography.secondary.copyWith(
                       color: colors.textSecondary,
                     ),
                   ),
-                  const SizedBox(height: SpacingTokens.md),
+                  const SizedBox(height: SpacingTokens.sm),
                   Wrap(
                     spacing: SpacingTokens.sm,
                     runSpacing: SpacingTokens.xs,
                     children: <Widget>[
                       const MzChip(
-                        label: 'Up to 10 min',
+                        label: 'Unscored examples first',
                         glyph: LucideGlyph.timer,
                       ),
                       const MzChip(
-                        label: 'Can skip a skill',
+                        label: 'Skip any skill',
                         glyph: LucideGlyph.shieldCheck,
                       ),
                       if (state.mode == DiagnosticMode.extended)
@@ -185,12 +231,12 @@ class _DiagnosticIntroScreenState extends ConsumerState<DiagnosticIntroScreen> {
               const SizedBox(height: SpacingTokens.md),
             ],
 
-            // Beginner Do / Don't card
-            const _CompactDoDontSummary(),
-            const SizedBox(height: SpacingTokens.md),
-
             // Sound & Microphone preflight card
             _DeviceCheckCard(state: state, notifier: notifier),
+            const SizedBox(height: SpacingTokens.md),
+
+            // Beginner Do / Don't card
+            const _CompactDoDontSummary(),
             const SizedBox(height: SpacingTokens.md),
 
             // Help / Accessibility options link
@@ -199,7 +245,7 @@ class _DiagnosticIntroScreenState extends ConsumerState<DiagnosticIntroScreen> {
               child: Row(
                 children: <Widget>[
                   const IconWell(
-                    glyph: LucideGlyph.info,
+                    glyph: LucideGlyph.slidersHorizontal,
                     tint: IconWellTint.amber,
                     size: 36,
                     iconSize: 18,
@@ -210,13 +256,12 @@ class _DiagnosticIntroScreenState extends ConsumerState<DiagnosticIntroScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
-                          'Need more help or time?',
+                          'Timing & Accessibility Options',
                           style: typography.cardTitle,
                         ),
-                        const SizedBox(height: SpacingTokens.xs / 2),
                         Text(
-                          'Switch to untimed Extended Help or enable audio replay/transcript.',
-                          style: typography.secondary.copyWith(
+                          'Untimed Extended Help or replayable Accessible Audio.',
+                          style: typography.caption.copyWith(
                             color: colors.textSecondary,
                           ),
                         ),
@@ -231,7 +276,7 @@ class _DiagnosticIntroScreenState extends ConsumerState<DiagnosticIntroScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: SpacingTokens.md),
+            const SizedBox(height: SpacingTokens.sm),
 
             // Privacy & audio consent note
             GestureDetector(
@@ -241,54 +286,13 @@ class _DiagnosticIntroScreenState extends ConsumerState<DiagnosticIntroScreen> {
                   vertical: SpacingTokens.xs,
                 ),
                 child: Text(
-                  'By tapping Start check, you allow your short Writing text and Speaking recording to be evaluated for placement feedback. Your 3-second mic test is discarded automatically. Tap to read privacy details.',
+                  'By tapping Start check, you agree to evaluate your short Writing & Speaking samples. Tap for audio & privacy notice.',
                   style: typography.caption.copyWith(
                     color: colors.textSecondary,
                     decoration: TextDecoration.underline,
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: SpacingTokens.lg),
-
-            PrimaryButton(
-              label: state.isLoadingBank
-                  ? 'Preparing questions...'
-                  : 'Start check',
-              onPressed: state.isLoadingBank || state.bank == null
-                  ? null
-                  : () async {
-                      final router = GoRouter.of(context);
-                      final diagId = await notifier.startDiagnosticSession();
-                      if (diagId != null) {
-                        router.go(AppRoutes.buildDiagnosticSession(diagId));
-                      }
-                    },
-            ),
-            const SizedBox(height: SpacingTokens.sm),
-
-            if (!state.speakingOptOut)
-              SecondaryButton(
-                label: 'Continue without Speaking',
-                onPressed: state.isLoadingBank || state.bank == null
-                    ? null
-                    : () async {
-                        notifier.setSpeakingOptOut(
-                          optOut: true,
-                          reason: NoEvidenceReason.skipped,
-                        );
-                        final router = GoRouter.of(context);
-                        final diagId = await notifier.startDiagnosticSession();
-                        if (diagId != null) {
-                          router.go(AppRoutes.buildDiagnosticSession(diagId));
-                        }
-                      },
-              ),
-            const SizedBox(height: SpacingTokens.sm),
-
-            TextButton(
-              onPressed: () => context.go(AppRoutes.home),
-              child: const Text('Do this later'),
             ),
           ],
         ),

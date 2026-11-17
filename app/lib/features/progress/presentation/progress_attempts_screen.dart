@@ -8,6 +8,7 @@ import 'package:mockza/data/repositories/attempt_repository.dart';
 import 'package:mockza/features/progress/presentation/progress_providers.dart';
 import 'package:mockza/providers.dart';
 import 'package:mockza/routing/routes.dart';
+import 'package:mockza/routing/safe_pop.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_typography.dart';
@@ -128,7 +129,7 @@ class _ProgressAttemptsScreenState
       appBar: AppBar(
         leading: IconButton(
           icon: const AppIcon(LucideGlyph.chevronLeft, size: 22),
-          onPressed: () => context.pop(),
+          onPressed: () => context.safePopOrGo(AppRoutes.progress),
         ),
         title: const Text('Attempt History'),
         actions: <Widget>[
@@ -143,7 +144,9 @@ class _ProgressAttemptsScreenState
         slivers: <Widget>[
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsetsDirectional.all(SpacingTokens.lg),
+              padding: const EdgeInsetsDirectional.symmetric(
+                vertical: SpacingTokens.md,
+              ),
               child: _buildFilterChips(context, activeFilter),
             ),
           ),
@@ -158,8 +161,8 @@ class _ProgressAttemptsScreenState
             if (pendingOrFailed.isNotEmpty) ...<Widget>[
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsetsDirectional.symmetric(
-                    horizontal: SpacingTokens.lg,
+                  padding: const EdgeInsetsDirectional.only(
+                    top: SpacingTokens.sm,
                   ),
                   child: Text(
                     'Pending Sync & Retries',
@@ -168,7 +171,9 @@ class _ProgressAttemptsScreenState
                 ),
               ),
               SliverPadding(
-                padding: const EdgeInsetsDirectional.all(SpacingTokens.lg),
+                padding: const EdgeInsetsDirectional.symmetric(
+                  vertical: SpacingTokens.md,
+                ),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) =>
@@ -180,8 +185,8 @@ class _ProgressAttemptsScreenState
             ],
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsetsDirectional.symmetric(
-                  horizontal: SpacingTokens.lg,
+                padding: const EdgeInsetsDirectional.only(
+                  top: SpacingTokens.sm,
                 ),
                 child: Text(
                   'Completed Sessions (${completedAttempts.length})',
@@ -197,7 +202,9 @@ class _ProgressAttemptsScreenState
               )
             else
               SliverPadding(
-                padding: const EdgeInsetsDirectional.all(SpacingTokens.lg),
+                padding: const EdgeInsetsDirectional.symmetric(
+                  vertical: SpacingTokens.md,
+                ),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) =>
@@ -210,7 +217,6 @@ class _ProgressAttemptsScreenState
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsetsDirectional.symmetric(
-                    horizontal: SpacingTokens.lg,
                     vertical: SpacingTokens.md,
                   ),
                   child: SecondaryButton(

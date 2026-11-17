@@ -12,10 +12,13 @@ import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
+import 'package:mockza/theme/components/mz_chip.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
+import 'package:mockza/theme/components/mz_sticky_bottom_bar.dart';
 import 'package:mockza/theme/primitives.dart';
+import 'package:mockza/theme/responsive_layout.dart';
 
-/// High-fidelity 2-step learner onboarding wizard (Screens 23 & 24).
+/// High-fidelity 2-step learner onboarding wizard with pinned bottom actions (Screens 23 & 24).
 class OnboardingScreen extends ConsumerWidget {
   /// Creates an [OnboardingScreen].
   const new({super.key});
@@ -29,26 +32,23 @@ class OnboardingScreen extends ConsumerWidget {
 
     return MzScaffold(
       mode: MzScaffoldMode.onboarding,
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: AnimatedSwitcher(
-            duration: disableAnimations
-                ? Duration.zero
-                : AppMotion.standard.sheetDuration,
-            child: state.step == 0
-                ? _ExamSelectionStep(
-                    key: const ValueKey('step_0'),
-                    state: state,
-                    notifier: notifier,
-                  )
-                : _GoalSetupStep(
-                    key: const ValueKey('step_1'),
-                    state: state,
-                    notifier: notifier,
-                  ),
-          ),
-        ),
+      centerOnWide: false,
+      padding: EdgeInsetsDirectional.zero,
+      body: AnimatedSwitcher(
+        duration: disableAnimations
+            ? Duration.zero
+            : AppMotion.standard.sheetDuration,
+        child: state.step == 0
+            ? _ExamSelectionStep(
+                key: const ValueKey('step_0'),
+                state: state,
+                notifier: notifier,
+              )
+            : _GoalSetupStep(
+                key: const ValueKey('step_1'),
+                state: state,
+                notifier: notifier,
+              ),
       ),
     );
   }
@@ -68,79 +68,119 @@ class _ExamSelectionStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final typography = AppTypography.of(context);
     final colors = AppColors.of(context);
+    final shapes = AppShapes.of(context);
     final l10n = AppLocalizations.of(context);
+    final gutter = MzResponsive.horizontalGutterOf(context);
+    final isTight = MzResponsive.isTightPhoneOf(context);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsetsDirectional.all(SpacingTokens.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          const SizedBox(height: SpacingTokens.xl),
-          const Center(child: MockzaMark(size: 48)),
-          const SizedBox(height: SpacingTokens.lg),
-          Text(
-            l10n.onboardingTitle,
-            textAlign: TextAlign.center,
-            style: typography.headline,
+    return Column(
+      children: <Widget>[
+        Expanded(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: SpacingTokens.maxContentWidth,
+              ),
+              child: SingleChildScrollView(
+                padding: EdgeInsetsDirectional.symmetric(
+                  horizontal: gutter,
+                  vertical: isTight ? SpacingTokens.md : SpacingTokens.lg,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    SizedBox(
+                      height: isTight ? SpacingTokens.xs : SpacingTokens.md,
+                    ),
+                    Center(child: MockzaMark(size: isTight ? 36 : 44)),
+                    const SizedBox(height: SpacingTokens.md),
+                    Text(
+                      l10n.onboardingTitle,
+                      textAlign: TextAlign.center,
+                      style: typography.sectionHeading,
+                    ),
+                    const SizedBox(height: SpacingTokens.xs),
+                    Text(
+                      'Offline-first IELTS prep with AI rubric feedback and real Reading & Listening packs.',
+                      textAlign: TextAlign.center,
+                      style: typography.secondary.copyWith(
+                        color: colors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: SpacingTokens.lg),
+                    Text(
+                      'Choose your target exam',
+                      style: typography.cardTitle,
+                    ),
+                    const SizedBox(height: SpacingTokens.sm),
+                    _ExamCard(
+                      title: 'IELTS Academic',
+                      description: 'University admissions and professional registration.',
+                      isSelected:
+                          state.selectedTrack == ExamTrack.ieltsAcademic,
+                      onTap: () =>
+                          notifier.selectTrack(ExamTrack.ieltsAcademic),
+                    ),
+                    const SizedBox(height: SpacingTokens.sm),
+                    _ExamCard(
+                      title: 'IELTS General Training',
+                      description:
+                          'Letters, everyday passages, and work/migration.',
+                      isSelected: state.selectedTrack == ExamTrack.ieltsGeneral,
+                      onTap: () => notifier.selectTrack(ExamTrack.ieltsGeneral),
+                    ),
+                    const SizedBox(height: SpacingTokens.md),
+                    Container(
+                      padding: const EdgeInsetsDirectional.symmetric(
+                        horizontal: SpacingTokens.md,
+                        vertical: SpacingTokens.sm,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceAlt,
+                        borderRadius: shapes.controlRadius,
+                        border: Border.all(color: colors.borderSubtle),
+                      ),
+                      child: Row(
+                        children: <Widget>[
+                          AppIcon(
+                            LucideGlyph.sparkles,
+                            size: 16,
+                            color: colors.textSecondary,
+                          ),
+                          const SizedBox(width: SpacingTokens.sm),
+                          Expanded(
+                            child: Text(
+                              'More exams coming soon: PTE Academic · TOEFL iBT',
+                              style: typography.caption.copyWith(
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: SpacingTokens.md),
+                    Text(
+                      'Mockza is independent and not affiliated with IELTS, Cambridge, IDP, or British Council.',
+                      textAlign: TextAlign.center,
+                      style: typography.caption.copyWith(
+                        color: colors.textTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-          const SizedBox(height: SpacingTokens.xs),
-          Text(
-            'Offline-first IELTS preparation with structured AI rubric feedback and local Reading & Listening practice.',
-            textAlign: TextAlign.center,
-            style: typography.body.copyWith(color: colors.textSecondary),
-          ),
-          const SizedBox(height: SpacingTokens.xl),
-          Text(
-            'Choose your target exam',
-            style: typography.cardTitle,
-          ),
-          const SizedBox(height: SpacingTokens.sm),
-          _ExamCard(
-            title: 'IELTS Academic',
-            description:
-                'For university admissions and professional licensing.',
-            isSelected: state.selectedTrack == ExamTrack.ieltsAcademic,
-            onTap: () => notifier.selectTrack(ExamTrack.ieltsAcademic),
-          ),
-          const SizedBox(height: SpacingTokens.sm),
-          _ExamCard(
-            title: 'IELTS General Training',
-            description:
-                'Letters, workplace passages, and migration preparation.',
-            isSelected: state.selectedTrack == ExamTrack.ieltsGeneral,
-            onTap: () => notifier.selectTrack(ExamTrack.ieltsGeneral),
-          ),
-          const SizedBox(height: SpacingTokens.sm),
-          _ExamCard(
-            title: 'PTE Academic',
-            description: 'Coming soon — 10–90 automated PTE scoring packs are in development.',
-            isSelected: false,
-            isComingSoon: true,
-            onTap: () {},
-          ),
-          const SizedBox(height: SpacingTokens.sm),
-          _ExamCard(
-            title: 'TOEFL iBT',
-            description: 'Coming soon — 0–120 TOEFL iBT full simulations are in development.',
-            isSelected: false,
-            isComingSoon: true,
-            onTap: () {},
-          ),
-          const SizedBox(height: SpacingTokens.xl),
-          PrimaryButton(
+        ),
+        MzStickyBottomBar(
+          child: PrimaryButton(
             label: 'Continue',
             trailingGlyph: LucideGlyph.arrowRight,
             onPressed: notifier.nextStep,
           ),
-          const SizedBox(height: SpacingTokens.md),
-          Text(
-            'Mockza is independent and not affiliated with IELTS, Cambridge, IDP, or British Council.',
-            textAlign: TextAlign.center,
-            style: typography.caption.copyWith(color: colors.textTertiary),
-          ),
-          const SizedBox(height: SpacingTokens.lg),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -151,14 +191,12 @@ class _ExamCard extends StatelessWidget {
     required this.description,
     required this.isSelected,
     required this.onTap,
-    this.isComingSoon = false,
   });
 
   final String title;
   final String description;
   final bool isSelected;
   final VoidCallback onTap;
-  final bool isComingSoon;
 
   @override
   Widget build(BuildContext context) {
@@ -167,80 +205,48 @@ class _ExamCard extends StatelessWidget {
     final shapes = AppShapes.of(context);
 
     return Semantics(
-      button: !isComingSoon,
-      enabled: !isComingSoon,
+      button: true,
+      selected: isSelected,
       excludeSemantics: true,
-      label: isComingSoon
-          ? '$title, Coming soon. $description'
-          : '$title. $description',
-      child: GestureDetector(
-        onTap: isComingSoon ? null : onTap,
-        child: Opacity(
-          opacity: isComingSoon ? 0.65 : 1.0,
-          child: AnimatedContainer(
-            duration: AppMotion.standard.standardDuration,
-            padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
-            decoration: BoxDecoration(
-              color: isSelected ? colors.surfaceAlt : colors.surface,
-              borderRadius: shapes.cardRadius,
-              border: Border.all(
-                color: isSelected ? colors.primary : colors.borderSubtle,
-                width: isSelected ? 2 : 1,
-              ),
+      label: '$title. $description',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: shapes.cardRadius,
+        child: AnimatedContainer(
+          duration: AppMotion.standard.standardDuration,
+          padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
+          decoration: BoxDecoration(
+            color: isSelected ? colors.surfaceAlt : colors.surface,
+            borderRadius: shapes.cardRadius,
+            border: Border.all(
+              color: isSelected ? colors.primary : colors.borderSubtle,
+              width: isSelected ? 2 : shapes.strokeWidth,
             ),
-            child: Row(
-              children: <Widget>[
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          Flexible(
-                            child: Text(title, style: typography.cardTitle),
-                          ),
-                          if (isComingSoon) ...<Widget>[
-                            const SizedBox(width: SpacingTokens.xs),
-                            Container(
-                              padding: const EdgeInsetsDirectional.symmetric(
-                                horizontal: SpacingTokens.xs,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colors.surfaceAlt,
-                                borderRadius: shapes.pillRadius,
-                                border: Border.all(color: colors.borderSubtle),
-                              ),
-                              child: Text(
-                                'Soon',
-                                style: typography.caption.copyWith(
-                                  color: colors.textSecondary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
+          ),
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(title, style: typography.cardTitle),
+                    const SizedBox(height: SpacingTokens.xs),
+                    Text(
+                      description,
+                      style: typography.secondary.copyWith(
+                        color: colors.textSecondary,
                       ),
-                      const SizedBox(height: SpacingTokens.xs),
-                      Text(
-                        description,
-                        style: typography.secondary.copyWith(
-                          color: colors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: SpacingTokens.sm),
-                if (!isComingSoon)
-                  AppIcon(
-                    isSelected ? LucideGlyph.check : LucideGlyph.chevronRight,
-                    color: isSelected ? colors.primary : colors.textTertiary,
-                    size: 20,
-                  ),
-              ],
-            ),
+              ),
+              const SizedBox(width: SpacingTokens.sm),
+              AppIcon(
+                isSelected ? LucideGlyph.checkCircle2 : LucideGlyph.circle,
+                color: isSelected ? colors.primary : colors.textTertiary,
+                size: 20,
+              ),
+            ],
           ),
         ),
       ),
@@ -258,150 +264,190 @@ class _GoalSetupStep extends ConsumerWidget {
   final OnboardingState state;
   final OnboardingNotifier notifier;
 
+  String _bandMeaningLabel(double band) {
+    if (band >= 8.0) return 'Very Good / Expert (C1–C2)';
+    if (band >= 7.0) return 'Good User · Top Universities (C1)';
+    if (band >= 6.0) return 'Competent · Study & Work (B2)';
+    return 'Foundation Builder (B1+)';
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final typography = AppTypography.of(context);
     final colors = AppColors.of(context);
+    final gutter = MzResponsive.horizontalGutterOf(context);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsetsDirectional.all(SpacingTokens.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          const SizedBox(height: SpacingTokens.md),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: IconButton(
-              tooltip: 'Back to exam selection',
-              icon: const AppIcon(LucideGlyph.arrowLeft, size: 20),
-              onPressed: notifier.previousStep,
-            ),
-          ),
-          const SizedBox(height: SpacingTokens.sm),
-          Text(
-            'Set your target score',
-            style: typography.headline,
-          ),
-          const SizedBox(height: SpacingTokens.xs),
-          Text(
-            'We personalize AI feedback and micro-drills to bridge your score gap.',
-            style: typography.body.copyWith(color: colors.textSecondary),
-          ),
-          const SizedBox(height: SpacingTokens.xl),
-          Center(
-            child: Text(
-              state.formattedTargetScore,
-              style: typography.heroScore.copyWith(color: colors.primary),
-            ),
-          ),
-          Semantics(
-            label: 'Target IELTS band score',
-            value: state.formattedTargetScore,
-            child: Slider(
-              value: state.targetBand.clamp(
-                state.selectedTrack.minScore,
-                state.selectedTrack.maxScore,
+    return Column(
+      children: <Widget>[
+        Expanded(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: SpacingTokens.maxContentWidth,
               ),
-              min: state.selectedTrack.minScore,
-              max: state.selectedTrack.maxScore,
-              divisions: state.isIeltsScale
-                  ? ((state.selectedTrack.maxScore -
-                                state.selectedTrack.minScore) *
-                            2)
-                        .toInt()
-                  : (state.selectedTrack.maxScore -
-                            state.selectedTrack.minScore)
-                        .toInt(),
-              semanticFormatterCallback: (val) => state.isIeltsScale
-                  ? 'Band ${val.toStringAsFixed(1)}'
-                  : '${val.round()} pts',
-              activeColor: colors.primary,
-              onChanged: notifier.selectTargetBand,
-            ),
-          ),
-          const SizedBox(height: SpacingTokens.xl),
-          Text(
-            'When is your test date?',
-            style: typography.cardTitle,
-          ),
-          const SizedBox(height: SpacingTokens.sm),
-          Row(
-            children: <Widget>[
-              _TimeframeChip(
-                label: '2 Weeks',
-                isSelected: state.targetDays == 14,
-                onTap: () => notifier.selectTargetDays(14),
-              ),
-              const SizedBox(width: SpacingTokens.sm),
-              _TimeframeChip(
-                label: '1 Month',
-                isSelected: state.targetDays == 30,
-                onTap: () => notifier.selectTargetDays(30),
-              ),
-              const SizedBox(width: SpacingTokens.sm),
-              _TimeframeChip(
-                label: '3 Months',
-                isSelected: state.targetDays == 90,
-                onTap: () => notifier.selectTargetDays(90),
-              ),
-              const SizedBox(width: SpacingTokens.sm),
-              _TimeframeChip(
-                label: 'Unset',
-                isSelected: state.targetDays == null,
-                onTap: () => notifier.selectTargetDays(null),
-              ),
-            ],
-          ),
-          const SizedBox(height: SpacingTokens.xl),
-          GestureDetector(
-            onTap: () => notifier.toggleDiagnostic(want: !state.wantDiagnostic),
-            child: MzCard(
-              child: Row(
-                children: <Widget>[
-                  AppIcon(
-                    state.wantDiagnostic
-                        ? LucideGlyph.checkCircle2
-                        : LucideGlyph.x,
-                    color: state.wantDiagnostic
-                        ? colors.primary
-                        : colors.textTertiary,
-                  ),
-                  const SizedBox(width: SpacingTokens.sm),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          'Start with a Free ~10-Min Check',
-                          style: typography.cardTitle,
-                        ),
-                        const SizedBox(height: SpacingTokens.xs),
-                        Text(
-                          'Quickly checks Reading, Listening, Writing, and Speaking in one short guided flow to suggest your starting practice level.',
-                          style: typography.secondary.copyWith(
-                            color: colors.textSecondary,
+              child: SingleChildScrollView(
+                padding: EdgeInsetsDirectional.symmetric(
+                  horizontal: gutter,
+                  vertical: SpacingTokens.md,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: IconButton(
+                        tooltip: 'Back to exam selection',
+                        icon: const AppIcon(LucideGlyph.arrowLeft, size: 20),
+                        onPressed: notifier.previousStep,
+                      ),
+                    ),
+                    const SizedBox(height: SpacingTokens.xs),
+                    Text(
+                      'Set your target score',
+                      style: typography.sectionHeading,
+                    ),
+                    const SizedBox(height: SpacingTokens.xs),
+                    Text(
+                      'Personalizes feedback & daily goals — easy to change anytime.',
+                      style: typography.secondary.copyWith(
+                        color: colors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: SpacingTokens.lg),
+                    Center(
+                      child: Column(
+                        children: <Widget>[
+                          Text(
+                            state.formattedTargetScore,
+                            style: typography.heroScore.copyWith(
+                              color: colors.primary,
+                            ),
                           ),
+                          const SizedBox(height: SpacingTokens.xs),
+                          MzChip(
+                            label: _bandMeaningLabel(state.targetBand),
+                            variant: MzChipVariant.target,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: SpacingTokens.sm),
+                    Semantics(
+                      label: 'Target IELTS band score',
+                      value: state.formattedTargetScore,
+                      child: Slider(
+                        value: state.targetBand.clamp(
+                          state.selectedTrack.minScore,
+                          state.selectedTrack.maxScore,
+                        ),
+                        min: state.selectedTrack.minScore,
+                        max: state.selectedTrack.maxScore,
+                        divisions: state.isIeltsScale
+                            ? ((state.selectedTrack.maxScore -
+                                          state.selectedTrack.minScore) *
+                                      2)
+                                  .toInt()
+                            : (state.selectedTrack.maxScore -
+                                      state.selectedTrack.minScore)
+                                  .toInt(),
+                        semanticFormatterCallback: (val) => state.isIeltsScale
+                            ? 'Band ${val.toStringAsFixed(1)}'
+                            : '${val.round()} pts',
+                        activeColor: colors.primary,
+                        onChanged: notifier.selectTargetBand,
+                      ),
+                    ),
+                    const SizedBox(height: SpacingTokens.lg),
+                    Text(
+                      'When is your test date?',
+                      style: typography.cardTitle,
+                    ),
+                    const SizedBox(height: SpacingTokens.sm),
+                    Wrap(
+                      spacing: SpacingTokens.sm,
+                      runSpacing: SpacingTokens.sm,
+                      children: <Widget>[
+                        _TimeframeChip(
+                          label: '2 Weeks',
+                          isSelected: state.targetDays == 14,
+                          onTap: () => notifier.selectTargetDays(14),
+                        ),
+                        _TimeframeChip(
+                          label: '1 Month',
+                          isSelected: state.targetDays == 30,
+                          onTap: () => notifier.selectTargetDays(30),
+                        ),
+                        _TimeframeChip(
+                          label: '3 Months',
+                          isSelected: state.targetDays == 90,
+                          onTap: () => notifier.selectTargetDays(90),
+                        ),
+                        _TimeframeChip(
+                          label: 'Unset',
+                          isSelected: state.targetDays == null,
+                          onTap: () => notifier.selectTargetDays(null),
                         ),
                       ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: SpacingTokens.lg),
+                    MzCard(
+                      onTap: () => notifier.toggleDiagnostic(
+                        want: !state.wantDiagnostic,
+                      ),
+                      child: Row(
+                        children: <Widget>[
+                          AppIcon(
+                            state.wantDiagnostic
+                                ? LucideGlyph.checkCircle2
+                                : LucideGlyph.circle,
+                            color: state.wantDiagnostic
+                                ? colors.primary
+                                : colors.textTertiary,
+                          ),
+                          const SizedBox(width: SpacingTokens.md),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  'Start with a Free ~10-Min Check',
+                                  style: typography.cardTitle,
+                                ),
+                                const SizedBox(height: SpacingTokens.xs),
+                                Text(
+                                  'Checks all 4 skills briefly so we recommend the best starting drills.',
+                                  style: typography.secondary.copyWith(
+                                    color: colors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (state.errorMessage != null) ...<Widget>[
+                      const SizedBox(height: SpacingTokens.md),
+                      Text(
+                        state.errorMessage!,
+                        textAlign: TextAlign.center,
+                        style: typography.secondary.copyWith(
+                          color: colors.error,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
-          if (state.errorMessage != null) ...<Widget>[
-            const SizedBox(height: SpacingTokens.md),
-            Text(
-              state.errorMessage!,
-              textAlign: TextAlign.center,
-              style: typography.secondary.copyWith(color: colors.error),
-            ),
-          ],
-          const SizedBox(height: SpacingTokens.xxl),
-          PrimaryButton(
+        ),
+        MzStickyBottomBar(
+          child: PrimaryButton(
             label: state.isSaving
                 ? 'Setting up your workspace...'
                 : 'Get Started',
+            isLoading: state.isSaving,
             onPressed: state.isSaving
                 ? null
                 : () async {
@@ -412,9 +458,8 @@ class _GoalSetupStep extends ConsumerWidget {
                     }
                   },
           ),
-          const SizedBox(height: SpacingTokens.lg),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

@@ -92,7 +92,7 @@ export const DIAGNOSTIC_READING_BANK: readonly DiagnosticBlockDef[] = [
     title: 'Bus Stop Note',
     passageText:
       'The morning bus stops in front of the green park. On Sundays, the first bus leaves at eight thirty instead of seven.',
-    minRequiredSeconds: 18,
+    minRequiredSeconds: 15,
     questions: [
       {
         questionId: 'DR-A1-1-Q1',
@@ -122,7 +122,7 @@ export const DIAGNOSTIC_READING_BANK: readonly DiagnosticBlockDef[] = [
     title: 'Garden Bench Sign',
     passageText:
       'Please put empty bottles in the blue bin near the gate. Water from the fountain is safe to drink, and dogs must stay on a lead.',
-    minRequiredSeconds: 18,
+    minRequiredSeconds: 15,
     questions: [
       {
         questionId: 'DR-A1-2-Q1',
@@ -150,7 +150,7 @@ export const DIAGNOSTIC_READING_BANK: readonly DiagnosticBlockDef[] = [
     title: 'Neighborhood Book Swap',
     passageText:
       'Last month, neighbors built a wooden shelf outside the bakery for free books. People leave novels they have finished and borrow new ones for the weekend without paying anything.',
-    minRequiredSeconds: 20,
+    minRequiredSeconds: 16,
     questions: [
       {
         questionId: 'DR-A2-1-Q1',
@@ -180,7 +180,7 @@ export const DIAGNOSTIC_READING_BANK: readonly DiagnosticBlockDef[] = [
     title: 'Evening Study Room',
     passageText:
       'The town study room used to close at six on weekdays. After several students asked for quiet evening tables, the council kept it open until nine from Tuesday to Thursday.',
-    minRequiredSeconds: 20,
+    minRequiredSeconds: 16,
     questions: [
       {
         questionId: 'DR-A2-2-Q1',
@@ -212,7 +212,7 @@ export const DIAGNOSTIC_READING_BANK: readonly DiagnosticBlockDef[] = [
     title: 'Friday Library Workshop',
     passageText:
       'The neighborhood library usually closes at six. This Friday, however, it will stay open until eight for a free workshop on digital photos. Visitors can attend the talk without booking ahead, though anyone who wants to borrow a practice tablet must reserve one online by Thursday evening.',
-    minRequiredSeconds: 22,
+    minRequiredSeconds: 18,
     questions: [
       {
         questionId: 'DR-B1-1-Q1',
@@ -242,7 +242,7 @@ export const DIAGNOSTIC_READING_BANK: readonly DiagnosticBlockDef[] = [
     title: 'Shaded Market Courtyard',
     passageText:
       'Two summers ago, shopkeepers noticed fewer families lingered in the central courtyard at midday because direct sun made the stone benches too hot. After volunteers planted four fast-growing maple trees and hung cloth sails above the walkway, afternoon visits quickly recovered.',
-    minRequiredSeconds: 22,
+    minRequiredSeconds: 18,
     questions: [
       {
         questionId: 'DR-B1-2-Q1',
@@ -276,7 +276,7 @@ export const DIAGNOSTIC_READING_BANK: readonly DiagnosticBlockDef[] = [
     title: 'Shared Tool Shed',
     passageText:
       'Instead of buying expensive drills they use once a year, residents in Maple District pay a small annual fee to borrow tools from a converted garage. Experienced volunteers check returned items every Saturday morning so beginners receive safe, working equipment.',
-    minRequiredSeconds: 22,
+    minRequiredSeconds: 18,
     questions: [
       {
         questionId: 'DR-B1-3-Q1',
@@ -312,7 +312,7 @@ export const DIAGNOSTIC_READING_BANK: readonly DiagnosticBlockDef[] = [
     title: 'Street-Corner Pocket Parks',
     passageText:
       'Replacing two curbside parking spaces with timber planters and seating often alarms nearby merchants, who assume fewer car spaces automatically reduce daily sales. Yet surveys across three commercial streets showed steady or rising revenue: pedestrians walked past displays more slowly and stopped for coffee more often once traffic noise softened.',
-    minRequiredSeconds: 24,
+    minRequiredSeconds: 18,
     questions: [
       {
         questionId: 'DR-B2-1-Q1',
@@ -346,7 +346,7 @@ export const DIAGNOSTIC_READING_BANK: readonly DiagnosticBlockDef[] = [
     title: 'Short Daily Study vs Cramming',
     passageText:
       'Learners frequently mistake mental fatigue at the end of a three-hour weekend study block for lasting progress. Cognitive trials consistently indicate that twenty-minute recall sessions spaced across five days produce stronger long-term retention, even when total study minutes remain identical.',
-    minRequiredSeconds: 24,
+    minRequiredSeconds: 18,
     questions: [
       {
         questionId: 'DR-B2-2-Q1',
@@ -382,7 +382,7 @@ export const DIAGNOSTIC_READING_BANK: readonly DiagnosticBlockDef[] = [
     title: 'Acoustic Design in Public Halls',
     passageText:
       'Many renovated community halls look striking with bare concrete walls and soaring glass windows, yet residents quietly avoid them during social evenings. Because hard surfaces reflect mid-frequency speech, overlapping conversations fuse into an exhausting hum, forcing visitors to raise their voices in an escalating spiral. Adding subtle felt panels beneath tables restores clarity without sacrificing the minimalist aesthetic.',
-    minRequiredSeconds: 25,
+    minRequiredSeconds: 20,
     questions: [
       {
         questionId: 'DR-C1-1-Q1',
@@ -416,7 +416,7 @@ export const DIAGNOSTIC_READING_BANK: readonly DiagnosticBlockDef[] = [
     title: 'Measuring Real Fluency Gains',
     passageText:
       'Speeding through practice exercises often creates an illusion of mastery because short-term cues remain active in working memory. True communicative agility, however, shows up days later under mild pressure, when a speaker must select precise phrasing without rehearsed prompts. Assessments that reward only rapid recognition can therefore overestimate readiness for spontaneous conversation.',
-    minRequiredSeconds: 25,
+    minRequiredSeconds: 20,
     questions: [
       {
         questionId: 'DR-C1-2-Q1',
@@ -452,7 +452,7 @@ export const DIAGNOSTIC_READING_BANK: readonly DiagnosticBlockDef[] = [
     title: 'The Paradox of Over-Curated Plazas',
     passageText:
       'Planners eager to eliminate idle loitering occasionally choreograph every square meter of a public plaza with scheduled markets and fixed seating layouts. While attendance figures initially climb, spontaneous civic life quietly thins out: residents become spectators at programmed events rather than co-authors of shared space, and small informal gatherings migrate elsewhere precisely because nothing remains unassigned.',
-    minRequiredSeconds: 26,
+    minRequiredSeconds: 20,
     questions: [
       {
         questionId: 'DR-C2-1-Q1',
@@ -486,7 +486,7 @@ export const DIAGNOSTIC_READING_BANK: readonly DiagnosticBlockDef[] = [
     title: 'Precision vs Surface Complexity',
     passageText:
       'Advanced language users are sometimes advised to showcase rare idioms regardless of context, yet seasoned raters distinguish ornamental flourish from genuine rhetorical control. An unremarkable verb chosen to register an exact shade of skepticism does far more persuasive work than an ornate metaphor grafted onto an imprecise claim—and misapplied sophistication invites sharper scrutiny than plain clarity.',
-    minRequiredSeconds: 26,
+    minRequiredSeconds: 20,
     questions: [
       {
         questionId: 'DR-C2-2-Q1',
@@ -526,7 +526,7 @@ export const DIAGNOSTIC_LISTENING_BANK: readonly DiagnosticBlockDef[] = [
       'A: Excuse me, is the help desk open now? B: Sorry, we open at ten. You can wait in the café next door.',
     mediaObjectKey: 'media/listening/diagnostic/dl_a1_1.m4a',
     durationSeconds: 11,
-    minRequiredSeconds: 18,
+    minRequiredSeconds: 15,
     questions: [
       {
         questionId: 'DL-A1-1-Q1',
@@ -554,7 +554,7 @@ export const DIAGNOSTIC_LISTENING_BANK: readonly DiagnosticBlockDef[] = [
       'A: Do we need to bring water cans today? B: No, they are already by the back door. Just wear comfortable shoes.',
     mediaObjectKey: 'media/listening/diagnostic/dl_a1_2.m4a',
     durationSeconds: 11,
-    minRequiredSeconds: 18,
+    minRequiredSeconds: 15,
     questions: [
       {
         questionId: 'DL-A1-2-Q1',
@@ -584,7 +584,7 @@ export const DIAGNOSTIC_LISTENING_BANK: readonly DiagnosticBlockDef[] = [
       'A: Are we still reading chapter four on Saturday? B: Yes, but let us meet in the sunny garden behind the café because the indoor room is getting painted.',
     mediaObjectKey: 'media/listening/diagnostic/dl_a2_1.m4a',
     durationSeconds: 13,
-    minRequiredSeconds: 20,
+    minRequiredSeconds: 16,
     questions: [
       {
         questionId: 'DL-A2-1-Q1',
@@ -612,7 +612,7 @@ export const DIAGNOSTIC_LISTENING_BANK: readonly DiagnosticBlockDef[] = [
       'A: Hi, is the Spanish practice table free to join? B: Yes, every Tuesday at six thirty. Just put your name on the sheet and bring a notebook if you like.',
     mediaObjectKey: 'media/listening/diagnostic/dl_a2_2.m4a',
     durationSeconds: 13,
-    minRequiredSeconds: 20,
+    minRequiredSeconds: 16,
     questions: [
       {
         questionId: 'DL-A2-2-Q1',
@@ -646,7 +646,7 @@ export const DIAGNOSTIC_LISTENING_BANK: readonly DiagnosticBlockDef[] = [
       'A: Are we still meeting for the community art club on Wednesday afternoon? B: Actually, the main hall is booked for a school fair then, so we moved our session to Thursday. Please bring a pencil; sketching paper will be provided.',
     mediaObjectKey: 'media/listening/diagnostic/dl_b1_1.m4a',
     durationSeconds: 15,
-    minRequiredSeconds: 22,
+    minRequiredSeconds: 18,
     questions: [
       {
         questionId: 'DL-B1-1-Q1',
@@ -674,7 +674,7 @@ export const DIAGNOSTIC_LISTENING_BANK: readonly DiagnosticBlockDef[] = [
       'A: How busy was the free bike repair stand last weekend? B: Quiet at nine, then packed after ten thirty. Next time we should bring an extra air pump because three cyclists had flat tires waiting in line.',
     mediaObjectKey: 'media/listening/diagnostic/dl_b1_2.m4a',
     durationSeconds: 15,
-    minRequiredSeconds: 22,
+    minRequiredSeconds: 18,
     questions: [
       {
         questionId: 'DL-B1-2-Q1',
@@ -706,7 +706,7 @@ export const DIAGNOSTIC_LISTENING_BANK: readonly DiagnosticBlockDef[] = [
       'A: Did you manage to finish that history audio book yet? B: Almost! Listening while walking to work helped way more than sitting at my desk at night, when I kept falling asleep after ten minutes.',
     mediaObjectKey: 'media/listening/diagnostic/dl_b1_3.m4a',
     durationSeconds: 15,
-    minRequiredSeconds: 22,
+    minRequiredSeconds: 18,
     questions: [
       {
         questionId: 'DL-B1-3-Q1',
@@ -740,7 +740,7 @@ export const DIAGNOSTIC_LISTENING_BANK: readonly DiagnosticBlockDef[] = [
       'A: Once the council drops off the young saplings on Tuesday, who checks the watering schedule? B: They actually pushed delivery back to Friday so soil sensors can be fitted first. Neighbors on Maple Row offered to handle morning watering if the heat rises.',
     mediaObjectKey: 'media/listening/diagnostic/dl_b2_1.m4a',
     durationSeconds: 17,
-    minRequiredSeconds: 24,
+    minRequiredSeconds: 18,
     questions: [
       {
         questionId: 'DL-B2-1-Q1',
@@ -772,7 +772,7 @@ export const DIAGNOSTIC_LISTENING_BANK: readonly DiagnosticBlockDef[] = [
       'A: Have the new pickup lockers outside the library reduced evening queues at the front counter? B: Slightly, though half of our regular readers still come inside anyway because they like chatting with staff about what to borrow next.',
     mediaObjectKey: 'media/listening/diagnostic/dl_b2_2.m4a',
     durationSeconds: 16,
-    minRequiredSeconds: 24,
+    minRequiredSeconds: 18,
     questions: [
       {
         questionId: 'DL-B2-2-Q1',
@@ -810,7 +810,7 @@ export const DIAGNOSTIC_LISTENING_BANK: readonly DiagnosticBlockDef[] = [
       'A: You sounded hesitant when the café announced laptop-free afternoons. Wouldn’t quieter tables bring more local regulars back? B: In theory, sure—provided they don’t rely on remote workers spending money between morning and evening rushes. Otherwise the calm atmosphere costs them their steadiest weekday margin.',
     mediaObjectKey: 'media/listening/diagnostic/dl_c1_1.m4a',
     durationSeconds: 18,
-    minRequiredSeconds: 25,
+    minRequiredSeconds: 20,
     questions: [
       {
         questionId: 'DL-C1-1-Q1',
@@ -846,7 +846,7 @@ export const DIAGNOSTIC_LISTENING_BANK: readonly DiagnosticBlockDef[] = [
       'A: Our study survey showed students who typed every word of a lecture scored lower than peers who jotted brief outlines. B: That tracks with memory studies—verbatim typing bypasses deeper processing. Still, pure outlines leave gaps when a speaker rattles off unfamiliar technical terms.',
     mediaObjectKey: 'media/listening/diagnostic/dl_c1_2.m4a',
     durationSeconds: 18,
-    minRequiredSeconds: 25,
+    minRequiredSeconds: 20,
     questions: [
       {
         questionId: 'DL-C1-2-Q1',
@@ -884,7 +884,7 @@ export const DIAGNOSTIC_LISTENING_BANK: readonly DiagnosticBlockDef[] = [
       'A: Letting residents vote directly on park upgrades boosted turnout, yet three under-resourced streets still ended up empty-handed. B: Predictably so—majority ballots favor high-visibility amenities where well-organized blocks mobilize fast, which subtly cements existing advantages unless equity weights are built in beforehand.',
     mediaObjectKey: 'media/listening/diagnostic/dl_c2_1.m4a',
     durationSeconds: 19,
-    minRequiredSeconds: 26,
+    minRequiredSeconds: 20,
     questions: [
       {
         questionId: 'DL-C2-1-Q1',
@@ -920,7 +920,7 @@ export const DIAGNOSTIC_LISTENING_BANK: readonly DiagnosticBlockDef[] = [
       'A: Learners often apologize whenever they backtrack mid-sentence during oral interviews. B: Ironically, brief self-repair signals attentive monitoring, whereas overly rehearsed delivery sounds brittle the moment an unexpected follow-up knocks the speaker off script.',
     mediaObjectKey: 'media/listening/diagnostic/dl_c2_2.m4a',
     durationSeconds: 18,
-    minRequiredSeconds: 26,
+    minRequiredSeconds: 20,
     questions: [
       {
         questionId: 'DL-C2-2-Q1',

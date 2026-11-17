@@ -104,39 +104,87 @@ class HomeScreen extends ConsumerWidget {
           Expanded(
             child: ListView(
               padding: const EdgeInsetsDirectional.symmetric(
-                horizontal: SpacingTokens.md,
                 vertical: SpacingTokens.sm,
               ),
               children: <Widget>[
-                // Context Area
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                // Context Area (overflow-safe at 320dp + 2.0x scale)
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.end,
+                  spacing: SpacingTokens.sm,
+                  runSpacing: SpacingTokens.xs,
                   children: <Widget>[
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text('Keep improving.', style: typography.headline),
-                          const SizedBox(height: SpacingTokens.xs),
-                          Text(
-                            state.daysUntilExam != null
-                                ? '${state.daysUntilExam} days until your exam'
-                                : 'Target your highest-leverage skill',
-                            style: typography.secondary.copyWith(
-                              color: colors.textSecondary,
-                            ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Text('Keep improving.', style: typography.headline),
+                        const SizedBox(height: SpacingTokens.xs),
+                        Text(
+                          state.daysUntilExam != null
+                              ? '${state.daysUntilExam} days until your exam'
+                              : 'Target your highest-leverage skill',
+                          style: typography.secondary.copyWith(
+                            color: colors.textSecondary,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: SpacingTokens.sm),
                     MzChip(
                       label: targetChipText,
                       variant: MzChipVariant.target,
                     ),
                   ],
                 ),
-                const SizedBox(height: SpacingTokens.lg),
+                const SizedBox(height: SpacingTokens.md),
+
+                if (state.estimatedSummary.overallBand == null &&
+                    (state.latestDiagnosticId == null ||
+                        state.latestDiagnosticStatus ==
+                            'in_progress')) ...<Widget>[
+                  MzCard(
+                    onTap: () => unawaited(
+                      context.push(
+                        AppRoutes.buildDiagnosticIntro(examId: state.track.id),
+                      ),
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        const IconWell(
+                          glyph: LucideGlyph.sparkles,
+                          tint: IconWellTint.blue,
+                          size: 38,
+                          iconSize: 18,
+                        ),
+                        const SizedBox(width: SpacingTokens.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                'Find Your Starting Level (~5–10 Min)',
+                                style: typography.cardTitle,
+                              ),
+                              Text(
+                                'Quick 4-skill placement to personalize drills for your level.',
+                                style: typography.caption.copyWith(
+                                  color: colors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: SpacingTokens.xs),
+                        AppIcon(
+                          LucideGlyph.chevronRight,
+                          size: 18,
+                          color: colors.textTertiary,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: SpacingTokens.md),
+                ],
 
                 // Metric Hero Card
                 MetricHero(

@@ -7,6 +7,7 @@ import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/features/micro_drills/presentation/micro_drills_notifier.dart';
 import 'package:mockza/features/micro_drills/presentation/micro_drills_providers.dart';
 import 'package:mockza/routing/routes.dart';
+import 'package:mockza/routing/safe_pop.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
@@ -16,6 +17,7 @@ import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
+import 'package:mockza/theme/components/mz_sticky_bottom_bar.dart';
 import 'package:mockza/theme/components/score_meter.dart';
 import 'package:mockza/theme/components/timer_bar.dart';
 import 'package:mockza/theme/primitives.dart';
@@ -88,11 +90,7 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
             icon: const AppIcon(LucideGlyph.x, size: 20),
             onPressed: () {
               if (canPopSafely) {
-                if (context.canPop()) {
-                  context.pop();
-                } else {
-                  context.go(AppRoutes.practice);
-                }
+                context.safePopOrGo(AppRoutes.practice);
               } else {
                 _showExitDialog(context);
               }
@@ -122,12 +120,17 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
               ),
           ],
         ),
-        body: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 680),
-            child: _buildBody(context, state, notifier),
-          ),
-        ),
+        body: _buildBody(context, state, notifier),
+        bottomBar:
+            (!state.isLoading &&
+                state.hasSelectedDrill &&
+                activeSpec != null &&
+                !state.isFinished &&
+                state.currentItem != null)
+            ? MzStickyBottomBar(
+                child: _buildBottomAction(context, state, activeSpec, notifier),
+              )
+            : null,
       ),
     );
   }
@@ -160,7 +163,9 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
 
     if (!state.hasSelectedDrill || state.drillSpec == null) {
       return ListView(
-        padding: const EdgeInsetsDirectional.all(SpacingTokens.lg),
+        padding: const EdgeInsetsDirectional.symmetric(
+          vertical: SpacingTokens.lg,
+        ),
         children: <Widget>[
           Text(
             'Focused 3-Minute Workouts',
@@ -236,7 +241,9 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsetsDirectional.all(SpacingTokens.lg),
+      padding: const EdgeInsetsDirectional.symmetric(
+        vertical: SpacingTokens.lg,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
@@ -300,8 +307,7 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
             const SizedBox(height: SpacingTokens.md),
             _buildFeedbackCard(context, state, currentItem),
           ],
-          const SizedBox(height: SpacingTokens.xl),
-          _buildBottomAction(context, state, spec, notifier),
+          const SizedBox(height: SpacingTokens.md),
         ],
       ),
     );
@@ -367,10 +373,8 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
           ),
           child: Row(
             children: <Widget>[
-              Icon(
-                isSelected
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_off,
+              AppIcon(
+                isSelected ? LucideGlyph.circleDot : LucideGlyph.circle,
                 size: 20,
                 color: isSelected ? colors.primary : colors.textTertiary,
               ),

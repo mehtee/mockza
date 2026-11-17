@@ -2,11 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:mockza/core/vocab/sm2_scheduler.dart';
 import 'package:mockza/data/repositories/vocab_repository.dart';
 import 'package:mockza/features/vocabulary/presentation/vocabulary_notifier.dart';
 import 'package:mockza/features/vocabulary/presentation/vocabulary_providers.dart';
+import 'package:mockza/routing/routes.dart';
+import 'package:mockza/routing/safe_pop.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_typography.dart';
@@ -84,7 +85,7 @@ class _VocabReviewScreenState extends ConsumerState<VocabReviewScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const AppIcon(LucideGlyph.x, size: 20),
-          onPressed: () => context.pop(),
+          onPressed: () => context.safePopOrGo(AppRoutes.vocabulary),
         ),
         title: Text(
           state.isLoading
@@ -118,7 +119,9 @@ class _VocabReviewScreenState extends ConsumerState<VocabReviewScreen> {
     final previewIntervals = Sm2Scheduler.previewIntervals(card.schedule);
 
     return SingleChildScrollView(
-      padding: const EdgeInsetsDirectional.all(SpacingTokens.lg),
+      padding: const EdgeInsetsDirectional.symmetric(
+        vertical: SpacingTokens.lg,
+      ),
       child: Column(
         children: <Widget>[
           VocabFlipCard(
@@ -223,7 +226,7 @@ class _VocabReviewScreenState extends ConsumerState<VocabReviewScreen> {
           ],
           PrimaryButton(
             label: 'Back to Vocabulary Deck',
-            onPressed: () => context.pop(),
+            onPressed: () => context.safePopOrGo(AppRoutes.vocabulary),
           ),
         ],
       ),
