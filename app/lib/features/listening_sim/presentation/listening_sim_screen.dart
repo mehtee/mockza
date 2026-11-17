@@ -4,15 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
+import 'package:mockza/core/exams/question_progress_item.dart';
 import 'package:mockza/features/listening_sim/presentation/listening_sim_notifier.dart';
 import 'package:mockza/features/listening_sim/presentation/listening_sim_providers.dart';
 import 'package:mockza/routing/routes.dart';
 import 'package:mockza/routing/safe_pop.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
-import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/audio_player_bar.dart';
+import 'package:mockza/theme/components/exam_exit_guard.dart';
+import 'package:mockza/theme/components/exam_question_controls.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
@@ -78,44 +80,17 @@ class _ListeningSimScreenState extends ConsumerState<ListeningSimScreen> {
     final state = ref.watch(listeningSimNotifierProvider);
     final notifier = ref.read(listeningSimNotifierProvider.notifier);
     final colors = AppColors.of(context);
-    final shapes = AppShapes.of(context);
     final typography = AppTypography.of(context);
 
     final sections = state.pack?.sections ?? const <ListeningSectionSpec>[];
     final activeSection = state.activeSection;
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        final shouldExit = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: colors.surface,
-            shape: RoundedRectangleBorder(borderRadius: shapes.cardRadius),
-            title: Text('Exit Listening Test?', style: typography.cardTitle),
-            content: Text(
-              'Exit now? Unsubmitted answers will not be scored.',
-              style: typography.body.copyWith(color: colors.textSecondary),
-            ),
-            actions: <Widget>[
-              SecondaryButton(
-                label: 'Cancel',
-                isFullWidth: false,
-                onPressed: () => Navigator.of(ctx).pop(false),
-              ),
-              PrimaryButton(
-                label: 'Exit',
-                isFullWidth: false,
-                onPressed: () => Navigator.of(ctx).pop(true),
-              ),
-            ],
-          ),
-        );
-        if (shouldExit ?? false) {
-          if (context.mounted) {
-            context.safePopOrGo(AppRoutes.home);
-          }
+    return ExamExitGuard(
+      dialogTitle: 'Exit Listening Test?',
+      dialogMessage: 'Exit now? Unsubmitted answers will not be scored.',
+      onConfirmedExit: () {
+        if (context.mounted) {
+          context.safePopOrGo(AppRoutes.home);
         }
       },
       child: MzScaffold(
@@ -145,27 +120,19 @@ class _ListeningSimScreenState extends ConsumerState<ListeningSimScreen> {
                       child: Align(
                         child: SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
-                          child: Container(
-                            padding: const EdgeInsetsDirectional.all(2),
-                            decoration: BoxDecoration(
-                              color: colors.surfaceAlt,
-                              borderRadius: shapes.pillRadius,
-                              border: Border.all(color: colors.borderSubtle),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: sections.map((sec) {
-                                final isSelected =
-                                    state.sectionIndex == sec.sectionIndex;
-                                return _SegmentPill(
-                                  label: 'Sec ${sec.sectionIndex}',
-                                  isSelected: isSelected,
-                                  onTap: () => notifier.selectSection(
-                                    sec.sectionIndex,
+                          child: MzSegmentedPillStrip(
+                            items: sections
+                                .map(
+                                  (sec) => (
+                                    label: 'Sec ${sec.sectionIndex}',
+                                    isSelected:
+                                        state.sectionIndex == sec.sectionIndex,
+                                    onTap: () => notifier.selectSection(
+                                      sec.sectionIndex,
+                                    ),
                                   ),
-                                );
-                              }).toList(),
-                            ),
+                                )
+                                .toList(growable: false),
                           ),
                         ),
                       ),
@@ -318,94 +285,35 @@ class _ListeningSimScreenState extends ConsumerState<ListeningSimScreen> {
 
             // Bottom Question Indicator & Submit Bar
             if (activeSection != null)
-              Container(
-                padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
-                decoration: BoxDecoration(
-                  color: colors.surface,
-                  border: Border(top: BorderSide(color: colors.borderSubtle)),
-                ),
-                child: Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: activeSection.questions.map((q) {
-                            final isAnswered = (state.answers[q.number] ?? '')
-                                .trim()
-                                .isNotEmpty;
-                            final isCurrent =
-                                _focusedQuestionNumber == q.number;
-                            return Semantics(
-                              button: true,
-                              selected: isCurrent,
-                              label:
-                                  'Question ${q.number}${isAnswered ? ', answered' : ''}',
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(
-                                    () => _focusedQuestionNumber = q.number,
-                                  );
-                                  if (state.showTranscript) {
-                                    notifier.toggleTranscript();
-                                  }
-                                },
-                                child: Container(
-                                  margin: const EdgeInsetsDirectional.only(
-                                    end: SpacingTokens.xs,
-                                  ),
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: isAnswered
-                                        ? colors.primary
-                                        : colors.surfaceAlt,
-                                    border: Border.all(
-                                      color: isAnswered || isCurrent
-                                          ? colors.primary
-                                          : colors.borderSubtle,
-                                      width: isCurrent ? 2 : shapes.strokeWidth,
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      '${q.number}',
-                                      style: typography.caption.copyWith(
-                                        color: isAnswered
-                                            ? colors.onPrimary
-                                            : (isCurrent
-                                                  ? colors.primary
-                                                  : colors.textSecondary),
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
+              ExamQuestionPaletteBar(
+                items: activeSection.questions
+                    .map(
+                      (q) => QuestionProgressSnapshot(
+                        number: q.number,
+                        isAnswered: (state.answers[q.number] ?? '')
+                            .trim()
+                            .isNotEmpty,
                       ),
-                    ),
-                    const SizedBox(width: SpacingTokens.md),
-                    PrimaryButton(
-                      label: state.isSubmitting ? 'Grading...' : 'Submit Test',
-                      isFullWidth: false,
-                      onPressed: state.isSubmitting
-                          ? null
-                          : () async {
-                              final attemptId = await notifier
-                                  .submitListening();
-                              if (attemptId != null && context.mounted) {
-                                context.go(
-                                  AppRoutes.buildAttemptReview(attemptId),
-                                );
-                              }
-                            },
-                    ),
-                  ],
-                ),
+                    )
+                    .toList(growable: false),
+                activeQuestionNumber: _focusedQuestionNumber,
+                onSelectQuestionNumber: (qNum) {
+                  setState(() => _focusedQuestionNumber = qNum);
+                  if (state.showTranscript) {
+                    notifier.toggleTranscript();
+                  }
+                },
+                submitLabel: 'Submit Test',
+                submittingLabel: 'Grading...',
+                isSubmitting: state.isSubmitting,
+                onSubmit: () async {
+                  final attemptId = await notifier.submitListening();
+                  if (attemptId != null && context.mounted) {
+                    context.go(
+                      AppRoutes.buildAttemptReview(attemptId),
+                    );
+                  }
+                },
               ),
           ],
         ),
@@ -439,7 +347,6 @@ class _QuestionsFormView extends StatelessWidget {
   Widget build(BuildContext context) {
     final typography = AppTypography.of(context);
     final colors = AppColors.of(context);
-    final shapes = AppShapes.of(context);
 
     final questions = section.questions;
     final resolvedIdx = questions.indexWhere(
@@ -476,43 +383,12 @@ class _QuestionsFormView extends StatelessWidget {
               ),
               if (questions.isNotEmpty) ...<Widget>[
                 const SizedBox(height: SpacingTokens.sm),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        focusedMode
-                            ? 'Question ${questions[activeIdx].number} (${activeIdx + 1} of ${questions.length})'
-                            : 'All ${questions.length} questions',
-                        style: typography.caption.copyWith(
-                          color: colors.textSecondary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsetsDirectional.all(2),
-                      decoration: BoxDecoration(
-                        color: colors.surfaceAlt,
-                        borderRadius: shapes.pillRadius,
-                        border: Border.all(color: colors.borderSubtle),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          _SegmentPill(
-                            label: 'Focused',
-                            isSelected: focusedMode,
-                            onTap: () => onToggleFocusedMode(true),
-                          ),
-                          _SegmentPill(
-                            label: 'All',
-                            isSelected: !focusedMode,
-                            onTap: () => onToggleFocusedMode(false),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                FocusedQuestionHeader(
+                  focusedMode: focusedMode,
+                  activeQuestionNumber: questions[activeIdx].number,
+                  activePositionIndex: activeIdx,
+                  totalCount: questions.length,
+                  onToggleFocusedMode: onToggleFocusedMode,
                 ),
               ],
             ],
@@ -561,8 +437,8 @@ class _QuestionsFormView extends StatelessWidget {
                         padding: const EdgeInsetsDirectional.only(
                           bottom: SpacingTokens.xs,
                         ),
-                        child: _ChoiceOption(
-                          letter: parsed.label,
+                        child: MzChoiceOptionTile(
+                          badgeLabel: parsed.label,
                           text: parsed.displayText,
                           isSelected: selected,
                           onTap: () => isMulti
@@ -572,7 +448,7 @@ class _QuestionsFormView extends StatelessWidget {
                       );
                     })
                   else
-                    _ListeningGapField(
+                    MzControlledAnswerField(
                       value: current ?? '',
                       hint:
                           'Max ${q.maxWords} word${q.maxWords == 1 ? '' : 's'}',
@@ -584,205 +460,15 @@ class _QuestionsFormView extends StatelessWidget {
           );
         }),
         if (focusedMode && questions.length > 1)
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: SecondaryButton(
-                  label: 'Previous',
-                  onPressed: activeIdx > 0
-                      ? () => onSelectQuestionNumber(
-                          questions[activeIdx - 1].number,
-                        )
-                      : null,
-                ),
-              ),
-              const SizedBox(width: SpacingTokens.sm),
-              Expanded(
-                child: SecondaryButton(
-                  label: 'Next',
-                  onPressed: activeIdx + 1 < questions.length
-                      ? () => onSelectQuestionNumber(
-                          questions[activeIdx + 1].number,
-                        )
-                      : null,
-                ),
-              ),
-            ],
+          QuestionStepNavRow(
+            canGoPrevious: activeIdx > 0,
+            canGoNext: activeIdx + 1 < questions.length,
+            onPrevious: () =>
+                onSelectQuestionNumber(questions[activeIdx - 1].number),
+            onNext: () =>
+                onSelectQuestionNumber(questions[activeIdx + 1].number),
           ),
       ],
-    );
-  }
-}
-
-class _SegmentPill extends StatelessWidget {
-  const new({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final shapes = AppShapes.of(context);
-    final typography = AppTypography.of(context);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsetsDirectional.symmetric(
-          horizontal: SpacingTokens.sm,
-          vertical: SpacingTokens.xs,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? colors.surface
-              : colors.surface.withValues(alpha: 0),
-          borderRadius: shapes.pillRadius,
-        ),
-        child: Text(
-          label,
-          style: typography.caption.copyWith(
-            color: isSelected ? colors.textPrimary : colors.textSecondary,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ChoiceOption extends StatelessWidget {
-  const new({
-    required this.letter,
-    required this.text,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String letter;
-  final String text;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final shapes = AppShapes.of(context);
-    final typography = AppTypography.of(context);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsetsDirectional.all(SpacingTokens.sm),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? colors.surfaceAlt
-              : colors.surface.withValues(alpha: 0),
-          borderRadius: shapes.compactRadius,
-          border: Border.all(
-            color: isSelected ? colors.primary : colors.borderSubtle,
-          ),
-        ),
-        child: Row(
-          children: <Widget>[
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isSelected ? colors.primary : colors.surfaceAlt,
-              ),
-              child: Center(
-                child: Text(
-                  letter,
-                  style: typography.caption.copyWith(
-                    color: isSelected ? colors.onPrimary : colors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: SpacingTokens.sm),
-            Expanded(child: Text(text, style: typography.secondary)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ListeningGapField extends StatefulWidget {
-  const new({
-    required this.value,
-    required this.hint,
-    required this.onChanged,
-  });
-
-  final String value;
-  final String hint;
-  final ValueChanged<String> onChanged;
-
-  @override
-  State<_ListeningGapField> createState() => _ListeningGapFieldState();
-}
-
-class _ListeningGapFieldState extends State<_ListeningGapField> {
-  late final TextEditingController _controller;
-  late final FocusNode _focusNode;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.value);
-    _focusNode = FocusNode();
-  }
-
-  @override
-  void didUpdateWidget(covariant _ListeningGapField oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!_focusNode.hasFocus && _controller.text != widget.value) {
-      _controller.text = widget.value;
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final shapes = AppShapes.of(context);
-    final typography = AppTypography.of(context);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceAlt,
-        borderRadius: shapes.compactRadius,
-        border: Border.all(color: colors.borderSubtle),
-      ),
-      padding: const EdgeInsetsDirectional.symmetric(
-        horizontal: SpacingTokens.sm,
-      ),
-      child: TextField(
-        controller: _controller,
-        focusNode: _focusNode,
-        style: typography.body,
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          hintText: widget.hint,
-          hintStyle: typography.secondary.copyWith(color: colors.textTertiary),
-        ),
-        onChanged: widget.onChanged,
-      ),
     );
   }
 }

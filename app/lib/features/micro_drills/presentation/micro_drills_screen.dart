@@ -13,6 +13,8 @@ import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/empty_state.dart';
+import 'package:mockza/theme/components/exam_exit_guard.dart';
+import 'package:mockza/theme/components/exam_question_controls.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
@@ -74,13 +76,12 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
     final canPopSafely =
         !state.hasSelectedDrill || state.isFinished || activeSpec == null;
 
-    return PopScope(
-      canPop: canPopSafely,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) {
-          _showExitDialog(context);
-        }
-      },
+    return ExamExitGuard(
+      enabled: !canPopSafely,
+      dialogTitle: 'Exit Micro-Drill?',
+      dialogMessage: 'Your progress in this workout session will be discarded.',
+      cancelLabel: 'Stay',
+      onConfirmedExit: () => context.safePopOrGo(AppRoutes.practice),
       child: MzScaffold(
         appBar: AppBar(
           backgroundColor: colors.background,
@@ -88,11 +89,10 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
           leading: IconButton(
             tooltip: 'Back',
             icon: const AppIcon(LucideGlyph.x, size: 20),
-            onPressed: () {
-              if (canPopSafely) {
+            onPressed: () async {
+              final popped = await Navigator.of(context).maybePop();
+              if (!popped && canPopSafely && context.mounted) {
                 context.safePopOrGo(AppRoutes.practice);
-              } else {
-                _showExitDialog(context);
               }
             },
           ),
@@ -334,63 +334,29 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
     MicroDrillItemSpec currentItem,
     MicroDrillsNotifier notifier,
   ) {
-    final colors = AppColors.of(context);
-    final typography = AppTypography.of(context);
-    final shapes = AppShapes.of(context);
     final isSelected = state.selectedOption == option;
-
-    var borderColor = colors.borderSubtle;
-    var bgColor = colors.surface;
-
+    final MzOptionFeedback feedback;
     if (state.isSubmitted) {
       final isCorrectAnswer = currentItem.acceptedAnswers.contains(option);
       if (isCorrectAnswer) {
-        borderColor = colors.success;
-        bgColor = colors.mintBg;
+        feedback = MzOptionFeedback.correct;
       } else if (isSelected) {
-        borderColor = colors.error;
-        bgColor = colors.dangerBg;
+        feedback = MzOptionFeedback.incorrectSelected;
+      } else {
+        feedback = MzOptionFeedback.none;
       }
-    } else if (isSelected) {
-      borderColor = colors.primary;
-      bgColor = colors.primary.withValues(alpha: 0.08);
+    } else {
+      feedback = MzOptionFeedback.none;
     }
 
     return Padding(
       padding: const EdgeInsetsDirectional.only(bottom: SpacingTokens.sm),
-      child: InkWell(
+      child: MzChoiceOptionTile(
+        text: option,
+        isSelected: isSelected,
+        leadingStyle: MzOptionLeadingStyle.radio,
+        feedback: feedback,
         onTap: state.isSubmitted ? null : () => notifier.selectOption(option),
-        borderRadius: shapes.controlRadius,
-        child: Container(
-          padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
-          decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius: shapes.controlRadius,
-            border: Border.all(
-              color: borderColor,
-              width: isSelected ? 1.5 : 1,
-            ),
-          ),
-          child: Row(
-            children: <Widget>[
-              AppIcon(
-                isSelected ? LucideGlyph.circleDot : LucideGlyph.circle,
-                size: 20,
-                color: isSelected ? colors.primary : colors.textTertiary,
-              ),
-              const SizedBox(width: SpacingTokens.md),
-              Expanded(
-                child: Text(
-                  option,
-                  style: typography.body.copyWith(
-                    color: colors.textPrimary,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -539,37 +505,6 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
             onPressed: () => context.go(AppRoutes.practice),
           ),
         ],
-      ),
-    );
-  }
-
-  void _showExitDialog(BuildContext context) {
-    unawaited(
-      showDialog<void>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Exit Micro-Drill?'),
-          content: const Text(
-            'Your progress in this workout session will be discarded.',
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Stay'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                if (context.canPop()) {
-                  context.pop();
-                } else {
-                  context.go(AppRoutes.practice);
-                }
-              },
-              child: const Text('Exit'),
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
+import 'package:mockza/core/exams/question_progress_item.dart';
 import 'package:mockza/data/repositories/attempt_repository.dart';
 import 'package:mockza/features/reading_sim/presentation/reading_sim_notifier.dart';
 import 'package:mockza/features/reading_sim/presentation/reading_sim_providers.dart';
@@ -14,6 +15,8 @@ import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/evidence_link.dart';
+import 'package:mockza/theme/components/exam_exit_guard.dart';
+import 'package:mockza/theme/components/exam_question_controls.dart';
 import 'package:mockza/theme/components/mz_bottom_sheet.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
@@ -87,38 +90,13 @@ class _ReadingSimScreenState extends ConsumerState<ReadingSimScreen> {
         : null;
     final totalQuestions = state.totalQuestions;
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        final shouldExit = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: colors.surface,
-            shape: RoundedRectangleBorder(borderRadius: shapes.cardRadius),
-            title: Text('Exit Reading Test?', style: typography.cardTitle),
-            content: Text(
-              'Your highlighted passages remain saved locally. Exit this session?',
-              style: typography.body.copyWith(color: colors.textSecondary),
-            ),
-            actions: <Widget>[
-              SecondaryButton(
-                label: 'Cancel',
-                isFullWidth: false,
-                onPressed: () => Navigator.of(ctx).pop(false),
-              ),
-              PrimaryButton(
-                label: 'Exit',
-                isFullWidth: false,
-                onPressed: () => Navigator.of(ctx).pop(true),
-              ),
-            ],
-          ),
-        );
-        if (shouldExit ?? false) {
-          if (context.mounted) {
-            context.safePopOrGo(AppRoutes.home);
-          }
+    return ExamExitGuard(
+      dialogTitle: 'Exit Reading Test?',
+      dialogMessage:
+          'Your highlighted passages remain saved locally. Exit this session?',
+      onConfirmedExit: () {
+        if (context.mounted) {
+          context.safePopOrGo(AppRoutes.home);
         }
       },
       child: MzScaffold(
@@ -148,23 +126,14 @@ class _ReadingSimScreenState extends ConsumerState<ReadingSimScreen> {
                       child: Align(
                         child: SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
-                          child: Container(
-                            padding: const EdgeInsetsDirectional.all(2),
-                            decoration: BoxDecoration(
-                              color: colors.surfaceAlt,
-                              borderRadius: shapes.pillRadius,
-                              border: Border.all(color: colors.borderSubtle),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: List.generate(passages.length, (i) {
-                                return _PassageTab(
-                                  label: 'Passage ${i + 1}',
-                                  isSelected: state.passageIndex == i,
-                                  onTap: () => notifier.selectPassage(i),
-                                );
-                              }),
-                            ),
+                          child: MzSegmentedPillStrip(
+                            items: List.generate(passages.length, (i) {
+                              return (
+                                label: 'Passage ${i + 1}',
+                                isSelected: state.passageIndex == i,
+                                onTap: () => notifier.selectPassage(i),
+                              );
+                            }),
                           ),
                         ),
                       ),
@@ -352,90 +321,34 @@ class _ReadingSimScreenState extends ConsumerState<ReadingSimScreen> {
 
             // Bottom Question Palette & Submit Bar
             if (currentPassage != null)
-              Container(
-                padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
-                decoration: BoxDecoration(
-                  color: colors.surface,
-                  border: Border(top: BorderSide(color: colors.borderSubtle)),
-                ),
-                child: Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: currentPassage.questions.map((q) {
-                            final isAnswered = (state.answers[q.number] ?? '')
-                                .trim()
-                                .isNotEmpty;
-                            final isCurrent =
-                                state.currentQuestionIndex == q.number;
-                            return Semantics(
-                              button: true,
-                              selected: isCurrent,
-                              label:
-                                  'Question ${q.number}${isAnswered ? ', answered' : ''}',
-                              child: GestureDetector(
-                                onTap: () {
-                                  notifier
-                                    ..selectQuestion(q.number)
-                                    ..selectTab(1);
-                                },
-                                child: Container(
-                                  margin: const EdgeInsetsDirectional.only(
-                                    end: SpacingTokens.xs,
-                                  ),
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: isAnswered
-                                        ? colors.primary
-                                        : colors.surfaceAlt,
-                                    border: Border.all(
-                                      color: isAnswered || isCurrent
-                                          ? colors.primary
-                                          : colors.borderSubtle,
-                                      width: isCurrent ? 2 : shapes.strokeWidth,
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      '${q.number}',
-                                      style: typography.caption.copyWith(
-                                        color: isAnswered
-                                            ? colors.onPrimary
-                                            : (isCurrent
-                                                  ? colors.primary
-                                                  : colors.textSecondary),
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
+              ExamQuestionPaletteBar(
+                items: currentPassage.questions
+                    .map(
+                      (q) => QuestionProgressSnapshot(
+                        number: q.number,
+                        isAnswered: (state.answers[q.number] ?? '')
+                            .trim()
+                            .isNotEmpty,
                       ),
-                    ),
-                    const SizedBox(width: SpacingTokens.md),
-                    PrimaryButton(
-                      label: state.isSubmitting ? 'Grading...' : 'Submit Test',
-                      isFullWidth: false,
-                      onPressed: state.isSubmitting
-                          ? null
-                          : () async {
-                              final attemptId = await notifier.submitReading();
-                              if (attemptId != null && context.mounted) {
-                                context.go(
-                                  AppRoutes.buildAttemptReview(attemptId),
-                                );
-                              }
-                            },
-                    ),
-                  ],
-                ),
+                    )
+                    .toList(growable: false),
+                activeQuestionNumber: state.currentQuestionIndex,
+                onSelectQuestionNumber: (qNum) {
+                  notifier
+                    ..selectQuestion(qNum)
+                    ..selectTab(1);
+                },
+                submitLabel: 'Submit Test',
+                submittingLabel: 'Grading...',
+                isSubmitting: state.isSubmitting,
+                onSubmit: () async {
+                  final attemptId = await notifier.submitReading();
+                  if (attemptId != null && context.mounted) {
+                    context.go(
+                      AppRoutes.buildAttemptReview(attemptId),
+                    );
+                  }
+                },
               ),
           ],
         ),
@@ -790,7 +703,6 @@ class _QuestionsPane extends StatelessWidget {
   Widget build(BuildContext context) {
     final typography = AppTypography.of(context);
     final colors = AppColors.of(context);
-    final shapes = AppShapes.of(context);
 
     if (questions.isEmpty) {
       return Center(
@@ -813,43 +725,12 @@ class _QuestionsPane extends StatelessWidget {
     return ListView(
       padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                focusedMode
-                    ? 'Question ${activeQuestion.number} (${activeIdx + 1} of ${questions.length})'
-                    : 'All ${questions.length} questions',
-                style: typography.caption.copyWith(
-                  color: colors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsetsDirectional.all(2),
-              decoration: BoxDecoration(
-                color: colors.surfaceAlt,
-                borderRadius: shapes.pillRadius,
-                border: Border.all(color: colors.borderSubtle),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  _PassageTab(
-                    label: 'Focused',
-                    isSelected: focusedMode,
-                    onTap: () => onToggleFocusedMode(true),
-                  ),
-                  _PassageTab(
-                    label: 'All',
-                    isSelected: !focusedMode,
-                    onTap: () => onToggleFocusedMode(false),
-                  ),
-                ],
-              ),
-            ),
-          ],
+        FocusedQuestionHeader(
+          focusedMode: focusedMode,
+          activeQuestionNumber: activeQuestion.number,
+          activePositionIndex: activeIdx,
+          totalCount: questions.length,
+          onToggleFocusedMode: onToggleFocusedMode,
         ),
         const SizedBox(height: SpacingTokens.md),
         ...visibleQuestions.map(
@@ -861,30 +742,13 @@ class _QuestionsPane extends StatelessWidget {
           ),
         ),
         if (focusedMode && questions.length > 1)
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: SecondaryButton(
-                  label: 'Previous',
-                  onPressed: activeIdx > 0
-                      ? () => onSelectQuestionNumber(
-                          questions[activeIdx - 1].number,
-                        )
-                      : null,
-                ),
-              ),
-              const SizedBox(width: SpacingTokens.sm),
-              Expanded(
-                child: SecondaryButton(
-                  label: 'Next',
-                  onPressed: activeIdx + 1 < questions.length
-                      ? () => onSelectQuestionNumber(
-                          questions[activeIdx + 1].number,
-                        )
-                      : null,
-                ),
-              ),
-            ],
+          QuestionStepNavRow(
+            canGoPrevious: activeIdx > 0,
+            canGoNext: activeIdx + 1 < questions.length,
+            onPrevious: () =>
+                onSelectQuestionNumber(questions[activeIdx - 1].number),
+            onNext: () =>
+                onSelectQuestionNumber(questions[activeIdx + 1].number),
           ),
       ],
     );
@@ -924,19 +788,10 @@ class _QuestionsPane extends StatelessWidget {
               ],
             ),
             const SizedBox(height: SpacingTokens.md),
-            Row(
-              children: labels.map((lbl) {
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsetsDirectional.only(end: 4),
-                    child: _ChoicePill(
-                      label: lbl,
-                      isSelected: current?.toUpperCase() == lbl,
-                      onTap: () => onAnswer(q.number, lbl),
-                    ),
-                  ),
-                );
-              }).toList(),
+            MzBinaryChoiceRow(
+              labels: labels,
+              selectedLabel: current,
+              onSelect: (lbl) => onAnswer(q.number, lbl),
             ),
           ],
         ),
@@ -995,8 +850,8 @@ class _QuestionsPane extends StatelessWidget {
                 padding: const EdgeInsetsDirectional.only(
                   bottom: SpacingTokens.xs,
                 ),
-                child: _McqOption(
-                  label: parsed.label,
+                child: MzChoiceOptionTile(
+                  badgeLabel: parsed.label,
                   text: parsed.displayText,
                   isSelected: isSel,
                   onTap: () => isMulti
@@ -1038,235 +893,12 @@ class _QuestionsPane extends StatelessWidget {
             style: typography.caption.copyWith(color: colors.textTertiary),
           ),
           const SizedBox(height: SpacingTokens.sm),
-          _StatefulAnswerField(
+          MzControlledAnswerField(
             value: current ?? '',
             hint: 'Type answer...',
             onChanged: (val) => onAnswer(q.number, val),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _StatefulAnswerField extends StatefulWidget {
-  const new({
-    required this.value,
-    required this.hint,
-    required this.onChanged,
-  });
-
-  final String value;
-  final String hint;
-  final ValueChanged<String> onChanged;
-
-  @override
-  State<_StatefulAnswerField> createState() => _StatefulAnswerFieldState();
-}
-
-class _StatefulAnswerFieldState extends State<_StatefulAnswerField> {
-  late final TextEditingController _controller;
-  late final FocusNode _focusNode;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.value);
-    _focusNode = FocusNode();
-  }
-
-  @override
-  void didUpdateWidget(covariant _StatefulAnswerField oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!_focusNode.hasFocus && _controller.text != widget.value) {
-      _controller.text = widget.value;
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final shapes = AppShapes.of(context);
-    final typography = AppTypography.of(context);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceAlt,
-        borderRadius: shapes.compactRadius,
-        border: Border.all(color: colors.borderSubtle),
-      ),
-      padding: const EdgeInsetsDirectional.symmetric(
-        horizontal: SpacingTokens.sm,
-      ),
-      child: TextField(
-        controller: _controller,
-        focusNode: _focusNode,
-        style: typography.body,
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          hintText: widget.hint,
-          hintStyle: typography.secondary.copyWith(color: colors.textTertiary),
-        ),
-        onChanged: widget.onChanged,
-      ),
-    );
-  }
-}
-
-class _ChoicePill extends StatelessWidget {
-  const new({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final shapes = AppShapes.of(context);
-    final typography = AppTypography.of(context);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 44),
-        padding: const EdgeInsetsDirectional.symmetric(
-          horizontal: SpacingTokens.xs,
-          vertical: SpacingTokens.sm,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected ? colors.primary : colors.surfaceAlt,
-          borderRadius: shapes.compactRadius,
-          border: Border.all(
-            color: isSelected ? colors.primary : colors.borderSubtle,
-          ),
-        ),
-        child: Center(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              label,
-              maxLines: 1,
-              style: typography.caption.copyWith(
-                color: isSelected ? colors.onPrimary : colors.textPrimary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _McqOption extends StatelessWidget {
-  const new({
-    required this.label,
-    required this.text,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final String text;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final shapes = AppShapes.of(context);
-    final typography = AppTypography.of(context);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsetsDirectional.all(SpacingTokens.sm),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? colors.surfaceAlt
-              : colors.surface.withValues(alpha: 0),
-          borderRadius: shapes.compactRadius,
-          border: Border.all(
-            color: isSelected ? colors.primary : colors.borderSubtle,
-          ),
-        ),
-        child: Row(
-          children: <Widget>[
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isSelected ? colors.primary : colors.surfaceAlt,
-              ),
-              child: Center(
-                child: Text(
-                  label,
-                  style: typography.caption.copyWith(
-                    color: isSelected ? colors.onPrimary : colors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: SpacingTokens.sm),
-            Expanded(child: Text(text, style: typography.secondary)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PassageTab extends StatelessWidget {
-  const new({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final shapes = AppShapes.of(context);
-    final typography = AppTypography.of(context);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsetsDirectional.symmetric(
-          horizontal: SpacingTokens.sm,
-          vertical: SpacingTokens.xs,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? colors.surface
-              : colors.surface.withValues(alpha: 0),
-          borderRadius: shapes.pillRadius,
-        ),
-        child: Text(
-          label,
-          style: typography.caption.copyWith(
-            color: isSelected ? colors.textPrimary : colors.textSecondary,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-          ),
-        ),
       ),
     );
   }

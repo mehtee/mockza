@@ -12,6 +12,8 @@ import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/audio_level_meter.dart';
+import 'package:mockza/theme/components/exam_exit_guard.dart';
+import 'package:mockza/theme/components/mic_preflight_card.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
@@ -92,39 +94,13 @@ class _SpeakingSimScreenState extends ConsumerState<SpeakingSimScreen> {
         state.prompts.isNotEmpty &&
         state.currentTurnIndex >= state.prompts.length - 1;
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        final shouldExit = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: colors.surface,
-            shape: RoundedRectangleBorder(borderRadius: shapes.cardRadius),
-            title: Text('Exit Speaking Session?', style: typography.cardTitle),
-            content: Text(
-              'Recorded turns stay cached locally only while this session is active. Exit now?',
-              style: typography.body.copyWith(color: colors.textSecondary),
-            ),
-            actions: <Widget>[
-              SecondaryButton(
-                label: 'Cancel',
-                isFullWidth: false,
-                onPressed: () => Navigator.of(ctx).pop(false),
-              ),
-              PrimaryButton(
-                label: 'Exit',
-                isFullWidth: false,
-                onPressed: () => Navigator.of(ctx).pop(true),
-              ),
-            ],
-          ),
-        );
-        if (shouldExit ?? false) {
-          await notifier.stopMicPreview();
-          if (context.mounted) {
-            context.safePopOrGo(AppRoutes.home);
-          }
+    return ExamExitGuard(
+      dialogTitle: 'Exit Speaking Session?',
+      dialogMessage: 'Recorded turns stay cached locally only while this session is active. Exit now?',
+      onConfirmedExit: () async {
+        await notifier.stopMicPreview();
+        if (context.mounted) {
+          context.safePopOrGo(AppRoutes.home);
         }
       },
       child: MzScaffold(
@@ -627,48 +603,28 @@ class _PromptAndMicCheckView extends StatelessWidget {
           ),
           const SizedBox(height: SpacingTokens.md),
         ] else ...<Widget>[
-          // Live Pre-Flight Microphone Waveform Test
-          MzCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        'Live Microphone Check',
-                        style: typography.cardTitle,
-                      ),
-                    ),
-                    const SizedBox(width: SpacingTokens.xs),
-                    TextButton(
-                      onPressed: state.hasMicPermission
-                          ? (state.isPreviewingMic
-                                ? notifier.stopMicPreview
-                                : notifier.startMicPreview)
-                          : notifier.retryMicPermission,
-                      child: Text(
-                        !state.hasMicPermission
-                            ? 'Allow Mic'
-                            : (state.isPreviewingMic
-                                  ? 'Pause Check'
-                                  : 'Test Mic'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: SpacingTokens.xs),
-                AudioLevelMeter(
-                  normalizedLevel: state.amplitude,
-                  isRecording: state.isRecording,
-                  isPreviewing: state.isPreviewingMic,
-                  hasPermission: state.hasMicPermission,
-                  isClipping: state.isClipping,
-                  isSilent: state.isSilent,
-                ),
-                if (!state.hasMicPermission) ...<Widget>[
-                  const SizedBox(height: SpacingTokens.sm),
-                  LayoutBuilder(
+          // Live Pre-Flight Microphone Waveform Test (progressive disclosure)
+          MicPreflightCard(
+            title: 'Live Microphone Check',
+            micButtonLabel: !state.hasMicPermission
+                ? 'Allow Mic'
+                : (state.isPreviewingMic ? 'Pause Check' : 'Test Mic'),
+            micButtonGlyph: !state.hasMicPermission
+                ? LucideGlyph.micOff
+                : (state.isPreviewingMic ? LucideGlyph.pause : LucideGlyph.mic),
+            onTapMicCheck: state.hasMicPermission
+                ? (state.isPreviewingMic
+                      ? notifier.stopMicPreview
+                      : notifier.startMicPreview)
+                : notifier.retryMicPermission,
+            showLiveMeter: state.isPreviewingMic || !state.hasMicPermission,
+            normalizedLevel: state.amplitude,
+            isPreviewing: state.isPreviewingMic,
+            hasPermission: state.hasMicPermission,
+            isClipping: state.isClipping,
+            isSilent: state.isSilent,
+            statusFooter: !state.hasMicPermission
+                ? LayoutBuilder(
                     builder: (ctx, constraints) {
                       if (constraints.maxWidth < 340) {
                         return Column(
@@ -704,10 +660,8 @@ class _PromptAndMicCheckView extends StatelessWidget {
                         ],
                       );
                     },
-                  ),
-                ],
-              ],
-            ),
+                  )
+                : null,
           ),
           const SizedBox(height: SpacingTokens.lg),
         ],

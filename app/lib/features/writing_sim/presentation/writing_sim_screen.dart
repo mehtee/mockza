@@ -14,8 +14,10 @@ import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/chart_stage_card.dart';
+import 'package:mockza/theme/components/collapsible_prompt_card.dart';
+import 'package:mockza/theme/components/exam_exit_guard.dart';
+import 'package:mockza/theme/components/exam_question_controls.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
-import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
 import 'package:mockza/theme/components/status_banner.dart';
 import 'package:mockza/theme/components/timer_bar.dart';
@@ -120,41 +122,15 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
     final shapes = AppShapes.of(context);
     final editionConfig = ref.watch(editionConfigProvider);
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        final shouldExit = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: colors.surface,
-            shape: RoundedRectangleBorder(borderRadius: shapes.cardRadius),
-            title: Text('Exit Writing Session?', style: typography.cardTitle),
-            content: Text(
-              state.isEphemeralStorage
-                  ? 'Browser storage is running in volatile memory mode. Exiting or reloading before submitting may lose your unsubmitted draft.'
-                  : 'Your essay draft is saved locally. You can resume anytime.',
-              style: typography.body.copyWith(color: colors.textSecondary),
-            ),
-            actions: <Widget>[
-              SecondaryButton(
-                label: 'Cancel',
-                isFullWidth: false,
-                onPressed: () => Navigator.of(ctx).pop(false),
-              ),
-              PrimaryButton(
-                label: 'Exit',
-                isFullWidth: false,
-                onPressed: () => Navigator.of(ctx).pop(true),
-              ),
-            ],
-          ),
-        );
-        if (shouldExit ?? false) {
-          await notifier.flushAutosaveNow();
-          if (context.mounted) {
-            context.safePopOrGo(AppRoutes.home);
-          }
+    return ExamExitGuard(
+      dialogTitle: 'Exit Writing Session?',
+      dialogMessage: state.isEphemeralStorage
+          ? 'Browser storage is running in volatile memory mode. Exiting or reloading before submitting may lose your unsubmitted draft.'
+          : 'Your essay draft is saved locally. You can resume anytime.',
+      onConfirmedExit: () async {
+        await notifier.flushAutosaveNow();
+        if (context.mounted) {
+          context.safePopOrGo(AppRoutes.home);
         }
       },
       child: MzScaffold(
@@ -179,28 +155,17 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
                       child: Align(
                         child: SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
-                          child: Container(
-                            padding: const EdgeInsetsDirectional.all(2),
-                            decoration: BoxDecoration(
-                              color: colors.surfaceAlt,
-                              borderRadius: shapes.pillRadius,
-                              border: Border.all(color: colors.borderSubtle),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: List.generate(state.tasks.length, (i) {
-                                final taskSpec = state.tasks[i];
-                                final isTask1 = !taskSpec.taskType.contains(
-                                  '2',
-                                );
-                                return _TaskTabButton(
-                                  label:
-                                      '${isTask1 ? 'Task 1' : 'Task 2'} (${taskSpec.minWords}w)',
-                                  isSelected: state.activeTaskIndex == i,
-                                  onTap: () => notifier.selectTaskIndex(i),
-                                );
-                              }),
-                            ),
+                          child: MzSegmentedPillStrip(
+                            items: List.generate(state.tasks.length, (i) {
+                              final taskSpec = state.tasks[i];
+                              final isTask1 = !taskSpec.taskType.contains('2');
+                              return (
+                                label:
+                                    '${isTask1 ? 'Task 1' : 'Task 2'} (${taskSpec.minWords}w)',
+                                isSelected: state.activeTaskIndex == i,
+                                onTap: () => notifier.selectTaskIndex(i),
+                              );
+                            }),
                           ),
                         ),
                       ),
@@ -301,61 +266,25 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
                           const SizedBox(height: SpacingTokens.sm),
                         ],
                         // Prompt Card (collapsible on compact screens so the editor stays reachable `UX-06`)
-                        MzCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Row(
-                                children: <Widget>[
-                                  Expanded(
-                                    child: Text(
-                                      _headingForTaskType(state.taskType),
-                                      style: typography.caption.copyWith(
-                                        color: colors.textSecondary,
-                                      ),
-                                    ),
-                                  ),
-                                  TextButton(
-                                    onPressed: () => setState(
-                                      () => _isPromptCollapsed =
-                                          !_isPromptCollapsed,
-                                    ),
-                                    child: Text(
-                                      _isPromptCollapsed
-                                          ? 'Show prompt'
-                                          : 'Hide prompt',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: SpacingTokens.xs),
-                              Text(
-                                state.promptTitle,
-                                style: typography.cardTitle,
-                              ),
-                              if (!_isPromptCollapsed) ...<Widget>[
-                                const SizedBox(height: SpacingTokens.xs),
-                                Text(
-                                  state.promptDescription,
-                                  style: typography.body.copyWith(
-                                    color: colors.textPrimary,
-                                    height: 1.5,
-                                  ),
-                                ),
-                                if (state.chartSvg != null &&
-                                    state.chartSvg!.isNotEmpty) ...<Widget>[
-                                  const SizedBox(height: SpacingTokens.md),
-                                  _TaskChartView(
-                                    chartSvgOrPath: state.chartSvg!,
-                                    resolvedUrl: editionConfig.resolveMediaUrl(
-                                      state.chartSvg!,
-                                    ),
-                                    caption: state.chartCaption,
-                                  ),
-                                ],
-                              ],
-                            ],
+                        CollapsiblePromptCard(
+                          overline: _headingForTaskType(state.taskType),
+                          title: state.promptTitle,
+                          promptBody: state.promptDescription,
+                          isCollapsed: _isPromptCollapsed,
+                          onToggleCollapsed: () => setState(
+                            () => _isPromptCollapsed = !_isPromptCollapsed,
                           ),
+                          expandedAttachment:
+                              (state.chartSvg != null &&
+                                  state.chartSvg!.isNotEmpty)
+                              ? _TaskChartView(
+                                  chartSvgOrPath: state.chartSvg!,
+                                  resolvedUrl: editionConfig.resolveMediaUrl(
+                                    state.chartSvg!,
+                                  ),
+                                  caption: state.chartCaption,
+                                )
+                              : null,
                         ),
                         const SizedBox(height: SpacingTokens.md),
 
@@ -470,48 +399,6 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
     WritingTaskType.task1General => 'General Training Writing Task 1 (Letter)',
     WritingTaskType.task2Essay => 'IELTS Writing Task 2 (Essay)',
   };
-}
-
-class _TaskTabButton extends StatelessWidget {
-  const new({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final typography = AppTypography.of(context);
-    final shapes = AppShapes.of(context);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsetsDirectional.symmetric(
-          horizontal: SpacingTokens.sm,
-          vertical: SpacingTokens.xs,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? colors.surface
-              : colors.surface.withValues(alpha: 0),
-          borderRadius: shapes.pillRadius,
-        ),
-        child: Text(
-          label,
-          style: typography.caption.copyWith(
-            color: isSelected ? colors.textPrimary : colors.textSecondary,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _TaskChartView extends StatelessWidget {

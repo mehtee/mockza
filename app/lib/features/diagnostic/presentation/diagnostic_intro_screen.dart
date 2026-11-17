@@ -13,8 +13,8 @@ import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
-import 'package:mockza/theme/components/audio_level_meter.dart';
 import 'package:mockza/theme/components/icon_well.dart';
+import 'package:mockza/theme/components/mic_preflight_card.dart';
 import 'package:mockza/theme/components/mz_bottom_sheet.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
@@ -456,9 +456,6 @@ class _DeviceCheckCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final typography = AppTypography.of(context);
-
     final micHasPermission =
         state.micStatus != MicPreflightStatus.permissionDenied &&
         state.micStatus != MicPreflightStatus.unavailable;
@@ -472,116 +469,73 @@ class _DeviceCheckCard extends StatelessWidget {
               ? 'Mic OK'
               : (state.speakingOptOut ? 'Mic skipped' : 'Test mic'));
 
-    return MzCard(
-      padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
-      child: Column(
+    final statusBanners = <Widget>[
+      if (state.preflightAudioError != null)
+        StatusBanner(
+          message: state.preflightAudioError!,
+          actionLabel: 'I can hear',
+          onTapAction: notifier.confirmSoundReady,
+        ),
+      if (state.micStatusMessage != null &&
+          state.micStatus != MicPreflightStatus.ready)
+        StatusBanner(
+          message: state.micStatusMessage!,
+          actionLabel: !state.speakingOptOut
+              ? 'Continue without Speaking'
+              : null,
+          onTapAction: !state.speakingOptOut
+              ? () => notifier.setSpeakingOptOut(
+                  optOut: true,
+                  reason: state.micStatus == MicPreflightStatus.noisyOrSilent
+                      ? NoEvidenceReason.unusableAudio
+                      : NoEvidenceReason.micDenied,
+                )
+              : null,
+        ),
+      if (state.speakingOptOut)
+        StatusBanner(
+          message: 'Speaking will be skipped in this check. Reading, Listening, and Writing still run normally.',
+          variant: StatusBannerVariant.offline,
+          actionLabel: 'Include Speaking',
+          onTapAction: () => notifier.setSpeakingOptOut(optOut: false),
+        ),
+    ];
+
+    Widget? footer;
+    if (statusBanners.isNotEmpty) {
+      footer = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: SpacingTokens.sm,
-            runSpacing: SpacingTokens.xs,
-            children: <Widget>[
-              Text('Quick Sound & Mic Check', style: typography.cardTitle),
-              Text(
-                'Optional',
-                style: typography.caption.copyWith(color: colors.textTertiary),
-              ),
-            ],
-          ),
-          const SizedBox(height: SpacingTokens.sm),
-          LayoutBuilder(
-            builder: (ctx, constraints) {
-              final stackVertically =
-                  constraints.maxWidth < 300 ||
-                  MediaQuery.textScalerOf(ctx).scale(1) > 1.35;
-              final soundBtn = SecondaryButton(
-                label: soundLabel,
-                glyph: state.soundConfirmed
-                    ? LucideGlyph.checkCircle2
-                    : LucideGlyph.volume2,
-                onPressed: state.bank == null || state.isPlayingPreflightAudio
-                    ? null
-                    : notifier.playPreflightSampleSound,
-              );
-              final micBtn = SecondaryButton(
-                label: micLabel,
-                glyph: state.micStatus == MicPreflightStatus.ready
-                    ? LucideGlyph.checkCircle2
-                    : (state.speakingOptOut
-                          ? LucideGlyph.micOff
-                          : LucideGlyph.mic),
-                onPressed: state.micStatus == MicPreflightStatus.checking
-                    ? null
-                    : notifier.runMicPreflightCheck,
-              );
-
-              if (stackVertically) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    soundBtn,
-                    const SizedBox(height: SpacingTokens.xs),
-                    micBtn,
-                  ],
-                );
-              }
-              return Row(
-                children: <Widget>[
-                  Expanded(child: soundBtn),
-                  const SizedBox(width: SpacingTokens.sm),
-                  Expanded(child: micBtn),
-                ],
-              );
-            },
-          ),
-          if (state.micStatus == MicPreflightStatus.checking) ...<Widget>[
-            const SizedBox(height: SpacingTokens.sm),
-            AudioLevelMeter(
-              normalizedLevel: state.micLevel,
-              isPreviewing: true,
-              hasPermission: micHasPermission,
-            ),
-          ],
-          if (state.preflightAudioError != null) ...<Widget>[
-            const SizedBox(height: SpacingTokens.sm),
-            StatusBanner(
-              message: state.preflightAudioError!,
-              actionLabel: 'I can hear',
-              onTapAction: notifier.confirmSoundReady,
-            ),
-          ],
-          if (state.micStatusMessage != null &&
-              state.micStatus != MicPreflightStatus.ready) ...<Widget>[
-            const SizedBox(height: SpacingTokens.sm),
-            StatusBanner(
-              message: state.micStatusMessage!,
-              actionLabel: !state.speakingOptOut
-                  ? 'Continue without Speaking'
-                  : null,
-              onTapAction: !state.speakingOptOut
-                  ? () => notifier.setSpeakingOptOut(
-                      optOut: true,
-                      reason:
-                          state.micStatus == MicPreflightStatus.noisyOrSilent
-                          ? NoEvidenceReason.unusableAudio
-                          : NoEvidenceReason.micDenied,
-                    )
-                  : null,
-            ),
-          ],
-          if (state.speakingOptOut) ...<Widget>[
-            const SizedBox(height: SpacingTokens.sm),
-            StatusBanner(
-              message: 'Speaking will be skipped in this check. Reading, Listening, and Writing still run normally.',
-              variant: StatusBannerVariant.offline,
-              actionLabel: 'Include Speaking',
-              onTapAction: () => notifier.setSpeakingOptOut(optOut: false),
-            ),
+          for (var i = 0; i < statusBanners.length; i += 1) ...<Widget>[
+            if (i > 0) const SizedBox(height: SpacingTokens.sm),
+            statusBanners[i],
           ],
         ],
-      ),
+      );
+    }
+
+    return MicPreflightCard(
+      title: 'Quick Sound & Mic Check',
+      trailingLabel: 'Optional',
+      soundButtonLabel: soundLabel,
+      soundButtonGlyph: state.soundConfirmed
+          ? LucideGlyph.checkCircle2
+          : LucideGlyph.volume2,
+      onTapSoundCheck: state.bank == null || state.isPlayingPreflightAudio
+          ? null
+          : notifier.playPreflightSampleSound,
+      micButtonLabel: micLabel,
+      micButtonGlyph: state.micStatus == MicPreflightStatus.ready
+          ? LucideGlyph.checkCircle2
+          : (state.speakingOptOut ? LucideGlyph.micOff : LucideGlyph.mic),
+      onTapMicCheck: state.micStatus == MicPreflightStatus.checking
+          ? null
+          : notifier.runMicPreflightCheck,
+      showLiveMeter: state.micStatus == MicPreflightStatus.checking,
+      normalizedLevel: state.micLevel,
+      isPreviewing: true,
+      hasPermission: micHasPermission,
+      statusFooter: footer,
     );
   }
 }

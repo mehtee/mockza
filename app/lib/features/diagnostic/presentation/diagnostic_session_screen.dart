@@ -15,6 +15,8 @@ import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/audio_level_meter.dart';
+import 'package:mockza/theme/components/collapsible_prompt_card.dart';
+import 'package:mockza/theme/components/exam_question_controls.dart';
 import 'package:mockza/theme/components/icon_well.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
@@ -823,9 +825,10 @@ class _WorkedExampleView extends StatelessWidget {
               Text(example.questionPrompt, style: typography.cardTitle),
               const SizedBox(height: SpacingTokens.sm),
               for (var i = 0; i < example.options.length; i += 1) ...<Widget>[
-                _OptionButton(
-                  label: example.options[i],
+                MzChoiceOptionTile(
+                  text: example.options[i],
                   isSelected: selectedOption == i,
+                  leadingStyle: MzOptionLeadingStyle.checkChevron,
                   onTap: () => onSelectOption(i),
                 ),
                 if (i < example.options.length - 1)
@@ -867,7 +870,6 @@ class _ObjectiveBlockView extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
-    final shapes = AppShapes.of(context);
     final block = state.activeBlock;
     final isCompact = MzResponsive.isCompactOf(context);
 
@@ -1027,13 +1029,12 @@ class _ObjectiveBlockView extends StatelessWidget {
             children: <Widget>[
               for (var i = 0; i < 2; i += 1) ...<Widget>[
                 Expanded(
-                  child: _QuestionStepPill(
+                  child: MzQuestionStepPill(
                     label: 'Question ${i + 1}',
                     isSelected: clampedFocus == i,
                     isAnswered: i == 0
                         ? state.selectedOptionQ0 != null
                         : state.selectedOptionQ1 != null,
-                    shapes: shapes,
                     onTap: () => onSelectFocusedQuestion(i),
                   ),
                 ),
@@ -1084,103 +1085,6 @@ class _ObjectiveBlockView extends StatelessWidget {
   }
 }
 
-class _QuestionStepPill extends StatelessWidget {
-  const new({
-    required this.label,
-    required this.isSelected,
-    required this.isAnswered,
-    required this.shapes,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
-  final bool isAnswered;
-  final AppShapes shapes;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final typography = AppTypography.of(context);
-
-    final Color bgColor;
-    final Color borderColor;
-    final Color textColor;
-    final Color iconColor;
-    final FontWeight fontWeight;
-
-    if (isSelected) {
-      bgColor = colors.primary;
-      borderColor = colors.primary;
-      textColor = colors.onPrimary;
-      iconColor = colors.onPrimary;
-      fontWeight = FontWeight.w700;
-    } else if (isAnswered) {
-      bgColor = colors.blueBg;
-      borderColor = colors.primary.withValues(alpha: 0.5);
-      textColor = colors.textPrimary;
-      iconColor = colors.primary;
-      fontWeight = FontWeight.w600;
-    } else {
-      bgColor = colors.surface;
-      borderColor = colors.borderSubtle;
-      textColor = colors.textSecondary;
-      iconColor = colors.textSecondary;
-      fontWeight = FontWeight.w500;
-    }
-
-    return Semantics(
-      button: true,
-      selected: isSelected,
-      label: '$label${isAnswered ? ', answered' : ''}',
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: shapes.controlRadius,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 44),
-          padding: const EdgeInsetsDirectional.symmetric(
-            horizontal: SpacingTokens.sm,
-            vertical: SpacingTokens.xs,
-          ),
-          decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius: shapes.controlRadius,
-            border: Border.all(
-              color: borderColor,
-              width: isSelected ? 1.5 : shapes.strokeWidth,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              if (isAnswered) ...<Widget>[
-                AppIcon(
-                  LucideGlyph.checkCircle2,
-                  size: 16,
-                  color: iconColor,
-                ),
-                const SizedBox(width: SpacingTokens.xs),
-              ],
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: typography.secondary.copyWith(
-                    color: textColor,
-                    fontWeight: fontWeight,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _QuestionCard extends StatelessWidget {
   const new({
     required this.questionIndex,
@@ -1207,73 +1111,16 @@ class _QuestionCard extends StatelessWidget {
           ),
           const SizedBox(height: SpacingTokens.sm),
           for (var i = 0; i < question.options.length; i += 1) ...<Widget>[
-            _OptionButton(
-              label: question.options[i],
+            MzChoiceOptionTile(
+              text: question.options[i],
               isSelected: selectedIndex == i,
+              leadingStyle: MzOptionLeadingStyle.checkChevron,
               onTap: () => onSelect(i),
             ),
             if (i < question.options.length - 1)
               const SizedBox(height: SpacingTokens.xs),
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _OptionButton extends StatelessWidget {
-  const new({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final shapes = AppShapes.of(context);
-    final typography = AppTypography.of(context);
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: shapes.controlRadius,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 44),
-        padding: const EdgeInsetsDirectional.symmetric(
-          horizontal: SpacingTokens.md,
-          vertical: SpacingTokens.sm,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected ? colors.blueBg : colors.surfaceAlt,
-          borderRadius: shapes.controlRadius,
-          border: Border.all(
-            color: isSelected ? colors.primary : colors.borderSubtle,
-            width: isSelected ? 1.5 : shapes.strokeWidth,
-          ),
-        ),
-        child: Row(
-          children: <Widget>[
-            AppIcon(
-              isSelected ? LucideGlyph.checkCircle2 : LucideGlyph.chevronRight,
-              size: 16,
-              color: isSelected ? colors.primary : colors.textTertiary,
-            ),
-            const SizedBox(width: SpacingTokens.sm),
-            Expanded(
-              child: Text(
-                label,
-                style: typography.body.copyWith(
-                  color: colors.textPrimary,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1350,7 +1197,6 @@ class _WritingStageView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    final typography = AppTypography.of(context);
 
     return ValueListenableBuilder<TextEditingValue>(
       valueListenable: controller,
@@ -1363,34 +1209,18 @@ class _WritingStageView extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            MzCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            CollapsiblePromptCard(
+              title: title,
+              promptBody: promptText,
+              isCollapsed: isPromptCollapsed,
+              onToggleCollapsed: onTogglePromptCollapsed,
+              hideLabel: 'Hide',
+              footer: Wrap(
+                spacing: SpacingTokens.sm,
+                runSpacing: SpacingTokens.xs,
                 children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: Text(title, style: typography.cardTitle),
-                      ),
-                      TextButton(
-                        onPressed: onTogglePromptCollapsed,
-                        child: Text(isPromptCollapsed ? 'Show prompt' : 'Hide'),
-                      ),
-                    ],
-                  ),
-                  if (!isPromptCollapsed) ...<Widget>[
-                    const SizedBox(height: SpacingTokens.xs),
-                    Text(promptText, style: typography.body),
-                    const SizedBox(height: SpacingTokens.sm),
-                  ],
-                  Wrap(
-                    spacing: SpacingTokens.sm,
-                    runSpacing: SpacingTokens.xs,
-                    children: <Widget>[
-                      MzChip(label: guidanceLabel),
-                      MzChip(label: '$wordCount words'),
-                    ],
-                  ),
+                  MzChip(label: guidanceLabel),
+                  MzChip(label: '$wordCount words'),
                 ],
               ),
             ),
