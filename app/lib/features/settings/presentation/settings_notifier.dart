@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mockza/core/auth/auth_models.dart';
 import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/core/models/user_profile.dart';
@@ -30,6 +31,9 @@ class SettingsState {
     this.isBusy = false,
     this.isClearingCache = false,
     this.isSyncingCatalog = false,
+    this.isLoadingSessions = false,
+    this.isManagingSession = false,
+    this.accountSessions,
     this.statusMessage,
   });
 
@@ -72,6 +76,15 @@ class SettingsState {
   /// Whether catalog sync is currently executing.
   final bool isSyncingCatalog;
 
+  /// Whether signed-in account devices are currently loading.
+  final bool isLoadingSessions;
+
+  /// Whether sign-out or remote device termination is in flight.
+  final bool isManagingSession;
+
+  /// Server-reported account profile and active signed-in devices list.
+  final AccountSessionsSnapshot? accountSessions;
+
   /// Status feedback message.
   final String? statusMessage;
 
@@ -90,6 +103,10 @@ class SettingsState {
     bool? isBusy,
     bool? isClearingCache,
     bool? isSyncingCatalog,
+    bool? isLoadingSessions,
+    bool? isManagingSession,
+    AccountSessionsSnapshot? accountSessions,
+    bool clearAccountSessions = false,
     String? statusMessage,
     bool clearStatusMessage = false,
   }) => SettingsState(
@@ -106,6 +123,11 @@ class SettingsState {
     isBusy: isBusy ?? this.isBusy,
     isClearingCache: isClearingCache ?? this.isClearingCache,
     isSyncingCatalog: isSyncingCatalog ?? this.isSyncingCatalog,
+    isLoadingSessions: isLoadingSessions ?? this.isLoadingSessions,
+    isManagingSession: isManagingSession ?? this.isManagingSession,
+    accountSessions: clearAccountSessions
+        ? null
+        : (accountSessions ?? this.accountSessions),
     statusMessage: clearStatusMessage
         ? null
         : (statusMessage ?? this.statusMessage),
@@ -200,6 +222,13 @@ class SettingsNotifier extends Notifier<SettingsState> {
     }
 
     await ref.read(authSessionServiceProvider).ensureAuthenticated();
+    await Future.wait<void>(<Future<void>>[
+      _refreshQuotaInternal(),
+      refreshAccountSessions(),
+    ]);
+  }
+
+  Future<void> _refreshQuotaInternal() async {
     final quotaResult = await ref
         .read(gradingGatewayProvider)
         .fetchQuotaStatus();
@@ -222,6 +251,165 @@ class SettingsNotifier extends Notifier<SettingsState> {
       } on Object {
         // Ignore DB error in isolated tests.
       }
+    }
+  }
+
+  /// Loads active signed-in devices and slot occupancy (`1 Phone + 1 Desktop Web`).
+  Future<void> refreshAccountSessions() async {
+    if (_isDisposed) return;
+    state = state.copyWith(isLoadingSessions: true);
+    final res = await ref
+        .read(authSessionServiceProvider)
+        .fetchAccountSessions();
+    if (_isDisposed) return;
+
+    switch (res) {
+      case Ok<AccountSessionsSnapshot, Failure>(:final value):
+        state = state.copyWith(
+          isLoadingSessions: false,
+          accountSessions: value,
+          isPro: value.user?.isPro ?? state.isPro,
+        );
+        try {
+          final profileRepo = ref.read(profileRepositoryProvider);
+          final primary = await profileRepo.loadOrInitializePrimary();
+          if (value.isAuthenticated && value.user != null) {
+            await profileRepo.saveAuthenticatedAccount(
+              deviceId: primary.deviceId,
+              userId: value.user!.userId,
+              email: value.user!.email,
+              isPro: value.user!.isPro,
+            );
+          } else if (primary.appUserId != null &&
+              primary.appUserId!.isNotEmpty) {
+            await profileRepo.clearAuthenticatedAccount(primary.deviceId);
+          }
+        } on Object {
+          // Ignore DB error in isolated tests.
+        }
+      case Err<AccountSessionsSnapshot, Failure>():
+        state = state.copyWith(isLoadingSessions: false);
+    }
+  }
+
+  /// Signs out ONLY the current device and clears its subscriber slot & local Pro state.
+  Future<void> signOutCurrentDevice() async {
+    if (state.isManagingSession) return;
+    state = state.copyWith(
+      isManagingSession: true,
+      clearStatusMessage: true,
+    );
+    final res = await ref
+        .read(authSessionServiceProvider)
+        .signOutCurrentDevice();
+    if (_isDisposed) return;
+
+    switch (res) {
+      case Ok<void, Failure>():
+        try {
+          final profileRepo = ref.read(profileRepositoryProvider);
+          final primary = await profileRepo.loadOrInitializePrimary();
+          await profileRepo.clearAuthenticatedAccount(primary.deviceId);
+        } on Object {
+          // Ignore in isolated tests.
+        }
+        if (_isDisposed) return;
+        state = state.copyWith(
+          isManagingSession: false,
+          isPro: false,
+          statusMessage: 'Signed out of this device. Its slot is now open.',
+        );
+        await refreshAccountSessions();
+        await _refreshQuotaInternal();
+      case Err<void, Failure>(:final failure):
+        state = state.copyWith(
+          isManagingSession: false,
+          statusMessage: failure.message,
+        );
+    }
+  }
+
+  /// Terminates [targetDeviceId] remotely (or signs out self if matching current device).
+  Future<void> terminateDeviceSession(String targetDeviceId) async {
+    if (state.isManagingSession) return;
+    state = state.copyWith(
+      isManagingSession: true,
+      clearStatusMessage: true,
+    );
+    final res = await ref
+        .read(authSessionServiceProvider)
+        .terminateDeviceSession(targetDeviceId);
+    if (_isDisposed) return;
+
+    switch (res) {
+      case Ok<
+        ({
+          List<String> revokedDeviceIds,
+          bool signedOutCurrentDevice,
+          List<DeviceSessionInfo> sessions,
+        }),
+        Failure
+      >(
+        :final value,
+      ):
+        if (value.signedOutCurrentDevice) {
+          try {
+            final profileRepo = ref.read(profileRepositoryProvider);
+            final primary = await profileRepo.loadOrInitializePrimary();
+            await profileRepo.clearAuthenticatedAccount(primary.deviceId);
+          } on Object {
+            // Ignore in isolated tests.
+          }
+        }
+        state = state.copyWith(
+          isManagingSession: false,
+          statusMessage: value.signedOutCurrentDevice
+              ? 'Signed out of this device.'
+              : 'Selected device session terminated immediately.',
+        );
+        await refreshAccountSessions();
+        await _refreshQuotaInternal();
+      case Err<
+        ({
+          List<String> revokedDeviceIds,
+          bool signedOutCurrentDevice,
+          List<DeviceSessionInfo> sessions,
+        }),
+        Failure
+      >(
+        :final failure,
+      ):
+        state = state.copyWith(
+          isManagingSession: false,
+          statusMessage: failure.message,
+        );
+    }
+  }
+
+  /// Signs out all other devices on the account, freeing their slots.
+  Future<void> terminateOtherSessions() async {
+    if (state.isManagingSession) return;
+    state = state.copyWith(
+      isManagingSession: true,
+      clearStatusMessage: true,
+    );
+    final res = await ref
+        .read(authSessionServiceProvider)
+        .terminateOtherSessions();
+    if (_isDisposed) return;
+
+    switch (res) {
+      case Ok<List<DeviceSessionInfo>, Failure>():
+        state = state.copyWith(
+          isManagingSession: false,
+          statusMessage: 'All other device sessions terminated.',
+        );
+        await refreshAccountSessions();
+      case Err<List<DeviceSessionInfo>, Failure>(:final failure):
+        state = state.copyWith(
+          isManagingSession: false,
+          statusMessage: failure.message,
+        );
     }
   }
 

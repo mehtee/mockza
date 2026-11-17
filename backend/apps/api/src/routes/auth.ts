@@ -1,49 +1,128 @@
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import type { OpenAPIHono } from '@hono/zod-openapi';
-import type { AppEnv } from '@mockza/config';
+import { type AppEnv, parseProviderClientIds } from '@mockza/config';
 import {
   AnonymousAuthRequestSchema,
   AnonymousAuthResponseSchema,
+  AuthProvidersResponseSchema,
+  AuthSessionResponseSchema,
+  EmailLoginRequestSchema,
+  EmailRegisterRequestSchema,
   LinkAccountRequestSchema,
   LinkAccountResponseSchema,
+  LogoutResponseSchema,
+  OAuthSignInRequestSchema,
 } from '@mockza/contracts';
-import { accountLinks, devices, entitlements, type MockzaDb, users } from '@mockza/db';
-import { and, eq, sql } from 'drizzle-orm';
-import { verify } from 'hono/jwt';
+import type { MockzaDb } from '@mockza/db';
+import type { Context } from 'hono';
 import type { ChallengeStore } from '../middleware/attest.js';
-import {
-  createDeviceAuthMiddleware,
-  signDeviceToken,
-  type TokenPayload,
-} from '../middleware/auth.js';
+import { createDeviceAuthMiddleware } from '../middleware/auth.js';
+import { createRateLimitMiddleware, resolveClientKey } from '../middleware/rate-limit.js';
 import type { RequestVariables } from '../middleware/request-id.js';
+import {
+  type DeviceClientMeta,
+  maskIpAddress,
+  type ResolvedDeviceContext,
+  resolveDeviceMetadata,
+  resolveLocationLabel,
+} from '../services/device-context.js';
 import {
   ProviderTokenError,
   type VerifyProviderTokenFn,
   verifyProviderIdToken,
 } from '../services/provider-verify.js';
+import {
+  AuthActionError,
+  createSessionManager,
+  DeviceSlotLimitError,
+  type SessionManager,
+} from '../services/session-manager.js';
 import { reconcilePendingWebhooksForIdentities } from './webhooks-revenuecat.js';
-
-function sha256Hex(secret: string): string {
-  return createHash('sha256').update(secret, 'utf-8').digest('hex');
-}
-
-function timingSafeHexEqual(aHex: string, bHex: string): boolean {
-  const a = Buffer.from(aHex, 'utf-8');
-  const b = Buffer.from(bHex, 'utf-8');
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
-
-interface MemoryDeviceRecord {
-  deviceId: string;
-  secretHash: string;
-  tokenVersion: number;
-}
 
 export interface AuthRouteDeps {
   challengeStore: ChallengeStore;
   verifyProviderToken?: VerifyProviderTokenFn;
+  sessionManager?: SessionManager;
+}
+
+function buildDeviceContext(
+  c: Context<{ Variables: RequestVariables }>,
+  trustedProxyIps: Set<string>,
+  clientMeta?: DeviceClientMeta,
+): ResolvedDeviceContext {
+  const rawIncoming = (c.env as { incoming?: { socket?: { remoteAddress?: string } } } | undefined)
+    ?.incoming;
+  const clientIp = resolveClientKey({
+    forwardedFor: c.req.header('x-forwarded-for'),
+    realIp: c.req.header('x-real-ip'),
+    remoteAddr: rawIncoming?.socket?.remoteAddress,
+    trustedProxyIps,
+  });
+  const base = resolveDeviceMetadata({
+    userAgent: c.req.header('user-agent'),
+    secChUaMobile: c.req.header('sec-ch-ua-mobile'),
+    clientMeta,
+  });
+  const locationLabel = resolveLocationLabel({
+    headers: {
+      'cf-ipcity': c.req.header('cf-ipcity'),
+      'cf-ipcountry': c.req.header('cf-ipcountry'),
+      'x-vercel-ip-city': c.req.header('x-vercel-ip-city'),
+      'x-vercel-ip-country': c.req.header('x-vercel-ip-country'),
+      'x-geo-city': c.req.header('x-geo-city'),
+      'x-geo-country': c.req.header('x-geo-country'),
+    },
+    clientIp,
+    timezone: clientMeta?.timezone,
+  });
+
+  return {
+    ...base,
+    ipMasked: maskIpAddress(clientIp),
+    locationLabel,
+  };
+}
+
+function mapAuthErrorResponse(
+  c: Context<{ Variables: RequestVariables }>,
+  err: unknown,
+): Response | null {
+  const requestId = c.get('requestId');
+  if (err instanceof DeviceSlotLimitError) {
+    return c.json(
+      {
+        code: 'device_slot_limit_reached',
+        message: err.message,
+        requestId,
+        details: {
+          slotKind: err.slotKind,
+          occupyingDevice: err.occupyingDevice,
+        },
+      },
+      409,
+    );
+  }
+  if (err instanceof AuthActionError) {
+    return c.json(
+      {
+        code: err.code,
+        message: err.message,
+        requestId,
+      },
+      err.status,
+    );
+  }
+  if (err instanceof ProviderTokenError) {
+    return c.json(
+      {
+        code: err.code,
+        message: err.message,
+        requestId,
+      },
+      err.status,
+    );
+  }
+  return null;
 }
 
 export function registerAuthRoutes(
@@ -52,33 +131,51 @@ export function registerAuthRoutes(
   db: MockzaDb | undefined,
   deps: AuthRouteDeps,
 ): void {
-  const memoryDevices = new Map<string, MemoryDeviceRecord>();
+  const sessionManager = deps.sessionManager ?? createSessionManager(env, db);
   const verifyProvider = deps.verifyProviderToken ?? verifyProviderIdToken;
+  const trustedProxyIps = new Set(
+    (env.TRUSTED_PROXY_IPS ?? '127.0.0.1,::1')
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0),
+  );
+  const strictAuthRateLimit = createRateLimitMiddleware({
+    windowMs: 60_000,
+    maxRequests: 25,
+    trustedProxyIps,
+  });
 
-  async function verifyBearerForDevice(
-    authHeader: string | undefined,
-    expectedDeviceId: string,
-    expectedTokenVersion: number,
-  ): Promise<boolean> {
-    if (!authHeader?.startsWith('Bearer ')) return false;
-    const rawToken = authHeader.slice('Bearer '.length).trim();
-    if (!rawToken) return false;
-    try {
-      const decoded = (await verify(
-        rawToken,
-        env.JWT_SECRET,
-        'HS256',
-      )) as unknown as Partial<TokenPayload>;
-      return (
-        decoded.sub === expectedDeviceId &&
-        decoded.type === 'device' &&
-        decoded.edition === env.EDITION &&
-        (decoded.tv === undefined || decoded.tv === expectedTokenVersion)
-      );
-    } catch {
-      return false;
-    }
-  }
+  // GET /v1/auth/providers
+  app.get('/v1/auth/providers', (c) => {
+    const googleIds = parseProviderClientIds(env.GOOGLE_CLIENT_ID);
+    const appleIds = parseProviderClientIds(env.APPLE_CLIENT_ID);
+    const devSandboxEnabled = env.NODE_ENV !== 'production' && env.ALLOW_DEV_AUTH_PROVIDERS;
+
+    const googleMode =
+      googleIds.length > 0 ? 'oidc' : devSandboxEnabled ? 'dev_sandbox' : 'disabled';
+    const appleMode = appleIds.length > 0 ? 'oidc' : devSandboxEnabled ? 'dev_sandbox' : 'disabled';
+
+    return c.json(
+      AuthProvidersResponseSchema.parse({
+        emailPasswordEnabled: true,
+        google: {
+          enabled: googleMode !== 'disabled',
+          mode: googleMode,
+          ...(googleIds[0] ? { clientId: googleIds[0] } : {}),
+        },
+        apple: {
+          enabled: appleMode !== 'disabled',
+          mode: appleMode,
+          ...(appleIds[0] ? { clientId: appleIds[0] } : {}),
+        },
+        devicePolicy: {
+          maxMobilePhones: 1,
+          maxDesktopWebInstances: 1,
+        },
+      }),
+      200,
+    );
+  });
 
   // POST /v1/auth/anonymous
   app.post('/v1/auth/anonymous', async (c) => {
@@ -108,148 +205,28 @@ export function registerAuthRoutes(
       );
     }
 
-    const { deviceId, appVersion, deviceSecret } = parsed.data;
-    const authHeader = c.req.header('authorization');
-    let tokenVersion = 1;
-    let issuedSecret: string | undefined;
-
-    if (db) {
-      const newSecret = randomBytes(32).toString('base64url');
-      const newSecretHash = sha256Hex(newSecret);
-
-      const inserted = await db
-        .insert(devices)
-        .values({
-          deviceId,
-          edition: env.EDITION,
-          appVersion,
-          deviceSecretHash: newSecretHash,
-          tokenVersion: 1,
-          lastSeenAt: new Date(),
-        })
-        .onConflictDoNothing({ target: devices.deviceId })
-        .returning({
-          deviceId: devices.deviceId,
-          tokenVersion: devices.tokenVersion,
-        });
-
-      if (inserted[0]) {
-        tokenVersion = inserted[0].tokenVersion;
-        issuedSecret = newSecret;
-      } else {
-        const existingRows = await db
-          .select({
-            deviceId: devices.deviceId,
-            deviceSecretHash: devices.deviceSecretHash,
-            tokenVersion: devices.tokenVersion,
-          })
-          .from(devices)
-          .where(eq(devices.deviceId, deviceId))
-          .limit(1);
-
-        const existing = existingRows[0];
-        if (!existing) {
-          return c.json(
-            {
-              code: 'unauthorized',
-              message: 'Device registration conflict.',
-              requestId: c.get('requestId'),
-            },
-            401,
-          );
-        }
-
-        const existingSecretHash = existing.deviceSecretHash;
-        const secretMatches =
-          typeof deviceSecret === 'string' &&
-          deviceSecret.length > 0 &&
-          typeof existingSecretHash === 'string' &&
-          existingSecretHash.length > 0 &&
-          timingSafeHexEqual(sha256Hex(deviceSecret), existingSecretHash);
-        const bearerMatches = await verifyBearerForDevice(
-          authHeader,
-          deviceId,
-          existing.tokenVersion,
-        );
-
-        if (!secretMatches && !bearerMatches) {
-          return c.json(
-            {
-              code: 'unauthorized',
-              message:
-                'Existing device requires valid deviceSecret or active session token to renew.',
-              requestId: c.get('requestId'),
-            },
-            401,
-          );
-        }
-
-        tokenVersion = existing.tokenVersion;
-        let updatedSecretHash = existing.deviceSecretHash;
-        if (!updatedSecretHash && bearerMatches) {
-          // One-time upgrade for pre-migration devices renewing via valid JWT.
-          issuedSecret = newSecret;
-          updatedSecretHash = newSecretHash;
-        }
-
-        await db
-          .update(devices)
-          .set({
-            lastSeenAt: new Date(),
-            appVersion: appVersion ?? sql`${devices.appVersion}`,
-            deviceSecretHash: updatedSecretHash,
-          })
-          .where(eq(devices.deviceId, deviceId));
-      }
-    } else {
-      const existing = memoryDevices.get(deviceId);
-      if (!existing) {
-        const newSecret = randomBytes(32).toString('base64url');
-        memoryDevices.set(deviceId, {
-          deviceId,
-          secretHash: sha256Hex(newSecret),
-          tokenVersion: 1,
-        });
-        issuedSecret = newSecret;
-      } else {
-        const secretMatches =
-          typeof deviceSecret === 'string' &&
-          deviceSecret.length > 0 &&
-          timingSafeHexEqual(sha256Hex(deviceSecret), existing.secretHash);
-        const bearerMatches = await verifyBearerForDevice(
-          authHeader,
-          deviceId,
-          existing.tokenVersion,
-        );
-        if (!secretMatches && !bearerMatches) {
-          return c.json(
-            {
-              code: 'unauthorized',
-              message:
-                'Existing device requires valid deviceSecret or active session token to renew.',
-              requestId: c.get('requestId'),
-            },
-            401,
-          );
-        }
-        tokenVersion = existing.tokenVersion;
-      }
-    }
-
-    if (db) {
-      await reconcilePendingWebhooksForIdentities(db, [deviceId]);
-    }
-    const { token, expiresAt } = await signDeviceToken(deviceId, env, 30 * 24 * 3600, tokenVersion);
-
-    return c.json(
-      AnonymousAuthResponseSchema.parse({
-        accessToken: token,
+    const { deviceId, appVersion, deviceSecret, deviceMeta } = parsed.data;
+    try {
+      const outcome = await sessionManager.authenticateAnonymous({
         deviceId,
-        expiresAt,
-        deviceSecret: issuedSecret,
-      }),
-      201,
-    );
+        appVersion,
+        deviceSecret,
+        authHeader: c.req.header('authorization'),
+        deviceCtx: buildDeviceContext(c, trustedProxyIps, deviceMeta),
+      });
+
+      if (db) {
+        const identities = [deviceId];
+        if (outcome.linkedUserId) identities.push(outcome.linkedUserId);
+        await reconcilePendingWebhooksForIdentities(db, identities);
+      }
+
+      return c.json(AnonymousAuthResponseSchema.parse(outcome), 201);
+    } catch (err) {
+      const mapped = mapAuthErrorResponse(c, err);
+      if (mapped) return mapped;
+      throw err;
+    }
   });
 
   // GET /v1/auth/challenge (Single-use persisted App Attest challenge nonce)
@@ -260,8 +237,211 @@ export function registerAuthRoutes(
     return c.json({ challenge, expiresAt: expiresAtDate.toISOString() }, 200);
   });
 
-  // POST /v1/auth/link (Account linking: verified Apple / Google Sign-In)
-  const authMiddleware = createDeviceAuthMiddleware(env, db);
+  // POST /v1/auth/register (Email + Password sign-up under 1 Phone + 1 Desktop Web slot cap)
+  app.post('/v1/auth/register', strictAuthRateLimit, async (c) => {
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json(
+        {
+          code: 'validation_error',
+          message: 'Valid JSON registration payload required.',
+          requestId: c.get('requestId'),
+        },
+        400,
+      );
+    }
+
+    const parsed = EmailRegisterRequestSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return c.json(
+        {
+          code: 'validation_error',
+          message: 'Provide a valid email address and a password of at least 8 characters.',
+          requestId: c.get('requestId'),
+        },
+        400,
+      );
+    }
+
+    const { email, password, displayName, deviceId, deviceSecret, appVersion, deviceMeta } =
+      parsed.data;
+    try {
+      const bundle = await sessionManager.registerWithEmail({
+        email,
+        password,
+        displayName,
+        deviceId,
+        deviceSecret,
+        authHeader: c.req.header('authorization'),
+        appVersion,
+        deviceCtx: buildDeviceContext(c, trustedProxyIps, deviceMeta),
+      });
+
+      if (db) {
+        const reconciled = await reconcilePendingWebhooksForIdentities(db, [
+          deviceId,
+          bundle.user.userId,
+        ]);
+        if (reconciled > 0) {
+          const refreshed = await sessionManager.getAccountSessions({
+            deviceId,
+            userId: bundle.user.userId,
+          });
+          if (refreshed.user) {
+            bundle.user = refreshed.user;
+          }
+        }
+      }
+
+      return c.json(AuthSessionResponseSchema.parse(bundle), 201);
+    } catch (err) {
+      const mapped = mapAuthErrorResponse(c, err);
+      if (mapped) return mapped;
+      throw err;
+    }
+  });
+
+  // POST /v1/auth/login (Email + Password sign-in with strict device slot check)
+  app.post('/v1/auth/login', strictAuthRateLimit, async (c) => {
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json(
+        {
+          code: 'validation_error',
+          message: 'Valid JSON login payload required.',
+          requestId: c.get('requestId'),
+        },
+        400,
+      );
+    }
+
+    const parsed = EmailLoginRequestSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return c.json(
+        {
+          code: 'validation_error',
+          message: 'Valid email, password, and deviceId are required.',
+          requestId: c.get('requestId'),
+        },
+        400,
+      );
+    }
+
+    const { email, password, deviceId, deviceSecret, appVersion, deviceMeta } = parsed.data;
+    try {
+      const bundle = await sessionManager.loginWithEmail({
+        email,
+        password,
+        deviceId,
+        deviceSecret,
+        authHeader: c.req.header('authorization'),
+        appVersion,
+        deviceCtx: buildDeviceContext(c, trustedProxyIps, deviceMeta),
+      });
+
+      if (db) {
+        const reconciled = await reconcilePendingWebhooksForIdentities(db, [
+          deviceId,
+          bundle.user.userId,
+        ]);
+        if (reconciled > 0) {
+          const refreshed = await sessionManager.getAccountSessions({
+            deviceId,
+            userId: bundle.user.userId,
+          });
+          if (refreshed.user) {
+            bundle.user = refreshed.user;
+          }
+        }
+      }
+
+      return c.json(AuthSessionResponseSchema.parse(bundle), 200);
+    } catch (err) {
+      const mapped = mapAuthErrorResponse(c, err);
+      if (mapped) return mapped;
+      throw err;
+    }
+  });
+
+  // POST /v1/auth/oauth (Sign in or register with Google / Apple ID token or dev sandbox token)
+  app.post('/v1/auth/oauth', strictAuthRateLimit, async (c) => {
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json(
+        {
+          code: 'validation_error',
+          message: 'Valid JSON OAuth sign-in payload required.',
+          requestId: c.get('requestId'),
+        },
+        400,
+      );
+    }
+
+    const parsed = OAuthSignInRequestSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return c.json(
+        {
+          code: 'validation_error',
+          message: 'Invalid OAuth sign-in payload.',
+          requestId: c.get('requestId'),
+        },
+        400,
+      );
+    }
+
+    const { provider, idToken, displayName, deviceId, deviceSecret, appVersion, deviceMeta } =
+      parsed.data;
+    try {
+      const claims = await verifyProvider({ provider, idToken, env });
+      const bundle = await sessionManager.authenticateOAuth({
+        claims,
+        displayName,
+        deviceId,
+        deviceSecret,
+        authHeader: c.req.header('authorization'),
+        appVersion,
+        deviceCtx: buildDeviceContext(c, trustedProxyIps, deviceMeta),
+      });
+
+      if (db) {
+        const reconciled = await reconcilePendingWebhooksForIdentities(db, [
+          deviceId,
+          bundle.user.userId,
+        ]);
+        if (reconciled > 0) {
+          const refreshed = await sessionManager.getAccountSessions({
+            deviceId,
+            userId: bundle.user.userId,
+          });
+          if (refreshed.user) {
+            bundle.user = refreshed.user;
+          }
+        }
+      }
+
+      return c.json(AuthSessionResponseSchema.parse(bundle), 200);
+    } catch (err) {
+      const mapped = mapAuthErrorResponse(c, err);
+      if (mapped) return mapped;
+      return c.json(
+        {
+          code: 'unauthorized',
+          message: 'Failed to verify provider credential.',
+          requestId: c.get('requestId'),
+        },
+        401,
+      );
+    }
+  });
+
+  // POST /v1/auth/link (Link verified Apple / Google provider to current authenticated device)
+  const authMiddleware = createDeviceAuthMiddleware(env, db, sessionManager);
   app.post('/v1/auth/link', authMiddleware, async (c) => {
     const deviceId = c.get('deviceId');
     if (!deviceId) {
@@ -301,21 +481,32 @@ export function registerAuthRoutes(
       );
     }
 
-    const { provider, idToken } = parsed.data;
-    let verifiedClaims: { provider: 'apple' | 'google'; sub: string; email?: string };
+    const { provider, idToken, deviceMeta } = parsed.data;
     try {
-      verifiedClaims = await verifyProvider({ provider, idToken, env });
-    } catch (err) {
-      if (err instanceof ProviderTokenError) {
-        return c.json(
-          {
-            code: err.code,
-            message: err.message,
-            requestId: c.get('requestId'),
-          },
-          err.status,
-        );
+      const claims = await verifyProvider({ provider, idToken, env });
+      const linked = await sessionManager.linkAuthenticatedDevice({
+        deviceId,
+        authHeader: c.req.header('authorization'),
+        claims,
+        deviceCtx: buildDeviceContext(c, trustedProxyIps, deviceMeta),
+      });
+
+      if (db) {
+        await reconcilePendingWebhooksForIdentities(db, [deviceId, linked.userId]);
       }
+
+      return c.json(
+        LinkAccountResponseSchema.parse({
+          success: true,
+          userId: linked.userId,
+          accessToken: linked.accessToken,
+          expiresAt: linked.expiresAt,
+        }),
+        200,
+      );
+    } catch (err) {
+      const mapped = mapAuthErrorResponse(c, err);
+      if (mapped) return mapped;
       return c.json(
         {
           code: 'unauthorized',
@@ -325,136 +516,38 @@ export function registerAuthRoutes(
         401,
       );
     }
+  });
 
-    let userId: string = randomUUID();
-    let tokenVersion = 1;
-
-    if (db) {
-      const outcome = await db.transaction(async (tx) => {
-        const deviceRows = await tx
-          .select({
-            linkedUserId: devices.linkedUserId,
-            tokenVersion: devices.tokenVersion,
-          })
-          .from(devices)
-          .where(eq(devices.deviceId, deviceId))
-          .limit(1);
-
-        const currentDevice = deviceRows[0];
-        if (!currentDevice) {
-          return { conflict: false as const, missingDevice: true as const };
-        }
-
-        const existingLink = await tx
-          .select({ userId: accountLinks.userId })
-          .from(accountLinks)
-          .where(
-            and(
-              eq(accountLinks.provider, verifiedClaims.provider),
-              eq(accountLinks.providerSubject, verifiedClaims.sub),
-            ),
-          )
-          .limit(1);
-
-        let targetUserId: string;
-        if (existingLink[0]) {
-          targetUserId = String(existingLink[0].userId);
-          if (currentDevice.linkedUserId && currentDevice.linkedUserId !== targetUserId) {
-            return { conflict: true as const, missingDevice: false as const };
-          }
-        } else {
-          targetUserId = currentDevice.linkedUserId ?? randomUUID();
-          if (!currentDevice.linkedUserId) {
-            await tx.insert(users).values({
-              userId: targetUserId,
-              email: verifiedClaims.email,
-            });
-          }
-
-          await tx
-            .insert(accountLinks)
-            .values({
-              linkId: randomUUID(),
-              userId: targetUserId,
-              provider: verifiedClaims.provider,
-              providerSubject: verifiedClaims.sub,
-            })
-            .onConflictDoNothing({
-              target: [accountLinks.provider, accountLinks.providerSubject],
-            });
-
-          const resolvedLink = await tx
-            .select({ userId: accountLinks.userId })
-            .from(accountLinks)
-            .where(
-              and(
-                eq(accountLinks.provider, verifiedClaims.provider),
-                eq(accountLinks.providerSubject, verifiedClaims.sub),
-              ),
-            )
-            .limit(1);
-          if (resolvedLink[0]) {
-            targetUserId = String(resolvedLink[0].userId);
-          }
-        }
-
-        await tx
-          .update(devices)
-          .set({ linkedUserId: targetUserId, lastSeenAt: new Date() })
-          .where(eq(devices.deviceId, deviceId));
-
-        await tx
-          .update(entitlements)
-          .set({ userId: targetUserId, updatedAt: new Date() })
-          .where(eq(entitlements.deviceId, deviceId));
-
-        return {
-          conflict: false as const,
-          missingDevice: false as const,
-          userId: targetUserId,
-          tokenVersion: currentDevice.tokenVersion,
-        };
-      });
-
-      if (outcome.missingDevice) {
-        return c.json(
-          {
-            code: 'unauthorized',
-            message: 'Device session not found.',
-            requestId: c.get('requestId'),
-          },
-          401,
-        );
-      }
-
-      if (outcome.conflict) {
-        return c.json(
-          {
-            code: 'attempt_conflict',
-            message: 'This device is already linked to a different user account.',
-            requestId: c.get('requestId'),
-          },
-          409,
-        );
-      }
-
-      userId = outcome.userId;
-      tokenVersion = outcome.tokenVersion;
+  // POST /v1/auth/logout (Vacate current device slot and downgrade to anonymous session)
+  app.post('/v1/auth/logout', authMiddleware, async (c) => {
+    const deviceId = c.get('deviceId');
+    if (!deviceId) {
+      return c.json(
+        {
+          code: 'unauthorized',
+          message: 'Valid device auth required.',
+          requestId: c.get('requestId'),
+        },
+        401,
+      );
     }
 
-    if (db) {
-      await reconcilePendingWebhooksForIdentities(db, [deviceId, userId]);
+    try {
+      const out = await sessionManager.logoutCurrentDevice({ deviceId });
+      return c.json(
+        LogoutResponseSchema.parse({
+          success: true,
+          signedOut: true,
+          accessToken: out.accessToken,
+          deviceId: out.deviceId,
+          expiresAt: out.expiresAt,
+        }),
+        200,
+      );
+    } catch (err) {
+      const mapped = mapAuthErrorResponse(c, err);
+      if (mapped) return mapped;
+      throw err;
     }
-    const { token, expiresAt } = await signDeviceToken(deviceId, env, 30 * 24 * 3600, tokenVersion);
-
-    return c.json(
-      LinkAccountResponseSchema.parse({
-        success: true,
-        userId,
-        accessToken: token,
-        expiresAt,
-      }),
-      200,
-    );
   });
 }

@@ -60,6 +60,135 @@ export function buildContractDocument(): Record<string, unknown> {
 
   app.openapi(schemaRegistryRoute, (c) => c.json({} as never));
 
+  const authRoutesRegistry = [
+    createRoute({
+      method: 'get',
+      path: '/v1/auth/providers',
+      summary: 'Discover configured auth providers and device slot limits',
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.AuthProvidersResponseSchema } },
+          description: 'Available authentication providers and slot policy',
+        },
+      },
+    }),
+    createRoute({
+      method: 'post',
+      path: '/v1/auth/register',
+      summary: 'Create email/password account and claim one active device slot',
+      request: {
+        body: { content: { 'application/json': { schema: schemas.EmailRegisterRequestSchema } } },
+      },
+      responses: {
+        201: {
+          content: { 'application/json': { schema: schemas.AuthSessionResponseSchema } },
+          description: 'Registered account and active session',
+        },
+        409: {
+          content: { 'application/json': { schema: schemas.ApiErrorSchema } },
+          description: 'Email already registered or device slot limit reached',
+        },
+      },
+    }),
+    createRoute({
+      method: 'post',
+      path: '/v1/auth/login',
+      summary:
+        'Sign in with email and password under strict 1-phone + 1-desktop-web slot enforcement',
+      request: {
+        body: { content: { 'application/json': { schema: schemas.EmailLoginRequestSchema } } },
+      },
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.AuthSessionResponseSchema } },
+          description: 'Signed in account and active device sessions',
+        },
+        409: {
+          content: { 'application/json': { schema: schemas.ApiErrorSchema } },
+          description: 'Device slot limit reached',
+        },
+      },
+    }),
+    createRoute({
+      method: 'post',
+      path: '/v1/auth/oauth',
+      summary:
+        'Sign in or register via Google or Apple ID token (or dev sandbox token outside production)',
+      request: {
+        body: { content: { 'application/json': { schema: schemas.OAuthSignInRequestSchema } } },
+      },
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.AuthSessionResponseSchema } },
+          description: 'Signed in via OAuth provider',
+        },
+        409: {
+          content: { 'application/json': { schema: schemas.ApiErrorSchema } },
+          description: 'Device slot limit reached',
+        },
+      },
+    }),
+    createRoute({
+      method: 'post',
+      path: '/v1/auth/logout',
+      summary: 'Sign out current device and vacate its slot',
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.LogoutResponseSchema } },
+          description: 'Signed out current device',
+        },
+      },
+    }),
+    createRoute({
+      method: 'get',
+      path: '/v1/account/devices',
+      summary: 'List active signed-in devices and slot occupancy for the authenticated user',
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.AccountSessionsResponseSchema } },
+          description: 'Active device sessions and slot capacity',
+        },
+      },
+    }),
+    createRoute({
+      method: 'delete',
+      path: '/v1/account/devices/{targetDeviceId}',
+      summary: 'Remotely terminate a signed-in device session and vacate its slot',
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.RevokeDeviceSessionResponseSchema } },
+          description: 'Revoked target device session',
+        },
+      },
+    }),
+    createRoute({
+      method: 'post',
+      path: '/v1/account/devices/revoke-others',
+      summary: 'Terminate all active device sessions except the caller device',
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.RevokeDeviceSessionResponseSchema } },
+          description: 'Revoked all other device sessions',
+        },
+      },
+    }),
+    createRoute({
+      method: 'post',
+      path: '/v1/account/device-policy-consent',
+      summary: 'Record user acceptance of the 1 Mobile Phone + 1 Desktop Web subscription policy',
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.AccountUserSchema } },
+          description: 'Updated user account with policy consent timestamp',
+        },
+      },
+    }),
+  ];
+
+  for (const r of authRoutesRegistry) {
+    app.openapi(r, (c) => c.json({} as never));
+  }
+
   return app.getOpenAPIDocument({
     openapi: '3.1.0',
     info: {

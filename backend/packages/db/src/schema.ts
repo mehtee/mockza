@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   boolean,
   index,
@@ -9,20 +10,34 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 
-export const users = pgTable('users', {
-  userId: uuid('user_id').primaryKey(),
-  email: text('email'),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+export const users = pgTable(
+  'users',
+  {
+    userId: uuid('user_id').primaryKey(),
+    email: text('email'),
+    displayName: text('display_name'),
+    passwordHash: text('password_hash'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('idx_users_email_lower_unique')
+      .on(sql`lower(${table.email})`)
+      .where(sql`${table.email} IS NOT NULL`),
+  ],
+);
 
 export const devices = pgTable('devices', {
   deviceId: uuid('device_id').primaryKey(),
   edition: text('edition').notNull(),
   appVersion: text('app_version'),
+  slotKind: text('slot_kind').default('mobile').notNull(), // 'mobile' | 'desktop_web'
+  platform: text('platform'),
+  deviceName: text('device_name'),
   deviceSecretHash: text('device_secret_hash'),
   tokenVersion: integer('token_version').default(1).notNull(),
   uploadGeneration: integer('upload_generation').default(1).notNull(),
@@ -57,6 +72,60 @@ export const accountLinks = pgTable(
     unique('account_links_provider_subject_unique').on(table.provider, table.providerSubject),
   ],
 );
+
+export const userDeviceSessions = pgTable(
+  'user_device_sessions',
+  {
+    sessionId: uuid('session_id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.userId, { onDelete: 'cascade' }),
+    deviceId: uuid('device_id')
+      .notNull()
+      .references(() => devices.deviceId, { onDelete: 'cascade' }),
+    slotKind: text('slot_kind').notNull(), // 'mobile' | 'desktop_web'
+    platform: text('platform').default('unknown').notNull(),
+    appSurface: text('app_surface').default('flutter_app').notNull(), // 'flutter_app' | 'flutter_web' | 'web_app'
+    deviceName: text('device_name').notNull(),
+    ipMasked: text('ip_masked'),
+    locationLabel: text('location_label').default('Unknown location').notNull(),
+    userAgent: text('user_agent'),
+    authMethod: text('auth_method').notNull(), // 'email' | 'google' | 'apple'
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).defaultNow().notNull(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    revokedReason: text('revoked_reason'),
+  },
+  (table) => [
+    uniqueIndex('uq_active_user_slot')
+      .on(table.userId, table.slotKind)
+      .where(sql`${table.revokedAt} IS NULL`),
+    uniqueIndex('uq_active_device_session')
+      .on(table.deviceId)
+      .where(sql`${table.revokedAt} IS NULL`),
+    index('idx_user_device_sessions_user_active').on(
+      table.userId,
+      table.revokedAt,
+      table.lastSeenAt,
+    ),
+  ],
+);
+
+export const userEntitlements = pgTable('user_entitlements', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.userId, { onDelete: 'cascade' }),
+  provider: text('provider').notNull(),
+  originalAppUserId: text('original_app_user_id'),
+  productId: text('product_id'),
+  isPro: boolean('is_pro').default(false).notNull(),
+  acceptedDevicePolicyAt: timestamp('accepted_device_policy_at', { withTimezone: true }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  graceUntil: timestamp('grace_until', { withTimezone: true }),
+  lastVerifiedAt: timestamp('last_verified_at', { withTimezone: true }),
+  lastEventAt: timestamp('last_event_at', { withTimezone: true }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
 
 export const entitlements = pgTable('entitlements', {
   deviceId: uuid('device_id')

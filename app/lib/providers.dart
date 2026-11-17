@@ -27,6 +27,7 @@ import 'package:mockza/services/native/platform_audio_channel.dart';
 import 'package:mockza/services/network/dio_client.dart';
 import 'package:mockza/services/outbox_sync_service.dart';
 import 'package:mockza/services/secure_identity_service.dart';
+import 'package:mockza/services/social_auth_gateway.dart';
 
 /// Active edition runtime configuration (overridden in `bootstrap`).
 final Provider<EditionConfig> editionConfigProvider = Provider<EditionConfig>(
@@ -121,7 +122,11 @@ final Provider<ProgressRepository> progressRepositoryProvider =
       ),
     );
 
-/// Device JWT handshake & account reset coordinator.
+/// Social OIDC / Dev Sandbox credential gateway provider.
+final Provider<SocialAuthGateway> socialAuthGatewayProvider =
+    Provider<SocialAuthGateway>((ref) => const DefaultSocialAuthGateway());
+
+/// Device JWT handshake, account auth & session termination coordinator.
 final Provider<AuthSessionService> authSessionServiceProvider =
     Provider<AuthSessionService>(
       (ref) => AuthSessionService(
@@ -129,6 +134,16 @@ final Provider<AuthSessionService> authSessionServiceProvider =
         identity: ref.watch(secureIdentityServiceProvider),
         clock: ref.watch(clockProvider),
         crashLog: ref.watch(crashLogProvider),
+        socialAuthGateway: ref.watch(socialAuthGatewayProvider),
+        onRemoteSessionUnlinked: (deviceId) async {
+          try {
+            await ref
+                .read(profileRepositoryProvider)
+                .clearAuthenticatedAccount(deviceId);
+          } on Object {
+            // Ignore in isolated tests without local DB.
+          }
+        },
       ),
     );
 
@@ -221,9 +236,18 @@ final Provider<BillingGateway> billingGatewayProvider =
     ) {
       final edition = ref.watch(editionConfigProvider).edition;
       final identity = ref.watch(secureIdentityServiceProvider);
+      final profileRepo = ref.watch(profileRepositoryProvider);
       return switch (edition) {
         AppEdition.global => RevenueCatBillingGateway(
           resolveAppUserId: () async {
+            try {
+              final profile = await profileRepo.loadOrInitializePrimary();
+              if (profile.appUserId != null && profile.appUserId!.isNotEmpty) {
+                return profile.appUserId;
+              }
+            } on Object {
+              // Fall back to deviceId when DB is unavailable.
+            }
             final res = await identity.getOrCreateDeviceId();
             return res.valueOrNull;
           },

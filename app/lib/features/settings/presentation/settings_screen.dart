@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockza/core/auth/auth_models.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/features/settings/presentation/settings_notifier.dart';
 import 'package:mockza/features/settings/presentation/settings_providers.dart';
@@ -13,6 +14,7 @@ import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
+import 'package:mockza/theme/components/device_session_card.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
@@ -63,7 +65,7 @@ class SettingsScreen extends ConsumerWidget {
             const SizedBox(height: SpacingTokens.sm),
             _buildSubscriptionCard(context, state, notifier),
             const SizedBox(height: SpacingTokens.xl),
-            _buildSectionHeader(context, 'Account & Privacy'),
+            _buildSectionHeader(context, 'Account & Signed-In Devices'),
             const SizedBox(height: SpacingTokens.sm),
             _buildAccountCard(context, state, notifier),
             const SizedBox(height: SpacingTokens.xl),
@@ -435,11 +437,168 @@ class SettingsScreen extends ConsumerWidget {
   ) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
+    final shapes = AppShapes.of(context);
+    final snapshot = state.accountSessions;
+    final user = snapshot?.user;
+    final isSignedIn = (snapshot?.isAuthenticated ?? false) && user != null;
 
     return MzCard(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
+          if (isSignedIn) ...<Widget>[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        user.displayName?.isNotEmpty ?? false
+                            ? user.displayName!
+                            : (user.email ?? 'Signed-in Account'),
+                        style: typography.cardTitle.copyWith(
+                          color: colors.textPrimary,
+                        ),
+                      ),
+                      if (user.email != null &&
+                          user.email!.isNotEmpty) ...<Widget>[
+                        const SizedBox(height: SpacingTokens.xs),
+                        Text(
+                          user.email!,
+                          style: typography.caption.copyWith(
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: SpacingTokens.xs),
+                      Wrap(
+                        spacing: SpacingTokens.xs,
+                        runSpacing: SpacingTokens.xs,
+                        children: user.linkedProviders
+                            .map((p) => MzChip(label: p.displayLabel))
+                            .toList(growable: false),
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: state.isManagingSession
+                      ? null
+                      : () => _confirmSignOutCurrentDevice(context, notifier),
+                  icon: AppIcon(
+                    LucideGlyph.logOut,
+                    size: 16,
+                    color: colors.textPrimary,
+                  ),
+                  label: const Text('Sign Out'),
+                ),
+              ],
+            ),
+            const Divider(height: SpacingTokens.xl),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    'Active Device Slots (1 Phone + 1 Desktop Web)',
+                    style: typography.secondary.copyWith(
+                      color: colors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Refresh active devices',
+                  onPressed: state.isLoadingSessions || state.isManagingSession
+                      ? null
+                      : () => unawaited(notifier.refreshAccountSessions()),
+                  icon: const AppIcon(LucideGlyph.refreshCw, size: 16),
+                ),
+              ],
+            ),
+            const SizedBox(height: SpacingTokens.xs),
+            DeviceSlotCapacityStrip(
+              mobileOccupied: snapshot?.mobileOccupied ?? false,
+              desktopWebOccupied: snapshot?.desktopWebOccupied ?? false,
+            ),
+            const SizedBox(height: SpacingTokens.md),
+            ...(snapshot?.sessions ?? const <DeviceSessionInfo>[]).map(
+              (session) => Padding(
+                padding: const EdgeInsetsDirectional.only(
+                  bottom: SpacingTokens.sm,
+                ),
+                child: DeviceSessionTile(
+                  session: session,
+                  isBusy: state.isManagingSession,
+                  onTerminate: () {
+                    if (session.isCurrentDevice) {
+                      _confirmSignOutCurrentDevice(context, notifier);
+                    } else {
+                      _confirmTerminateRemoteSession(
+                        context,
+                        notifier,
+                        session,
+                      );
+                    }
+                  },
+                ),
+              ),
+            ),
+            if ((snapshot?.sessions.length ?? 0) > 1) ...<Widget>[
+              const SizedBox(height: SpacingTokens.xs),
+              SecondaryButton(
+                label: state.isManagingSession
+                    ? 'Updating Sessions...'
+                    : 'Terminate All Other Devices',
+                isDestructive: true,
+                onPressed: state.isManagingSession
+                    ? null
+                    : () => _confirmTerminateOtherSessions(context, notifier),
+              ),
+            ],
+            const Divider(height: SpacingTokens.xl),
+          ] else ...<Widget>[
+            Container(
+              padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
+              decoration: BoxDecoration(
+                color: colors.surfaceAlt,
+                borderRadius: shapes.controlRadius,
+                border: Border.all(color: colors.borderSubtle),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Text(
+                    'Sign In & Device Protection',
+                    style: typography.body.copyWith(
+                      color: colors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: SpacingTokens.xs),
+                  Text(
+                    'Use your account on 1 Mobile Phone and 1 Desktop Web browser with Google, Apple, or Email & Password.',
+                    style: typography.caption.copyWith(
+                      color: colors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: SpacingTokens.md),
+                  PrimaryButton(
+                    label: 'Sign In or Create Account',
+                    onPressed: () async {
+                      final router = GoRouter.of(context);
+                      await router.push<Object?>(AppRoutes.auth);
+                      if (context.mounted) {
+                        unawaited(notifier.refreshAccountSessions());
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: SpacingTokens.md),
+          ],
           Text(
             'Pseudonymous Device Identifier',
             style: typography.caption.copyWith(color: colors.textSecondary),
@@ -500,6 +659,103 @@ class SettingsScreen extends ConsumerWidget {
             },
           ),
         ],
+      ),
+    );
+  }
+
+  void _confirmSignOutCurrentDevice(
+    BuildContext context,
+    SettingsNotifier notifier,
+  ) {
+    unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Sign Out This Device?'),
+          content: const Text(
+            'Signing out immediately frees this device slot on your account and pauses Pro access on this device until you sign in again.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                unawaited(notifier.signOutCurrentDevice());
+              },
+              child: const Text('Sign Out'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmTerminateRemoteSession(
+    BuildContext context,
+    SettingsNotifier notifier,
+    DeviceSessionInfo session,
+  ) {
+    unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text('Terminate ${session.deviceName}?'),
+          content: Text(
+            'This will immediately sign out ${session.deviceName} (${session.locationLabel}) and open your ${session.slotKind.displayLabel} slot for another device.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.of(context).error,
+              ),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                unawaited(notifier.terminateDeviceSession(session.deviceId));
+              },
+              child: const Text('Terminate Session'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmTerminateOtherSessions(
+    BuildContext context,
+    SettingsNotifier notifier,
+  ) {
+    unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Terminate All Other Devices?'),
+          content: const Text(
+            'Every other signed-in phone or desktop browser will lose access right away while keeping this device signed in.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.of(context).error,
+              ),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                unawaited(notifier.terminateOtherSessions());
+              },
+              child: const Text('Terminate Others'),
+            ),
+          ],
+        ),
       ),
     );
   }

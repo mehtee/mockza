@@ -187,6 +187,61 @@ final class ProfileRepository {
   Future<void> setAppUserId(String deviceId, String appUserId) =>
       _patchProfile(deviceId, appUserId: appUserId);
 
+  /// Binds an authenticated account (`userId`, [email], [isPro]) to [deviceId].
+  Future<void> saveAuthenticatedAccount({
+    required String deviceId,
+    required String userId,
+    String? email,
+    bool? isPro,
+    bool markOnboardingCompleted = false,
+  }) async {
+    final now = _clock.now().toUtc();
+    final existing = await _db.progressDao.getProfile(deviceId);
+    await _db.progressDao.upsertProfile(
+      UserProfilesCompanion.insert(
+        deviceId: existing?.deviceId ?? deviceId,
+        targetBand: Value(existing?.targetBand ?? 7),
+        examModule: Value(existing?.examModule ?? ExamModuleType.academic.name),
+        isPro: Value(isPro ?? existing?.isPro ?? false),
+        examId: Value(existing?.examId ?? 'ielts_academic'),
+        targetDateSerial: Value(existing?.targetDateSerial),
+        onboardingCompleted: Value(
+          markOnboardingCompleted || (existing?.onboardingCompleted ?? false),
+        ),
+        freeDiagnosticUsed: Value(existing?.freeDiagnosticUsed ?? false),
+        themeMode: Value(existing?.themeMode ?? 'system'),
+        linkedEmail: Value(email ?? existing?.linkedEmail),
+        appUserId: Value(userId),
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      ),
+    );
+  }
+
+  /// Unlinks the authenticated account and clears subscriber privileges on sign-out or revocation.
+  Future<void> clearAuthenticatedAccount(String deviceId) async {
+    final now = _clock.now().toUtc();
+    final existing = await _db.progressDao.getProfile(deviceId);
+    if (existing == null) return;
+    await _db.progressDao.upsertProfile(
+      UserProfilesCompanion.insert(
+        deviceId: existing.deviceId,
+        targetBand: Value(existing.targetBand),
+        examModule: Value(existing.examModule),
+        isPro: const Value(false),
+        examId: Value(existing.examId),
+        targetDateSerial: Value(existing.targetDateSerial),
+        onboardingCompleted: Value(existing.onboardingCompleted),
+        freeDiagnosticUsed: Value(existing.freeDiagnosticUsed),
+        themeMode: Value(existing.themeMode),
+        linkedEmail: const Value<String?>(null),
+        appUserId: const Value<String?>(null),
+        createdAt: existing.createdAt,
+        updatedAt: now,
+      ),
+    );
+  }
+
   /// Clears all persisted learner, attempt, vocab, and cache rows in SQLite.
   Future<void> resetAllLocalData() => _db.wipeAllData();
 }

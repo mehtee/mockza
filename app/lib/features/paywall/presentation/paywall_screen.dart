@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mockza/features/paywall/presentation/paywall_notifier.dart';
 import 'package:mockza/features/paywall/presentation/paywall_providers.dart';
 import 'package:mockza/routing/routes.dart';
@@ -12,6 +13,7 @@ import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
+import 'package:mockza/theme/components/device_session_card.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
@@ -70,6 +72,16 @@ class PaywallScreen extends ConsumerWidget {
                 ...state.packages.map(
                   (p) => _buildPackageCard(context, p, state, notifier),
                 ),
+                const SizedBox(height: SpacingTokens.lg),
+                const DevicePolicyNoticeCard(
+                  title: 'Strict 1-Phone + 1-Desktop-Web Subscription Rule',
+                ),
+                const SizedBox(height: SpacingTokens.sm),
+                _buildDevicePolicyConsentBox(context, state, notifier),
+                if (!state.isSignedIn && !state.isPro) ...<Widget>[
+                  const SizedBox(height: SpacingTokens.sm),
+                  _buildSignInPromptCard(context, notifier),
+                ],
                 const SizedBox(height: SpacingTokens.xl),
                 PrimaryButton(
                   label: state.isPro
@@ -80,7 +92,9 @@ class PaywallScreen extends ConsumerWidget {
                   isLoading: state.isBusy,
                   onPressed: state.isPro || state.isBusy || kIsWeb
                       ? null
-                      : () => unawaited(notifier.purchaseSelected()),
+                      : () => unawaited(
+                          notifier.purchaseSelected(requirePolicyConsent: true),
+                        ),
                 ),
                 const SizedBox(height: SpacingTokens.md),
                 Center(
@@ -319,12 +333,119 @@ class PaywallScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildDevicePolicyConsentBox(
+    BuildContext context,
+    PaywallState state,
+    PaywallNotifier notifier,
+  ) {
+    final colors = AppColors.of(context);
+    final shapes = AppShapes.of(context);
+    final typography = AppTypography.of(context);
+
+    return Semantics(
+      toggled: state.hasAcceptedDevicePolicy,
+      button: true,
+      label: 'Agree to strict 1 Mobile Phone and 1 Desktop Web personal-use subscription policy',
+      child: InkWell(
+        onTap: state.isPro ? null : notifier.toggleDevicePolicyConsent,
+        borderRadius: shapes.controlRadius,
+        child: Container(
+          padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
+          decoration: BoxDecoration(
+            color: state.hasAcceptedDevicePolicy
+                ? colors.surfaceAlt
+                : colors.surface,
+            borderRadius: shapes.controlRadius,
+            border: Border.all(
+              color: state.hasAcceptedDevicePolicy
+                  ? colors.primary
+                  : colors.borderSubtle,
+              width: state.hasAcceptedDevicePolicy ? 1.5 : shapes.strokeWidth,
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              AppIcon(
+                state.hasAcceptedDevicePolicy
+                    ? LucideGlyph.checkCircle2
+                    : LucideGlyph.circle,
+                size: 20,
+                color: state.hasAcceptedDevicePolicy
+                    ? colors.primary
+                    : colors.textTertiary,
+              ),
+              const SizedBox(width: SpacingTokens.md),
+              Expanded(
+                child: Text(
+                  'I understand and agree that my subscription permits at most 1 active Mobile Phone and 1 active Desktop Web browser at a time (personal use only; no account sharing).',
+                  style: typography.caption.copyWith(
+                    color: colors.textPrimary,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSignInPromptCard(
+    BuildContext context,
+    PaywallNotifier notifier,
+  ) {
+    final colors = AppColors.of(context);
+    final typography = AppTypography.of(context);
+
+    return MzCard(
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Link Your Account First',
+                  style: typography.body.copyWith(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  'Sign in with Google, Apple, or Email to carry Pro between your phone and Desktop Web.',
+                  style: typography.caption.copyWith(
+                    color: colors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: SpacingTokens.sm),
+          TextButton(
+            onPressed: () async {
+              final router = GoRouter.of(context);
+              await router.push<Object?>(
+                AppRoutes.buildAuth(mode: 'signup'),
+              );
+              if (context.mounted) {
+                unawaited(notifier.refreshAccountLinkState());
+              }
+            },
+            child: const Text('Sign In'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTermsNotice(BuildContext context) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
 
     return Text(
-      'Subscriptions automatically renew unless canceled at least 24 hours before the end of the current period. Manage or cancel anytime in App Store or Google Play account settings.',
+      'Subscriptions are strictly licensed to one individual across at most 1 Mobile Phone and 1 Desktop Web browser and automatically renew unless canceled at least 24 hours before the end of the current period. Manage devices anytime in Settings or cancel in App Store / Google Play account settings.',
       textAlign: TextAlign.center,
       style: typography.caption.copyWith(
         color: colors.textTertiary,

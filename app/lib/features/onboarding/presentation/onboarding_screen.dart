@@ -5,6 +5,7 @@ import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/features/onboarding/presentation/onboarding_notifier.dart';
 import 'package:mockza/features/onboarding/presentation/onboarding_providers.dart';
 import 'package:mockza/l10n/app_localizations.dart';
+import 'package:mockza/routing/routes.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_motion.dart';
@@ -165,6 +166,15 @@ class _ExamSelectionStep extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: typography.caption.copyWith(
                         color: colors.textTertiary,
+                      ),
+                    ),
+                    const SizedBox(height: SpacingTokens.xs),
+                    Center(
+                      child: TextButton(
+                        onPressed: () => context.push(
+                          AppRoutes.buildAuth(returnTo: AppRoutes.home),
+                        ),
+                        child: const Text('Already have an account? Sign in'),
                       ),
                     ),
                   ],

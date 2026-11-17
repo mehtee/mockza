@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockza/features/auth/presentation/auth_screen.dart';
 import 'package:mockza/features/diagnostic/presentation/diagnostic_intro_screen.dart';
 import 'package:mockza/features/diagnostic/presentation/diagnostic_results_screen.dart';
 import 'package:mockza/features/diagnostic/presentation/diagnostic_session_screen.dart';
@@ -106,8 +107,11 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
       if (gateValue == null && !latched) return null;
       final completed = latched || (gateValue ?? false);
       final loc = state.matchedLocation;
-      if (!completed && loc != AppRoutes.onboarding) {
+      if (!completed && loc != AppRoutes.onboarding && loc != AppRoutes.auth) {
         return AppRoutes.onboarding;
+      }
+      if (completed && loc == AppRoutes.onboarding) {
+        return AppRoutes.home;
       }
       return null;
     },
@@ -173,6 +177,13 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.paywall,
         builder: (context, state) => const PaywallScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.auth,
+        builder: (context, state) => AuthScreen(
+          initialIsSignUp: state.uri.queryParameters['mode'] == 'signup',
+          returnTo: state.uri.queryParameters['returnTo'],
+        ),
       ),
       GoRoute(
         path: AppRoutes.diagnosticIntro,

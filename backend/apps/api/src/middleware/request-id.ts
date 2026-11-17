@@ -5,6 +5,7 @@ export interface RequestVariables {
   requestId: string;
   deviceId?: string;
   accountKey?: string;
+  userId?: string | null;
 }
 
 export const requestIdMiddleware: MiddlewareHandler<{ Variables: RequestVariables }> = async (

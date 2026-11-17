@@ -4,7 +4,7 @@ import {
   evaluateQuotaEligibility,
   QuotaExceededDomainError,
 } from '@mockza/domain';
-import { and, eq, or, sql } from 'drizzle-orm';
+import { and, eq, isNull, or, sql } from 'drizzle-orm';
 import type { MockzaDb } from './client.js';
 import {
   dailyQuotaUsage,
@@ -12,6 +12,7 @@ import {
   entitlements,
   monthlyQuotaUsage,
   quotaReservations,
+  userEntitlements,
 } from './schema.js';
 
 export type DbOrTx = MockzaDb | Parameters<Parameters<MockzaDb['transaction']>[0]>[0];
@@ -59,14 +60,28 @@ export async function getAccountQuotaStatus(params: {
     .from(entitlements)
     .where(
       isLinkedUser
-        ? or(eq(entitlements.deviceId, params.deviceId), eq(entitlements.userId, params.accountKey))
-        : eq(entitlements.deviceId, params.deviceId),
+        ? or(
+            and(eq(entitlements.deviceId, params.deviceId), isNull(entitlements.userId)),
+            eq(entitlements.userId, params.accountKey),
+          )
+        : and(eq(entitlements.deviceId, params.deviceId), isNull(entitlements.userId)),
     );
 
-  const isPro = entRows.some(
-    (e) =>
-      e.isPro && (!e.expiresAt || e.expiresAt > now || Boolean(e.graceUntil && e.graceUntil > now)),
-  );
+  const userEntRows = isLinkedUser
+    ? await params.db
+        .select({
+          isPro: userEntitlements.isPro,
+          expiresAt: userEntitlements.expiresAt,
+          graceUntil: userEntitlements.graceUntil,
+        })
+        .from(userEntitlements)
+        .where(eq(userEntitlements.userId, params.accountKey))
+    : [];
+
+  const isEntActive = (e: { isPro: boolean; expiresAt: Date | null; graceUntil: Date | null }) =>
+    e.isPro && (!e.expiresAt || e.expiresAt > now || Boolean(e.graceUntil && e.graceUntil > now));
+
+  const isPro = entRows.some(isEntActive) || userEntRows.some(isEntActive);
 
   const dailyKey = `${params.accountKey}:${utcDay}`;
   const dailyRows = await params.db

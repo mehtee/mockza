@@ -1,7 +1,14 @@
 import { timingSafeEqual } from 'node:crypto';
 import { type OpenAPIHono, z } from '@hono/zod-openapi';
 import type { AppEnv } from '@mockza/config';
-import { devices, entitlements, type MockzaDb, users, webhookEvents } from '@mockza/db';
+import {
+  devices,
+  entitlements,
+  type MockzaDb,
+  userEntitlements,
+  users,
+  webhookEvents,
+} from '@mockza/db';
 import { and, eq, inArray, isNull, lte, or } from 'drizzle-orm';
 import type { RequestVariables } from '../middleware/request-id.js';
 
@@ -52,14 +59,17 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 
 type DbTx = Parameters<Parameters<MockzaDb['transaction']>[0]>[0] | MockzaDb;
 
-async function findMatchingDevicesForIds(
+async function findMatchingTargets(
   tx: DbTx,
   rawIds: Array<string | undefined>,
-): Promise<Array<{ deviceId: string; linkedUserId: string | null }>> {
+): Promise<{
+  devices: Array<{ deviceId: string; linkedUserId: string | null }>;
+  userIds: string[];
+}> {
   const validIds = Array.from(
     new Set(rawIds.filter((id): id is string => Boolean(id && UUID_REGEX.test(id)))),
   );
-  if (validIds.length === 0) return [];
+  if (validIds.length === 0) return { devices: [], userIds: [] };
 
   const matchingUsers = await tx
     .select({ userId: users.userId })
@@ -67,7 +77,7 @@ async function findMatchingDevicesForIds(
     .where(inArray(users.userId, validIds));
   const userIds = matchingUsers.map((u) => u.userId);
 
-  return tx
+  const matchedDevices = await tx
     .select({
       deviceId: devices.deviceId,
       linkedUserId: devices.linkedUserId,
@@ -78,6 +88,8 @@ async function findMatchingDevicesForIds(
         ? or(inArray(devices.deviceId, validIds), inArray(devices.linkedUserId, userIds))
         : inArray(devices.deviceId, validIds),
     );
+
+  return { devices: matchedDevices, userIds };
 }
 
 async function atomicConditionalUpsertEntitlement(params: {
@@ -124,6 +136,50 @@ async function atomicConditionalUpsertEntitlement(params: {
       setWhere: or(
         isNull(entitlements.lastEventAt),
         lte(entitlements.lastEventAt, params.eventTime),
+      ),
+    });
+}
+
+async function atomicConditionalUpsertUserEntitlement(params: {
+  tx: DbTx;
+  userId: string;
+  originalAppUserId: string;
+  productId: string | null;
+  isPro: boolean;
+  expiresAt: Date | null;
+  graceUntil: Date | null;
+  eventTime: Date;
+  now: Date;
+}): Promise<void> {
+  await params.tx
+    .insert(userEntitlements)
+    .values({
+      userId: params.userId,
+      provider: 'revenuecat',
+      originalAppUserId: params.originalAppUserId,
+      productId: params.productId,
+      isPro: params.isPro,
+      expiresAt: params.expiresAt,
+      graceUntil: params.graceUntil,
+      lastVerifiedAt: params.now,
+      lastEventAt: params.eventTime,
+      updatedAt: params.now,
+    })
+    .onConflictDoUpdate({
+      target: userEntitlements.userId,
+      set: {
+        originalAppUserId: params.originalAppUserId,
+        productId: params.productId ?? userEntitlements.productId,
+        isPro: params.isPro,
+        expiresAt: params.expiresAt,
+        graceUntil: params.graceUntil,
+        lastVerifiedAt: params.now,
+        lastEventAt: params.eventTime,
+        updatedAt: params.now,
+      },
+      setWhere: or(
+        isNull(userEntitlements.lastEventAt),
+        lte(userEntitlements.lastEventAt, params.eventTime),
       ),
     });
 }
@@ -175,8 +231,8 @@ export async function applyRevenueCatEventTx(params: {
   }
 
   if (isTransfer && event.transferred_from && event.transferred_from.length > 0) {
-    const sourceDevices = await findMatchingDevicesForIds(tx, event.transferred_from);
-    for (const src of sourceDevices) {
+    const source = await findMatchingTargets(tx, event.transferred_from);
+    for (const src of source.devices) {
       await atomicConditionalUpsertEntitlement({
         tx,
         deviceId: src.deviceId,
@@ -190,19 +246,58 @@ export async function applyRevenueCatEventTx(params: {
         now,
       });
     }
+    const sourceUserIds = Array.from(
+      new Set([
+        ...source.userIds,
+        ...source.devices.map((d) => d.linkedUserId).filter((id): id is string => Boolean(id)),
+      ]),
+    );
+    for (const srcUid of sourceUserIds) {
+      await atomicConditionalUpsertUserEntitlement({
+        tx,
+        userId: srcUid,
+        originalAppUserId: event.transferred_from[0] ?? srcUid,
+        productId: event.product_id ?? null,
+        isPro: false,
+        expiresAt: null,
+        graceUntil: null,
+        eventTime,
+        now,
+      });
+    }
   }
 
-  const targetDevices = await findMatchingDevicesForIds(tx, targetRawIds);
-  if (targetDevices.length === 0) {
+  const target = await findMatchingTargets(tx, targetRawIds);
+  const allTargetUserIds = Array.from(
+    new Set([
+      ...target.userIds,
+      ...target.devices.map((d) => d.linkedUserId).filter((id): id is string => Boolean(id)),
+    ]),
+  );
+  if (target.devices.length === 0 && allTargetUserIds.length === 0) {
     return { matched: false, primaryIdentity };
   }
 
-  for (const target of targetDevices) {
+  for (const targetDev of target.devices) {
     await atomicConditionalUpsertEntitlement({
       tx,
-      deviceId: target.deviceId,
-      userId: target.linkedUserId,
-      originalAppUserId: event.app_user_id ?? primaryIdentity ?? target.deviceId,
+      deviceId: targetDev.deviceId,
+      userId: targetDev.linkedUserId,
+      originalAppUserId: event.app_user_id ?? primaryIdentity ?? targetDev.deviceId,
+      productId: event.product_id ?? null,
+      isPro: nextIsPro,
+      expiresAt,
+      graceUntil,
+      eventTime,
+      now,
+    });
+  }
+
+  for (const targetUid of allTargetUserIds) {
+    await atomicConditionalUpsertUserEntitlement({
+      tx,
+      userId: targetUid,
+      originalAppUserId: event.app_user_id ?? primaryIdentity ?? targetUid,
       productId: event.product_id ?? null,
       isPro: nextIsPro,
       expiresAt,

@@ -1,4 +1,5 @@
 import 'package:meta/meta.dart';
+import 'package:mockza/core/auth/auth_models.dart';
 
 /// Base sealed failure hierarchy for domain, storage, and gateway operations.
 @immutable
@@ -83,6 +84,18 @@ final class ValidationFailure extends Failure {
 
   @override
   String get code => 'validation_error';
+}
+
+/// Account already has the maximum allowed active device(s) in this slot (`HTTP 409`).
+final class DeviceSlotLimitFailure extends Failure {
+  /// Creates a [DeviceSlotLimitFailure].
+  const new(super.message, {this.conflict});
+
+  /// Details about the already-signed-in device occupying the slot.
+  final OccupyingDeviceConflict? conflict;
+
+  @override
+  String get code => 'device_slot_limit_reached';
 }
 
 /// Fallback failure when an unexpected boundary error occurs.

@@ -28,6 +28,9 @@ load_env() {
 
   export EDITION="${MOCKZA_EDITION:-glb}"
   export NODE_ENV="${NODE_ENV:-development}"
+  if [[ "${NODE_ENV}" != "production" ]]; then
+    export ALLOW_DEV_AUTH_PROVIDERS="${ALLOW_DEV_AUTH_PROVIDERS:-true}"
+  fi
   export PORT="${MOCKZA_API_PORT:-45281}"
   export MOCKZA_PG_PORT="${MOCKZA_PG_PORT:-45432}"
   export MOCKZA_S3_PORT="${MOCKZA_S3_PORT:-45833}"

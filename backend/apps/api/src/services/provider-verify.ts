@@ -1,16 +1,21 @@
 import { createPublicKey, verify as cryptoVerify, type JsonWebKey } from 'node:crypto';
-import type { AppEnv } from '@mockza/config';
+import { type AppEnv, parseProviderClientIds } from '@mockza/config';
 
 export interface VerifiedProviderClaims {
   provider: 'apple' | 'google';
   sub: string;
   email?: string;
+  emailVerified?: boolean;
+  name?: string;
 }
 
 export type VerifyProviderTokenFn = (params: {
   provider: 'apple' | 'google';
   idToken: string;
-  env: Pick<AppEnv, 'APPLE_CLIENT_ID' | 'GOOGLE_CLIENT_ID'>;
+  env: Pick<AppEnv, 'APPLE_CLIENT_ID' | 'GOOGLE_CLIENT_ID'> & {
+    NODE_ENV?: AppEnv['NODE_ENV'];
+    ALLOW_DEV_AUTH_PROVIDERS?: boolean;
+  };
 }) => Promise<VerifiedProviderClaims>;
 
 export class ProviderTokenError extends Error {
@@ -66,13 +71,66 @@ function decodeBase64UrlJson<T>(segment: string): T {
   return JSON.parse(json) as T;
 }
 
+export const DEV_OAUTH_TOKEN_PREFIX = 'mockza_dev_oauth_v1.';
+
+interface DevOAuthTokenPayload {
+  provider?: string;
+  sub?: string;
+  email?: string;
+  name?: string;
+}
+
 /**
  * Cryptographically verifies Apple/Google OIDC ID tokens using provider JWKS,
- * strict issuer, audience, expiration, and subject validation.
+ * strict issuer, audience, expiration, and subject validation, with explicit
+ * opt-in dev sandbox tokens disabled in production.
  */
 export const verifyProviderIdToken: VerifyProviderTokenFn = async ({ provider, idToken, env }) => {
-  const expectedAudience = provider === 'apple' ? env.APPLE_CLIENT_ID : env.GOOGLE_CLIENT_ID;
-  if (!expectedAudience) {
+  const rawAudience = provider === 'apple' ? env.APPLE_CLIENT_ID : env.GOOGLE_CLIENT_ID;
+  const expectedAudiences = parseProviderClientIds(rawAudience);
+
+  if (idToken.startsWith(DEV_OAUTH_TOKEN_PREFIX)) {
+    const devSandboxAllowed =
+      env.NODE_ENV !== 'production' && env.ALLOW_DEV_AUTH_PROVIDERS === true;
+    if (!devSandboxAllowed) {
+      throw new ProviderTokenError(
+        'unauthorized',
+        'Dev sandbox provider tokens are disabled in this environment.',
+        401,
+      );
+    }
+    const encoded = idToken.slice(DEV_OAUTH_TOKEN_PREFIX.length).trim();
+    if (!encoded) {
+      throw new ProviderTokenError('unauthorized', 'Malformed dev OAuth sandbox token.', 401);
+    }
+    let decoded: DevOAuthTokenPayload;
+    try {
+      decoded = decodeBase64UrlJson<DevOAuthTokenPayload>(encoded);
+    } catch {
+      throw new ProviderTokenError('unauthorized', 'Invalid dev OAuth sandbox payload.', 401);
+    }
+    if (decoded.provider && decoded.provider !== provider) {
+      throw new ProviderTokenError('unauthorized', 'Dev OAuth provider mismatch.', 401);
+    }
+    if (typeof decoded.sub !== 'string' || decoded.sub.trim().length === 0) {
+      throw new ProviderTokenError('unauthorized', 'Dev OAuth sandbox missing subject.', 401);
+    }
+    return {
+      provider,
+      sub: decoded.sub.trim(),
+      email:
+        typeof decoded.email === 'string' && decoded.email.trim().length > 0
+          ? decoded.email.trim().toLowerCase()
+          : undefined,
+      emailVerified: true,
+      name:
+        typeof decoded.name === 'string' && decoded.name.trim().length > 0
+          ? decoded.name.trim()
+          : undefined,
+    };
+  }
+
+  if (expectedAudiences.length === 0) {
     throw new ProviderTokenError(
       'provider_not_configured',
       `${provider} sign-in client ID is not configured on this server.`,
@@ -92,6 +150,8 @@ export const verifyProviderIdToken: VerifyProviderTokenFn = async ({ provider, i
     sub?: string;
     exp?: number;
     email?: string;
+    email_verified?: boolean | string;
+    name?: string;
   };
   try {
     header = decodeBase64UrlJson(parts[0]);
@@ -114,8 +174,8 @@ export const verifyProviderIdToken: VerifyProviderTokenFn = async ({ provider, i
   }
 
   const audMatches = Array.isArray(payload.aud)
-    ? payload.aud.includes(expectedAudience)
-    : payload.aud === expectedAudience;
+    ? payload.aud.some((aud) => expectedAudiences.includes(aud))
+    : typeof payload.aud === 'string' && expectedAudiences.includes(payload.aud);
   if (!audMatches) {
     throw new ProviderTokenError('unauthorized', 'Provider token audience mismatch.');
   }
@@ -167,6 +227,14 @@ export const verifyProviderIdToken: VerifyProviderTokenFn = async ({ provider, i
     provider,
     sub: payload.sub.trim(),
     email:
-      typeof payload.email === 'string' && payload.email.length > 0 ? payload.email : undefined,
+      typeof payload.email === 'string' && payload.email.length > 0
+        ? payload.email.trim().toLowerCase()
+        : undefined,
+    emailVerified:
+      payload.email_verified === true || payload.email_verified === 'true' ? true : undefined,
+    name:
+      typeof payload.name === 'string' && payload.name.trim().length > 0
+        ? payload.name.trim()
+        : undefined,
   };
 };

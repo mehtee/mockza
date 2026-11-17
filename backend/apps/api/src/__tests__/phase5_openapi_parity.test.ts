@@ -50,9 +50,19 @@ describe('Phase 5: OpenAPI Parity, Media Security Headers & Aggregate Upload Lim
 
     const registeredRoutes = new Set(app.routes.map((r) => `${r.method.toUpperCase()} ${r.path}`));
     for (const sig of [
+      'GET /v1/auth/providers',
       'POST /v1/auth/anonymous',
       'GET /v1/auth/challenge',
+      'POST /v1/auth/register',
+      'POST /v1/auth/login',
+      'POST /v1/auth/oauth',
       'POST /v1/auth/link',
+      'POST /v1/auth/logout',
+      'GET /v1/account/me',
+      'GET /v1/account/devices',
+      'DELETE /v1/account/devices/:targetDeviceId',
+      'POST /v1/account/devices/revoke-others',
+      'POST /v1/account/device-policy-consent',
       'DELETE /v1/account',
       'GET /v1/jobs/:jobId/events',
       'POST /v1/webhooks/revenuecat',

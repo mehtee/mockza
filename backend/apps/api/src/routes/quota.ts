@@ -6,13 +6,15 @@ import { getNextUtcDayReset, getNextUtcMonthReset } from '@mockza/domain';
 import { createDeviceAuthMiddleware } from '../middleware/auth.js';
 import type { RequestVariables } from '../middleware/request-id.js';
 import { getAccountQuotaStatus } from '../services/quota.js';
+import type { SessionManager } from '../services/session-manager.js';
 
 export function registerQuotaRoutes(
   app: OpenAPIHono<{ Variables: RequestVariables }>,
   env: AppEnv,
   db?: MockzaDb,
+  sessionManager?: SessionManager,
 ): void {
-  const authMiddleware = createDeviceAuthMiddleware(env, db);
+  const authMiddleware = createDeviceAuthMiddleware(env, db, sessionManager);
   app.use('/v1/quota/*', authMiddleware);
 
   const getQuotaRoute = createRoute({
@@ -59,16 +61,20 @@ export function registerQuotaRoutes(
       );
     }
 
+    const isProMemory = sessionManager
+      ? await sessionManager.isUserOrDevicePro({ deviceId, accountKey })
+      : false;
+
     return c.json(
       QuotaStatusResponseSchema.parse({
-        isPro: false,
+        isPro: isProMemory,
         freeDiagnosticUsed: false,
         dailySpeakingUsed: 0,
-        dailySpeakingLimit: 1,
+        dailySpeakingLimit: isProMemory ? 10 : 1,
         dailyWritingUsed: 0,
-        dailyWritingLimit: 1,
+        dailyWritingLimit: isProMemory ? 10 : 1,
         monthlyUsed: 0,
-        monthlyLimit: 1,
+        monthlyLimit: isProMemory ? 150 : 1,
         dailyResetAt: getNextUtcDayReset(),
         monthlyResetAt: getNextUtcMonthReset(),
       }),

@@ -30,6 +30,7 @@ import { registerQuotaRoutes } from './routes/quota.js';
 import { registerUploadRoutes } from './routes/uploads.js';
 import { registerBillingWebhookRoutes } from './routes/webhooks-revenuecat.js';
 import type { VerifyProviderTokenFn } from './services/provider-verify.js';
+import { createSessionManager } from './services/session-manager.js';
 
 export interface ApiAppDependencies {
   db?: MockzaDb;
@@ -47,6 +48,7 @@ export function createApiApp(
 ): OpenAPIHono<{ Variables: RequestVariables }> {
   const app = new OpenAPIHono<{ Variables: RequestVariables }>();
   const challengeStore = createChallengeStore(deps.db);
+  const sessionManager = createSessionManager(env, deps.db);
 
   const trustedProxyIps = new Set(
     (env.TRUSTED_PROXY_IPS ?? '127.0.0.1,::1')
@@ -103,6 +105,7 @@ export function createApiApp(
   registerAuthRoutes(app, env, deps.db, {
     challengeStore,
     verifyProviderToken: deps.verifyProviderToken,
+    sessionManager,
   });
   registerUploadRoutes(app, env, deps.db, deps.s3Client);
   registerMediaRoutes(app, env, deps.s3Client);
@@ -111,10 +114,10 @@ export function createApiApp(
   registerEvaluateRoutes(app, env, deps.db, deps.boss, deps.s3Client, deps.isQueueReady);
   registerDiagnosticRoutes(app, env, deps.db, deps.boss, deps.s3Client, deps.isQueueReady);
   registerJobRoutes(app, env, deps.db);
-  registerQuotaRoutes(app, env, deps.db);
+  registerQuotaRoutes(app, env, deps.db, sessionManager);
   registerCatalogRoutes(app, env, deps.db);
   registerBillingWebhookRoutes(app, env, deps.db);
-  registerAccountRoutes(app, env, deps.db, deps.s3Client);
+  registerAccountRoutes(app, env, deps.db, deps.s3Client, sessionManager);
   registerFeedbackRoutes(app, env, deps.db);
 
   app.doc('/openapi.json', {

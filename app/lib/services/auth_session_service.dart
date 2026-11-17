@@ -2,13 +2,17 @@ import 'dart:convert';
 
 import 'package:clock/clock.dart';
 import 'package:dio/dio.dart';
+import 'package:mockza/core/auth/auth_models.dart';
 import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/result/failure.dart';
 import 'package:mockza/core/result/result.dart';
 import 'package:mockza/services/crash_log.dart';
+import 'package:mockza/services/device_meta_platform.dart';
 import 'package:mockza/services/secure_identity_service.dart';
+import 'package:mockza/services/social_auth_gateway.dart';
 
-/// Coordinates pseudonymous device JWT issuance, refresh, and account deletion.
+/// Coordinates device JWT issuance, account auth (Email/Google/Apple),
+/// strict 1-phone + 1-desktop-web slot enforcement, and active session management.
 final class AuthSessionService {
   /// Creates an [AuthSessionService].
   new({
@@ -17,8 +21,14 @@ final class AuthSessionService {
     required this._clock,
     required this._crashLog,
     Dio? authDio,
+    SocialAuthGateway? socialAuthGateway,
+    DeviceClientMeta Function()? readDeviceMeta,
+    this.onRemoteSessionUnlinked,
     this.appVersion = '1.0.0',
   }) : _config = config,
+       _socialAuthGateway =
+           socialAuthGateway ?? const DefaultSocialAuthGateway(),
+       _readDeviceMeta = readDeviceMeta ?? readPlatformDeviceMeta,
        _authDio =
            authDio ??
            Dio(
@@ -45,8 +55,13 @@ final class AuthSessionService {
   final Clock _clock;
   final CrashLog _crashLog;
   final Dio _authDio;
+  final SocialAuthGateway _socialAuthGateway;
+  final DeviceClientMeta Function() _readDeviceMeta;
 
-  /// Reported application semantic version sent on device handshake.
+  /// Optional callback invoked when backend reports this device is unlinked after termination.
+  final Future<void> Function(String deviceId)? onRemoteSessionUnlinked;
+
+  /// Reported application semantic version sent on auth handshakes.
   final String appVersion;
 
   Future<Result<String, Failure>>? _inflightAuth;
@@ -106,6 +121,7 @@ final class AuthSessionService {
         data: <String, Object?>{
           'deviceId': deviceId,
           'appVersion': appVersion,
+          'deviceMeta': _readDeviceMeta().toJson(),
           if (deviceSecret != null && deviceSecret.isNotEmpty)
             'deviceSecret': deviceSecret,
         },
@@ -129,6 +145,14 @@ final class AuthSessionService {
         await _identity.saveDeviceSecret(returnedSecret);
       }
       await _identity.saveAccessToken(token);
+
+      final linkedUserId = data?['linkedUserId'] as String?;
+      if ((linkedUserId == null || linkedUserId.isEmpty) &&
+          data != null &&
+          data.containsKey('linkedUserId')) {
+        await onRemoteSessionUnlinked?.call(deviceId);
+      }
+
       _crashLog.info(
         'Authenticated anonymous session for ${_config.edition.code}',
       );
@@ -144,6 +168,299 @@ final class AuthSessionService {
       _crashLog.recordError(e, st);
       return const Err(NetworkFailure('Anonymous authentication error'));
     }
+  }
+
+  /// Queries `GET /v1/auth/providers` for configured OAuth/sandbox modes and slot policy.
+  Future<Result<AuthProvidersCatalog, Failure>> fetchAuthProviders() async {
+    try {
+      final res = await _authDio.get<Map<String, Object?>>(
+        '/v1/auth/providers',
+      );
+      final data = res.data;
+      if (data == null) {
+        return const Ok(AuthProvidersCatalog.fallback);
+      }
+      return Ok(AuthProvidersCatalog.fromJson(data));
+    } on DioException catch (e) {
+      return Err(
+        _mapDioFailure(
+          e,
+          fallbackMessage: 'Unable to reach auth configuration.',
+        ),
+      );
+    } on Object catch (e) {
+      return Err(NetworkFailure('Auth discovery error: $e'));
+    }
+  }
+
+  /// Creates an email & password account and claims the caller's device slot.
+  Future<Result<AuthSessionResult, Failure>> registerWithEmail({
+    required String email,
+    required String password,
+    String? displayName,
+  }) => _submitAuthCredential(
+    path: '/v1/auth/register',
+    payload: <String, Object?>{
+      'email': email.trim(),
+      'password': password,
+      if (displayName != null && displayName.trim().isNotEmpty)
+        'displayName': displayName.trim(),
+    },
+    fallbackMessage: 'Account registration failed.',
+  );
+
+  /// Signs in with email & password under strict `1 mobile + 1 desktop_web` enforcement.
+  Future<Result<AuthSessionResult, Failure>> signInWithEmail({
+    required String email,
+    required String password,
+  }) => _submitAuthCredential(
+    path: '/v1/auth/login',
+    payload: <String, Object?>{
+      'email': email.trim(),
+      'password': password,
+    },
+    fallbackMessage: 'Sign-in failed.',
+  );
+
+  /// Acquires a Google or Apple token via [SocialAuthGateway] and exchanges it with `/v1/auth/oauth`.
+  Future<Result<AuthSessionResult, Failure>> signInWithSocial({
+    required AuthProviderType provider,
+    required SocialProviderDescriptor descriptor,
+    DevSocialPersona? sandboxPersona,
+  }) async {
+    final tokenResult = await _socialAuthGateway.acquireIdToken(
+      provider: provider,
+      descriptor: descriptor,
+      sandboxPersona: sandboxPersona,
+    );
+    switch (tokenResult) {
+      case Err<({String idToken, String? displayName}), Failure>(
+        :final failure,
+      ):
+        return Err(failure);
+      case Ok<({String idToken, String? displayName}), Failure>(:final value):
+        return await _submitAuthCredential(
+          path: '/v1/auth/oauth',
+          payload: <String, Object?>{
+            'provider': provider.wireValue,
+            'idToken': value.idToken,
+            if (value.displayName != null &&
+                value.displayName!.trim().isNotEmpty)
+              'displayName': value.displayName!.trim(),
+          },
+          fallbackMessage: '${provider.displayLabel} sign-in failed.',
+        );
+    }
+  }
+
+  Future<Result<AuthSessionResult, Failure>> _submitAuthCredential({
+    required String path,
+    required Map<String, Object?> payload,
+    required String fallbackMessage,
+  }) async {
+    final deviceResult = await _identity.getOrCreateDeviceId();
+    final String deviceId;
+    switch (deviceResult) {
+      case Ok<String, Failure>(:final value):
+        deviceId = value;
+      case Err<String, Failure>(:final failure):
+        return Err(failure);
+    }
+
+    try {
+      final deviceSecret = await _identity.readDeviceSecret();
+      final currentToken = await _identity.readAccessToken();
+      final res = await _authDio.post<Map<String, Object?>>(
+        path,
+        data: <String, Object?>{
+          ...payload,
+          'deviceId': deviceId,
+          'appVersion': appVersion,
+          'deviceMeta': _readDeviceMeta().toJson(),
+          if (deviceSecret != null && deviceSecret.isNotEmpty)
+            'deviceSecret': deviceSecret,
+        },
+        options: (currentToken != null && currentToken.isNotEmpty)
+            ? Options(
+                headers: <String, Object?>{
+                  'authorization': 'Bearer $currentToken',
+                },
+              )
+            : null,
+      );
+      final data = res.data;
+      if (data == null) {
+        return const Err(ValidationFailure('Empty authentication response.'));
+      }
+      final bundle = AuthSessionResult.fromJson(data);
+      if (bundle.accessToken.isEmpty) {
+        return const Err(
+          ValidationFailure('Authentication response missing accessToken.'),
+        );
+      }
+      if (bundle.deviceSecret != null && bundle.deviceSecret!.isNotEmpty) {
+        await _identity.saveDeviceSecret(bundle.deviceSecret!);
+      }
+      await _identity.saveAccessToken(bundle.accessToken);
+      return Ok(bundle);
+    } on DioException catch (e) {
+      return Err(_mapDioFailure(e, fallbackMessage: fallbackMessage));
+    } on Object catch (e) {
+      return Err(UnexpectedFailure('Authentication error: $e'));
+    }
+  }
+
+  /// Signs out the current device on the server (`POST /v1/auth/logout`) and stores downgraded token.
+  Future<Result<void, Failure>> signOutCurrentDevice() async {
+    final res = await _authorizedCall<Map<String, Object?>>(
+      (headers) => _authDio.post<Map<String, Object?>>(
+        '/v1/auth/logout',
+        options: Options(headers: headers),
+      ),
+      fallbackMessage: 'Sign-out failed.',
+    );
+    switch (res) {
+      case Err<Map<String, Object?>, Failure>(:final failure):
+        return Err(failure);
+      case Ok<Map<String, Object?>, Failure>(:final value):
+        final newToken = value['accessToken'] as String?;
+        final deviceId = value['deviceId'] as String?;
+        if (newToken != null && newToken.isNotEmpty) {
+          await _identity.saveAccessToken(newToken);
+        }
+        if (deviceId != null && deviceId.isNotEmpty) {
+          await onRemoteSessionUnlinked?.call(deviceId);
+        }
+        return const Ok(null);
+    }
+  }
+
+  /// Fetches active signed-in devices & slot occupancy (`GET /v1/account/devices`).
+  Future<Result<AccountSessionsSnapshot, Failure>>
+  fetchAccountSessions() async {
+    final res = await _authorizedCall<Map<String, Object?>>(
+      (headers) => _authDio.get<Map<String, Object?>>(
+        '/v1/account/devices',
+        options: Options(headers: headers),
+      ),
+      fallbackMessage: 'Could not load signed-in devices.',
+    );
+    return res.map(AccountSessionsSnapshot.fromJson);
+  }
+
+  /// Remotely terminates [targetDeviceId] via `DELETE /v1/account/devices/:targetDeviceId`.
+  Future<
+    Result<
+      ({
+        List<String> revokedDeviceIds,
+        bool signedOutCurrentDevice,
+        List<DeviceSessionInfo> sessions,
+      }),
+      Failure
+    >
+  >
+  terminateDeviceSession(String targetDeviceId) async {
+    final res = await _authorizedCall<Map<String, Object?>>(
+      (headers) => _authDio.delete<Map<String, Object?>>(
+        '/v1/account/devices/$targetDeviceId',
+        options: Options(headers: headers),
+      ),
+      fallbackMessage: 'Could not terminate selected device.',
+    );
+    switch (res) {
+      case Err<Map<String, Object?>, Failure>(:final failure):
+        return Err(failure);
+      case Ok<Map<String, Object?>, Failure>(:final value):
+        final revoked =
+            (value['revokedDeviceIds'] as List<Object?>? ?? const [])
+                .whereType<String>()
+                .toList(growable: false);
+        final signedOutSelf = value['signedOutCurrentDevice'] == true;
+        final sessions = (value['sessions'] as List<Object?>? ?? const [])
+            .whereType<Map<String, Object?>>()
+            .map(DeviceSessionInfo.fromJson)
+            .toList(growable: false);
+        if (signedOutSelf) {
+          await ensureAuthenticated(forceRefresh: true);
+        }
+        return Ok((
+          revokedDeviceIds: revoked,
+          signedOutCurrentDevice: signedOutSelf,
+          sessions: sessions,
+        ));
+    }
+  }
+
+  /// Terminates all signed-in devices except this one (`POST /v1/account/devices/revoke-others`).
+  Future<Result<List<DeviceSessionInfo>, Failure>>
+  terminateOtherSessions() async {
+    final res = await _authorizedCall<Map<String, Object?>>(
+      (headers) => _authDio.post<Map<String, Object?>>(
+        '/v1/account/devices/revoke-others',
+        options: Options(headers: headers),
+      ),
+      fallbackMessage: 'Could not sign out other devices.',
+    );
+    return res.map((data) {
+      final raw = data['sessions'] as List<Object?>? ?? const [];
+      return raw
+          .whereType<Map<String, Object?>>()
+          .map(DeviceSessionInfo.fromJson)
+          .toList(growable: false);
+    });
+  }
+
+  /// Records acceptance of the strict 1-phone + 1-desktop-web policy before subscribing.
+  Future<Result<AccountUserSummary, Failure>>
+  recordDevicePolicyConsent() async {
+    final res = await _authorizedCall<Map<String, Object?>>(
+      (headers) => _authDio.post<Map<String, Object?>>(
+        '/v1/account/device-policy-consent',
+        options: Options(headers: headers),
+      ),
+      fallbackMessage: 'Could not save subscription policy consent.',
+    );
+    return res.map(AccountUserSummary.fromJson);
+  }
+
+  Future<Result<T, Failure>> _authorizedCall<T>(
+    Future<Response<T>> Function(Map<String, Object?> headers) requestFn, {
+    required String fallbackMessage,
+  }) async {
+    final authRes = await ensureAuthenticated();
+    var token = authRes.valueOrNull;
+    if (token == null || token.isEmpty) {
+      return Err(
+        authRes.failureOrNull ??
+            const UnauthorizedFailure('Authentication required.'),
+      );
+    }
+
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final response = await requestFn(<String, Object?>{
+          'authorization': 'Bearer $token',
+        });
+        final data = response.data;
+        if (data == null) {
+          return const Err(ValidationFailure('Empty server response.'));
+        }
+        return Ok(data);
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 401 && attempt == 0) {
+          final refreshed = await ensureAuthenticated(forceRefresh: true);
+          final freshToken = refreshed.valueOrNull;
+          if (freshToken != null && freshToken.isNotEmpty) {
+            token = freshToken;
+            continue;
+          }
+        }
+        return Err(_mapDioFailure(e, fallbackMessage: fallbackMessage));
+      } on Object catch (e) {
+        return Err(UnexpectedFailure('$fallbackMessage ($e)'));
+      }
+    }
+    return Err(UnexpectedFailure(fallbackMessage));
   }
 
   /// Refreshes and returns the bearer token string for [Dio] retry interceptors.
@@ -244,6 +561,52 @@ final class AuthSessionService {
     } on Object catch (e) {
       return Err(UnexpectedFailure('Account deletion error: $e'));
     }
+  }
+
+  Failure _mapDioFailure(
+    DioException e, {
+    required String fallbackMessage,
+  }) {
+    final status = e.response?.statusCode;
+    final body = e.response?.data;
+    String? serverCode;
+    String? serverMessage;
+    Map<String, Object?>? details;
+
+    if (body is Map<Object?, Object?>) {
+      serverCode = body['code'] as String?;
+      serverMessage = body['message'] as String?;
+      final rawDetails = body['details'];
+      if (rawDetails is Map<Object?, Object?>) {
+        details = rawDetails.map(
+          (k, v) => MapEntry(k?.toString() ?? '', v),
+        );
+      }
+    }
+
+    final resolvedMessage =
+        (serverMessage != null && serverMessage.trim().isNotEmpty)
+        ? serverMessage
+        : fallbackMessage;
+
+    if (status == 409 &&
+        serverCode == 'device_slot_limit_reached' &&
+        details != null) {
+      return DeviceSlotLimitFailure(
+        resolvedMessage,
+        conflict: OccupyingDeviceConflict.fromErrorDetails(details),
+      );
+    }
+    if (status == 401 || serverCode == 'invalid_credentials') {
+      return UnauthorizedFailure(resolvedMessage);
+    }
+    if (status == 400 || status == 409) {
+      return ValidationFailure(resolvedMessage);
+    }
+    return NetworkFailure(
+      resolvedMessage,
+      statusCode: status,
+    );
   }
 
   bool _isTokenFresh(String token) {

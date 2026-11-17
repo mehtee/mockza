@@ -3,6 +3,11 @@ import type { S3Client } from '@aws-sdk/client-s3';
 import type { OpenAPIHono } from '@hono/zod-openapi';
 import type { AppEnv } from '@mockza/config';
 import {
+  AccountSessionsResponseSchema,
+  AccountUserSchema,
+  RevokeDeviceSessionResponseSchema,
+} from '@mockza/contracts';
+import {
   accountLinks,
   audioAssets,
   dailyQuotaUsage,
@@ -14,12 +19,21 @@ import {
   monthlyQuotaUsage,
   questionFlags,
   quotaReservations,
+  userDeviceSessions,
+  userEntitlements,
   users,
 } from '@mockza/db';
 import { createAudioS3Client, deleteAllUserAudio } from '@mockza/storage';
 import { eq, inArray, or, sql } from 'drizzle-orm';
 import { createDeviceAuthMiddleware } from '../middleware/auth.js';
 import type { RequestVariables } from '../middleware/request-id.js';
+import {
+  AuthActionError,
+  createSessionManager,
+  type SessionManager,
+} from '../services/session-manager.js';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function hashReceiptToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -38,11 +52,191 @@ export function registerAccountRoutes(
   env: AppEnv,
   db?: MockzaDb,
   s3Client?: S3Client,
+  sessionManagerArg?: SessionManager,
 ): void {
-  const authMiddleware = createDeviceAuthMiddleware(env, db);
+  const sessionManager = sessionManagerArg ?? createSessionManager(env, db);
+  const authMiddleware = createDeviceAuthMiddleware(env, db, sessionManager);
   app.use('/v1/account', authMiddleware);
   app.use('/v1/account/*', authMiddleware);
   const internalS3 = s3Client ?? createAudioS3Client(env);
+
+  async function resolveLinkedUserId(
+    deviceId: string,
+    contextUserId?: string | null,
+  ): Promise<string | null> {
+    if (contextUserId) return contextUserId;
+    if (db) {
+      const [row] = await db
+        .select({ linkedUserId: devices.linkedUserId })
+        .from(devices)
+        .where(eq(devices.deviceId, deviceId))
+        .limit(1);
+      return row?.linkedUserId ?? null;
+    }
+    return sessionManager.resolveMemoryDeviceState(deviceId)?.linkedUserId ?? null;
+  }
+
+  // GET /v1/account/me & GET /v1/account/devices (Signed-in user + active sessions list)
+  app.get('/v1/account/me', async (c) => {
+    const deviceId = c.get('deviceId');
+    if (!deviceId) {
+      return c.json(
+        {
+          code: 'unauthorized',
+          message: 'Device authentication required.',
+          requestId: c.get('requestId'),
+        },
+        401,
+      );
+    }
+    const userId = await resolveLinkedUserId(deviceId, c.get('userId'));
+    const payload = await sessionManager.getAccountSessions({ deviceId, userId });
+    return c.json(AccountSessionsResponseSchema.parse(payload), 200);
+  });
+
+  app.get('/v1/account/devices', async (c) => {
+    const deviceId = c.get('deviceId');
+    if (!deviceId) {
+      return c.json(
+        {
+          code: 'unauthorized',
+          message: 'Device authentication required.',
+          requestId: c.get('requestId'),
+        },
+        401,
+      );
+    }
+    const userId = await resolveLinkedUserId(deviceId, c.get('userId'));
+    const payload = await sessionManager.getAccountSessions({ deviceId, userId });
+    return c.json(AccountSessionsResponseSchema.parse(payload), 200);
+  });
+
+  // POST /v1/account/devices/revoke-others (Sign out all other devices immediately)
+  app.post('/v1/account/devices/revoke-others', async (c) => {
+    const deviceId = c.get('deviceId');
+    if (!deviceId) {
+      return c.json(
+        {
+          code: 'unauthorized',
+          message: 'Device authentication required.',
+          requestId: c.get('requestId'),
+        },
+        401,
+      );
+    }
+    const userId = await resolveLinkedUserId(deviceId, c.get('userId'));
+    if (!userId) {
+      return c.json(
+        {
+          code: 'unauthorized',
+          message: 'Sign in with an account to manage signed-in devices.',
+          requestId: c.get('requestId'),
+        },
+        401,
+      );
+    }
+    const outcome = await sessionManager.terminateOtherSessions({
+      callerDeviceId: deviceId,
+      userId,
+    });
+    return c.json(
+      RevokeDeviceSessionResponseSchema.parse({
+        success: true,
+        revokedDeviceIds: outcome.revokedDeviceIds,
+        signedOutCurrentDevice: false,
+        sessions: outcome.sessions,
+      }),
+      200,
+    );
+  });
+
+  // DELETE /v1/account/devices/:targetDeviceId (Terminate one active device session & vacate slot)
+  app.delete('/v1/account/devices/:targetDeviceId', async (c) => {
+    const deviceId = c.get('deviceId');
+    if (!deviceId) {
+      return c.json(
+        {
+          code: 'unauthorized',
+          message: 'Device authentication required.',
+          requestId: c.get('requestId'),
+        },
+        401,
+      );
+    }
+    const targetDeviceId = c.req.param('targetDeviceId');
+    if (!UUID_REGEX.test(targetDeviceId)) {
+      return c.json(
+        {
+          code: 'validation_error',
+          message: 'Invalid target device UUID.',
+          requestId: c.get('requestId'),
+        },
+        400,
+      );
+    }
+    const userId = await resolveLinkedUserId(deviceId, c.get('userId'));
+    if (!userId) {
+      return c.json(
+        {
+          code: 'unauthorized',
+          message: 'Sign in with an account to manage signed-in devices.',
+          requestId: c.get('requestId'),
+        },
+        401,
+      );
+    }
+
+    try {
+      const outcome = await sessionManager.terminateDeviceSession({
+        callerDeviceId: deviceId,
+        userId,
+        targetDeviceId,
+      });
+      return c.json(
+        RevokeDeviceSessionResponseSchema.parse({
+          success: true,
+          ...outcome,
+        }),
+        200,
+      );
+    } catch (err) {
+      if (err instanceof AuthActionError) {
+        return c.json(
+          { code: err.code, message: err.message, requestId: c.get('requestId') },
+          err.status,
+        );
+      }
+      throw err;
+    }
+  });
+
+  // POST /v1/account/device-policy-consent (Record explicit 1-phone + 1-desktop-web ToS consent)
+  app.post('/v1/account/device-policy-consent', async (c) => {
+    const deviceId = c.get('deviceId');
+    if (!deviceId) {
+      return c.json(
+        {
+          code: 'unauthorized',
+          message: 'Device authentication required.',
+          requestId: c.get('requestId'),
+        },
+        401,
+      );
+    }
+    const userId = await resolveLinkedUserId(deviceId, c.get('userId'));
+    if (!userId) {
+      return c.json(
+        {
+          code: 'unauthorized',
+          message: 'Sign in with an account before subscribing.',
+          requestId: c.get('requestId'),
+        },
+        401,
+      );
+    }
+    const user = await sessionManager.recordDevicePolicyConsent({ userId });
+    return c.json(AccountUserSchema.parse(user), 200);
+  });
 
   app.delete('/v1/account', async (c) => {
     const deviceId = c.get('deviceId');
@@ -132,6 +326,8 @@ export function registerAccountRoutes(
                 eq(entitlements.userId, linkedUserId),
               ),
             );
+          await tx.delete(userDeviceSessions).where(eq(userDeviceSessions.userId, linkedUserId));
+          await tx.delete(userEntitlements).where(eq(userEntitlements.userId, linkedUserId));
           await tx.delete(accountLinks).where(eq(accountLinks.userId, linkedUserId));
           await tx.delete(devices).where(inArray(devices.deviceId, affectedDeviceIds));
           await tx.delete(users).where(eq(users.userId, linkedUserId));
@@ -140,6 +336,8 @@ export function registerAccountRoutes(
           await tx.delete(devices).where(inArray(devices.deviceId, affectedDeviceIds));
         }
       });
+
+      sessionManager.wipeMemoryForAccount({ deviceIds: affectedDeviceIds, userId: linkedUserId });
 
       // Purge all S3 audio across every affected device; never swallow errors.
       try {
@@ -176,12 +374,16 @@ export function registerAccountRoutes(
           503,
         );
       }
-    } else if (s3Client) {
-      purgedAudioCount = await deleteAllUserAudio({
-        client: s3Client,
-        bucket: env.S3_BUCKET,
-        deviceId,
-      });
+    } else {
+      if (s3Client) {
+        purgedAudioCount = await deleteAllUserAudio({
+          client: s3Client,
+          bucket: env.S3_BUCKET,
+          deviceId,
+        });
+      }
+      const linkedUserId = c.get('userId') ?? null;
+      sessionManager.wipeMemoryForAccount({ deviceIds: [deviceId], userId: linkedUserId });
     }
 
     return c.json(

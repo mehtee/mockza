@@ -31,6 +31,10 @@ export const BaseEnvSchema = z.object({
   REVENUECAT_API_KEY: z.string().default(''),
   APPLE_CLIENT_ID: z.string().default(''),
   GOOGLE_CLIENT_ID: z.string().default(''),
+  ALLOW_DEV_AUTH_PROVIDERS: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   SSE_ENABLED: z
     .enum(['true', 'false'])
     .default('false')
@@ -126,9 +130,29 @@ export const EnvSchema = BaseEnvSchema.superRefine((env, ctx) => {
       message: 'ALLOW_DEMO_EVALUATOR is prohibited in production.',
     });
   }
+
+  if (env.ALLOW_DEV_AUTH_PROVIDERS) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['ALLOW_DEV_AUTH_PROVIDERS'],
+      message: 'ALLOW_DEV_AUTH_PROVIDERS is prohibited in production.',
+    });
+  }
 });
 
 export type AppEnv = z.infer<typeof EnvSchema>;
+
+/** Splits comma-separated OAuth client IDs (e.g. Web, iOS, Android) into trimmed unique entries. */
+export function parseProviderClientIds(raw: string): string[] {
+  return Array.from(
+    new Set(
+      raw
+        .split(',')
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0),
+    ),
+  );
+}
 
 export function loadEnv(source: Record<string, string | undefined> = process.env): AppEnv {
   return EnvSchema.parse(source);

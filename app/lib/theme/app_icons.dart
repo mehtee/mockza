@@ -158,6 +158,24 @@ enum LucideGlyph {
 
   /// Trash can delete glyph.
   trash2,
+
+  /// Smartphone device slot glyph.
+  smartphone,
+
+  /// Desktop monitor / web slot glyph.
+  monitor,
+
+  /// Sign out / terminate session glyph.
+  logOut,
+
+  /// Email envelope glyph.
+  mail,
+
+  /// Password padlock glyph.
+  lock,
+
+  /// Globe / location glyph.
+  globe,
 }
 
 /// Lightweight, dependency-free vector icon widget rendering Lucide glyphs
@@ -877,6 +895,82 @@ class _LucidePainter extends CustomPainter {
         path.lineTo(8, 14);
         path.moveTo(16, 18);
         path.lineTo(16, 22);
+        canvas.drawPath(path, stroke);
+
+      case LucideGlyph.smartphone:
+        path.addRRect(
+          RRect.fromRectAndRadius(
+            const Rect.fromLTWH(5, 2, 14, 20),
+            const Radius.circular(2.5),
+          ),
+        );
+        path.moveTo(12, 18);
+        path.lineTo(12.01, 18);
+        canvas.drawPath(path, stroke);
+
+      case LucideGlyph.monitor:
+        path.addRRect(
+          RRect.fromRectAndRadius(
+            const Rect.fromLTWH(2, 3, 20, 14),
+            const Radius.circular(2),
+          ),
+        );
+        path.moveTo(8, 21);
+        path.lineTo(16, 21);
+        path.moveTo(12, 17);
+        path.lineTo(12, 21);
+        canvas.drawPath(path, stroke);
+
+      case LucideGlyph.logOut:
+        path.moveTo(9, 21);
+        path.lineTo(5, 21);
+        path.cubicTo(3.9, 21, 3, 20.1, 3, 19);
+        path.lineTo(3, 5);
+        path.cubicTo(3, 3.9, 3.9, 3, 5, 3);
+        path.lineTo(9, 3);
+        path.moveTo(16, 17);
+        path.lineTo(21, 12);
+        path.lineTo(16, 7);
+        path.moveTo(21, 12);
+        path.lineTo(9, 12);
+        canvas.drawPath(path, stroke);
+
+      case LucideGlyph.mail:
+        path.addRRect(
+          RRect.fromRectAndRadius(
+            const Rect.fromLTWH(2, 4, 20, 16),
+            const Radius.circular(2),
+          ),
+        );
+        path.moveTo(22, 7);
+        path.lineTo(13.03, 12.7);
+        path.cubicTo(12.4, 13.1, 11.6, 13.1, 10.97, 12.7);
+        path.lineTo(2, 7);
+        canvas.drawPath(path, stroke);
+
+      case LucideGlyph.lock:
+        path.addRRect(
+          RRect.fromRectAndRadius(
+            const Rect.fromLTWH(3, 11, 18, 11),
+            const Radius.circular(2),
+          ),
+        );
+        path.moveTo(7, 11);
+        path.lineTo(7, 7);
+        path.cubicTo(7, 4.24, 9.24, 2, 12, 2);
+        path.cubicTo(14.76, 2, 17, 4.24, 17, 7);
+        path.lineTo(17, 11);
+        canvas.drawPath(path, stroke);
+
+      case LucideGlyph.globe:
+        canvas.drawCircle(const Offset(12, 12), 10, stroke);
+        path.moveTo(2, 12);
+        path.lineTo(22, 12);
+        path.moveTo(12, 2);
+        path.cubicTo(14.7, 5, 16, 8.3, 16, 12);
+        path.cubicTo(16, 15.7, 14.7, 19, 12, 22);
+        path.cubicTo(9.3, 19, 8, 15.7, 8, 12);
+        path.cubicTo(8, 8.3, 9.3, 5, 12, 2);
         canvas.drawPath(path, stroke);
     }
   }

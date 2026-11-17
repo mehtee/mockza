@@ -50,6 +50,13 @@
       "when": 1794924400000,
       "tag": "0006_rapid_diagnostic",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794957600000,
+      "tag": "0007_auth_accounts_and_device_sessions",
+      "breakpoints": true
     }
   ]
 }

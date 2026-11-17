@@ -9,6 +9,9 @@ export const ApiErrorCodeSchema = z.enum([
   'entitlement_required',
   'quota_exceeded',
   'attempt_conflict',
+  'device_slot_limit_reached',
+  'invalid_credentials',
+  'email_already_registered',
   'upload_not_found',
   'upload_too_large',
   'model_unavailable',
@@ -26,6 +29,7 @@ export const ApiErrorSchema = z
     code: ApiErrorCodeSchema,
     message: z.string(),
     requestId: z.string(),
+    details: z.record(z.string(), z.unknown()).optional(),
   })
   .openapi('ApiError');
 
@@ -54,11 +58,52 @@ export const RetryEvaluationRequestSchema = z
   })
   .openapi('RetryEvaluationRequest');
 
+export const DeviceSlotKindSchema = z.enum(['mobile', 'desktop_web']).openapi('DeviceSlotKind');
+
+export const DevicePlatformSchema = z
+  .enum(['ios', 'android', 'web_mobile', 'web_desktop', 'unknown'])
+  .openapi('DevicePlatform');
+
+export const AppSurfaceSchema = z
+  .enum(['flutter_app', 'flutter_web', 'web_app'])
+  .openapi('AppSurface');
+
+export const DeviceClientMetaSchema = z
+  .object({
+    slotKind: DeviceSlotKindSchema.optional(),
+    platform: DevicePlatformSchema.optional(),
+    appSurface: AppSurfaceSchema.optional(),
+    deviceName: z.string().min(1).max(120).optional(),
+    timezone: z.string().min(1).max(80).optional(),
+  })
+  .openapi('DeviceClientMeta');
+
+export const SocialProviderDescriptorSchema = z.object({
+  enabled: z.boolean(),
+  mode: z.enum(['oidc', 'dev_sandbox', 'disabled']),
+  clientId: z.string().optional(),
+});
+
+export const DevicePolicySummarySchema = z.object({
+  maxMobilePhones: z.number().int().positive().default(1),
+  maxDesktopWebInstances: z.number().int().positive().default(1),
+});
+
+export const AuthProvidersResponseSchema = z
+  .object({
+    emailPasswordEnabled: z.boolean(),
+    google: SocialProviderDescriptorSchema,
+    apple: SocialProviderDescriptorSchema,
+    devicePolicy: DevicePolicySummarySchema,
+  })
+  .openapi('AuthProvidersResponse');
+
 export const AnonymousAuthRequestSchema = z
   .object({
     deviceId: z.string().uuid(),
     appVersion: z.string().optional(),
     deviceSecret: z.string().min(16).max(256).optional(),
+    deviceMeta: DeviceClientMetaSchema.optional(),
   })
   .openapi('AnonymousAuthRequest');
 
@@ -68,13 +113,124 @@ export const AnonymousAuthResponseSchema = z
     deviceId: z.string().uuid(),
     expiresAt: z.string(),
     deviceSecret: z.string().min(16).max(256).optional(),
+    linkedUserId: z.string().uuid().nullable().optional(),
+    linkedEmail: z.string().nullable().optional(),
   })
   .openapi('AnonymousAuthResponse');
+
+export const EmailRegisterRequestSchema = z
+  .object({
+    email: z.string().trim().email().max(254),
+    password: z.string().min(8).max(128),
+    displayName: z.string().trim().min(1).max(100).optional(),
+    deviceId: z.string().uuid(),
+    deviceSecret: z.string().min(16).max(256).optional(),
+    appVersion: z.string().optional(),
+    deviceMeta: DeviceClientMetaSchema.optional(),
+  })
+  .openapi('EmailRegisterRequest');
+
+export const EmailLoginRequestSchema = z
+  .object({
+    email: z.string().trim().email().max(254),
+    password: z.string().min(1).max(128),
+    deviceId: z.string().uuid(),
+    deviceSecret: z.string().min(16).max(256).optional(),
+    appVersion: z.string().optional(),
+    deviceMeta: DeviceClientMetaSchema.optional(),
+  })
+  .openapi('EmailLoginRequest');
+
+export const OAuthSignInRequestSchema = z
+  .object({
+    provider: z.enum(['google', 'apple']),
+    idToken: z.string().min(1),
+    displayName: z.string().trim().min(1).max(100).optional(),
+    deviceId: z.string().uuid(),
+    deviceSecret: z.string().min(16).max(256).optional(),
+    appVersion: z.string().optional(),
+    deviceMeta: DeviceClientMetaSchema.optional(),
+  })
+  .openapi('OAuthSignInRequest');
+
+export const AccountUserSchema = z
+  .object({
+    userId: z.string().uuid(),
+    email: z.string().nullable(),
+    displayName: z.string().nullable(),
+    linkedProviders: z.array(z.enum(['email', 'google', 'apple'])),
+    isPro: z.boolean(),
+    acceptedDevicePolicyAt: z.string().nullable().optional(),
+  })
+  .openapi('AccountUser');
+
+export const DeviceSessionItemSchema = z
+  .object({
+    sessionId: z.string().uuid(),
+    deviceId: z.string().uuid(),
+    deviceIdShort: z.string(),
+    slotKind: DeviceSlotKindSchema,
+    platform: DevicePlatformSchema,
+    appSurface: AppSurfaceSchema,
+    deviceName: z.string(),
+    locationLabel: z.string(),
+    ipMasked: z.string().nullable(),
+    authMethod: z.enum(['email', 'google', 'apple']),
+    isCurrentDevice: z.boolean(),
+    createdAt: z.string(),
+    lastSeenAt: z.string(),
+  })
+  .openapi('DeviceSessionItem');
+
+export const AuthSessionResponseSchema = z
+  .object({
+    accessToken: z.string(),
+    expiresAt: z.string(),
+    deviceId: z.string().uuid(),
+    deviceSecret: z.string().min(16).max(256).optional(),
+    user: AccountUserSchema,
+    currentSession: DeviceSessionItemSchema,
+    sessions: z.array(DeviceSessionItemSchema),
+  })
+  .openapi('AuthSessionResponse');
+
+export const AccountSessionsResponseSchema = z
+  .object({
+    isAuthenticated: z.boolean(),
+    user: AccountUserSchema.nullable(),
+    currentDeviceId: z.string().uuid(),
+    devicePolicy: DevicePolicySummarySchema.extend({
+      mobileOccupied: z.boolean(),
+      desktopWebOccupied: z.boolean(),
+    }),
+    sessions: z.array(DeviceSessionItemSchema),
+  })
+  .openapi('AccountSessionsResponse');
+
+export const LogoutResponseSchema = z
+  .object({
+    success: z.boolean(),
+    signedOut: z.boolean(),
+    accessToken: z.string(),
+    deviceId: z.string().uuid(),
+    expiresAt: z.string(),
+  })
+  .openapi('LogoutResponse');
+
+export const RevokeDeviceSessionResponseSchema = z
+  .object({
+    success: z.boolean(),
+    revokedDeviceIds: z.array(z.string().uuid()),
+    signedOutCurrentDevice: z.boolean().default(false),
+    sessions: z.array(DeviceSessionItemSchema),
+  })
+  .openapi('RevokeDeviceSessionResponse');
 
 export const LinkAccountRequestSchema = z
   .object({
     provider: z.enum(['apple', 'google']),
     idToken: z.string().min(1),
+    deviceMeta: DeviceClientMetaSchema.optional(),
   })
   .openapi('LinkAccountRequest');
 

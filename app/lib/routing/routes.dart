@@ -24,6 +24,19 @@ abstract final class AppRoutes {
   /// Pushed Pro Paywall route.
   static const String paywall = '/paywall';
 
+  /// Account sign-in / registration route.
+  static const String auth = '/auth';
+
+  /// Builds typed auth route with optional [mode] (`signin`|`signup`) and [returnTo].
+  static String buildAuth({String? mode, String? returnTo}) {
+    final params = <String, String>{
+      'mode': ?mode,
+      'returnTo': ?returnTo,
+    };
+    if (params.isEmpty) return auth;
+    return Uri(path: auth, queryParameters: params).toString();
+  }
+
   /// Rapid starting-level 4-skill diagnostic intro & preflight (`/diagnostic/intro`).
   static const String diagnosticIntro = '/diagnostic/intro';
 

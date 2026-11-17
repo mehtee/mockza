@@ -17,6 +17,10 @@ class MzFormField extends StatelessWidget {
     this.keyboardType,
     this.maxLines = 1,
     this.onChanged,
+    this.onSubmitted,
+    this.textInputAction,
+    this.autofillHints,
+    this.suffixIcon,
     this.autofocus = false,
     super.key,
   });
@@ -48,6 +52,18 @@ class MzFormField extends StatelessWidget {
   /// Value change callback.
   final ValueChanged<String>? onChanged;
 
+  /// Keyboard submission callback.
+  final ValueChanged<String>? onSubmitted;
+
+  /// Soft keyboard action button type.
+  final TextInputAction? textInputAction;
+
+  /// Platform autofill hints (`AutofillHints.email`, etc.).
+  final Iterable<String>? autofillHints;
+
+  /// Optional trailing action icon inside the input decoration.
+  final Widget? suffixIcon;
+
   /// Autofocus flag.
   final bool autofocus;
 
@@ -75,7 +91,10 @@ class MzFormField extends StatelessWidget {
           keyboardType: keyboardType,
           maxLines: maxLines,
           autofocus: autofocus,
+          textInputAction: textInputAction,
+          autofillHints: autofillHints,
           onChanged: onChanged,
+          onSubmitted: onSubmitted,
           style: typography.body.copyWith(color: colors.textPrimary),
           decoration: InputDecoration(
             hintText: hintText,
@@ -86,9 +105,10 @@ class MzFormField extends StatelessWidget {
             ),
             errorText: errorText,
             errorStyle: typography.caption.copyWith(color: colors.error),
+            suffixIcon: suffixIcon,
             filled: true,
             fillColor: colors.surface,
-            contentPadding: const EdgeInsets.symmetric(
+            contentPadding: const EdgeInsetsDirectional.symmetric(
               horizontal: SpacingTokens.md,
               vertical: SpacingTokens.md,
             ),

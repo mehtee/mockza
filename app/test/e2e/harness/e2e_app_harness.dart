@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockza/app.dart';
+import 'package:mockza/core/auth/auth_models.dart';
 import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/diagnostic/diagnostic_budget.dart';
 import 'package:mockza/core/diagnostic/diagnostic_models.dart';
@@ -540,9 +541,54 @@ final class E2eDiagnosticGateway implements DiagnosticGateway {
   );
 }
 
-final class _OfflineE2eHttpAdapter implements HttpClientAdapter {
+/// Stateful offline HTTP adapter simulating `/v1/auth/*` and `/v1/account/*`
+/// including 1-Phone + 1-Desktop-Web device slots and remote revocation for E2E tests.
+final class OfflineE2eHttpAdapter implements HttpClientAdapter {
+  /// Optional injected remote session list shown alongside the active device.
+  final List<Map<String, Object?>> remoteSessions = <Map<String, Object?>>[];
+
+  /// Optional forced `409 device_slot_limit_reached` conflict on next sign-in/register.
+  Map<String, Object?>? forcedSlotConflict;
+
+  String? _userId;
+  String? _email;
+  String? _displayName;
+  final Set<String> _providers = <String>{};
+  String? _acceptedDevicePolicyAt;
+  String _currentDeviceId = '00000000-0000-4000-8000-000000000001';
+  Map<String, Object?>? _currentSession;
+
   @override
   void close({bool force = false}) {}
+
+  Map<String, Object?> _buildUserJson() => <String, Object?>{
+    'userId': _userId ?? '00000000-0000-4000-8000-000000000099',
+    'email': _email,
+    'displayName': _displayName,
+    'linkedProviders': _providers.toList(growable: false),
+    'isPro': false,
+    'acceptedDevicePolicyAt': _acceptedDevicePolicyAt,
+  };
+
+  List<Map<String, Object?>> _allSessions() => <Map<String, Object?>>[
+    ...?_currentSession == null
+        ? null
+        : <Map<String, Object?>>[_currentSession!],
+    ...remoteSessions,
+  ];
+
+  Map<String, Object?> _decodeBody(Object? data) {
+    if (data is Map<Object?, Object?>) {
+      return data.map((k, v) => MapEntry(k?.toString() ?? '', v));
+    }
+    if (data is String && data.isNotEmpty) {
+      final decoded = jsonDecode(data);
+      if (decoded is Map<Object?, Object?>) {
+        return decoded.map((k, v) => MapEntry(k?.toString() ?? '', v));
+      }
+    }
+    return <String, Object?>{};
+  }
 
   @override
   Future<ResponseBody> fetch(
@@ -551,18 +597,196 @@ final class _OfflineE2eHttpAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     final path = options.path;
+    final body = _decodeBody(options.data);
+
+    if (path.contains('/v1/auth/providers')) {
+      return _jsonResponse(<String, Object?>{
+        'emailPasswordEnabled': true,
+        'google': const <String, Object?>{
+          'enabled': true,
+          'mode': 'dev_sandbox',
+        },
+        'apple': const <String, Object?>{
+          'enabled': true,
+          'mode': 'dev_sandbox',
+        },
+        'devicePolicy': const <String, Object?>{
+          'maxMobilePhones': 1,
+          'maxDesktopWebInstances': 1,
+        },
+      });
+    }
+
     if (path.contains('/v1/auth/anonymous')) {
+      final devId = body['deviceId'] as String?;
+      if (devId != null && devId.isNotEmpty) {
+        _currentDeviceId = devId;
+      }
       return _jsonResponse(<String, Object?>{
         'accessToken': 'e2e.eyJleHAiOjk5OTk5OTk5OTl9.sig',
+        'deviceId': _currentDeviceId,
+        'expiresAt': '2099-01-01T00:00:00Z',
         'deviceSecret': 'e2e-device-secret',
+        'linkedUserId': _userId,
+        'linkedEmail': _email,
       }, statusCode: 201);
     }
+
+    if (path.contains('/v1/auth/register') ||
+        path.contains('/v1/auth/login') ||
+        path.contains('/v1/auth/oauth')) {
+      if (forcedSlotConflict != null) {
+        final conflict = forcedSlotConflict!;
+        final slotLabel = conflict['slotKind'] == 'desktop_web'
+            ? 'Desktop Web'
+            : 'Mobile Phone';
+        final occupying =
+            conflict['occupyingDevice'] as Map<String, Object?>? ?? const {};
+        return _jsonResponse(<String, Object?>{
+          'code': 'device_slot_limit_reached',
+          'message':
+              'Your $slotLabel slot is already signed in on ${occupying['deviceName'] ?? 'another device'} (${occupying['locationLabel'] ?? 'Unknown'}). Sign out of that device in Settings before signing in here.',
+          'requestId': 'e2e-req-slot-conflict',
+          'details': conflict,
+        }, statusCode: 409);
+      }
+
+      final devId = (body['deviceId'] as String?) ?? _currentDeviceId;
+      _currentDeviceId = devId;
+      _userId ??= '00000000-0000-4000-8000-000000000099';
+
+      var method = 'email';
+      if (path.contains('/v1/auth/oauth')) {
+        method = (body['provider'] as String?) ?? 'google';
+        final idToken = (body['idToken'] as String?) ?? '';
+        if (idToken.startsWith('mockza_dev_oauth_v1.')) {
+          final rawSeg = idToken.substring('mockza_dev_oauth_v1.'.length);
+          final rem = rawSeg.length % 4;
+          final padded = rem == 0
+              ? rawSeg
+              : rawSeg.padRight(rawSeg.length + (4 - rem), '=');
+          final decoded = jsonDecode(utf8.decode(base64Url.decode(padded)));
+          if (decoded is Map<String, Object?>) {
+            _email = (decoded['email'] as String?) ?? _email;
+            _displayName = (decoded['name'] as String?) ?? _displayName;
+          }
+        }
+      } else {
+        _email = (body['email'] as String?) ?? _email;
+        _displayName =
+            (body['displayName'] as String?) ?? _displayName ?? 'Mahdi';
+      }
+      _providers.add(method);
+
+      final meta = body['deviceMeta'] as Map<String, Object?>? ?? const {};
+      final session = <String, Object?>{
+        'sessionId': '00000000-0000-4000-8000-000000000101',
+        'deviceId': devId,
+        'deviceIdShort':
+            '${devId.substring(0, devId.length >= 8 ? 8 : devId.length)}...',
+        'slotKind': meta['slotKind'] ?? 'mobile',
+        'platform': meta['platform'] ?? 'android',
+        'appSurface': meta['appSurface'] ?? 'flutter_app',
+        'deviceName': meta['deviceName'] ?? 'Android Phone',
+        'locationLabel': 'Tehran, IR',
+        'ipMasked': '127.0.0.***',
+        'authMethod': method,
+        'isCurrentDevice': true,
+        'createdAt': '2026-11-17T14:00:00Z',
+        'lastSeenAt': '2026-11-17T14:05:00Z',
+      };
+      _currentSession = session;
+
+      return _jsonResponse(<String, Object?>{
+        'accessToken': 'e2e.eyJleHAiOjk5OTk5OTk5OTl9.sig',
+        'expiresAt': '2099-01-01T00:00:00Z',
+        'deviceId': devId,
+        'deviceSecret': 'e2e-device-secret',
+        'user': _buildUserJson(),
+        'currentSession': session,
+        'sessions': _allSessions(),
+      }, statusCode: path.contains('/register') ? 201 : 200);
+    }
+
+    if (path.contains('/v1/auth/logout')) {
+      _currentSession = null;
+      _userId = null;
+      _email = null;
+      _displayName = null;
+      return _jsonResponse(<String, Object?>{
+        'success': true,
+        'signedOut': true,
+        'accessToken': 'e2e.eyJleHAiOjk5OTk5OTk5OTl9.sig',
+        'deviceId': _currentDeviceId,
+        'expiresAt': '2099-01-01T00:00:00Z',
+      });
+    }
+
+    if (path.contains('/v1/account/devices/revoke-others')) {
+      final revoked = remoteSessions
+          .map((s) => s['deviceId'])
+          .whereType<String>()
+          .toList(growable: false);
+      remoteSessions.clear();
+      return _jsonResponse(<String, Object?>{
+        'success': true,
+        'revokedDeviceIds': revoked,
+        'signedOutCurrentDevice': false,
+        'sessions': _allSessions(),
+      });
+    }
+
+    if (path.contains('/v1/account/devices/') && options.method == 'DELETE') {
+      final targetId = path.split('/').last;
+      final revokedSelf = targetId == _currentDeviceId;
+      if (revokedSelf) {
+        _currentSession = null;
+        _userId = null;
+      } else {
+        remoteSessions.removeWhere((s) => s['deviceId'] == targetId);
+      }
+      return _jsonResponse(<String, Object?>{
+        'success': true,
+        'revokedDeviceIds': <String>[targetId],
+        'signedOutCurrentDevice': revokedSelf,
+        'sessions': _allSessions(),
+      });
+    }
+
+    if (path.contains('/v1/account/devices') ||
+        path.contains('/v1/account/me')) {
+      final sessions = _allSessions();
+      return _jsonResponse(<String, Object?>{
+        'isAuthenticated': _userId != null,
+        'user': _userId != null ? _buildUserJson() : null,
+        'currentDeviceId': _currentDeviceId,
+        'devicePolicy': <String, Object?>{
+          'maxMobilePhones': 1,
+          'maxDesktopWebInstances': 1,
+          'mobileOccupied': sessions.any((s) => s['slotKind'] == 'mobile'),
+          'desktopWebOccupied': sessions.any(
+            (s) => s['slotKind'] == 'desktop_web',
+          ),
+        },
+        'sessions': sessions,
+      });
+    }
+
+    if (path.contains('/v1/account/device-policy-consent')) {
+      _acceptedDevicePolicyAt = '2026-11-17T14:10:00Z';
+      return _jsonResponse(_buildUserJson());
+    }
+
     if (path.contains('/v1/auth/renew')) {
       return _jsonResponse(<String, Object?>{
         'accessToken': 'e2e.eyJleHAiOjk5OTk5OTk5OTl9.sig',
       });
     }
     if (path.contains('/v1/account') && options.method == 'DELETE') {
+      _currentSession = null;
+      remoteSessions.clear();
+      _userId = null;
+      _email = null;
       return _jsonResponse(<String, Object?>{
         'erasureId': 'e2e-erasure-01',
         'receiptToken': 'e2e-receipt-01',
@@ -607,6 +831,7 @@ final class E2eAppHarness {
     required this.audioPlayer,
     required this.tempDir,
     required this.dio,
+    required this.httpAdapter,
     required this.authSessionService,
     required this.container,
   });
@@ -633,7 +858,7 @@ final class E2eAppHarness {
     final recorder = E2eAudioRecorderGateway(tempDir);
     final player = FakeAudioPlayerGateway();
     const crashLog = DeveloperCrashLog(AppEdition.global);
-    final adapter = _OfflineE2eHttpAdapter();
+    final adapter = OfflineE2eHttpAdapter();
     final dio = Dio(BaseOptions(baseUrl: 'https://e2e.mockza.local'))
       ..httpClientAdapter = adapter;
     final authDio = Dio(BaseOptions(baseUrl: 'https://e2e.mockza.local'))
@@ -642,15 +867,28 @@ final class E2eAppHarness {
       storage: storage,
       entropy: entropy,
     );
+    late final ProviderContainer container;
     final authSessionService = AuthSessionService(
       config: EditionConfig.globalDefault,
       identity: identityService,
       clock: clock.asClock(),
       crashLog: crashLog,
       authDio: authDio,
+      readDeviceMeta: () => const DeviceClientMeta(
+        slotKind: DeviceSlotKind.mobile,
+        platform: 'android',
+        appSurface: 'flutter_app',
+        deviceName: 'E2E Android Phone',
+        timezone: 'Asia/Tehran',
+      ),
+      onRemoteSessionUnlinked: (deviceId) async {
+        await container
+            .read(profileRepositoryProvider)
+            .clearAuthenticatedAccount(deviceId);
+      },
     );
 
-    final container = ProviderContainer(
+    container = ProviderContainer(
       retry: (count, error) => null,
       overrides: [
         editionConfigProvider.overrideWithValue(EditionConfig.globalDefault),
@@ -681,6 +919,7 @@ final class E2eAppHarness {
       audioPlayer: player,
       tempDir: tempDir,
       dio: dio,
+      httpAdapter: adapter,
       authSessionService: authSessionService,
       container: container,
     );
@@ -718,6 +957,9 @@ final class E2eAppHarness {
 
   /// Offline-adapter [Dio] instance.
   final Dio dio;
+
+  /// Stateful offline HTTP adapter controlling auth/session/slot simulation.
+  final OfflineE2eHttpAdapter httpAdapter;
 
   /// Offline-adapter [AuthSessionService] instance.
   final AuthSessionService authSessionService;

@@ -15,6 +15,9 @@ class PaywallState {
     required this.isBusy,
     required this.selectedPackageId,
     required this.packages,
+    this.hasAcceptedDevicePolicy = false,
+    this.isSignedIn = false,
+    this.linkedEmail,
     this.statusMessage,
   });
 
@@ -30,6 +33,15 @@ class PaywallState {
   /// Available store offerings from [BillingGateway].
   final List<StorePackage> packages;
 
+  /// Whether user explicitly confirmed the strict `1 Mobile Phone + 1 Desktop Web` ToS rule.
+  final bool hasAcceptedDevicePolicy;
+
+  /// Whether the active device is currently signed into an account.
+  final bool isSignedIn;
+
+  /// Email of the signed-in account, if linked.
+  final String? linkedEmail;
+
   /// Optional non-fatal status message.
   final String? statusMessage;
 
@@ -39,6 +51,10 @@ class PaywallState {
     bool? isBusy,
     String? selectedPackageId,
     List<StorePackage>? packages,
+    bool? hasAcceptedDevicePolicy,
+    bool? isSignedIn,
+    String? linkedEmail,
+    bool clearLinkedEmail = false,
     String? statusMessage,
     bool clearStatusMessage = false,
   }) => PaywallState(
@@ -46,6 +62,10 @@ class PaywallState {
     isBusy: isBusy ?? this.isBusy,
     selectedPackageId: selectedPackageId ?? this.selectedPackageId,
     packages: packages ?? this.packages,
+    hasAcceptedDevicePolicy:
+        hasAcceptedDevicePolicy ?? this.hasAcceptedDevicePolicy,
+    isSignedIn: isSignedIn ?? this.isSignedIn,
+    linkedEmail: clearLinkedEmail ? null : (linkedEmail ?? this.linkedEmail),
     statusMessage: clearStatusMessage
         ? null
         : (statusMessage ?? this.statusMessage),
@@ -76,13 +96,36 @@ class PaywallNotifier extends Notifier<PaywallState> {
     final offeringsResult = await billing.fetchOfferings();
 
     var localIsPro = false;
+    var signedIn = false;
+    String? linkedEmail;
     try {
       final profile = await ref
           .read(profileRepositoryProvider)
           .loadOrInitializePrimary();
       localIsPro = profile.isPro;
+      signedIn = profile.appUserId != null && profile.appUserId!.isNotEmpty;
+      linkedEmail = profile.linkedEmail;
     } on Object {
       // Ignore in isolated widget tests without DB.
+    }
+
+    var acceptedPolicy = state.hasAcceptedDevicePolicy;
+    try {
+      final sessionsRes = await ref
+          .read(authSessionServiceProvider)
+          .fetchAccountSessions();
+      final snapshot = sessionsRes.valueOrNull;
+      if (snapshot != null &&
+          snapshot.isAuthenticated &&
+          snapshot.user != null) {
+        signedIn = true;
+        linkedEmail = snapshot.user!.email ?? linkedEmail;
+        if (snapshot.user!.acceptedDevicePolicyAt != null) {
+          acceptedPolicy = true;
+        }
+      }
+    } on Object {
+      // Ignore offline/isolated failures.
     }
 
     if (_isDisposed) return;
@@ -98,9 +141,24 @@ class PaywallNotifier extends Notifier<PaywallState> {
 
     state = state.copyWith(
       isPro: resolvedPro,
+      isSignedIn: signedIn,
+      linkedEmail: linkedEmail,
+      hasAcceptedDevicePolicy: acceptedPolicy,
       packages: (packages != null && packages.isNotEmpty)
           ? packages
           : defaultGlobalStorePackages,
+    );
+  }
+
+  /// Refreshes account linking & policy consent state after returning from `/auth`.
+  Future<void> refreshAccountLinkState() => _loadOfferings();
+
+  /// Toggles explicit agreement to the 1 Mobile Phone + 1 Desktop Web policy.
+  void toggleDevicePolicyConsent({bool? value}) {
+    final next = value ?? !state.hasAcceptedDevicePolicy;
+    state = state.copyWith(
+      hasAcceptedDevicePolicy: next,
+      clearStatusMessage: true,
     );
   }
 
@@ -113,8 +171,23 @@ class PaywallNotifier extends Notifier<PaywallState> {
   }
 
   /// Initiates store checkout for the selected package and persists entitlement.
-  Future<void> purchaseSelected() async {
+  Future<void> purchaseSelected({bool requirePolicyConsent = false}) async {
+    if (requirePolicyConsent && !state.hasAcceptedDevicePolicy) {
+      state = state.copyWith(
+        statusMessage: 'Please confirm the strict 1 Mobile Phone + 1 Desktop Web personal-use policy above before subscribing.',
+      );
+      return;
+    }
+
     state = state.copyWith(isBusy: true, clearStatusMessage: true);
+    if (state.hasAcceptedDevicePolicy && state.isSignedIn) {
+      unawaited(
+        ref
+            .read(authSessionServiceProvider)
+            .recordDevicePolicyConsent()
+            .then<void>((_) {}, onError: (_) {}),
+      );
+    }
     final res = await ref
         .read(billingGatewayProvider)
         .purchasePackage(state.selectedPackageId);

@@ -135,7 +135,12 @@ export function createAttestationMiddleware(params: {
   verifyProof?: VerifyAttestationProofFn;
 }): MiddlewareHandler<{ Variables: RequestVariables }> {
   return async (c, next) => {
-    if (!params.enforced || c.req.path === '/v1/auth/challenge') {
+    if (
+      !params.enforced ||
+      c.req.path === '/v1/auth/challenge' ||
+      c.req.path === '/v1/auth/providers' ||
+      c.req.path === '/v1/auth/logout'
+    ) {
       await next();
       return;
     }
