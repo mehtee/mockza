@@ -74,7 +74,14 @@ class _DiagnosticIntroScreenState extends ConsumerState<DiagnosticIntroScreen> {
     final state = ref.watch(diagnosticNotifierProvider);
     final notifier = ref.read(diagnosticNotifierProvider.notifier);
     final colors = AppColors.of(context);
+    final shapes = AppShapes.of(context);
     final typography = AppTypography.of(context);
+
+    final modeLabel = switch (state.mode) {
+      DiagnosticMode.standard => 'Standard (15m) ▾',
+      DiagnosticMode.extended => 'Untimed Help ▾',
+      DiagnosticMode.accessible => 'Accessible Audio ▾',
+    };
 
     return MzScaffold(
       appBar: AppBar(
@@ -157,14 +164,15 @@ class _DiagnosticIntroScreenState extends ConsumerState<DiagnosticIntroScreen> {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsetsDirectional.symmetric(
-          vertical: SpacingTokens.md,
+          vertical: SpacingTokens.sm,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            // Reassuring orientation hero card
+            // Compact orientation hero + 1-tap Timing & Accessibility mode chip
             MzCard(
               variant: MzCardVariant.hero,
+              padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -173,52 +181,41 @@ class _DiagnosticIntroScreenState extends ConsumerState<DiagnosticIntroScreen> {
                       const IconWell(
                         glyph: LucideGlyph.sparkles,
                         tint: IconWellTint.blue,
+                        size: 36,
+                        iconSize: 18,
                       ),
-                      const SizedBox(width: SpacingTokens.md),
+                      const SizedBox(width: SpacingTokens.sm),
                       Expanded(
                         child: Text(
-                          'Find Your Starting Level in ~10–15 Min',
+                          'Find Your Starting Level (~10–15 Min)',
                           style: typography.cardTitle,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: SpacingTokens.sm),
+                  const SizedBox(height: SpacingTokens.xs),
                   Text(
-                    'Not a pass/fail test. Quick samples across Reading, Listening, Writing, and Speaking calibrate your starting practice.',
+                    '4 short checks • unscored examples • skip any skill.',
                     style: typography.secondary.copyWith(
                       color: colors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: SpacingTokens.sm),
-                  Wrap(
-                    spacing: SpacingTokens.sm,
-                    runSpacing: SpacingTokens.xs,
-                    children: <Widget>[
-                      const MzChip(
-                        label: 'Unscored examples first',
-                        glyph: LucideGlyph.timer,
-                      ),
-                      const MzChip(
-                        label: 'Skip any skill',
-                        glyph: LucideGlyph.shieldCheck,
-                      ),
-                      if (state.mode == DiagnosticMode.extended)
-                        const MzChip(
-                          label: 'Extended Help (Untimed)',
-                          variant: MzChipVariant.positive,
-                        )
-                      else if (state.mode == DiagnosticMode.accessible)
-                        const MzChip(
-                          label: 'Accessible Audio',
-                          variant: MzChipVariant.positive,
-                        ),
-                    ],
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: MzChip(
+                      label: modeLabel,
+                      glyph: LucideGlyph.slidersHorizontal,
+                      variant: state.mode == DiagnosticMode.standard
+                          ? MzChipVariant.target
+                          : MzChipVariant.positive,
+                      onTap: () => _openHelpOptions(context, state, notifier),
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: SpacingTokens.md),
+            const SizedBox(height: SpacingTokens.sm),
 
             if (state.bankLoadError != null) ...<Widget>[
               StatusBanner(
@@ -228,69 +225,48 @@ class _DiagnosticIntroScreenState extends ConsumerState<DiagnosticIntroScreen> {
                 actionLabel: 'Retry',
                 onTapAction: notifier.retryLoadBank,
               ),
-              const SizedBox(height: SpacingTokens.md),
+              const SizedBox(height: SpacingTokens.sm),
             ],
 
-            // Sound & Microphone preflight card
+            // Compact side-by-side Sound & Microphone check card
             _DeviceCheckCard(state: state, notifier: notifier),
-            const SizedBox(height: SpacingTokens.md),
-
-            // Beginner Do / Don't card
-            const _CompactDoDontSummary(),
-            const SizedBox(height: SpacingTokens.md),
-
-            // Help / Accessibility options link
-            MzCard(
-              onTap: () => _openHelpOptions(context, state, notifier),
-              child: Row(
-                children: <Widget>[
-                  const IconWell(
-                    glyph: LucideGlyph.slidersHorizontal,
-                    tint: IconWellTint.amber,
-                    size: 36,
-                    iconSize: 18,
-                  ),
-                  const SizedBox(width: SpacingTokens.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          'Timing & Accessibility Options',
-                          style: typography.cardTitle,
-                        ),
-                        Text(
-                          'Untimed Extended Help or replayable Accessible Audio.',
-                          style: typography.caption.copyWith(
-                            color: colors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  AppIcon(
-                    LucideGlyph.chevronRight,
-                    size: 20,
-                    color: colors.textTertiary,
-                  ),
-                ],
-              ),
-            ),
             const SizedBox(height: SpacingTokens.sm),
 
-            // Privacy & audio consent note
-            GestureDetector(
+            // Scannable 3-item beginner guidelines
+            const _CompactDoDontSummary(),
+            const SizedBox(height: SpacingTokens.xs),
+
+            // Compact privacy & audio consent link
+            InkWell(
               onTap: () => _showPrivacySheet(context),
+              borderRadius: shapes.controlRadius,
               child: Padding(
                 padding: const EdgeInsetsDirectional.symmetric(
                   vertical: SpacingTokens.xs,
+                  horizontal: SpacingTokens.xs,
                 ),
-                child: Text(
-                  'By tapping Start check, you agree to evaluate your short Writing & Speaking samples. Tap for audio & privacy notice.',
-                  style: typography.caption.copyWith(
-                    color: colors.textSecondary,
-                    decoration: TextDecoration.underline,
-                  ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    AppIcon(
+                      LucideGlyph.info,
+                      size: 14,
+                      color: colors.textTertiary,
+                    ),
+                    const SizedBox(width: SpacingTokens.xs),
+                    Flexible(
+                      child: Text(
+                        'Audio & privacy notice',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: typography.caption.copyWith(
+                          color: colors.textSecondary,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -412,22 +388,62 @@ class _CompactDoDontSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    final typography = AppTypography.of(context);
     return MzCard(
+      variant: MzCardVariant.surfaceAlt,
+      padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text('Before you begin', style: typography.cardTitle),
-          const SizedBox(height: SpacingTokens.sm),
-          Text(
-            '• Do answer naturally in your own words.\n'
-            '• Do tap "I don\'t know" if a passage feels too difficult — it helps calibrate faster.\n'
-            "• Don't use dictionaries, translators, or external AI helpers.\n"
-            '• Listening clips play once in standard mode.',
-            style: typography.secondary.copyWith(color: colors.textSecondary),
+          _GuidelineRow(
+            glyph: LucideGlyph.check,
+            iconColor: colors.success,
+            text: 'Own words only — no translators or AI.',
+          ),
+          const SizedBox(height: SpacingTokens.xs),
+          _GuidelineRow(
+            glyph: LucideGlyph.shieldCheck,
+            iconColor: colors.primary,
+            text: 'Unsure? Tap "I don\'t know" anytime.',
+          ),
+          const SizedBox(height: SpacingTokens.xs),
+          _GuidelineRow(
+            glyph: LucideGlyph.headphones,
+            iconColor: colors.listeningAccent,
+            text: 'Audio plays once in Standard mode.',
           ),
         ],
       ),
+    );
+  }
+}
+
+class _GuidelineRow extends StatelessWidget {
+  const new({
+    required this.glyph,
+    required this.iconColor,
+    required this.text,
+  });
+
+  final LucideGlyph glyph;
+  final Color iconColor;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final typography = AppTypography.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        AppIcon(glyph, size: 16, color: iconColor),
+        const SizedBox(width: SpacingTokens.sm),
+        Expanded(
+          child: Text(
+            text,
+            style: typography.caption.copyWith(color: colors.textSecondary),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -447,42 +463,87 @@ class _DeviceCheckCard extends StatelessWidget {
         state.micStatus != MicPreflightStatus.permissionDenied &&
         state.micStatus != MicPreflightStatus.unavailable;
 
+    final soundLabel = state.isPlayingPreflightAudio
+        ? 'Playing...'
+        : (state.soundConfirmed ? 'Sound OK' : 'Test sound');
+    final micLabel = state.micStatus == MicPreflightStatus.checking
+        ? 'Speak (3s)...'
+        : (state.micStatus == MicPreflightStatus.ready
+              ? 'Mic OK'
+              : (state.speakingOptOut ? 'Mic skipped' : 'Test mic'));
+
     return MzCard(
+      padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Text('Quick Sound & Mic Check', style: typography.cardTitle),
-          const SizedBox(height: SpacingTokens.xs),
-          Text(
-            'Optional 15-second check before your timer starts.',
-            style: typography.secondary.copyWith(color: colors.textSecondary),
-          ),
-          const SizedBox(height: SpacingTokens.md),
-
-          // Sound Check Row
-          Row(
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: SpacingTokens.sm,
+            runSpacing: SpacingTokens.xs,
             children: <Widget>[
-              Expanded(
-                child: SecondaryButton(
-                  label: state.isPlayingPreflightAudio
-                      ? 'Playing test clip...'
-                      : (state.soundConfirmed
-                            ? 'Sound ready ✓'
-                            : 'Play test sound'),
-                  onPressed: state.bank == null || state.isPlayingPreflightAudio
-                      ? null
-                      : notifier.playPreflightSampleSound,
-                ),
+              Text('Quick Sound & Mic Check', style: typography.cardTitle),
+              Text(
+                'Optional',
+                style: typography.caption.copyWith(color: colors.textTertiary),
               ),
-              if (!state.soundConfirmed) ...<Widget>[
-                const SizedBox(width: SpacingTokens.sm),
-                TextButton(
-                  onPressed: notifier.confirmSoundReady,
-                  child: const Text('Skip'),
-                ),
-              ],
             ],
           ),
+          const SizedBox(height: SpacingTokens.sm),
+          LayoutBuilder(
+            builder: (ctx, constraints) {
+              final stackVertically =
+                  constraints.maxWidth < 300 ||
+                  MediaQuery.textScalerOf(ctx).scale(1) > 1.35;
+              final soundBtn = SecondaryButton(
+                label: soundLabel,
+                glyph: state.soundConfirmed
+                    ? LucideGlyph.checkCircle2
+                    : LucideGlyph.volume2,
+                onPressed: state.bank == null || state.isPlayingPreflightAudio
+                    ? null
+                    : notifier.playPreflightSampleSound,
+              );
+              final micBtn = SecondaryButton(
+                label: micLabel,
+                glyph: state.micStatus == MicPreflightStatus.ready
+                    ? LucideGlyph.checkCircle2
+                    : (state.speakingOptOut
+                          ? LucideGlyph.micOff
+                          : LucideGlyph.mic),
+                onPressed: state.micStatus == MicPreflightStatus.checking
+                    ? null
+                    : notifier.runMicPreflightCheck,
+              );
+
+              if (stackVertically) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    soundBtn,
+                    const SizedBox(height: SpacingTokens.xs),
+                    micBtn,
+                  ],
+                );
+              }
+              return Row(
+                children: <Widget>[
+                  Expanded(child: soundBtn),
+                  const SizedBox(width: SpacingTokens.sm),
+                  Expanded(child: micBtn),
+                ],
+              );
+            },
+          ),
+          if (state.micStatus == MicPreflightStatus.checking) ...<Widget>[
+            const SizedBox(height: SpacingTokens.sm),
+            AudioLevelMeter(
+              normalizedLevel: state.micLevel,
+              isPreviewing: true,
+              hasPermission: micHasPermission,
+            ),
+          ],
           if (state.preflightAudioError != null) ...<Widget>[
             const SizedBox(height: SpacingTokens.sm),
             StatusBanner(
@@ -491,60 +552,15 @@ class _DeviceCheckCard extends StatelessWidget {
               onTapAction: notifier.confirmSoundReady,
             ),
           ],
-
-          const SizedBox(height: SpacingTokens.md),
-          Divider(color: colors.borderSubtle, height: 1),
-          const SizedBox(height: SpacingTokens.md),
-
-          // Live Mic Check (3 seconds, discarded)
-          AudioLevelMeter(
-            normalizedLevel: state.micLevel,
-            isPreviewing: state.micStatus == MicPreflightStatus.checking,
-            hasPermission: micHasPermission,
-            isSilent: state.micStatus == MicPreflightStatus.noisyOrSilent,
-          ),
-          const SizedBox(height: SpacingTokens.sm),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: SecondaryButton(
-                  label: state.micStatus == MicPreflightStatus.checking
-                      ? 'Listening (3s)...'
-                      : (state.micStatus == MicPreflightStatus.ready
-                            ? 'Mic ready ✓'
-                            : 'Test mic (3s)'),
-                  onPressed: state.micStatus == MicPreflightStatus.checking
-                      ? null
-                      : notifier.runMicPreflightCheck,
-                ),
-              ),
-              const SizedBox(width: SpacingTokens.sm),
-              TextButton(
-                onPressed: () => notifier.setSpeakingOptOut(
-                  optOut: !state.speakingOptOut,
-                  reason: NoEvidenceReason.micDenied,
-                ),
-                child: Text(
-                  state.speakingOptOut ? 'Include Speaking' : 'No mic',
-                ),
-              ),
-            ],
-          ),
-          if (state.micStatusMessage != null) ...<Widget>[
+          if (state.micStatusMessage != null &&
+              state.micStatus != MicPreflightStatus.ready) ...<Widget>[
             const SizedBox(height: SpacingTokens.sm),
             StatusBanner(
               message: state.micStatusMessage!,
-              variant: state.micStatus == MicPreflightStatus.ready
-                  ? StatusBannerVariant.success
-                  : StatusBannerVariant.warning,
-              actionLabel:
-                  state.micStatus != MicPreflightStatus.ready &&
-                      !state.speakingOptOut
+              actionLabel: !state.speakingOptOut
                   ? 'Continue without Speaking'
                   : null,
-              onTapAction:
-                  state.micStatus != MicPreflightStatus.ready &&
-                      !state.speakingOptOut
+              onTapAction: !state.speakingOptOut
                   ? () => notifier.setSpeakingOptOut(
                       optOut: true,
                       reason:
@@ -557,9 +573,11 @@ class _DeviceCheckCard extends StatelessWidget {
           ],
           if (state.speakingOptOut) ...<Widget>[
             const SizedBox(height: SpacingTokens.sm),
-            const StatusBanner(
+            StatusBanner(
               message: 'Speaking will be skipped in this check. Reading, Listening, and Writing still run normally.',
               variant: StatusBannerVariant.offline,
+              actionLabel: 'Include Speaking',
+              onTapAction: () => notifier.setSpeakingOptOut(optOut: false),
             ),
           ],
         ],

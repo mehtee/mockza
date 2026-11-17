@@ -696,48 +696,70 @@ void main() {
       },
     );
 
-    testWidgets('intro screen instantiates cleanly standalone', (tester) async {
-      final db = createTestDatabase();
-      await tester.pumpWidget(
-        ProviderScope(
-          retry: (count, error) => null,
-          overrides: [
-            editionConfigProvider.overrideWithValue(
-              EditionConfig.globalDefault,
-            ),
-            clockProvider.overrideWithValue(fixedTestClock()),
-            appDatabaseProvider.overrideWithValue(db),
-            entropySourceProvider.overrideWithValue(FixedEntropySource()),
-            secureStorageGatewayProvider.overrideWithValue(
-              InMemorySecureStorageGateway(),
-            ),
-            billingGatewayProvider.overrideWithValue(
-              const FakeBillingGateway(),
-            ),
-            gradingGatewayProvider.overrideWithValue(FakeGradingGateway()),
-            audioRecorderGatewayProvider.overrideWithValue(
-              FakeAudioRecorderGateway(),
-            ),
-            audioPlayerGatewayProvider.overrideWithValue(
-              FakeAudioPlayerGateway(),
-            ),
-            diagnosticGatewayProvider.overrideWithValue(
-              FakeDiagnosticGateway(),
-            ),
-          ],
-          child: MaterialApp(
-            theme: AppTheme.dark(),
-            home: const DiagnosticIntroScreen(),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Quick Sound & Mic Check'), findsOneWidget);
-      expect(tester.takeException(), isNull);
+    testWidgets(
+      'intro screen fits single 390x844 viewport with zero scroll & opens mode sheet',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
 
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump(const Duration(milliseconds: 1));
-      await tester.runAsync(db.close);
-    });
+        final db = createTestDatabase();
+        await tester.pumpWidget(
+          ProviderScope(
+            retry: (count, error) => null,
+            overrides: [
+              editionConfigProvider.overrideWithValue(
+                EditionConfig.globalDefault,
+              ),
+              clockProvider.overrideWithValue(fixedTestClock()),
+              appDatabaseProvider.overrideWithValue(db),
+              entropySourceProvider.overrideWithValue(FixedEntropySource()),
+              secureStorageGatewayProvider.overrideWithValue(
+                InMemorySecureStorageGateway(),
+              ),
+              billingGatewayProvider.overrideWithValue(
+                const FakeBillingGateway(),
+              ),
+              gradingGatewayProvider.overrideWithValue(FakeGradingGateway()),
+              audioRecorderGatewayProvider.overrideWithValue(
+                FakeAudioRecorderGateway(),
+              ),
+              audioPlayerGatewayProvider.overrideWithValue(
+                FakeAudioPlayerGateway(),
+              ),
+              diagnosticGatewayProvider.overrideWithValue(
+                FakeDiagnosticGateway(),
+              ),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.dark(),
+              home: const DiagnosticIntroScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Quick Sound & Mic Check'), findsOneWidget);
+        expect(find.text('Test sound'), findsOneWidget);
+        expect(find.text('Test mic'), findsOneWidget);
+        expect(find.text('Standard (15m) ▾'), findsOneWidget);
+        expect(find.text('Start check'), findsOneWidget);
+
+        final scrollable = tester.state<ScrollableState>(
+          find.byType(Scrollable).first,
+        );
+        expect(scrollable.position.maxScrollExtent, 0.0);
+
+        await tester.tap(find.text('Standard (15m) ▾'));
+        await tester.pumpAndSettle();
+        expect(find.text('Accessibility & Timing Options'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump(const Duration(milliseconds: 1));
+        await tester.runAsync(db.close);
+      },
+    );
   });
 }
