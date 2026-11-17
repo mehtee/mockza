@@ -43,6 +43,13 @@
       "when": 1794844003987,
       "tag": "0005_phase7_fencing_and_reconciliation",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794924400000,
+      "tag": "0006_rapid_diagnostic",
+      "breakpoints": true
     }
   ]
 }

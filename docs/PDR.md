@@ -276,7 +276,7 @@ To protect developer accounts from DMCA takedowns and IP termination:
 
 | Tier / SKU | Store Price | Net Payout *(15% Small Business Fee)* | Access Included | Fair-Use / Cost Guardrail |
 | :--- | :--- | :--- | :--- | :--- |
-| **Free Starter** | \$0.00 | \$0.00 | **1 AI Speaking OR Writing Diagnostic** + **1 bundled Reading** + **1 bundled Listening** + **20 Vocab cards/day** | Device-attested 1-time AI diagnostic; Reading/Listening/Vocab starter runs offline at **\$0** API burn |
+| **Free Starter** | \$0.00 | \$0.00 | **1 Rapid 4-Skill Baseline Check bundle (1 short Writing + 1 short Speaking)** + **1 standalone AI Speaking OR Writing Diagnostic** + **1 bundled Reading** + **1 bundled Listening** + **20 Vocab cards/day** | Device-attested 1-time baseline check + 1-time full diagnostic; Reading/Listening/Vocab starter runs offline at **\$0** API burn |
 | **Weekly Cram Pass** | **\$5.99 / week** | ~**\$5.09 / week** | All 4 skills unlocked (full Reading & Listening banks, unlimited Mistake-to-Deck Vocab, AI Speaking & Writing + rewrites) | Max **10 Speaking + 10 Writing AI evals/day** (`70+70/wk`) |
 | **Monthly Pro** *(Hero)* | **\$14.99 / month** | ~**\$12.74 / month** | Full 4-skill bank + OTA new packs + deep Ask AI Why + unlimited SRS Vocabulary | Max **10 Speaking + 10 Writing AI evals/day** (`150/mo`) |
 | **Quarterly Prep** | **\$29.99 / 3 months** | ~**\$25.49 / 3 months** | Full Pro access for 90-day prep cycles (33% savings vs monthly) | Same daily fair-use limits |

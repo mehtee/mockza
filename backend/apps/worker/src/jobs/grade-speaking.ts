@@ -2,10 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { GetObjectCommand, type S3Client } from '@aws-sdk/client-s3';
 import {
   bufferAudioStream,
+  type DiagnosticSpeakingInput,
   EvaluationModelError,
+  gradeSpeakingDiagnosticGraph,
   gradeSpeakingGraph,
   prepareAudioForModel,
   type SpeakingGraphInput,
+  type SpeakingGraphOutput,
   type SpeakingInvokeOptions,
 } from '@mockza/ai';
 import {
@@ -27,7 +30,7 @@ export async function handleGradeSpeakingJob(
   bucket?: string,
   invokeOptions?: SpeakingInvokeOptions,
   retryCtx: WorkerRetryContext = {},
-) {
+): Promise<SpeakingGraphOutput | null> {
   const startMs = Date.now();
   const attemptNumber = retryCtx.attemptNumber ?? 1;
   const maxAttempts = retryCtx.maxAttempts ?? 3;
@@ -152,14 +155,32 @@ export async function handleGradeSpeakingJob(
       }
     }
 
-    const result = await gradeSpeakingGraph.invoke(
-      {
-        ...payload,
-        turnAudios,
-      },
-      invokeOptions,
-    );
+    const rawPayload = payload as SpeakingGraphInput & {
+      jobId: string;
+      executionGeneration?: number;
+      basePrompt?: string;
+      followUpPrompt?: string;
+    };
+    const isDiagnosticTask = (rawPayload.partSequence as string) === 'diagnostic';
+    const result = isDiagnosticTask
+      ? await gradeSpeakingDiagnosticGraph.invoke(
+          {
+            attemptId: rawPayload.attemptId,
+            basePrompt: rawPayload.basePrompt ?? rawPayload.turns?.[0]?.promptText ?? '',
+            followUpPrompt: rawPayload.followUpPrompt ?? rawPayload.turns?.[1]?.promptText,
+            turnAudios,
+          } satisfies DiagnosticSpeakingInput,
+          invokeOptions,
+        )
+      : await gradeSpeakingGraph.invoke(
+          {
+            ...payload,
+            turnAudios,
+          },
+          invokeOptions,
+        );
     const latencyMs = Date.now() - startMs;
+    const numericBand = 'overallBand' in result ? result.overallBand : null;
 
     if (db && payload.jobId) {
       await db.transaction(async (tx) => {
@@ -168,7 +189,7 @@ export async function handleGradeSpeakingJob(
           .set({
             status: 'completed',
             stageDetail: 'Evaluation complete',
-            overallBand: result.overallBand,
+            overallBand: numericBand,
             resultJson: result,
             modelId: result.modelId,
             rubricVersion: result.rubricVersion,
@@ -189,12 +210,16 @@ export async function handleGradeSpeakingJob(
           .returning({ jobId: evaluationJobs.jobId });
 
         if (updated.length > 0) {
-          await commitQuotaReservationAtomic({ db: tx, attemptId: payload.attemptId });
+          if (isDiagnosticTask && 'status' in result && result.status !== 'provisional') {
+            await refundQuotaAtomic({ db: tx, attemptId: payload.attemptId });
+          } else {
+            await commitQuotaReservationAtomic({ db: tx, attemptId: payload.attemptId });
+          }
         }
       });
     }
 
-    return result;
+    return (isDiagnosticTask ? null : result) as SpeakingGraphOutput | null;
   } catch (error) {
     const retryable = !(error instanceof EvaluationModelError && !error.retryable);
     const willRetry = retryable && attemptNumber < maxAttempts;

@@ -144,9 +144,24 @@ class HomeScreen extends ConsumerWidget {
                   targetScore: state.targetBand,
                   scoreDeltaText: deltaText,
                   scaleLabel: state.track.scaleLabel,
-                  onTapDiagnostic: () => context.push(
-                    AppRoutes.buildSpeakingSim(),
-                  ),
+                  onTapDiagnostic: () {
+                    final diagId = state.latestDiagnosticId;
+                    if (diagId != null &&
+                        diagId.isNotEmpty &&
+                        state.latestDiagnosticStatus != 'in_progress') {
+                      unawaited(
+                        context.push(AppRoutes.buildDiagnosticResults(diagId)),
+                      );
+                    } else {
+                      unawaited(
+                        context.push(
+                          AppRoutes.buildDiagnosticIntro(
+                            examId: state.track.id,
+                          ),
+                        ),
+                      );
+                    }
+                  },
                   onTapCard: () => context.go(AppRoutes.progress),
                 ),
                 const SizedBox(height: SpacingTokens.lg),

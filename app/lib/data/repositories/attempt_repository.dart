@@ -713,6 +713,7 @@ class AttemptRepository {
     final vocabCards = await _db.select(_db.vocabCards).get();
     final reviewLogs = await _db.select(_db.vocabReviewLogs).get();
     final studyLogs = await _db.select(_db.dailyStudyLogs).get();
+    final diagnosticRows = await _db.select(_db.diagnosticSessions).get();
 
     final payload = <String, Object?>{
       'schemaVersion': 1,
@@ -782,6 +783,21 @@ class AttemptRepository {
               'serialDay': s.serialDay,
               'studySeconds': s.studySeconds,
               'completedItems': s.completedItems,
+            },
+          )
+          .toList(growable: false),
+      'diagnosticSessions': diagnosticRows
+          .map(
+            (d) => <String, Object?>{
+              'diagId': d.diagId,
+              'examId': d.examId,
+              'mode': d.mode,
+              'policyVersion': d.policyVersion,
+              'contentVersion': d.contentVersion,
+              'startedAtUtcMs': d.startedAtUtcMs,
+              'currentStage': d.currentStage,
+              'status': d.status,
+              'stateJson': d.stateJson,
             },
           )
           .toList(growable: false),
@@ -898,5 +914,52 @@ class AttemptRepository {
       // Fall back to empty stage map if malformed.
     }
     return const <String, String>{};
+  }
+
+  // --- Rapid Starting-Level Diagnostic Sessions ---
+
+  /// Retrieves a persisted diagnostic session row by [diagId].
+  Future<DiagnosticSessionRow?> getDiagnosticSession(String diagId) =>
+      _db.attemptDao.getDiagnosticSession(diagId);
+
+  /// Streams the most recently updated diagnostic session, if any.
+  Stream<DiagnosticSessionRow?> watchLatestDiagnosticSession() =>
+      _db.attemptDao.watchLatestDiagnosticSession();
+
+  /// Inserts or updates a persisted diagnostic session record.
+  Future<void> saveDiagnosticSession({
+    required String diagId,
+    required String examId,
+    required String mode,
+    required String policyVersion,
+    required String contentVersion,
+    required String selectionSeed,
+    required int startedAtUtcMs,
+    required int collectionDeadlineUtcMs,
+    required int resultsDeadlineUtcMs,
+    required String currentStage,
+    required String status,
+    required String stateJson,
+  }) async {
+    final now = _clock.now().toUtc();
+    final existing = await _db.attemptDao.getDiagnosticSession(diagId);
+    await _db.attemptDao.upsertDiagnosticSession(
+      DiagnosticSessionsCompanion.insert(
+        diagId: diagId,
+        examId: examId,
+        mode: Value(mode),
+        policyVersion: policyVersion,
+        contentVersion: contentVersion,
+        selectionSeed: selectionSeed,
+        startedAtUtcMs: startedAtUtcMs,
+        collectionDeadlineUtcMs: collectionDeadlineUtcMs,
+        resultsDeadlineUtcMs: resultsDeadlineUtcMs,
+        currentStage: Value(currentStage),
+        status: Value(status),
+        stateJson: Value(stateJson),
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      ),
+    );
   }
 }

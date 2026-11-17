@@ -24,6 +24,15 @@ abstract final class AppRoutes {
   /// Pushed Pro Paywall route.
   static const String paywall = '/paywall';
 
+  /// Rapid starting-level 4-skill diagnostic intro & preflight (`/diagnostic/intro`).
+  static const String diagnosticIntro = '/diagnostic/intro';
+
+  /// Rapid starting-level diagnostic session workspace (`/diagnostic/session/:diagId`).
+  static const String diagnosticSession = '/diagnostic/session/:diagId';
+
+  /// Rapid starting-level diagnostic results workspace (`/diagnostic/results/:diagId`).
+  static const String diagnosticResults = '/diagnostic/results/:diagId';
+
   // --- ADR-005 Parameterized Routes ---
 
   /// Practice setup parameterized by skill (`/practice/setup/:skill`).
@@ -159,4 +168,22 @@ abstract final class AppRoutes {
 
   /// Builds a vocabulary word detail path for [wordId].
   static String buildVocabWordDetail(String wordId) => '/vocabulary/$wordId';
+
+  /// Builds the rapid diagnostic intro path with optional [examId] and [mode].
+  static String buildDiagnosticIntro({String? examId, String? mode}) {
+    final params = <String, String>{
+      'examId': ?examId,
+      'mode': ?mode,
+    };
+    if (params.isEmpty) return diagnosticIntro;
+    return Uri(path: diagnosticIntro, queryParameters: params).toString();
+  }
+
+  /// Builds the rapid diagnostic session path for [diagId].
+  static String buildDiagnosticSession(String diagId) =>
+      '/diagnostic/session/$diagId';
+
+  /// Builds the rapid diagnostic results path for [diagId].
+  static String buildDiagnosticResults(String diagId) =>
+      '/diagnostic/results/$diagId';
 }

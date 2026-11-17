@@ -18,6 +18,7 @@ import 'package:mockza/services/billing_gateway.dart';
 import 'package:mockza/services/cache_cleanup_service.dart';
 import 'package:mockza/services/content_sync_service.dart';
 import 'package:mockza/services/crash_log.dart';
+import 'package:mockza/services/diagnostic_gateway.dart';
 import 'package:mockza/services/entropy_source.dart';
 import 'package:mockza/services/grading_gateway.dart';
 import 'package:mockza/services/native/platform_audio_channel.dart';
@@ -147,6 +148,12 @@ final Provider<Dio> dioProvider = Provider<Dio>((ref) {
 final Provider<GradingGateway> gradingGatewayProvider =
     Provider<GradingGateway>(
       (ref) => HttpGradingGateway(ref.watch(dioProvider)),
+    );
+
+/// Rapid 4-skill baseline diagnostic gateway provider.
+final Provider<DiagnosticGateway> diagnosticGatewayProvider =
+    Provider<DiagnosticGateway>(
+      (ref) => HttpDiagnosticGateway(ref.watch(dioProvider)),
     );
 
 /// Synchronizes exam bundles, drills, and vocab cards from PostgreSQL/SeaweedFS API.

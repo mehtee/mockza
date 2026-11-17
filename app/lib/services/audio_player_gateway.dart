@@ -73,6 +73,7 @@ final class JustAudioPlayerGateway implements AudioPlayerGateway {
   @override
   Future<Result<Duration?, Failure>> loadFile(String filePath) async {
     try {
+      await _player.stop();
       final duration = _isUrlLike(filePath)
           ? await _player.setUrl(filePath)
           : await _player.setFilePath(filePath);
@@ -157,7 +158,14 @@ final class JustAudioPlayerGateway implements AudioPlayerGateway {
   Stream<Duration?> watchDuration() => _player.durationStream;
 
   @override
-  Stream<bool> watchIsPlaying() => _player.playingStream;
+  Stream<bool> watchIsPlaying() => _player.playerStateStream
+      .map(
+        (s) =>
+            s.playing &&
+            s.processingState != ProcessingState.completed &&
+            s.processingState != ProcessingState.idle,
+      )
+      .distinct();
 
   @override
   Future<void> dispose() => _player.dispose();

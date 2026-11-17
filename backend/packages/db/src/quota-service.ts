@@ -38,6 +38,7 @@ export async function getAccountQuotaStatus(params: {
   const deviceRows = await params.db
     .select({
       freeDiagnosticUsed: devices.freeDiagnosticUsed,
+      freeRapidDiagnosticUsed: devices.freeRapidDiagnosticUsed,
     })
     .from(devices)
     .where(
@@ -47,6 +48,7 @@ export async function getAccountQuotaStatus(params: {
     );
 
   const freeDiagnosticUsed = deviceRows.some((r) => r.freeDiagnosticUsed);
+  const freeRapidDiagnosticUsed = deviceRows.some((r) => r.freeRapidDiagnosticUsed);
 
   const entRows = await params.db
     .select({
@@ -93,6 +95,7 @@ export async function getAccountQuotaStatus(params: {
   return {
     isPro,
     freeDiagnosticUsed,
+    freeRapidDiagnosticUsed,
     speakingUsedToday,
     writingUsedToday,
     monthlyUsed,
@@ -126,6 +129,7 @@ export async function reserveQuotaAtomic(params: {
   deviceId: string;
   attemptId: string;
   skill: 'speaking' | 'writing';
+  diagSessionId?: string;
   allowRetryRefunded?: boolean;
   now?: Date;
 }): Promise<{ isDiagnostic: boolean }> {
@@ -161,25 +165,47 @@ export async function reserveQuotaAtomic(params: {
       now,
     });
 
-    const eligibility = evaluateQuotaEligibility({
-      isPro: status.isPro,
-      freeDiagnosticUsed: status.freeDiagnosticUsed,
-      speakingUsedToday: status.speakingUsedToday,
-      writingUsedToday: status.writingUsedToday,
-      monthlyUsed: status.monthlyUsed,
-      skill: params.skill,
-      now,
-    });
-
-    if (!eligibility.allowed) {
-      if (eligibility.reason === 'diagnostic_already_used') {
+    let effectiveIsDiagnostic = false;
+    if (params.diagSessionId && !status.isPro) {
+      const sameBundleRows = await tx
+        .select({ reservationId: quotaReservations.reservationId })
+        .from(quotaReservations)
+        .where(
+          and(
+            eq(quotaReservations.diagSessionId, params.diagSessionId),
+            sql`${quotaReservations.status} != 'refunded'`,
+          ),
+        )
+        .limit(1);
+      const sameBundleActive = sameBundleRows.length > 0;
+      if (status.freeRapidDiagnosticUsed && !sameBundleActive) {
         throw new EntitlementRequiredDomainError(
-          'Free diagnostic evaluation has already been used. Please subscribe to Mockza Pro to continue.',
+          'Free 4-skill baseline check has already been used. Please subscribe to Mockza Pro to continue.',
         );
       }
-      throw new QuotaExceededDomainError(
-        `Evaluation quota exceeded (${eligibility.reason ?? 'limit reached'}). Resets at ${eligibility.dailyResetAt}.`,
-      );
+      effectiveIsDiagnostic = true;
+    } else {
+      const eligibility = evaluateQuotaEligibility({
+        isPro: status.isPro,
+        freeDiagnosticUsed: status.freeDiagnosticUsed,
+        speakingUsedToday: status.speakingUsedToday,
+        writingUsedToday: status.writingUsedToday,
+        monthlyUsed: status.monthlyUsed,
+        skill: params.skill,
+        now,
+      });
+
+      if (!eligibility.allowed) {
+        if (eligibility.reason === 'diagnostic_already_used') {
+          throw new EntitlementRequiredDomainError(
+            'Free diagnostic evaluation has already been used. Please subscribe to Mockza Pro to continue.',
+          );
+        }
+        throw new QuotaExceededDomainError(
+          `Evaluation quota exceeded (${eligibility.reason ?? 'limit reached'}). Resets at ${eligibility.dailyResetAt}.`,
+        );
+      }
+      effectiveIsDiagnostic = eligibility.isDiagnostic;
     }
 
     const reservationId = existing?.reservationId ?? randomUUID();
@@ -196,7 +222,8 @@ export async function reserveQuotaAtomic(params: {
           utcDay,
           utcMonth,
           status: 'reserved',
-          isDiagnostic: eligibility.isDiagnostic,
+          isDiagnostic: effectiveIsDiagnostic,
+          diagSessionId: params.diagSessionId ?? null,
           updatedAt: now,
         })
         .where(
@@ -215,7 +242,8 @@ export async function reserveQuotaAtomic(params: {
         utcDay,
         utcMonth,
         status: 'reserved',
-        isDiagnostic: eligibility.isDiagnostic,
+        isDiagnostic: effectiveIsDiagnostic,
+        diagSessionId: params.diagSessionId ?? null,
       });
     }
 
@@ -259,14 +287,21 @@ export async function reserveQuotaAtomic(params: {
         },
       });
 
-    if (eligibility.isDiagnostic) {
-      await tx
-        .update(devices)
-        .set({ freeDiagnosticUsed: true })
-        .where(eq(devices.deviceId, params.deviceId));
+    if (effectiveIsDiagnostic) {
+      if (params.diagSessionId) {
+        await tx
+          .update(devices)
+          .set({ freeRapidDiagnosticUsed: true })
+          .where(eq(devices.deviceId, params.deviceId));
+      } else {
+        await tx
+          .update(devices)
+          .set({ freeDiagnosticUsed: true })
+          .where(eq(devices.deviceId, params.deviceId));
+      }
     }
 
-    return { isDiagnostic: eligibility.isDiagnostic };
+    return { isDiagnostic: effectiveIsDiagnostic };
   });
 }
 
@@ -358,7 +393,33 @@ export async function refundQuotaAtomic(params: {
       .where(eq(monthlyQuotaUsage.counterKey, monthlyKey));
 
     if (res.isDiagnostic) {
-      if (res.deviceId) {
+      if (res.diagSessionId) {
+        const remainingActive = await tx
+          .select({ reservationId: quotaReservations.reservationId })
+          .from(quotaReservations)
+          .where(
+            and(
+              eq(quotaReservations.diagSessionId, res.diagSessionId),
+              sql`${quotaReservations.status} != 'refunded'`,
+            ),
+          )
+          .limit(1);
+        if (remainingActive.length === 0) {
+          if (res.deviceId) {
+            await tx
+              .update(devices)
+              .set({ freeRapidDiagnosticUsed: false })
+              .where(eq(devices.deviceId, res.deviceId));
+          } else {
+            await tx
+              .update(devices)
+              .set({ freeRapidDiagnosticUsed: false })
+              .where(
+                or(eq(devices.deviceId, res.accountKey), eq(devices.linkedUserId, res.accountKey)),
+              );
+          }
+        }
+      } else if (res.deviceId) {
         await tx
           .update(devices)
           .set({ freeDiagnosticUsed: false })

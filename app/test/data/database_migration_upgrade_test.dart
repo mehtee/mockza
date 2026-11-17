@@ -455,5 +455,190 @@ void main() {
       expect(mockSession, isNotNull);
       expect(mockSession!.examMode, isTrue);
     });
+
+    test('upgrades v4 SQLite database to v5 preserving rows and creating diagnostic_sessions', () async {
+      final tempDir = await Directory.systemTemp.createTemp('mockza_mig_v4_');
+      addTearDown(() => tempDir.delete(recursive: true));
+      final dbFile = File('${tempDir.path}/mockza_v4.sqlite');
+
+      final rawDb = sqlite.sqlite3.open(dbFile.path)
+        ..execute('''
+        CREATE TABLE user_profiles (
+          device_id TEXT NOT NULL PRIMARY KEY,
+          exam_id TEXT NOT NULL DEFAULT 'ielts_academic',
+          target_band REAL NOT NULL DEFAULT 7.0,
+          exam_module TEXT NOT NULL DEFAULT 'academic',
+          target_date_serial INTEGER NULL,
+          onboarding_completed INTEGER NOT NULL DEFAULT 0,
+          free_diagnostic_used INTEGER NOT NULL DEFAULT 0,
+          theme_mode TEXT NOT NULL DEFAULT 'system',
+          linked_email TEXT NULL,
+          app_user_id TEXT NULL,
+          is_pro INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+        CREATE TABLE exam_packs (
+          pack_id TEXT NOT NULL PRIMARY KEY,
+          skill TEXT NOT NULL,
+          exam_id TEXT NOT NULL DEFAULT 'ielts_academic',
+          track TEXT NOT NULL DEFAULT 'academic',
+          title TEXT NOT NULL DEFAULT 'Practice Pack',
+          duration_seconds INTEGER NOT NULL DEFAULT 600,
+          version TEXT NOT NULL,
+          sha256 TEXT NOT NULL,
+          local_path TEXT NOT NULL,
+          is_downloaded INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+        CREATE TABLE exam_attempts (
+          attempt_id TEXT NOT NULL PRIMARY KEY,
+          pack_id TEXT NOT NULL,
+          skill TEXT NOT NULL,
+          exam_id TEXT NOT NULL DEFAULT 'ielts_academic',
+          status TEXT NOT NULL,
+          remote_job_id TEXT NULL,
+          submission_json TEXT NOT NULL,
+          evaluation_json TEXT NULL,
+          overall_band REAL NULL,
+          error_code TEXT NULL,
+          started_at_utc_ms INTEGER NULL,
+          completed_at_utc_ms INTEGER NULL,
+          duration_seconds INTEGER NOT NULL DEFAULT 0,
+          used_study_mode INTEGER NOT NULL DEFAULT 0,
+          question_count INTEGER NOT NULL DEFAULT 0,
+          is_calibrated_full_pack INTEGER NOT NULL DEFAULT 1,
+          content_version TEXT NULL,
+          mock_session_id TEXT NULL,
+          mock_stage_key TEXT NULL,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+        CREATE TABLE mock_sessions (
+          mock_id TEXT NOT NULL PRIMARY KEY,
+          track TEXT NOT NULL DEFAULT 'academic',
+          started_at_utc_ms INTEGER NOT NULL,
+          completed_at_utc_ms INTEGER NULL,
+          exam_mode INTEGER NOT NULL DEFAULT 1,
+          stage_attempt_ids_json TEXT NOT NULL DEFAULT '{}',
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+        CREATE TABLE vocab_cards (
+          card_id TEXT NOT NULL PRIMARY KEY,
+          headword TEXT NOT NULL,
+          ipa TEXT NULL,
+          definition TEXT NOT NULL,
+          topic_tag TEXT NOT NULL,
+          repetitions INTEGER NOT NULL DEFAULT 0,
+          interval_days INTEGER NOT NULL DEFAULT 0,
+          ease_factor REAL NOT NULL DEFAULT 2.5,
+          ease_factor_milli INTEGER NOT NULL DEFAULT 2500,
+          due_day INTEGER NOT NULL,
+          due_day_serial INTEGER NOT NULL DEFAULT 0,
+          context_sentence TEXT NULL,
+          paraphrase_hints_json TEXT NULL,
+          usage_note TEXT NULL,
+          source_skill TEXT NULL,
+          source_attempt_id TEXT NULL,
+          source_ref_label TEXT NULL,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+        CREATE TABLE vocab_review_logs (
+          log_id TEXT NOT NULL PRIMARY KEY,
+          card_id TEXT NOT NULL REFERENCES vocab_cards(card_id) ON DELETE CASCADE,
+          rating INTEGER NOT NULL,
+          reviewed_day_serial INTEGER NOT NULL,
+          reviewed_at_utc_ms INTEGER NOT NULL
+        );
+        CREATE TABLE writing_drafts (
+          draft_id TEXT NOT NULL PRIMARY KEY,
+          task_id TEXT NOT NULL,
+          task_index INTEGER NOT NULL,
+          draft_text TEXT NOT NULL,
+          word_count INTEGER NOT NULL,
+          timer_remaining_sec INTEGER NOT NULL,
+          last_saved_at INTEGER NOT NULL
+        );
+        CREATE TABLE reading_annotations (
+          annotation_id TEXT NOT NULL PRIMARY KEY,
+          pack_id TEXT NOT NULL,
+          passage_index INTEGER NOT NULL DEFAULT 0,
+          start_offset INTEGER NOT NULL,
+          end_offset INTEGER NOT NULL,
+          color_code TEXT NOT NULL DEFAULT 'yellow',
+          note_text TEXT NULL,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          is_deleted INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE daily_study_logs (
+          serial_day INTEGER NOT NULL PRIMARY KEY,
+          study_seconds INTEGER NOT NULL DEFAULT 0,
+          completed_items INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+        CREATE TABLE outbox_sync_queue (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          action_type TEXT NOT NULL,
+          payload_json TEXT NOT NULL,
+          retry_count INTEGER NOT NULL DEFAULT 0,
+          next_attempt_at INTEGER NOT NULL,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+        CREATE TABLE audio_recordings (
+          recording_id TEXT NOT NULL PRIMARY KEY,
+          attempt_id TEXT NOT NULL REFERENCES exam_attempts(attempt_id) ON DELETE CASCADE,
+          part_index INTEGER NOT NULL,
+          local_file_path TEXT NOT NULL,
+          duration_ms INTEGER NOT NULL DEFAULT 0,
+          sha256 TEXT NULL,
+          remote_object_key TEXT NULL,
+          upload_status TEXT NOT NULL DEFAULT 'pending',
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+      ''');
+
+      const ts = 1763294400;
+      rawDb
+        ..execute(
+          "INSERT INTO user_profiles (device_id, target_band, onboarding_completed, created_at, updated_at) VALUES ('dev-v4-1', 7.5, 1, $ts, $ts);",
+        )
+        ..execute('PRAGMA user_version = 4;')
+        ..close();
+
+      final db = AppDatabase(NativeDatabase(dbFile));
+      addTearDown(db.close);
+
+      final profiles = await db.select(db.userProfiles).get();
+      expect(profiles, hasLength(1));
+      expect(profiles.single.deviceId, 'dev-v4-1');
+      expect(profiles.single.freeDiagnosticUsed, isFalse);
+
+      final now = DateTime.fromMillisecondsSinceEpoch(ts * 1000, isUtc: true);
+      await db.attemptDao.upsertDiagnosticSession(
+        DiagnosticSessionsCompanion.insert(
+          diagId: 'diag-v5-test',
+          examId: 'ielts_academic',
+          policyVersion: '2026-11-17.v1',
+          contentVersion: 'diag-2026-11-17.v1',
+          selectionSeed: 'seed-1',
+          startedAtUtcMs: ts * 1000,
+          collectionDeadlineUtcMs: (ts + 540) * 1000,
+          resultsDeadlineUtcMs: (ts + 600) * 1000,
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+      final diag = await db.attemptDao.getDiagnosticSession('diag-v5-test');
+      expect(diag, isNotNull);
+      expect(diag!.diagId, 'diag-v5-test');
+      expect(diag.mode, 'standard');
+    });
   });
 }

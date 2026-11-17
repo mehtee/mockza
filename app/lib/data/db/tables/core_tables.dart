@@ -438,3 +438,46 @@ class MockSessions extends Table with AuditColumns {
   @override
   Set<Column<Object>> get primaryKey => {mockId};
 }
+
+/// Durable rapid 4-skill adaptive starting-level session state (`RAPID_DIAGNOSTIC_PLAN.md`).
+@DataClassName('DiagnosticSessionRow')
+class DiagnosticSessions extends Table with AuditColumns {
+  /// Client/server shared UUIDv4 diagnostic session identifier.
+  TextColumn get diagId => text()();
+
+  /// Active exam goal identifier at start of session (`ielts_academic`, `toefl_ibt`, etc.).
+  TextColumn get examId => text()();
+
+  /// Mode (`standard`, `extended`, `accessible`).
+  TextColumn get mode => text().withDefault(const Constant('standard'))();
+
+  /// Policy version frozen at session creation.
+  TextColumn get policyVersion => text()();
+
+  /// Content version frozen at session creation.
+  TextColumn get contentVersion => text()();
+
+  /// Deterministic tie-breaking seed.
+  TextColumn get selectionSeed => text()();
+
+  /// Persisted start timestamp (UTC ms).
+  IntColumn get startedAtUtcMs => integer()();
+
+  /// Persisted 540s collection deadline (UTC ms).
+  IntColumn get collectionDeadlineUtcMs => integer()();
+
+  /// Persisted 600s results/status window deadline (UTC ms).
+  IntColumn get resultsDeadlineUtcMs => integer()();
+
+  /// Active stage (`intro`, `reading`, `listening`, `writing`, `speaking`, `results`).
+  TextColumn get currentStage => text().withDefault(const Constant('intro'))();
+
+  /// Lifecycle status (`in_progress`, `submitted`, `completed`, `abandoned`).
+  TextColumn get status => text().withDefault(const Constant('in_progress'))();
+
+  /// Serialized adaptive history, stop reasons, writing/speaking refs, and cached snapshot JSON.
+  TextColumn get stateJson => text().withDefault(const Constant('{}'))();
+
+  @override
+  Set<Column<Object>> get primaryKey => {diagId};
+}

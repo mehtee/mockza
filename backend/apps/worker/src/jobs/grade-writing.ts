@@ -1,8 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import {
+  type DiagnosticWritingInput,
   EvaluationModelError,
+  gradeWritingDiagnosticGraph,
   gradeWritingGraph,
   type WritingGraphInput,
+  type WritingGraphOutput,
   type WritingInvokeOptions,
 } from '@mockza/ai';
 import {
@@ -26,7 +29,7 @@ export async function handleGradeWritingJob(
   db?: MockzaDb,
   invokeOptions?: WritingInvokeOptions,
   retryCtx: WorkerRetryContext = {},
-) {
+): Promise<WritingGraphOutput | null> {
   const startMs = Date.now();
   const attemptNumber = retryCtx.attemptNumber ?? 1;
   const maxAttempts = retryCtx.maxAttempts ?? 3;
@@ -90,8 +93,31 @@ export async function handleGradeWritingJob(
       : () => {};
 
   try {
-    const result = await gradeWritingGraph.invoke(payload, invokeOptions);
+    const rawPayload = payload as Omit<WritingGraphInput, 'taskType'> & {
+      jobId: string;
+      executionGeneration?: number;
+      taskType: string;
+      basePrompt?: string;
+      followUpPrompt?: string;
+      baseResponse?: string;
+      followUpResponse?: string;
+    };
+    const isDiagnosticTask = rawPayload.taskType === 'diagnostic_writing';
+    const result = isDiagnosticTask
+      ? await gradeWritingDiagnosticGraph.invoke(
+          {
+            attemptId: rawPayload.attemptId,
+            promptTitle: rawPayload.promptTitle || 'Writing Starting Check',
+            basePrompt: rawPayload.basePrompt ?? rawPayload.promptBody,
+            followUpPrompt: rawPayload.followUpPrompt,
+            baseResponse: rawPayload.baseResponse ?? rawPayload.essayText,
+            followUpResponse: rawPayload.followUpResponse,
+          } satisfies DiagnosticWritingInput,
+          invokeOptions,
+        )
+      : await gradeWritingGraph.invoke(payload, invokeOptions);
     const latencyMs = Date.now() - startMs;
+    const numericBand = 'overallBand' in result ? result.overallBand : null;
 
     if (db && payload.jobId) {
       await db.transaction(async (tx) => {
@@ -100,7 +126,7 @@ export async function handleGradeWritingJob(
           .set({
             status: 'completed',
             stageDetail: 'Evaluation complete',
-            overallBand: result.overallBand,
+            overallBand: numericBand,
             resultJson: result,
             modelId: result.modelId,
             rubricVersion: result.rubricVersion,
@@ -121,12 +147,16 @@ export async function handleGradeWritingJob(
           .returning({ jobId: evaluationJobs.jobId });
 
         if (updated.length > 0) {
-          await commitQuotaReservationAtomic({ db: tx, attemptId: payload.attemptId });
+          if (isDiagnosticTask && 'status' in result && result.status !== 'provisional') {
+            await refundQuotaAtomic({ db: tx, attemptId: payload.attemptId });
+          } else {
+            await commitQuotaReservationAtomic({ db: tx, attemptId: payload.attemptId });
+          }
         }
       });
     }
 
-    return result;
+    return (isDiagnosticTask ? null : result) as WritingGraphOutput | null;
   } catch (error) {
     const retryable = !(error instanceof EvaluationModelError && !error.retryable);
     const willRetry = retryable && attemptNumber < maxAttempts;

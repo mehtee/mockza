@@ -13,6 +13,7 @@ part 'attempt_dao.g.dart';
     ReadingAnnotations,
     OutboxSyncQueue,
     MockSessions,
+    DiagnosticSessions,
   ],
 )
 class AttemptDao extends DatabaseAccessor<AppDatabase> with _$AttemptDaoMixin {
@@ -296,4 +297,23 @@ class AttemptDao extends DatabaseAccessor<AppDatabase> with _$AttemptDaoMixin {
   /// Deletes a Full Mock session row by [mockId].
   Future<int> deleteMockSession(String mockId) =>
       (delete(mockSessions)..where((t) => t.mockId.equals(mockId))).go();
+
+  // --- Rapid Starting-Level Diagnostic Sessions ---
+
+  /// Retrieves a persisted diagnostic session row by [diagId].
+  Future<DiagnosticSessionRow?> getDiagnosticSession(String diagId) => (select(
+    diagnosticSessions,
+  )..where((t) => t.diagId.equals(diagId))).getSingleOrNull();
+
+  /// Streams the most recently updated diagnostic session, if any.
+  Stream<DiagnosticSessionRow?> watchLatestDiagnosticSession() =>
+      (select(diagnosticSessions)
+            ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)])
+            ..limit(1))
+          .watchSingleOrNull();
+
+  /// Inserts or updates a diagnostic session row.
+  Future<void> upsertDiagnosticSession(
+    DiagnosticSessionsCompanion session,
+  ) => into(diagnosticSessions).insertOnConflictUpdate(session);
 }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockza/features/diagnostic/presentation/diagnostic_intro_screen.dart';
+import 'package:mockza/features/diagnostic/presentation/diagnostic_results_screen.dart';
+import 'package:mockza/features/diagnostic/presentation/diagnostic_session_screen.dart';
 import 'package:mockza/features/evaluation_review/presentation/evaluation_review_screen.dart';
 import 'package:mockza/features/home/presentation/home_screen.dart';
 import 'package:mockza/features/listening_sim/presentation/listening_sim_screen.dart';
@@ -170,6 +173,25 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.paywall,
         builder: (context, state) => const PaywallScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.diagnosticIntro,
+        builder: (context, state) => DiagnosticIntroScreen(
+          examId: state.uri.queryParameters['examId'],
+          initialMode: state.uri.queryParameters['mode'],
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.diagnosticSession,
+        builder: (context, state) => DiagnosticSessionScreen(
+          diagId: state.pathParameters['diagId'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.diagnosticResults,
+        builder: (context, state) => DiagnosticResultsScreen(
+          diagId: state.pathParameters['diagId'] ?? '',
+        ),
       ),
       GoRoute(
         path: AppRoutes.practiceSetup,

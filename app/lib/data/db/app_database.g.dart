@@ -8359,6 +8359,872 @@ class MockSessionsCompanion extends UpdateCompanion<MockSessionRow> {
   }
 }
 
+class $DiagnosticSessionsTable extends DiagnosticSessions
+    with TableInfo<$DiagnosticSessionsTable, DiagnosticSessionRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DiagnosticSessionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _diagIdMeta = const VerificationMeta('diagId');
+  @override
+  late final GeneratedColumn<String> diagId = GeneratedColumn<String>(
+    'diag_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _examIdMeta = const VerificationMeta('examId');
+  @override
+  late final GeneratedColumn<String> examId = GeneratedColumn<String>(
+    'exam_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _modeMeta = const VerificationMeta('mode');
+  @override
+  late final GeneratedColumn<String> mode = GeneratedColumn<String>(
+    'mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('standard'),
+  );
+  static const VerificationMeta _policyVersionMeta = const VerificationMeta(
+    'policyVersion',
+  );
+  @override
+  late final GeneratedColumn<String> policyVersion = GeneratedColumn<String>(
+    'policy_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentVersionMeta = const VerificationMeta(
+    'contentVersion',
+  );
+  @override
+  late final GeneratedColumn<String> contentVersion = GeneratedColumn<String>(
+    'content_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _selectionSeedMeta = const VerificationMeta(
+    'selectionSeed',
+  );
+  @override
+  late final GeneratedColumn<String> selectionSeed = GeneratedColumn<String>(
+    'selection_seed',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startedAtUtcMsMeta = const VerificationMeta(
+    'startedAtUtcMs',
+  );
+  @override
+  late final GeneratedColumn<int> startedAtUtcMs = GeneratedColumn<int>(
+    'started_at_utc_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _collectionDeadlineUtcMsMeta =
+      const VerificationMeta('collectionDeadlineUtcMs');
+  @override
+  late final GeneratedColumn<int> collectionDeadlineUtcMs =
+      GeneratedColumn<int>(
+        'collection_deadline_utc_ms',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _resultsDeadlineUtcMsMeta =
+      const VerificationMeta('resultsDeadlineUtcMs');
+  @override
+  late final GeneratedColumn<int> resultsDeadlineUtcMs = GeneratedColumn<int>(
+    'results_deadline_utc_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _currentStageMeta = const VerificationMeta(
+    'currentStage',
+  );
+  @override
+  late final GeneratedColumn<String> currentStage = GeneratedColumn<String>(
+    'current_stage',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('intro'),
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('in_progress'),
+  );
+  static const VerificationMeta _stateJsonMeta = const VerificationMeta(
+    'stateJson',
+  );
+  @override
+  late final GeneratedColumn<String> stateJson = GeneratedColumn<String>(
+    'state_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('{}'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    createdAt,
+    updatedAt,
+    diagId,
+    examId,
+    mode,
+    policyVersion,
+    contentVersion,
+    selectionSeed,
+    startedAtUtcMs,
+    collectionDeadlineUtcMs,
+    resultsDeadlineUtcMs,
+    currentStage,
+    status,
+    stateJson,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'diagnostic_sessions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DiagnosticSessionRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('diag_id')) {
+      context.handle(
+        _diagIdMeta,
+        diagId.isAcceptableOrUnknown(data['diag_id']!, _diagIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_diagIdMeta);
+    }
+    if (data.containsKey('exam_id')) {
+      context.handle(
+        _examIdMeta,
+        examId.isAcceptableOrUnknown(data['exam_id']!, _examIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_examIdMeta);
+    }
+    if (data.containsKey('mode')) {
+      context.handle(
+        _modeMeta,
+        mode.isAcceptableOrUnknown(data['mode']!, _modeMeta),
+      );
+    }
+    if (data.containsKey('policy_version')) {
+      context.handle(
+        _policyVersionMeta,
+        policyVersion.isAcceptableOrUnknown(
+          data['policy_version']!,
+          _policyVersionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_policyVersionMeta);
+    }
+    if (data.containsKey('content_version')) {
+      context.handle(
+        _contentVersionMeta,
+        contentVersion.isAcceptableOrUnknown(
+          data['content_version']!,
+          _contentVersionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_contentVersionMeta);
+    }
+    if (data.containsKey('selection_seed')) {
+      context.handle(
+        _selectionSeedMeta,
+        selectionSeed.isAcceptableOrUnknown(
+          data['selection_seed']!,
+          _selectionSeedMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_selectionSeedMeta);
+    }
+    if (data.containsKey('started_at_utc_ms')) {
+      context.handle(
+        _startedAtUtcMsMeta,
+        startedAtUtcMs.isAcceptableOrUnknown(
+          data['started_at_utc_ms']!,
+          _startedAtUtcMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_startedAtUtcMsMeta);
+    }
+    if (data.containsKey('collection_deadline_utc_ms')) {
+      context.handle(
+        _collectionDeadlineUtcMsMeta,
+        collectionDeadlineUtcMs.isAcceptableOrUnknown(
+          data['collection_deadline_utc_ms']!,
+          _collectionDeadlineUtcMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_collectionDeadlineUtcMsMeta);
+    }
+    if (data.containsKey('results_deadline_utc_ms')) {
+      context.handle(
+        _resultsDeadlineUtcMsMeta,
+        resultsDeadlineUtcMs.isAcceptableOrUnknown(
+          data['results_deadline_utc_ms']!,
+          _resultsDeadlineUtcMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_resultsDeadlineUtcMsMeta);
+    }
+    if (data.containsKey('current_stage')) {
+      context.handle(
+        _currentStageMeta,
+        currentStage.isAcceptableOrUnknown(
+          data['current_stage']!,
+          _currentStageMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('state_json')) {
+      context.handle(
+        _stateJsonMeta,
+        stateJson.isAcceptableOrUnknown(data['state_json']!, _stateJsonMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {diagId};
+  @override
+  DiagnosticSessionRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DiagnosticSessionRow(
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      diagId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}diag_id'],
+      )!,
+      examId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}exam_id'],
+      )!,
+      mode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mode'],
+      )!,
+      policyVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}policy_version'],
+      )!,
+      contentVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_version'],
+      )!,
+      selectionSeed: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}selection_seed'],
+      )!,
+      startedAtUtcMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}started_at_utc_ms'],
+      )!,
+      collectionDeadlineUtcMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}collection_deadline_utc_ms'],
+      )!,
+      resultsDeadlineUtcMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}results_deadline_utc_ms'],
+      )!,
+      currentStage: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}current_stage'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      stateJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}state_json'],
+      )!,
+    );
+  }
+
+  @override
+  $DiagnosticSessionsTable createAlias(String alias) {
+    return $DiagnosticSessionsTable(attachedDatabase, alias);
+  }
+}
+
+class DiagnosticSessionRow extends DataClass
+    implements Insertable<DiagnosticSessionRow> {
+  /// Record creation timestamp in UTC.
+  final DateTime createdAt;
+
+  /// Last local mutation timestamp in UTC.
+  final DateTime updatedAt;
+
+  /// Client/server shared UUIDv4 diagnostic session identifier.
+  final String diagId;
+
+  /// Active exam goal identifier at start of session (`ielts_academic`, `toefl_ibt`, etc.).
+  final String examId;
+
+  /// Mode (`standard`, `extended`, `accessible`).
+  final String mode;
+
+  /// Policy version frozen at session creation.
+  final String policyVersion;
+
+  /// Content version frozen at session creation.
+  final String contentVersion;
+
+  /// Deterministic tie-breaking seed.
+  final String selectionSeed;
+
+  /// Persisted start timestamp (UTC ms).
+  final int startedAtUtcMs;
+
+  /// Persisted 540s collection deadline (UTC ms).
+  final int collectionDeadlineUtcMs;
+
+  /// Persisted 600s results/status window deadline (UTC ms).
+  final int resultsDeadlineUtcMs;
+
+  /// Active stage (`intro`, `reading`, `listening`, `writing`, `speaking`, `results`).
+  final String currentStage;
+
+  /// Lifecycle status (`in_progress`, `submitted`, `completed`, `abandoned`).
+  final String status;
+
+  /// Serialized adaptive history, stop reasons, writing/speaking refs, and cached snapshot JSON.
+  final String stateJson;
+  const DiagnosticSessionRow({
+    required this.createdAt,
+    required this.updatedAt,
+    required this.diagId,
+    required this.examId,
+    required this.mode,
+    required this.policyVersion,
+    required this.contentVersion,
+    required this.selectionSeed,
+    required this.startedAtUtcMs,
+    required this.collectionDeadlineUtcMs,
+    required this.resultsDeadlineUtcMs,
+    required this.currentStage,
+    required this.status,
+    required this.stateJson,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    map['diag_id'] = Variable<String>(diagId);
+    map['exam_id'] = Variable<String>(examId);
+    map['mode'] = Variable<String>(mode);
+    map['policy_version'] = Variable<String>(policyVersion);
+    map['content_version'] = Variable<String>(contentVersion);
+    map['selection_seed'] = Variable<String>(selectionSeed);
+    map['started_at_utc_ms'] = Variable<int>(startedAtUtcMs);
+    map['collection_deadline_utc_ms'] = Variable<int>(collectionDeadlineUtcMs);
+    map['results_deadline_utc_ms'] = Variable<int>(resultsDeadlineUtcMs);
+    map['current_stage'] = Variable<String>(currentStage);
+    map['status'] = Variable<String>(status);
+    map['state_json'] = Variable<String>(stateJson);
+    return map;
+  }
+
+  DiagnosticSessionsCompanion toCompanion(bool nullToAbsent) {
+    return DiagnosticSessionsCompanion(
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      diagId: Value(diagId),
+      examId: Value(examId),
+      mode: Value(mode),
+      policyVersion: Value(policyVersion),
+      contentVersion: Value(contentVersion),
+      selectionSeed: Value(selectionSeed),
+      startedAtUtcMs: Value(startedAtUtcMs),
+      collectionDeadlineUtcMs: Value(collectionDeadlineUtcMs),
+      resultsDeadlineUtcMs: Value(resultsDeadlineUtcMs),
+      currentStage: Value(currentStage),
+      status: Value(status),
+      stateJson: Value(stateJson),
+    );
+  }
+
+  factory DiagnosticSessionRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DiagnosticSessionRow(
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      diagId: serializer.fromJson<String>(json['diagId']),
+      examId: serializer.fromJson<String>(json['examId']),
+      mode: serializer.fromJson<String>(json['mode']),
+      policyVersion: serializer.fromJson<String>(json['policyVersion']),
+      contentVersion: serializer.fromJson<String>(json['contentVersion']),
+      selectionSeed: serializer.fromJson<String>(json['selectionSeed']),
+      startedAtUtcMs: serializer.fromJson<int>(json['startedAtUtcMs']),
+      collectionDeadlineUtcMs: serializer.fromJson<int>(
+        json['collectionDeadlineUtcMs'],
+      ),
+      resultsDeadlineUtcMs: serializer.fromJson<int>(
+        json['resultsDeadlineUtcMs'],
+      ),
+      currentStage: serializer.fromJson<String>(json['currentStage']),
+      status: serializer.fromJson<String>(json['status']),
+      stateJson: serializer.fromJson<String>(json['stateJson']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'diagId': serializer.toJson<String>(diagId),
+      'examId': serializer.toJson<String>(examId),
+      'mode': serializer.toJson<String>(mode),
+      'policyVersion': serializer.toJson<String>(policyVersion),
+      'contentVersion': serializer.toJson<String>(contentVersion),
+      'selectionSeed': serializer.toJson<String>(selectionSeed),
+      'startedAtUtcMs': serializer.toJson<int>(startedAtUtcMs),
+      'collectionDeadlineUtcMs': serializer.toJson<int>(
+        collectionDeadlineUtcMs,
+      ),
+      'resultsDeadlineUtcMs': serializer.toJson<int>(resultsDeadlineUtcMs),
+      'currentStage': serializer.toJson<String>(currentStage),
+      'status': serializer.toJson<String>(status),
+      'stateJson': serializer.toJson<String>(stateJson),
+    };
+  }
+
+  DiagnosticSessionRow copyWith({
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    String? diagId,
+    String? examId,
+    String? mode,
+    String? policyVersion,
+    String? contentVersion,
+    String? selectionSeed,
+    int? startedAtUtcMs,
+    int? collectionDeadlineUtcMs,
+    int? resultsDeadlineUtcMs,
+    String? currentStage,
+    String? status,
+    String? stateJson,
+  }) => DiagnosticSessionRow(
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    diagId: diagId ?? this.diagId,
+    examId: examId ?? this.examId,
+    mode: mode ?? this.mode,
+    policyVersion: policyVersion ?? this.policyVersion,
+    contentVersion: contentVersion ?? this.contentVersion,
+    selectionSeed: selectionSeed ?? this.selectionSeed,
+    startedAtUtcMs: startedAtUtcMs ?? this.startedAtUtcMs,
+    collectionDeadlineUtcMs:
+        collectionDeadlineUtcMs ?? this.collectionDeadlineUtcMs,
+    resultsDeadlineUtcMs: resultsDeadlineUtcMs ?? this.resultsDeadlineUtcMs,
+    currentStage: currentStage ?? this.currentStage,
+    status: status ?? this.status,
+    stateJson: stateJson ?? this.stateJson,
+  );
+  DiagnosticSessionRow copyWithCompanion(DiagnosticSessionsCompanion data) {
+    return DiagnosticSessionRow(
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      diagId: data.diagId.present ? data.diagId.value : this.diagId,
+      examId: data.examId.present ? data.examId.value : this.examId,
+      mode: data.mode.present ? data.mode.value : this.mode,
+      policyVersion: data.policyVersion.present
+          ? data.policyVersion.value
+          : this.policyVersion,
+      contentVersion: data.contentVersion.present
+          ? data.contentVersion.value
+          : this.contentVersion,
+      selectionSeed: data.selectionSeed.present
+          ? data.selectionSeed.value
+          : this.selectionSeed,
+      startedAtUtcMs: data.startedAtUtcMs.present
+          ? data.startedAtUtcMs.value
+          : this.startedAtUtcMs,
+      collectionDeadlineUtcMs: data.collectionDeadlineUtcMs.present
+          ? data.collectionDeadlineUtcMs.value
+          : this.collectionDeadlineUtcMs,
+      resultsDeadlineUtcMs: data.resultsDeadlineUtcMs.present
+          ? data.resultsDeadlineUtcMs.value
+          : this.resultsDeadlineUtcMs,
+      currentStage: data.currentStage.present
+          ? data.currentStage.value
+          : this.currentStage,
+      status: data.status.present ? data.status.value : this.status,
+      stateJson: data.stateJson.present ? data.stateJson.value : this.stateJson,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DiagnosticSessionRow(')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('diagId: $diagId, ')
+          ..write('examId: $examId, ')
+          ..write('mode: $mode, ')
+          ..write('policyVersion: $policyVersion, ')
+          ..write('contentVersion: $contentVersion, ')
+          ..write('selectionSeed: $selectionSeed, ')
+          ..write('startedAtUtcMs: $startedAtUtcMs, ')
+          ..write('collectionDeadlineUtcMs: $collectionDeadlineUtcMs, ')
+          ..write('resultsDeadlineUtcMs: $resultsDeadlineUtcMs, ')
+          ..write('currentStage: $currentStage, ')
+          ..write('status: $status, ')
+          ..write('stateJson: $stateJson')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    createdAt,
+    updatedAt,
+    diagId,
+    examId,
+    mode,
+    policyVersion,
+    contentVersion,
+    selectionSeed,
+    startedAtUtcMs,
+    collectionDeadlineUtcMs,
+    resultsDeadlineUtcMs,
+    currentStage,
+    status,
+    stateJson,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DiagnosticSessionRow &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.diagId == this.diagId &&
+          other.examId == this.examId &&
+          other.mode == this.mode &&
+          other.policyVersion == this.policyVersion &&
+          other.contentVersion == this.contentVersion &&
+          other.selectionSeed == this.selectionSeed &&
+          other.startedAtUtcMs == this.startedAtUtcMs &&
+          other.collectionDeadlineUtcMs == this.collectionDeadlineUtcMs &&
+          other.resultsDeadlineUtcMs == this.resultsDeadlineUtcMs &&
+          other.currentStage == this.currentStage &&
+          other.status == this.status &&
+          other.stateJson == this.stateJson);
+}
+
+class DiagnosticSessionsCompanion
+    extends UpdateCompanion<DiagnosticSessionRow> {
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<String> diagId;
+  final Value<String> examId;
+  final Value<String> mode;
+  final Value<String> policyVersion;
+  final Value<String> contentVersion;
+  final Value<String> selectionSeed;
+  final Value<int> startedAtUtcMs;
+  final Value<int> collectionDeadlineUtcMs;
+  final Value<int> resultsDeadlineUtcMs;
+  final Value<String> currentStage;
+  final Value<String> status;
+  final Value<String> stateJson;
+  final Value<int> rowid;
+  const DiagnosticSessionsCompanion({
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.diagId = const Value.absent(),
+    this.examId = const Value.absent(),
+    this.mode = const Value.absent(),
+    this.policyVersion = const Value.absent(),
+    this.contentVersion = const Value.absent(),
+    this.selectionSeed = const Value.absent(),
+    this.startedAtUtcMs = const Value.absent(),
+    this.collectionDeadlineUtcMs = const Value.absent(),
+    this.resultsDeadlineUtcMs = const Value.absent(),
+    this.currentStage = const Value.absent(),
+    this.status = const Value.absent(),
+    this.stateJson = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  DiagnosticSessionsCompanion.insert({
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    required String diagId,
+    required String examId,
+    this.mode = const Value.absent(),
+    required String policyVersion,
+    required String contentVersion,
+    required String selectionSeed,
+    required int startedAtUtcMs,
+    required int collectionDeadlineUtcMs,
+    required int resultsDeadlineUtcMs,
+    this.currentStage = const Value.absent(),
+    this.status = const Value.absent(),
+    this.stateJson = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt),
+       diagId = Value(diagId),
+       examId = Value(examId),
+       policyVersion = Value(policyVersion),
+       contentVersion = Value(contentVersion),
+       selectionSeed = Value(selectionSeed),
+       startedAtUtcMs = Value(startedAtUtcMs),
+       collectionDeadlineUtcMs = Value(collectionDeadlineUtcMs),
+       resultsDeadlineUtcMs = Value(resultsDeadlineUtcMs);
+  static Insertable<DiagnosticSessionRow> custom({
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<String>? diagId,
+    Expression<String>? examId,
+    Expression<String>? mode,
+    Expression<String>? policyVersion,
+    Expression<String>? contentVersion,
+    Expression<String>? selectionSeed,
+    Expression<int>? startedAtUtcMs,
+    Expression<int>? collectionDeadlineUtcMs,
+    Expression<int>? resultsDeadlineUtcMs,
+    Expression<String>? currentStage,
+    Expression<String>? status,
+    Expression<String>? stateJson,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (diagId != null) 'diag_id': diagId,
+      if (examId != null) 'exam_id': examId,
+      if (mode != null) 'mode': mode,
+      if (policyVersion != null) 'policy_version': policyVersion,
+      if (contentVersion != null) 'content_version': contentVersion,
+      if (selectionSeed != null) 'selection_seed': selectionSeed,
+      if (startedAtUtcMs != null) 'started_at_utc_ms': startedAtUtcMs,
+      if (collectionDeadlineUtcMs != null)
+        'collection_deadline_utc_ms': collectionDeadlineUtcMs,
+      if (resultsDeadlineUtcMs != null)
+        'results_deadline_utc_ms': resultsDeadlineUtcMs,
+      if (currentStage != null) 'current_stage': currentStage,
+      if (status != null) 'status': status,
+      if (stateJson != null) 'state_json': stateJson,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  DiagnosticSessionsCompanion copyWith({
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<String>? diagId,
+    Value<String>? examId,
+    Value<String>? mode,
+    Value<String>? policyVersion,
+    Value<String>? contentVersion,
+    Value<String>? selectionSeed,
+    Value<int>? startedAtUtcMs,
+    Value<int>? collectionDeadlineUtcMs,
+    Value<int>? resultsDeadlineUtcMs,
+    Value<String>? currentStage,
+    Value<String>? status,
+    Value<String>? stateJson,
+    Value<int>? rowid,
+  }) {
+    return DiagnosticSessionsCompanion(
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      diagId: diagId ?? this.diagId,
+      examId: examId ?? this.examId,
+      mode: mode ?? this.mode,
+      policyVersion: policyVersion ?? this.policyVersion,
+      contentVersion: contentVersion ?? this.contentVersion,
+      selectionSeed: selectionSeed ?? this.selectionSeed,
+      startedAtUtcMs: startedAtUtcMs ?? this.startedAtUtcMs,
+      collectionDeadlineUtcMs:
+          collectionDeadlineUtcMs ?? this.collectionDeadlineUtcMs,
+      resultsDeadlineUtcMs: resultsDeadlineUtcMs ?? this.resultsDeadlineUtcMs,
+      currentStage: currentStage ?? this.currentStage,
+      status: status ?? this.status,
+      stateJson: stateJson ?? this.stateJson,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (diagId.present) {
+      map['diag_id'] = Variable<String>(diagId.value);
+    }
+    if (examId.present) {
+      map['exam_id'] = Variable<String>(examId.value);
+    }
+    if (mode.present) {
+      map['mode'] = Variable<String>(mode.value);
+    }
+    if (policyVersion.present) {
+      map['policy_version'] = Variable<String>(policyVersion.value);
+    }
+    if (contentVersion.present) {
+      map['content_version'] = Variable<String>(contentVersion.value);
+    }
+    if (selectionSeed.present) {
+      map['selection_seed'] = Variable<String>(selectionSeed.value);
+    }
+    if (startedAtUtcMs.present) {
+      map['started_at_utc_ms'] = Variable<int>(startedAtUtcMs.value);
+    }
+    if (collectionDeadlineUtcMs.present) {
+      map['collection_deadline_utc_ms'] = Variable<int>(
+        collectionDeadlineUtcMs.value,
+      );
+    }
+    if (resultsDeadlineUtcMs.present) {
+      map['results_deadline_utc_ms'] = Variable<int>(
+        resultsDeadlineUtcMs.value,
+      );
+    }
+    if (currentStage.present) {
+      map['current_stage'] = Variable<String>(currentStage.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (stateJson.present) {
+      map['state_json'] = Variable<String>(stateJson.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DiagnosticSessionsCompanion(')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('diagId: $diagId, ')
+          ..write('examId: $examId, ')
+          ..write('mode: $mode, ')
+          ..write('policyVersion: $policyVersion, ')
+          ..write('contentVersion: $contentVersion, ')
+          ..write('selectionSeed: $selectionSeed, ')
+          ..write('startedAtUtcMs: $startedAtUtcMs, ')
+          ..write('collectionDeadlineUtcMs: $collectionDeadlineUtcMs, ')
+          ..write('resultsDeadlineUtcMs: $resultsDeadlineUtcMs, ')
+          ..write('currentStage: $currentStage, ')
+          ..write('status: $status, ')
+          ..write('stateJson: $stateJson, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -8382,6 +9248,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $MockSessionsTable mockSessions = $MockSessionsTable(this);
+  late final $DiagnosticSessionsTable diagnosticSessions =
+      $DiagnosticSessionsTable(this);
   late final AttemptDao attemptDao = AttemptDao(this as AppDatabase);
   late final VocabDao vocabDao = VocabDao(this as AppDatabase);
   late final CatalogDao catalogDao = CatalogDao(this as AppDatabase);
@@ -8404,6 +9272,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     dailyStudyLogs,
     outboxSyncQueue,
     mockSessions,
+    diagnosticSessions,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -13119,6 +13988,415 @@ typedef $$MockSessionsTableProcessedTableManager =
       MockSessionRow,
       PrefetchHooks Function()
     >;
+typedef $$DiagnosticSessionsTableCreateCompanionBuilder =
+    DiagnosticSessionsCompanion Function({
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      required String diagId,
+      required String examId,
+      Value<String> mode,
+      required String policyVersion,
+      required String contentVersion,
+      required String selectionSeed,
+      required int startedAtUtcMs,
+      required int collectionDeadlineUtcMs,
+      required int resultsDeadlineUtcMs,
+      Value<String> currentStage,
+      Value<String> status,
+      Value<String> stateJson,
+      Value<int> rowid,
+    });
+typedef $$DiagnosticSessionsTableUpdateCompanionBuilder =
+    DiagnosticSessionsCompanion Function({
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<String> diagId,
+      Value<String> examId,
+      Value<String> mode,
+      Value<String> policyVersion,
+      Value<String> contentVersion,
+      Value<String> selectionSeed,
+      Value<int> startedAtUtcMs,
+      Value<int> collectionDeadlineUtcMs,
+      Value<int> resultsDeadlineUtcMs,
+      Value<String> currentStage,
+      Value<String> status,
+      Value<String> stateJson,
+      Value<int> rowid,
+    });
+
+class $$DiagnosticSessionsTableFilterComposer
+    extends Composer<_$AppDatabase, $DiagnosticSessionsTable> {
+  $$DiagnosticSessionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get diagId => $composableBuilder(
+    column: $table.diagId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get examId => $composableBuilder(
+    column: $table.examId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mode => $composableBuilder(
+    column: $table.mode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get policyVersion => $composableBuilder(
+    column: $table.policyVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentVersion => $composableBuilder(
+    column: $table.contentVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get selectionSeed => $composableBuilder(
+    column: $table.selectionSeed,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get startedAtUtcMs => $composableBuilder(
+    column: $table.startedAtUtcMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get collectionDeadlineUtcMs => $composableBuilder(
+    column: $table.collectionDeadlineUtcMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get resultsDeadlineUtcMs => $composableBuilder(
+    column: $table.resultsDeadlineUtcMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get currentStage => $composableBuilder(
+    column: $table.currentStage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get stateJson => $composableBuilder(
+    column: $table.stateJson,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$DiagnosticSessionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $DiagnosticSessionsTable> {
+  $$DiagnosticSessionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get diagId => $composableBuilder(
+    column: $table.diagId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get examId => $composableBuilder(
+    column: $table.examId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mode => $composableBuilder(
+    column: $table.mode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get policyVersion => $composableBuilder(
+    column: $table.policyVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentVersion => $composableBuilder(
+    column: $table.contentVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get selectionSeed => $composableBuilder(
+    column: $table.selectionSeed,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startedAtUtcMs => $composableBuilder(
+    column: $table.startedAtUtcMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get collectionDeadlineUtcMs => $composableBuilder(
+    column: $table.collectionDeadlineUtcMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get resultsDeadlineUtcMs => $composableBuilder(
+    column: $table.resultsDeadlineUtcMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get currentStage => $composableBuilder(
+    column: $table.currentStage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get stateJson => $composableBuilder(
+    column: $table.stateJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$DiagnosticSessionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DiagnosticSessionsTable> {
+  $$DiagnosticSessionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get diagId =>
+      $composableBuilder(column: $table.diagId, builder: (column) => column);
+
+  GeneratedColumn<String> get examId =>
+      $composableBuilder(column: $table.examId, builder: (column) => column);
+
+  GeneratedColumn<String> get mode =>
+      $composableBuilder(column: $table.mode, builder: (column) => column);
+
+  GeneratedColumn<String> get policyVersion => $composableBuilder(
+    column: $table.policyVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get contentVersion => $composableBuilder(
+    column: $table.contentVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get selectionSeed => $composableBuilder(
+    column: $table.selectionSeed,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get startedAtUtcMs => $composableBuilder(
+    column: $table.startedAtUtcMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get collectionDeadlineUtcMs => $composableBuilder(
+    column: $table.collectionDeadlineUtcMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get resultsDeadlineUtcMs => $composableBuilder(
+    column: $table.resultsDeadlineUtcMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get currentStage => $composableBuilder(
+    column: $table.currentStage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get stateJson =>
+      $composableBuilder(column: $table.stateJson, builder: (column) => column);
+}
+
+class $$DiagnosticSessionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $DiagnosticSessionsTable,
+          DiagnosticSessionRow,
+          $$DiagnosticSessionsTableFilterComposer,
+          $$DiagnosticSessionsTableOrderingComposer,
+          $$DiagnosticSessionsTableAnnotationComposer,
+          $$DiagnosticSessionsTableCreateCompanionBuilder,
+          $$DiagnosticSessionsTableUpdateCompanionBuilder,
+          (
+            DiagnosticSessionRow,
+            BaseReferences<
+              _$AppDatabase,
+              $DiagnosticSessionsTable,
+              DiagnosticSessionRow
+            >,
+          ),
+          DiagnosticSessionRow,
+          PrefetchHooks Function()
+        > {
+  $$DiagnosticSessionsTableTableManager(
+    _$AppDatabase db,
+    $DiagnosticSessionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DiagnosticSessionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DiagnosticSessionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$DiagnosticSessionsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<String> diagId = const Value.absent(),
+                Value<String> examId = const Value.absent(),
+                Value<String> mode = const Value.absent(),
+                Value<String> policyVersion = const Value.absent(),
+                Value<String> contentVersion = const Value.absent(),
+                Value<String> selectionSeed = const Value.absent(),
+                Value<int> startedAtUtcMs = const Value.absent(),
+                Value<int> collectionDeadlineUtcMs = const Value.absent(),
+                Value<int> resultsDeadlineUtcMs = const Value.absent(),
+                Value<String> currentStage = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String> stateJson = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => DiagnosticSessionsCompanion(
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                diagId: diagId,
+                examId: examId,
+                mode: mode,
+                policyVersion: policyVersion,
+                contentVersion: contentVersion,
+                selectionSeed: selectionSeed,
+                startedAtUtcMs: startedAtUtcMs,
+                collectionDeadlineUtcMs: collectionDeadlineUtcMs,
+                resultsDeadlineUtcMs: resultsDeadlineUtcMs,
+                currentStage: currentStage,
+                status: status,
+                stateJson: stateJson,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                required String diagId,
+                required String examId,
+                Value<String> mode = const Value.absent(),
+                required String policyVersion,
+                required String contentVersion,
+                required String selectionSeed,
+                required int startedAtUtcMs,
+                required int collectionDeadlineUtcMs,
+                required int resultsDeadlineUtcMs,
+                Value<String> currentStage = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String> stateJson = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => DiagnosticSessionsCompanion.insert(
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                diagId: diagId,
+                examId: examId,
+                mode: mode,
+                policyVersion: policyVersion,
+                contentVersion: contentVersion,
+                selectionSeed: selectionSeed,
+                startedAtUtcMs: startedAtUtcMs,
+                collectionDeadlineUtcMs: collectionDeadlineUtcMs,
+                resultsDeadlineUtcMs: resultsDeadlineUtcMs,
+                currentStage: currentStage,
+                status: status,
+                stateJson: stateJson,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$DiagnosticSessionsTable, DiagnosticSessionRow>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $DiagnosticSessionsTable,
+                    DiagnosticSessionRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$DiagnosticSessionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $DiagnosticSessionsTable,
+      DiagnosticSessionRow,
+      $$DiagnosticSessionsTableFilterComposer,
+      $$DiagnosticSessionsTableOrderingComposer,
+      $$DiagnosticSessionsTableAnnotationComposer,
+      $$DiagnosticSessionsTableCreateCompanionBuilder,
+      $$DiagnosticSessionsTableUpdateCompanionBuilder,
+      (
+        DiagnosticSessionRow,
+        BaseReferences<
+          _$AppDatabase,
+          $DiagnosticSessionsTable,
+          DiagnosticSessionRow
+        >,
+      ),
+      DiagnosticSessionRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -13149,4 +14427,6 @@ class $AppDatabaseManager {
       $$OutboxSyncQueueTableTableManager(_db, _db.outboxSyncQueue);
   $$MockSessionsTableTableManager get mockSessions =>
       $$MockSessionsTableTableManager(_db, _db.mockSessions);
+  $$DiagnosticSessionsTableTableManager get diagnosticSessions =>
+      $$DiagnosticSessionsTableTableManager(_db, _db.diagnosticSessions);
 }

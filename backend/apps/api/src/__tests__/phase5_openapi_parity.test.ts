@@ -33,6 +33,11 @@ describe('Phase 5: OpenAPI Parity, Media Security Headers & Aggregate Upload Lim
       ['/v1/vocab/deck', 'get'],
       ['/v1/catalog/manifest', 'get'],
       ['/v1/quota/me', 'get'],
+      ['/v1/diagnostic/packs', 'get'],
+      ['/v1/diagnostic/sessions', 'post'],
+      ['/v1/diagnostic/sessions/{diagId}/submit', 'post'],
+      ['/v1/diagnostic/sessions/{diagId}', 'get'],
+      ['/v1/diagnostic/sessions/{diagId}/retake-skill', 'post'],
     ];
 
     for (const [path, method] of expectedOpenApiPaths) {

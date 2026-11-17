@@ -27,6 +27,8 @@ class HomeState {
     required this.recommendedSubtitle,
     required this.recommendedRoute,
     this.daysUntilExam,
+    this.latestDiagnosticId,
+    this.latestDiagnosticStatus,
   });
 
   /// Selected exam track (e.g. IELTS Academic).
@@ -59,6 +61,12 @@ class HomeState {
   /// Days remaining until test date, or null if unset.
   final int? daysUntilExam;
 
+  /// Most recent rapid diagnostic session UUID, if any.
+  final String? latestDiagnosticId;
+
+  /// Status of [latestDiagnosticId] (`in_progress`, `submitted`, `completed`).
+  final String? latestDiagnosticStatus;
+
   /// Returns a copy with updated dashboard properties.
   HomeState copyWith({
     ExamTrack? track,
@@ -72,6 +80,8 @@ class HomeState {
     String? recommendedRoute,
     int? daysUntilExam,
     bool clearDaysUntilExam = false,
+    String? latestDiagnosticId,
+    String? latestDiagnosticStatus,
   }) => HomeState(
     track: track ?? this.track,
     targetBand: targetBand ?? this.targetBand,
@@ -85,6 +95,9 @@ class HomeState {
     daysUntilExam: clearDaysUntilExam
         ? null
         : (daysUntilExam ?? this.daysUntilExam),
+    latestDiagnosticId: latestDiagnosticId ?? this.latestDiagnosticId,
+    latestDiagnosticStatus:
+        latestDiagnosticStatus ?? this.latestDiagnosticStatus,
   );
 }
 
@@ -94,6 +107,7 @@ class HomeNotifier extends Notifier<HomeState> {
   StreamSubscription<dynamic>? _profileSub;
   StreamSubscription<dynamic>? _progressSub;
   StreamSubscription<dynamic>? _packsSub;
+  StreamSubscription<dynamic>? _diagSub;
 
   List<AttemptSummary> _latestAttempts = const <AttemptSummary>[];
   List<DailyStudySummary> _latestLogs = const <DailyStudySummary>[];
@@ -193,6 +207,17 @@ class HomeNotifier extends Notifier<HomeState> {
       (packs) {
         _latestPacks = packs;
         _recomputeDashboard();
+      },
+      onError: (_) {},
+    );
+
+    _diagSub = attemptRepo.watchLatestDiagnosticSession().listen(
+      (row) {
+        if (row == null) return;
+        state = state.copyWith(
+          latestDiagnosticId: row.diagId,
+          latestDiagnosticStatus: row.status,
+        );
       },
       onError: (_) {},
     );
@@ -335,6 +360,7 @@ class HomeNotifier extends Notifier<HomeState> {
     unawaited(_profileSub?.cancel());
     unawaited(_progressSub?.cancel());
     unawaited(_packsSub?.cancel());
+    unawaited(_diagSub?.cancel());
   }
 
   /// Changes the active exam track from the header chip and persists to SQLite.

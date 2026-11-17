@@ -140,7 +140,7 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
   }
 
   /// Persists onboarding preferences, bootstraps anonymous session/catalog sync,
-  /// and returns the destination route (`/speaking/...` or `/home`).
+  /// and returns the destination route (`/diagnostic/intro` or `/home`).
   Future<String?> completeOnboarding() async {
     if (state.isSaving) return null;
     state = state.copyWith(isSaving: true, clearError: true);
@@ -187,7 +187,7 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       );
 
       final destination = state.wantDiagnostic
-          ? AppRoutes.buildSpeakingSim()
+          ? AppRoutes.buildDiagnosticIntro(examId: state.selectedTrack.id)
           : AppRoutes.home;
       state = state.copyWith(isSaving: false);
       return destination;

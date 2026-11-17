@@ -372,12 +372,12 @@ class _GoalSetupStep extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
-                          'Start with a Free Baseline Test',
+                          'Start with a Free ~10-Min Check',
                           style: typography.cardTitle,
                         ),
                         const SizedBox(height: SpacingTokens.xs),
                         Text(
-                          'Opens the Speaking baseline simulator right away so Mockza can estimate your starting band.',
+                          'Quickly checks Reading, Listening, Writing, and Speaking in one short guided flow to suggest your starting practice level.',
                           style: typography.secondary.copyWith(
                             color: colors.textSecondary,
                           ),

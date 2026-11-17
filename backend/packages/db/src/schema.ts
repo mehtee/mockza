@@ -29,6 +29,7 @@ export const devices = pgTable('devices', {
   erasingAt: timestamp('erasing_at', { withTimezone: true }),
   linkedUserId: uuid('linked_user_id').references(() => users.userId, { onDelete: 'set null' }),
   freeDiagnosticUsed: boolean('free_diagnostic_used').default(false).notNull(),
+  freeRapidDiagnosticUsed: boolean('free_rapid_diagnostic_used').default(false).notNull(),
   lastAttestedAt: timestamp('last_attested_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).defaultNow().notNull(),
@@ -94,6 +95,7 @@ export const quotaReservations = pgTable('quota_reservations', {
   utcMonth: text('utc_month').notNull(), // 'YYYY-MM'
   status: text('status').notNull(), // 'reserved' | 'committed' | 'refunded'
   isDiagnostic: boolean('is_diagnostic').default(false).notNull(),
+  diagSessionId: uuid('diag_session_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -333,4 +335,38 @@ export const vocabDeckCards = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [index('idx_vocab_deck_topic').on(table.topicTag, table.headword)],
+);
+
+export const diagnosticSessions = pgTable(
+  'diagnostic_sessions',
+  {
+    diagId: uuid('diag_id').primaryKey(),
+    accountKey: text('account_key').notNull(),
+    deviceId: uuid('device_id')
+      .notNull()
+      .references(() => devices.deviceId, { onDelete: 'cascade' }),
+    examId: text('exam_id').notNull(),
+    mode: text('mode').default('standard').notNull(), // 'standard' | 'extended' | 'accessible'
+    policyVersion: text('policy_version').notNull(),
+    contentVersion: text('content_version').notNull(),
+    selectionSeed: text('selection_seed').notNull(),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
+    collectionDeadlineAt: timestamp('collection_deadline_at', { withTimezone: true }).notNull(),
+    resultsDeadlineAt: timestamp('results_deadline_at', { withTimezone: true }).notNull(),
+    currentStage: text('current_stage').default('intro').notNull(),
+    status: text('status').default('in_progress').notNull(), // 'in_progress' | 'submitted' | 'completed' | 'abandoned'
+    objectiveStateJson: jsonb('objective_state_json').$type<Record<string, unknown>>(),
+    writingAttemptId: uuid('writing_attempt_id'),
+    writingJobId: uuid('writing_job_id'),
+    speakingAttemptId: uuid('speaking_attempt_id'),
+    speakingJobId: uuid('speaking_job_id'),
+    summaryJson: jsonb('summary_json').$type<Record<string, unknown>>(),
+    resultRevision: integer('result_revision').default(1).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('idx_diagnostic_sessions_account').on(table.accountKey, table.createdAt),
+    index('idx_diagnostic_sessions_device').on(table.deviceId, table.createdAt),
+  ],
 );

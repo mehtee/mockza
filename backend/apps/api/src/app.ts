@@ -19,6 +19,7 @@ import { registerAccountRoutes } from './routes/account.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerCatalogRoutes } from './routes/catalog.js';
+import { registerDiagnosticRoutes } from './routes/diagnostic.js';
 import { registerEvaluateRoutes } from './routes/evaluate.js';
 import { registerContentRoutes } from './routes/exams.js';
 import { registerFeedbackRoutes } from './routes/feedback.js';
@@ -85,6 +86,7 @@ export function createApiApp(
   );
   // Bound JSON API routes (upload proxy enforces its own streaming byte cap `RR-17`).
   app.use('/v1/evaluate/*', bodyLimit({ maxSize: 2 * 1024 * 1024 }));
+  app.use('/v1/diagnostic/*', bodyLimit({ maxSize: 2 * 1024 * 1024 }));
   app.use('/v1/auth/*', bodyLimit({ maxSize: 256 * 1024 }));
   app.use('/v1/*', createEditionGuardMiddleware(env.EDITION));
   app.use(
@@ -107,6 +109,7 @@ export function createApiApp(
   registerContentRoutes(app, env, deps.db);
   registerAdminRoutes(app, env, deps.db, deps.s3Client);
   registerEvaluateRoutes(app, env, deps.db, deps.boss, deps.s3Client, deps.isQueueReady);
+  registerDiagnosticRoutes(app, env, deps.db, deps.boss, deps.s3Client, deps.isQueueReady);
   registerJobRoutes(app, env, deps.db);
   registerQuotaRoutes(app, env, deps.db);
   registerCatalogRoutes(app, env, deps.db);

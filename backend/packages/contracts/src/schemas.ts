@@ -471,3 +471,239 @@ export const TelemetryBatchResponseSchema = z
     acceptedCount: z.number().int().nonnegative(),
   })
   .openapi('TelemetryBatchResponse');
+
+// --- Rapid Adaptive Starting-Level Check (`RAPID_DIAGNOSTIC_PLAN.md`) ---
+
+export const DiagnosticTierSchema = z
+  .enum(['A1', 'A2', 'B1', 'B2', 'C1', 'C2'])
+  .openapi('DiagnosticTier');
+
+export const DiagnosticRoutingCategorySchema = z
+  .enum(['strong', 'mixed', 'low', 'no_evidence'])
+  .openapi('DiagnosticRoutingCategory');
+
+export const DiagnosticStopReasonSchema = z
+  .enum([
+    'sampling_complete',
+    'stage_timeout',
+    'global_timeout',
+    'presentation_limit',
+    'content_limit',
+  ])
+  .openapi('DiagnosticStopReason');
+
+export const DiagnosticSkillStatusSchema = z
+  .enum(['provisional', 'pending', 'insufficient_evidence', 'unscorable', 'failed', 'skipped'])
+  .openapi('DiagnosticSkillStatus');
+
+export const DiagnosticModeSchema = z
+  .enum(['standard', 'extended', 'accessible'])
+  .openapi('DiagnosticMode');
+
+export const DiagnosticQuestionSchema = z.object({
+  questionId: z.string(),
+  prompt: z.string(),
+  options: z.tuple([z.string(), z.string(), z.string()]),
+  correctIndex: z.number().int().min(0).max(2),
+  focusTag: z.string(),
+});
+
+export const DiagnosticBlockSchema = z.object({
+  blockId: z.string(),
+  skill: z.enum(['reading', 'listening']),
+  tier: DiagnosticTierSchema,
+  scenarioId: z.string(),
+  title: z.string(),
+  passageText: z.string().optional(),
+  scriptText: z.string().optional(),
+  mediaUrl: z.string().optional(),
+  durationSeconds: z.number().int().nonnegative().optional(),
+  minRequiredSeconds: z.number().int().positive(),
+  questions: z.tuple([DiagnosticQuestionSchema, DiagnosticQuestionSchema]),
+});
+
+export const DiagnosticWorkedExampleSchema = z.object({
+  skill: z.enum(['reading', 'listening']),
+  passageOrTranscript: z.string(),
+  mediaUrl: z.string().optional(),
+  questionPrompt: z.string(),
+  options: z.tuple([z.string(), z.string(), z.string()]),
+  correctIndex: z.number().int().min(0).max(2),
+  explanation: z.string(),
+});
+
+export const DiagnosticBankResponseSchema = z
+  .object({
+    policyVersion: z.string(),
+    contentVersion: z.string(),
+    preflightAudioUrl: z.string(),
+    budgetSeconds: z.object({
+      intro: z.number().int().positive(),
+      reading: z.number().int().positive(),
+      listening: z.number().int().positive(),
+      writing: z.number().int().positive(),
+      speaking: z.number().int().positive(),
+      transitions: z.number().int().positive(),
+      collectionTotal: z.number().int().positive(),
+      resultsWindow: z.number().int().positive(),
+      total: z.number().int().positive(),
+    }),
+    workedExamples: z.object({
+      reading: DiagnosticWorkedExampleSchema,
+      listening: DiagnosticWorkedExampleSchema,
+    }),
+    readingBlocks: z.array(DiagnosticBlockSchema),
+    listeningBlocks: z.array(DiagnosticBlockSchema),
+    writingPrompt: z.object({
+      promptId: z.string(),
+      title: z.string(),
+      basePrompt: z.string(),
+      suggestedWordsLabel: z.string(),
+      supportiveFollowUp: z.string(),
+      extensionFollowUp: z.string(),
+    }),
+    speakingPrompt: z.object({
+      promptId: z.string(),
+      title: z.string(),
+      basePrompt: z.string(),
+      cueLabels: z.tuple([z.string(), z.string(), z.string()]),
+      supportiveFollowUp: z.string(),
+      extensionFollowUp: z.string(),
+    }),
+    examScaleInfo: z.array(
+      z.object({
+        examId: z.string(),
+        label: z.string(),
+        summary: z.string(),
+      }),
+    ),
+  })
+  .openapi('DiagnosticBankResponse');
+
+export const DiagnosticBlockAttemptInputSchema = z.object({
+  blockId: z.string().max(120),
+  tier: DiagnosticTierSchema,
+  selectedOptionIndices: z.array(z.number().int().min(0).max(2).nullable()).max(2),
+  noEvidenceReason: z
+    .enum([
+      'skipped',
+      'dont_know',
+      'playback_failed',
+      'mic_denied',
+      'empty_timeout',
+      'unusable_audio',
+    ])
+    .optional(),
+  elapsedSeconds: z.number().int().nonnegative().max(600).optional(),
+});
+
+export const CreateDiagnosticSessionRequestSchema = z
+  .object({
+    diagId: z.string().uuid(),
+    examId: z.string().max(60).default('ielts_academic'),
+    mode: DiagnosticModeSchema.default('standard'),
+    selectionSeed: z.string().max(120).optional(),
+  })
+  .openapi('CreateDiagnosticSessionRequest');
+
+export const SubmitDiagnosticSessionRequestSchema = z
+  .object({
+    examId: z.string().max(60).optional(),
+    mode: DiagnosticModeSchema.optional(),
+    readingHistory: z.array(DiagnosticBlockAttemptInputSchema).max(4).default([]),
+    readingStopReason: DiagnosticStopReasonSchema.nullable().optional(),
+    readingSkipped: z.boolean().default(false),
+    listeningHistory: z.array(DiagnosticBlockAttemptInputSchema).max(3).default([]),
+    listeningStopReason: DiagnosticStopReasonSchema.nullable().optional(),
+    listeningSkipped: z.boolean().default(false),
+    writing: z
+      .object({
+        attemptId: z.string().uuid(),
+        promptTitle: z.string().max(200),
+        basePrompt: z.string().max(1000),
+        followUpPrompt: z.string().max(1000).optional(),
+        baseResponse: z.string().max(4000).default(''),
+        followUpResponse: z.string().max(4000).optional(),
+        skipped: z.boolean().default(false),
+      })
+      .optional(),
+    speaking: z
+      .object({
+        attemptId: z.string().uuid(),
+        basePrompt: z.string().max(1000),
+        followUpPrompt: z.string().max(1000).optional(),
+        turns: z
+          .array(
+            z.object({
+              partIndex: z.number().int().min(1).max(2),
+              promptText: z.string().max(1000),
+              objectKey: z.string().min(5).max(500),
+              durationMs: z.number().int().nonnegative().max(120_000).optional(),
+            }),
+          )
+          .max(2)
+          .default([]),
+        skipped: z.boolean().default(false),
+        noEvidenceReason: z
+          .enum(['skipped', 'mic_denied', 'empty_timeout', 'unusable_audio'])
+          .optional(),
+      })
+      .optional(),
+  })
+  .openapi('SubmitDiagnosticSessionRequest');
+
+export const DiagnosticSkillOutcomeSchema = z.object({
+  skill: z.enum(['reading', 'listening', 'writing', 'speaking']),
+  status: DiagnosticSkillStatusSchema,
+  suggestedPracticeLevel: z.string().nullable(),
+  suggestedTier: DiagnosticTierSchema.nullable().optional(),
+  observations: z.array(z.string()),
+  weaknessFocus: z.string().nullable(),
+  recommendedDrillType: z.string().nullable().optional(),
+  jobId: z.string().uuid().nullable().optional(),
+  attemptId: z.string().uuid().nullable().optional(),
+  errorCode: z.string().nullable().optional(),
+  quotaRefunded: z.boolean().default(false),
+  reducedSampling: z.boolean().default(false),
+  hasContradictoryEvidence: z.boolean().default(false),
+  stopReason: DiagnosticStopReasonSchema.nullable().optional(),
+});
+
+export const RetakeDiagnosticSkillRequestSchema = z
+  .object({
+    skill: z.enum(['reading', 'listening', 'writing', 'speaking']),
+    readingHistory: z.array(DiagnosticBlockAttemptInputSchema).max(4).optional(),
+    readingStopReason: DiagnosticStopReasonSchema.nullable().optional(),
+    listeningHistory: z.array(DiagnosticBlockAttemptInputSchema).max(3).optional(),
+    listeningStopReason: DiagnosticStopReasonSchema.nullable().optional(),
+    writing: SubmitDiagnosticSessionRequestSchema.shape.writing.optional(),
+    speaking: SubmitDiagnosticSessionRequestSchema.shape.speaking.optional(),
+  })
+  .openapi('RetakeDiagnosticSkillRequest');
+
+export const DiagnosticSessionResponseSchema = z
+  .object({
+    diagId: z.string().uuid(),
+    examId: z.string(),
+    mode: DiagnosticModeSchema,
+    policyVersion: z.string(),
+    contentVersion: z.string(),
+    status: z.enum(['in_progress', 'submitted', 'completed', 'abandoned']),
+    startedAt: z.string(),
+    collectionDeadlineAt: z.string(),
+    resultsDeadlineAt: z.string(),
+    resultRevision: z.number().int().positive(),
+    skills: z.object({
+      reading: DiagnosticSkillOutcomeSchema,
+      listening: DiagnosticSkillOutcomeSchema,
+      writing: DiagnosticSkillOutcomeSchema,
+      speaking: DiagnosticSkillOutcomeSchema,
+    }),
+    recommendedFirstAction: z.object({
+      title: z.string(),
+      description: z.string(),
+      drillType: z.string().nullable(),
+      targetSkill: z.enum(['reading', 'listening', 'writing', 'speaking']).nullable(),
+    }),
+  })
+  .openapi('DiagnosticSessionResponse');

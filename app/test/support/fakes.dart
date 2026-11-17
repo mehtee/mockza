@@ -423,6 +423,10 @@ final class FakeAudioPlayerGateway implements AudioPlayerGateway {
   /// Configurable failure for testing error paths.
   Failure? failure;
 
+  /// Optional failure affecting only [play] (while [loadFile] succeeds),
+  /// useful for simulating browser autoplay gating (`NotAllowedError`).
+  Failure? playFailure;
+
   @override
   Future<Result<Duration?, Failure>> loadFile(String filePath) async {
     if (failure != null) return Err(failure!);
@@ -433,6 +437,7 @@ final class FakeAudioPlayerGateway implements AudioPlayerGateway {
   @override
   Future<Result<void, Failure>> play() async {
     if (failure != null) return Err(failure!);
+    if (playFailure != null) return Err(playFailure!);
     isPlaying = true;
     return const Ok(null);
   }
