@@ -36,11 +36,11 @@ final class OnboardingRobot {
     await harness.scrollToAndTap(tester, find.text(label));
   }
 
-  /// Toggles the `'Start with a Free ~10-Min Check'` option on Step 2.
+  /// Toggles the `'Start with a Free ~10–15 Min Check'` option on Step 2.
   Future<void> toggleStartingCheckCard(WidgetTester tester) async {
     await harness.scrollToAndTap(
       tester,
-      find.text('Start with a Free ~10-Min Check'),
+      find.text('Start with a Free ~10–15 Min Check'),
     );
   }
 

@@ -162,7 +162,7 @@ class HomeScreen extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
                               Text(
-                                'Find Your Starting Level (~5–10 Min)',
+                                'Find Your Starting Level (~10–15 Min)',
                                 style: typography.cardTitle,
                               ),
                               Text(

@@ -314,7 +314,7 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                     subtitle: 'Short adaptive check to calibrate your starting practice tier.',
                     glyph: LucideGlyph.sparkles,
                     tint: IconWellTint.blue,
-                    durationText: '~5–10 min',
+                    durationText: '~10–15 min',
                     questionsText: '4 Skills',
                     onTap: () => context.push(AppRoutes.buildDiagnosticIntro()),
                   ),

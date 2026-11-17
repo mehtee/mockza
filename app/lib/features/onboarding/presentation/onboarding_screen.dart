@@ -410,7 +410,7 @@ class _GoalSetupStep extends ConsumerWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
                                 Text(
-                                  'Start with a Free ~10-Min Check',
+                                  'Start with a Free ~10–15 Min Check',
                                   style: typography.cardTitle,
                                 ),
                                 const SizedBox(height: SpacingTokens.xs),

@@ -21,7 +21,7 @@ void main() {
       await onboarding.selectTrack(tester);
       await onboarding.tapContinueToGoals(tester);
       await onboarding.selectTimeframe(tester, '1 Month');
-      expect(find.text('Start with a Free ~10-Min Check'), findsOneWidget);
+      expect(find.text('Start with a Free ~10–15 Min Check'), findsOneWidget);
       await onboarding.submitGetStarted(tester);
       harness.expectNoOverflow(tester);
 

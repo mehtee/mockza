@@ -57,7 +57,7 @@ Future<void> showDiagnosticExamScaleSheet(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         const StatusBanner(
-          message: 'Official exam scales are shown only for orientation. This 10-minute check suggests your starting practice level and does not predict an official exam score.',
+          message: 'Official exam scales are shown only for orientation. This ~10–15 minute check suggests your starting practice level and does not predict an official exam score.',
           variant: StatusBannerVariant.offline,
         ),
         const SizedBox(height: SpacingTokens.md),
@@ -102,7 +102,7 @@ class _DiagnosticHelpBody extends StatelessWidget {
         const SizedBox(height: SpacingTokens.md),
         if (isTimedSession && isActiveSession && onSwitchToExtendedHelp != null)
           StatusBanner(
-            message: 'Reading this help counts toward your 10-minute timer in standard mode. Need extra time?',
+            message: 'Reading this help counts toward your 15-minute timer in standard mode. Need extra time?',
             actionLabel: 'Extended Help',
             onTapAction: () {
               Navigator.of(context).pop();

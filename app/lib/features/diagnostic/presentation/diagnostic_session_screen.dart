@@ -1104,48 +1104,77 @@ class _QuestionStepPill extends StatelessWidget {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: shapes.controlRadius,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 44),
-        padding: const EdgeInsetsDirectional.symmetric(
-          horizontal: SpacingTokens.sm,
-          vertical: SpacingTokens.xs,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected ? colors.surfaceAlt : colors.surface,
-          borderRadius: shapes.controlRadius,
-          border: Border.all(
-            color: isSelected
-                ? colors.primary
-                : (isAnswered ? colors.success : colors.borderSubtle),
-            width: isSelected ? 1.5 : shapes.strokeWidth,
+    final Color bgColor;
+    final Color borderColor;
+    final Color textColor;
+    final Color iconColor;
+    final FontWeight fontWeight;
+
+    if (isSelected) {
+      bgColor = colors.primary;
+      borderColor = colors.primary;
+      textColor = colors.onPrimary;
+      iconColor = colors.onPrimary;
+      fontWeight = FontWeight.w700;
+    } else if (isAnswered) {
+      bgColor = colors.blueBg;
+      borderColor = colors.primary.withValues(alpha: 0.5);
+      textColor = colors.textPrimary;
+      iconColor = colors.primary;
+      fontWeight = FontWeight.w600;
+    } else {
+      bgColor = colors.surface;
+      borderColor = colors.borderSubtle;
+      textColor = colors.textSecondary;
+      iconColor = colors.textSecondary;
+      fontWeight = FontWeight.w500;
+    }
+
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: '$label${isAnswered ? ', answered' : ''}',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: shapes.controlRadius,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 44),
+          padding: const EdgeInsetsDirectional.symmetric(
+            horizontal: SpacingTokens.sm,
+            vertical: SpacingTokens.xs,
           ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            if (isAnswered) ...<Widget>[
-              AppIcon(
-                LucideGlyph.checkCircle2,
-                size: 16,
-                color: colors.success,
-              ),
-              const SizedBox(width: SpacingTokens.xs),
-            ],
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: typography.secondary.copyWith(
-                  color: isSelected ? colors.primary : colors.textPrimary,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: shapes.controlRadius,
+            border: Border.all(
+              color: borderColor,
+              width: isSelected ? 1.5 : shapes.strokeWidth,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              if (isAnswered) ...<Widget>[
+                AppIcon(
+                  LucideGlyph.checkCircle2,
+                  size: 16,
+                  color: iconColor,
+                ),
+                const SizedBox(width: SpacingTokens.xs),
+              ],
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: typography.secondary.copyWith(
+                    color: textColor,
+                    fontWeight: fontWeight,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

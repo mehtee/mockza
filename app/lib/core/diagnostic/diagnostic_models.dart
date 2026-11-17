@@ -131,7 +131,7 @@ enum DiagnosticStopReason {
 
 /// Diagnostic timing/accessibility mode.
 enum DiagnosticMode {
-  /// Default 10-minute bounded starting check.
+  /// Default 15-minute bounded starting check.
   standard('standard'),
 
   /// Untimed/extended help mode (never combined with standard timing claims).

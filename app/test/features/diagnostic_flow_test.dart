@@ -479,7 +479,7 @@ void main() {
         await tester.tap(find.text('Continue'));
         await tester.pumpAndSettle();
 
-        expect(find.text('Start with a Free ~10-Min Check'), findsOneWidget);
+        expect(find.text('Start with a Free ~10–15 Min Check'), findsOneWidget);
         await tester.scrollUntilVisible(find.text('Get Started'), 200);
         await tester.tap(find.text('Get Started'));
         await tester.pumpAndSettle();

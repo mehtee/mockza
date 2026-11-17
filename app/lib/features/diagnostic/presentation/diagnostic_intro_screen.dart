@@ -25,7 +25,7 @@ import 'package:mockza/theme/components/status_banner.dart';
 import 'package:mockza/theme/primitives.dart';
 
 /// Step 0 (`/diagnostic/intro`): beginner-safe orientation, sound/mic check,
-/// mode choice, consent note, and skip/later options before the 10-minute timer starts.
+/// mode choice, consent note, and skip/later options before the 15-minute timer starts.
 class DiagnosticIntroScreen extends ConsumerStatefulWidget {
   /// Creates a [DiagnosticIntroScreen].
   const new({
@@ -177,7 +177,7 @@ class _DiagnosticIntroScreenState extends ConsumerState<DiagnosticIntroScreen> {
                       const SizedBox(width: SpacingTokens.md),
                       Expanded(
                         child: Text(
-                          'Find Your Starting Level in ~5–10 Min',
+                          'Find Your Starting Level in ~10–15 Min',
                           style: typography.cardTitle,
                         ),
                       ),
@@ -325,7 +325,7 @@ class _DiagnosticIntroScreenState extends ConsumerState<DiagnosticIntroScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
                 _ModeChoiceTile(
-                  title: 'Standard 10-Minute Check',
+                  title: 'Standard 15-Minute Check',
                   subtitle:
                       'Paced 4-skill flow with automatic stage transitions.',
                   selected: state.mode == DiagnosticMode.standard,
