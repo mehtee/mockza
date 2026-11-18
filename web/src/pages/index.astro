@@ -1,9 +1,10 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import { getActiveEditionConfig } from '@/edition/edition-config';
 
-const edition = import.meta.env.PUBLIC_EDITION === 'irn' ? 'irn' : 'glb';
-const isIrn = edition === 'irn';
-const brandName = isIrn ? 'سنجیا (Sanjia)' : 'Mockza';
+const editionConfig = getActiveEditionConfig();
+const isIrn = editionConfig.edition === 'irn';
+const brandName = isIrn ? 'سنجیا (Sanjia)' : editionConfig.brandName;
 const headline = isIrn
   ? 'شبیه‌ساز دسکتاپ آزمون‌های بین‌المللی زبان'
   : 'Desktop-First English Exam Simulator';

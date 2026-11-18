@@ -9,6 +9,8 @@ import {
   createRouter,
   useBlocker,
 } from '@tanstack/react-router';
+import { getActiveEditionCode, getActiveEditionDir } from '@/edition/edition-config';
+import { createTranslator } from '@/i18n';
 import { useClockStore } from '@/spa/stores/clock.store';
 import { useLayoutStore } from '@/spa/stores/layout.store';
 
@@ -204,6 +206,7 @@ function RouteSkeletonView({
   description,
   params,
 }: RouteSkeletonProps) {
+  const t = createTranslator();
   const paramEntries = params ? Object.entries(params) : [];
   return (
     <section
@@ -216,7 +219,7 @@ function RouteSkeletonView({
           <h1 className="mt-1 text-2xl font-bold text-text-primary">{title}</h1>
         </div>
         <span className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-surface-alt px-3 py-1 text-xs font-medium text-text-secondary">
-          W1.1 Scaffold
+          {t('scaffoldBadgeLabel')}
         </span>
       </div>
       <p className="mt-4 text-sm text-text-secondary">{description}</p>
@@ -235,6 +238,9 @@ function RouteSkeletonView({
 }
 
 function AppRootLayout() {
+  const edition = getActiveEditionCode();
+  const dir = getActiveEditionDir();
+  const t = createTranslator(edition);
   const activeExamLock = useClockStore((state) => state.activeExamLock);
   const activeSessionLabel = useClockStore((state) => state.activeSessionLabel);
   const setActiveExamLock = useClockStore((state) => state.setActiveExamLock);
@@ -248,61 +254,74 @@ function AppRootLayout() {
   });
 
   return (
-    <div className="flex min-h-dvh bg-canvas text-text-primary">
+    <div dir={dir} className="flex min-h-dvh bg-canvas text-text-primary">
       <aside
-        aria-label="Primary Navigation"
+        aria-label={t('navAriaLabel')}
         className={`flex shrink-0 flex-col border-e border-border-subtle bg-bg-raised p-4 transition-all ${
           sidebarCollapsed ? 'w-20' : 'w-60'
         }`}
       >
         <div className="flex items-center justify-between gap-2 border-b border-border-subtle pb-3">
           <a href="/" className="text-sm font-bold text-text-primary">
-            {sidebarCollapsed ? 'MZ' : 'Mockza Web'}
+            {sidebarCollapsed ? t('brandShort') : t('appTitle')}
           </a>
           <button
             type="button"
             onClick={toggleSidebar}
-            className="rounded-[var(--mz-radius-compact)] border border-border-subtle px-2 py-1 text-xs text-text-secondary hover:bg-surface-hover"
+            aria-label={sidebarCollapsed ? t('navExpandLabel') : t('navCollapseLabel')}
+            aria-expanded={!sidebarCollapsed}
+            className="inline-flex items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle p-1.5 text-text-secondary hover:bg-surface-hover"
           >
-            {sidebarCollapsed ? '>' : '<'}
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              className={`h-4 w-4 transition-transform ${
+                sidebarCollapsed ? 'rotate-0 rtl:rotate-180' : 'rotate-180 rtl:rotate-0'
+              }`}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 4.5 13 10l-5.5 5.5" />
+            </svg>
           </button>
         </div>
 
         <nav className="mt-4 flex flex-col gap-1 text-sm text-start">
           <Link
             to="/home"
-            aria-label="Home"
+            aria-label={t('navHome')}
             className="rounded-[var(--mz-radius-compact)] px-3 py-2 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
           >
-            {sidebarCollapsed ? 'H' : 'Home'}
+            {sidebarCollapsed ? t('navHome').slice(0, 1) : t('navHome')}
           </Link>
           <Link
             to="/practice"
-            aria-label="Practice"
+            aria-label={t('navPractice')}
             className="rounded-[var(--mz-radius-compact)] px-3 py-2 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
           >
-            {sidebarCollapsed ? 'P' : 'Practice'}
+            {sidebarCollapsed ? t('navPractice').slice(0, 1) : t('navPractice')}
           </Link>
           <Link
             to="/vocabulary"
-            aria-label="Vocabulary"
+            aria-label={t('navVocabulary')}
             className="rounded-[var(--mz-radius-compact)] px-3 py-2 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
           >
-            {sidebarCollapsed ? 'V' : 'Vocabulary'}
+            {sidebarCollapsed ? t('navVocabulary').slice(0, 1) : t('navVocabulary')}
           </Link>
           <Link
             to="/progress"
-            aria-label="Progress"
+            aria-label={t('navProgress')}
             className="rounded-[var(--mz-radius-compact)] px-3 py-2 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
           >
-            {sidebarCollapsed ? 'A' : 'Progress'}
+            {sidebarCollapsed ? t('navProgress').slice(0, 1) : t('navProgress')}
           </Link>
           <Link
             to="/settings"
-            aria-label="Settings"
+            aria-label={t('navSettings')}
             className="rounded-[var(--mz-radius-compact)] px-3 py-2 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
           >
-            {sidebarCollapsed ? 'S' : 'Settings'}
+            {sidebarCollapsed ? t('navSettings').slice(0, 1) : t('navSettings')}
           </Link>
         </nav>
       </aside>
@@ -316,19 +335,19 @@ function AppRootLayout() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="exam-leave-blocker-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--mz-scrim-barrier)] p-4"
         >
           <div className="w-full max-w-md rounded-[var(--mz-radius-card)] border border-border-strong bg-surface p-6 text-start">
             <h2
               id="exam-leave-blocker-title"
               className="text-lg font-semibold text-text-primary"
             >
-              Active Exam Session In Progress
+              {t('examBlockerTitle')}
             </h2>
             <p className="mt-2 text-sm text-text-secondary">
               {activeSessionLabel
-                ? `You are leaving "${activeSessionLabel}". Confirm to unlock and leave this route.`
-                : 'A timed exam session is currently locked. Confirm to leave this page.'}
+                ? t('examBlockerMessageWithLabel', { sessionLabel: activeSessionLabel })
+                : t('examBlockerMessageGeneric')}
             </p>
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
@@ -336,7 +355,7 @@ function AppRootLayout() {
                 onClick={() => blocker.reset()}
                 className="rounded-[var(--mz-radius-control)] border border-border-strong bg-surface-alt px-4 py-2 text-sm font-medium text-text-primary hover:bg-surface-hover"
               >
-                Stay in Exam
+                {t('examBlockerStayAction')}
               </button>
               <button
                 type="button"
@@ -346,7 +365,7 @@ function AppRootLayout() {
                 }}
                 className="rounded-[var(--mz-radius-control)] bg-primary px-4 py-2 text-sm font-semibold text-on-primary hover:bg-primary-pressed"
               >
-                Leave Session
+                {t('examBlockerLeaveAction')}
               </button>
             </div>
           </div>

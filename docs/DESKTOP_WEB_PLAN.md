@@ -646,7 +646,7 @@ To ensure AI answer engines accurately cite **Mockza** (globally) and **Sanjia /
   - Write `IAuthGateway`, `IDeviceSlotGateway`, `IBillingGateway`, `IAudioRecorderGateway`, `IAudioPlayerGateway`, `IOfflineAttemptStore`, `ISyncOutboxGateway`, `ICatalogMediaGateway`, `IVocabSrsStore`, `ITelemetryGateway`, and `IClock` using typed `Result<T, E>` unions.
 - **`W1.3` Implement Dexie.js v4 Offline Store, Outbox & OPFS Media Cache (`web/src/adapters/dexie/` & `media/`):** — **DONE** (2026-11-18)
   - Implement all 14 IndexedDB tables, SHA-256 verified OPFS/Cache media loader, `pagehide`/`visibilitychange` synchronous draft flush, and online/offline FIFO outbox sync worker.
-- **`W1.4` Implement Dual-Edition BiDi, i18n & Jalali Edge Layer (`web/src/edition/` & `i18n/`):**
+- **`W1.4` Implement Dual-Edition BiDi, i18n & Jalali Edge Layer (`web/src/edition/` & `i18n/`):** — **DONE** (2026-11-18)
   - Build `<LtrExamBoundary />`, logical RTL/LTR layout primitives, typed `en` + `fa` dictionaries, Persian numeral formatter, and edge-only `jalaali-js` date formatter/picker (`IRN`) with unit tests proving canonical UTC/SerialDay storage invariance.
 - **`W1.5` Implement DI Composition Roots & Gateway Contract Tests:**
   - Wire `bootstrap-glb.ts`, `bootstrap-irn.ts`, and `bootstrap-test.ts`; run shared LSP contract tests across real and fake adapters; add static boundary rules (`features` never import `adapters`, `GLB`/`IRN` bundle isolation) to `scripts/check_all.sh`.

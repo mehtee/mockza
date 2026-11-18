@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import { getActiveEditionConfig } from '@/edition/edition-config';
 import {
   DEFAULT_THEME_MODE,
   DEFAULT_THEME_PRESET_ID,
@@ -11,17 +12,17 @@ export interface Props {
   description?: string;
 }
 
-const edition = import.meta.env.PUBLIC_EDITION === 'irn' ? 'irn' : 'glb';
-const lang = edition === 'irn' ? 'fa-IR' : 'en-US';
-const dir = edition === 'irn' ? 'rtl' : 'ltr';
-const defaultTitle =
-  edition === 'irn'
-    ? 'سنجیا | شبیه‌ساز دسکتاپ آزمون‌های بین‌المللی زبان'
-    : 'Mockza | Desktop English Exam Simulator';
-const defaultDescription =
-  edition === 'irn'
-    ? 'شبیه‌ساز دسکتاپ آیلتس، تافل ۲۰۲۶، پی‌تی‌ای و دولینگو با ارزیابی هوشمند و مرور واژگان SM-2.'
-    : 'Desktop simulator for IELTS Academic, IELTS General, TOEFL iBT 2026, PTE Academic, and Duolingo English Test.';
+const editionConfig = getActiveEditionConfig();
+const isIrn = editionConfig.edition === 'irn';
+const lang = isIrn ? 'fa' : 'en';
+const dir = editionConfig.dir;
+const fontClass = isIrn ? 'font-fa' : 'font-en';
+const defaultTitle = isIrn
+  ? 'سنجیا | شبیه‌ساز دسکتاپ آزمون‌های بین‌المللی زبان'
+  : 'Mockza | Desktop English Exam Simulator';
+const defaultDescription = isIrn
+  ? 'شبیه‌ساز دسکتاپ آیلتس، تافل ۲۰۲۶، پی‌تی‌ای و دولینگو با ارزیابی هوشمند و مرور واژگان SM-2.'
+  : 'Desktop simulator for IELTS Academic, IELTS General, TOEFL iBT 2026, PTE Academic, and Duolingo English Test.';
 
 const { title = defaultTitle, description = defaultDescription } = Astro.props;
 ---
@@ -40,7 +41,7 @@ const { title = defaultTitle, description = defaultDescription } = Astro.props;
     <title>{title}</title>
     <script is:inline set:html={ZERO_FOUC_THEME_BOOT_SCRIPT} />
   </head>
-  <body class="bg-canvas text-text-primary antialiased">
+  <body class={`bg-canvas text-text-primary antialiased ${fontClass}`}>
     <slot />
   </body>
 </html>
