@@ -5,7 +5,13 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!**/node_modules", "!**/dist", "!**/.turbo"]
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/.turbo",
+      "!packages/contracts/openapi.json"
+    ]
   },
   "formatter": {
     "enabled": true,

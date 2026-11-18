@@ -44,11 +44,12 @@ FROM deps AS source
 COPY lib ./lib
 COPY test ./test
 COPY web ./web
+COPY dart_test.yaml ./
 RUN flutter gen-l10n
 
 # Stage 4: Containerized Flutter CI checker (format, analyze, unit & widget tests)
 FROM source AS checker
-CMD ["sh", "-c", "dart format --output=none --set-exit-if-changed lib test && flutter analyze --fatal-infos && flutter test --test-randomize-ordering-seed random --reporter expanded"]
+CMD ["sh", "-c", "dart format --output=none --set-exit-if-changed lib test && flutter analyze --fatal-infos && flutter test --exclude-tags parity --test-randomize-ordering-seed random --reporter expanded"]
 
 # Stage 5: Release Web bundle (JS/CanvasKit, SkWasm dry-run skipped and -O1 for 8 GiB RAM safety)
 FROM source AS web-builder

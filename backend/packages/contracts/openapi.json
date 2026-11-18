@@ -1,0 +1,1233 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Mockza API",
+    "version": "0.1.0",
+    "description": "Mockza IELTS async evaluation, content catalog, and study platform API"
+  },
+  "components": {
+    "schemas": {
+      "CriterionCode": {
+        "type": "string",
+        "enum": [
+          "FC",
+          "LR",
+          "GRA",
+          "PR",
+          "TA",
+          "TR",
+          "CC",
+          "CONTENT",
+          "ORG",
+          "VOCAB",
+          "GRAM",
+          "MECH",
+          "DELIVERY",
+          "COH"
+        ]
+      },
+      "CriterionEvaluation": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/CriterionCode"
+          },
+          "label": {
+            "type": "string"
+          },
+          "band": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 160
+          },
+          "evidenceExcerpt": {
+            "type": "string"
+          },
+          "feedbackNote": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "band",
+          "evidenceExcerpt",
+          "feedbackNote"
+        ]
+      },
+      "TranscriptAnnotation": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "pause",
+              "filler",
+              "grammar",
+              "phrasing"
+            ]
+          },
+          "suggestion": {
+            "type": "string"
+          },
+          "rationale": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "rationale"
+        ]
+      },
+      "TranscriptSegment": {
+        "type": "object",
+        "properties": {
+          "segmentId": {
+            "type": "string"
+          },
+          "partIndex": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          },
+          "startMs": {
+            "type": "number",
+            "minimum": 0
+          },
+          "endMs": {
+            "type": "number",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string"
+          },
+          "annotations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TranscriptAnnotation"
+            },
+            "default": []
+          }
+        },
+        "required": [
+          "segmentId",
+          "partIndex",
+          "startMs",
+          "endMs",
+          "text"
+        ]
+      },
+      "InlineEdit": {
+        "type": "object",
+        "properties": {
+          "editId": {
+            "type": "string"
+          },
+          "startOffset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "endOffset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "originalText": {
+            "type": "string"
+          },
+          "suggestedText": {
+            "type": "string"
+          },
+          "criterionCode": {
+            "$ref": "#/components/schemas/CriterionCode"
+          },
+          "rationale": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "editId",
+          "startOffset",
+          "endOffset",
+          "originalText",
+          "suggestedText",
+          "criterionCode",
+          "rationale"
+        ]
+      },
+      "ModelRewrite": {
+        "type": "object",
+        "properties": {
+          "targetBandDelta": {
+            "type": "number",
+            "default": 1.5
+          },
+          "title": {
+            "type": "string"
+          },
+          "rewrittenText": {
+            "type": "string"
+          },
+          "preservedIdeasNote": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "rewrittenText",
+          "preservedIdeasNote"
+        ]
+      },
+      "VocabUpgrade": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "term": {
+            "type": "string"
+          },
+          "ipa": {
+            "type": "string"
+          },
+          "definition": {
+            "type": "string"
+          },
+          "contextSentence": {
+            "type": "string"
+          },
+          "paraphrases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "bandRationale": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "term",
+          "definition",
+          "contextSentence",
+          "bandRationale"
+        ]
+      },
+      "RecommendedDrill": {
+        "type": "object",
+        "properties": {
+          "drillType": {
+            "type": "string"
+          },
+          "weakestCriterionCode": {
+            "$ref": "#/components/schemas/CriterionCode"
+          },
+          "title": {
+            "type": "string"
+          },
+          "durationMinutes": {
+            "type": "number",
+            "default": 3
+          }
+        },
+        "required": [
+          "drillType",
+          "weakestCriterionCode",
+          "title"
+        ]
+      },
+      "EvaluationOutput": {
+        "type": "object",
+        "properties": {
+          "attemptId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "overallBand": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 160
+          },
+          "isEstimated": {
+            "type": "boolean",
+            "enum": [
+              true
+            ],
+            "default": true
+          },
+          "criteria": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CriterionEvaluation"
+            }
+          },
+          "transcriptSegments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TranscriptSegment"
+            }
+          },
+          "inlineEdits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InlineEdit"
+            }
+          },
+          "modelRewrite": {
+            "$ref": "#/components/schemas/ModelRewrite"
+          },
+          "vocabUpgrades": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VocabUpgrade"
+            },
+            "default": []
+          },
+          "recommendedDrill": {
+            "$ref": "#/components/schemas/RecommendedDrill"
+          },
+          "actionableNextStep": {
+            "type": "string"
+          },
+          "modelId": {
+            "type": "string"
+          },
+          "rubricVersion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "attemptId",
+          "overallBand",
+          "criteria",
+          "modelId",
+          "rubricVersion"
+        ]
+      },
+      "JobStatusResponse": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attemptId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "processing_audio",
+              "transcoding",
+              "evaluating",
+              "repairing",
+              "completed",
+              "failed"
+            ]
+          },
+          "stage": {
+            "type": "string"
+          },
+          "result": {
+            "$ref": "#/components/schemas/EvaluationOutput"
+          },
+          "errorCode": {
+            "type": "string"
+          },
+          "quotaRefunded": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId",
+          "attemptId",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "LinkAccountResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "accessToken": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "success",
+          "userId",
+          "accessToken",
+          "expiresAt"
+        ]
+      },
+      "JobEnqueueResponse": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "processing_audio",
+              "evaluating",
+              "completed",
+              "failed"
+            ]
+          }
+        },
+        "required": [
+          "jobId",
+          "status"
+        ]
+      },
+      "ApiError": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "validation_error",
+              "unauthorized",
+              "attestation_required",
+              "edition_forbidden",
+              "edition_mismatch",
+              "entitlement_required",
+              "quota_exceeded",
+              "attempt_conflict",
+              "device_slot_limit_reached",
+              "invalid_credentials",
+              "email_already_registered",
+              "upload_not_found",
+              "upload_too_large",
+              "model_unavailable",
+              "billing_unavailable",
+              "provider_not_configured",
+              "erasure_incomplete",
+              "not_found",
+              "internal_error"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": {
+              "nullable": true
+            }
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "requestId"
+        ]
+      },
+      "AuthProvidersResponse": {
+        "type": "object",
+        "properties": {
+          "emailPasswordEnabled": {
+            "type": "boolean"
+          },
+          "google": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "oidc",
+                  "dev_sandbox",
+                  "disabled"
+                ]
+              },
+              "clientId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "enabled",
+              "mode"
+            ]
+          },
+          "apple": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "oidc",
+                  "dev_sandbox",
+                  "disabled"
+                ]
+              },
+              "clientId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "enabled",
+              "mode"
+            ]
+          },
+          "devicePolicy": {
+            "type": "object",
+            "properties": {
+              "maxMobilePhones": {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true,
+                "default": 1
+              },
+              "maxDesktopWebInstances": {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true,
+                "default": 1
+              }
+            }
+          }
+        },
+        "required": [
+          "emailPasswordEnabled",
+          "google",
+          "apple",
+          "devicePolicy"
+        ]
+      },
+      "AccountUser": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "linkedProviders": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "email",
+                "google",
+                "apple"
+              ]
+            }
+          },
+          "isPro": {
+            "type": "boolean"
+          },
+          "acceptedDevicePolicyAt": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "userId",
+          "email",
+          "displayName",
+          "linkedProviders",
+          "isPro"
+        ]
+      },
+      "DeviceSlotKind": {
+        "type": "string",
+        "enum": [
+          "mobile",
+          "desktop_web"
+        ]
+      },
+      "DevicePlatform": {
+        "type": "string",
+        "enum": [
+          "ios",
+          "android",
+          "web_mobile",
+          "web_desktop",
+          "unknown"
+        ]
+      },
+      "AppSurface": {
+        "type": "string",
+        "enum": [
+          "flutter_app",
+          "flutter_web",
+          "web_app"
+        ]
+      },
+      "DeviceSessionItem": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deviceIdShort": {
+            "type": "string"
+          },
+          "slotKind": {
+            "$ref": "#/components/schemas/DeviceSlotKind"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/DevicePlatform"
+          },
+          "appSurface": {
+            "$ref": "#/components/schemas/AppSurface"
+          },
+          "deviceName": {
+            "type": "string"
+          },
+          "locationLabel": {
+            "type": "string"
+          },
+          "ipMasked": {
+            "type": "string",
+            "nullable": true
+          },
+          "authMethod": {
+            "type": "string",
+            "enum": [
+              "email",
+              "google",
+              "apple"
+            ]
+          },
+          "isCurrentDevice": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "lastSeenAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sessionId",
+          "deviceId",
+          "deviceIdShort",
+          "slotKind",
+          "platform",
+          "appSurface",
+          "deviceName",
+          "locationLabel",
+          "ipMasked",
+          "authMethod",
+          "isCurrentDevice",
+          "createdAt",
+          "lastSeenAt"
+        ]
+      },
+      "AuthSessionResponse": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "deviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deviceSecret": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 256
+          },
+          "user": {
+            "$ref": "#/components/schemas/AccountUser"
+          },
+          "currentSession": {
+            "$ref": "#/components/schemas/DeviceSessionItem"
+          },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeviceSessionItem"
+            }
+          }
+        },
+        "required": [
+          "accessToken",
+          "expiresAt",
+          "deviceId",
+          "user",
+          "currentSession",
+          "sessions"
+        ]
+      },
+      "DeviceClientMeta": {
+        "type": "object",
+        "properties": {
+          "slotKind": {
+            "$ref": "#/components/schemas/DeviceSlotKind"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/DevicePlatform"
+          },
+          "appSurface": {
+            "$ref": "#/components/schemas/AppSurface"
+          },
+          "deviceName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "timezone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        }
+      },
+      "EmailRegisterRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "deviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deviceSecret": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 256
+          },
+          "appVersion": {
+            "type": "string"
+          },
+          "deviceMeta": {
+            "$ref": "#/components/schemas/DeviceClientMeta"
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "deviceId"
+        ]
+      },
+      "EmailLoginRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "deviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deviceSecret": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 256
+          },
+          "appVersion": {
+            "type": "string"
+          },
+          "deviceMeta": {
+            "$ref": "#/components/schemas/DeviceClientMeta"
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "deviceId"
+        ]
+      },
+      "OAuthSignInRequest": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "google",
+              "apple"
+            ]
+          },
+          "idToken": {
+            "type": "string",
+            "minLength": 1
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "deviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deviceSecret": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 256
+          },
+          "appVersion": {
+            "type": "string"
+          },
+          "deviceMeta": {
+            "$ref": "#/components/schemas/DeviceClientMeta"
+          }
+        },
+        "required": [
+          "provider",
+          "idToken",
+          "deviceId"
+        ]
+      },
+      "LogoutResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "signedOut": {
+            "type": "boolean"
+          },
+          "accessToken": {
+            "type": "string"
+          },
+          "deviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "success",
+          "signedOut",
+          "accessToken",
+          "deviceId",
+          "expiresAt"
+        ]
+      },
+      "AccountSessionsResponse": {
+        "type": "object",
+        "properties": {
+          "isAuthenticated": {
+            "type": "boolean"
+          },
+          "user": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AccountUser"
+              },
+              {
+                "nullable": true
+              }
+            ]
+          },
+          "currentDeviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "devicePolicy": {
+            "type": "object",
+            "properties": {
+              "maxMobilePhones": {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true,
+                "default": 1
+              },
+              "maxDesktopWebInstances": {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true,
+                "default": 1
+              },
+              "mobileOccupied": {
+                "type": "boolean"
+              },
+              "desktopWebOccupied": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "mobileOccupied",
+              "desktopWebOccupied"
+            ]
+          },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeviceSessionItem"
+            }
+          }
+        },
+        "required": [
+          "isAuthenticated",
+          "user",
+          "currentDeviceId",
+          "devicePolicy",
+          "sessions"
+        ]
+      },
+      "RevokeDeviceSessionResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "revokedDeviceIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "signedOutCurrentDevice": {
+            "type": "boolean",
+            "default": false
+          },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeviceSessionItem"
+            }
+          }
+        },
+        "required": [
+          "success",
+          "revokedDeviceIds",
+          "sessions"
+        ]
+      }
+    },
+    "parameters": {}
+  },
+  "paths": {
+    "/v1/schema-registry": {
+      "post": {
+        "summary": "Internal schema registry target for client codegen",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvaluationOutput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Job status with evaluation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobStatusResponse"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Link account response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkAccountResponse"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Accepted async evaluation job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEnqueueResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or standard API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/providers": {
+      "get": {
+        "summary": "Discover configured auth providers and device slot limits",
+        "responses": {
+          "200": {
+            "description": "Available authentication providers and slot policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthProvidersResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/register": {
+      "post": {
+        "summary": "Create email/password account and claim one active device slot",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailRegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Registered account and active session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSessionResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Email already registered or device slot limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/login": {
+      "post": {
+        "summary": "Sign in with email and password under strict 1-phone + 1-desktop-web slot enforcement",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailLoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed in account and active device sessions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSessionResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Device slot limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/oauth": {
+      "post": {
+        "summary": "Sign in or register via Google or Apple ID token (or dev sandbox token outside production)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthSignInRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed in via OAuth provider",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSessionResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Device slot limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "summary": "Sign out current device and vacate its slot",
+        "responses": {
+          "200": {
+            "description": "Signed out current device",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/account/devices": {
+      "get": {
+        "summary": "List active signed-in devices and slot occupancy for the authenticated user",
+        "responses": {
+          "200": {
+            "description": "Active device sessions and slot capacity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSessionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/account/devices/{targetDeviceId}": {
+      "delete": {
+        "summary": "Remotely terminate a signed-in device session and vacate its slot",
+        "responses": {
+          "200": {
+            "description": "Revoked target device session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokeDeviceSessionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/account/devices/revoke-others": {
+      "post": {
+        "summary": "Terminate all active device sessions except the caller device",
+        "responses": {
+          "200": {
+            "description": "Revoked all other device sessions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokeDeviceSessionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/account/device-policy-consent": {
+      "post": {
+        "summary": "Record user acceptance of the 1 Mobile Phone + 1 Desktop Web subscription policy",
+        "responses": {
+          "200": {
+            "description": "Updated user account with policy consent timestamp",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountUser"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

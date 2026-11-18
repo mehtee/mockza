@@ -1,0 +1,604 @@
+{
+  "schemaVersion": "2026-11-18.v1",
+  "policyVersion": "2026-11-17.v1",
+  "selectNextObjectiveBlock": [
+    {
+      "id": "initial_starts_at_B1_oriented",
+      "skill": "reading",
+      "history": [],
+      "remainingStageSeconds": 110,
+      "remainingGlobalSeconds": 500,
+      "expectedAction": "present",
+      "expectedTargetTier": "B1",
+      "expectedReducedSampling": true,
+      "expectedEvidenceCheckTriggered": false
+    },
+    {
+      "id": "two_consecutive_strong_B1_B2_triggers_evidence_check_but_continues_to_C1",
+      "skill": "reading",
+      "history": [
+        {
+          "blockId": "R-B1-1",
+          "tier": "B1",
+          "category": "strong",
+          "selectedOptionIndices": [0, 1],
+          "correctCount": 2
+        },
+        {
+          "blockId": "R-B2-1",
+          "tier": "B2",
+          "category": "strong",
+          "selectedOptionIndices": [0, 1],
+          "correctCount": 2
+        }
+      ],
+      "remainingStageSeconds": 75,
+      "remainingGlobalSeconds": 460,
+      "expectedAction": "present",
+      "expectedTargetTier": "C1",
+      "expectedReducedSampling": true,
+      "expectedEvidenceCheckTriggered": true
+    },
+    {
+      "id": "three_valid_strong_B1_B2_C1_completes_sampling",
+      "skill": "reading",
+      "history": [
+        {
+          "blockId": "R-B1-1",
+          "tier": "B1",
+          "category": "strong",
+          "selectedOptionIndices": [0, 1],
+          "correctCount": 2
+        },
+        {
+          "blockId": "R-B2-1",
+          "tier": "B2",
+          "category": "strong",
+          "selectedOptionIndices": [0, 1],
+          "correctCount": 2
+        },
+        {
+          "blockId": "R-C1-1",
+          "tier": "C1",
+          "category": "strong",
+          "selectedOptionIndices": [0, 1],
+          "correctCount": 2
+        }
+      ],
+      "remainingStageSeconds": 40,
+      "remainingGlobalSeconds": 420,
+      "expectedAction": "stop",
+      "expectedStopReason": "sampling_complete",
+      "expectedReducedSampling": false
+    },
+    {
+      "id": "two_consecutive_low_B1_A2_triggers_evidence_check_and_steps_to_A1",
+      "skill": "listening",
+      "history": [
+        {
+          "blockId": "L-B1-1",
+          "tier": "B1",
+          "category": "low",
+          "selectedOptionIndices": [2, 2],
+          "correctCount": 0
+        },
+        {
+          "blockId": "L-A2-1",
+          "tier": "A2",
+          "category": "low",
+          "selectedOptionIndices": [2, 2],
+          "correctCount": 0
+        }
+      ],
+      "remainingStageSeconds": 65,
+      "remainingGlobalSeconds": 350,
+      "expectedAction": "present",
+      "expectedTargetTier": "A1",
+      "expectedReducedSampling": true,
+      "expectedEvidenceCheckTriggered": true
+    },
+    {
+      "id": "B1_low_then_A2_strong_confirms_A2",
+      "skill": "reading",
+      "history": [
+        {
+          "blockId": "R-B1-1",
+          "tier": "B1",
+          "category": "low",
+          "selectedOptionIndices": [2, 2],
+          "correctCount": 0
+        },
+        {
+          "blockId": "R-A2-1",
+          "tier": "A2",
+          "category": "strong",
+          "selectedOptionIndices": [0, 1],
+          "correctCount": 2
+        }
+      ],
+      "remainingStageSeconds": 70,
+      "remainingGlobalSeconds": 430,
+      "expectedAction": "present",
+      "expectedTargetTier": "A2",
+      "expectedReducedSampling": true
+    },
+    {
+      "id": "B1_low_then_C1_strong_triggers_contradictory_conflict_probe_at_B1",
+      "skill": "reading",
+      "history": [
+        {
+          "blockId": "R-B1-1",
+          "tier": "B1",
+          "category": "low",
+          "selectedOptionIndices": [2, 2],
+          "correctCount": 0
+        },
+        {
+          "blockId": "R-C1-1",
+          "tier": "C1",
+          "category": "strong",
+          "selectedOptionIndices": [0, 1],
+          "correctCount": 2
+        }
+      ],
+      "remainingStageSeconds": 65,
+      "remainingGlobalSeconds": 420,
+      "expectedAction": "present",
+      "expectedTargetTier": "B1",
+      "expectedHasContradictoryEvidence": true
+    },
+    {
+      "id": "reading_allows_fourth_block_when_third_is_mixed",
+      "skill": "reading",
+      "history": [
+        {
+          "blockId": "R-B1-1",
+          "tier": "B1",
+          "category": "strong",
+          "selectedOptionIndices": [0, 1],
+          "correctCount": 2
+        },
+        {
+          "blockId": "R-B2-1",
+          "tier": "B2",
+          "category": "strong",
+          "selectedOptionIndices": [0, 1],
+          "correctCount": 2
+        },
+        {
+          "blockId": "R-C1-1",
+          "tier": "C1",
+          "category": "mixed",
+          "selectedOptionIndices": [0, 2],
+          "correctCount": 1
+        }
+      ],
+      "remainingStageSeconds": 45,
+      "remainingGlobalSeconds": 400,
+      "expectedAction": "present",
+      "expectedTargetTier": "C1",
+      "expectedReducedSampling": false
+    },
+    {
+      "id": "listening_never_exceeds_3_presented_even_after_no_evidence",
+      "skill": "listening",
+      "history": [
+        {
+          "blockId": "L-B1-1",
+          "tier": "B1",
+          "category": "no_evidence",
+          "selectedOptionIndices": [null, null],
+          "correctCount": 0,
+          "noEvidenceReason": "playback_failed"
+        },
+        {
+          "blockId": "L-B1-2",
+          "tier": "B1",
+          "category": "mixed",
+          "selectedOptionIndices": [0, 2],
+          "correctCount": 1
+        },
+        {
+          "blockId": "L-B1-3",
+          "tier": "B1",
+          "category": "strong",
+          "selectedOptionIndices": [0, 1],
+          "correctCount": 2
+        }
+      ],
+      "remainingStageSeconds": 50,
+      "remainingGlobalSeconds": 320,
+      "expectedAction": "stop",
+      "expectedStopReason": "presentation_limit",
+      "expectedReducedSampling": true
+    },
+    {
+      "id": "dont_know_steps_easier_without_wrong_answer",
+      "skill": "reading",
+      "history": [
+        {
+          "blockId": "R-B1-1",
+          "tier": "B1",
+          "category": "no_evidence",
+          "selectedOptionIndices": [null, null],
+          "correctCount": 0,
+          "noEvidenceReason": "dont_know"
+        }
+      ],
+      "remainingStageSeconds": 95,
+      "remainingGlobalSeconds": 480,
+      "expectedAction": "present",
+      "expectedTargetTier": "A2",
+      "expectedReducedSampling": true
+    },
+    {
+      "id": "global_timeout_takes_precedence_over_stage_timeout",
+      "skill": "reading",
+      "history": [
+        {
+          "blockId": "R-B1-1",
+          "tier": "B1",
+          "category": "strong",
+          "selectedOptionIndices": [0, 1],
+          "correctCount": 2
+        }
+      ],
+      "remainingStageSeconds": 0,
+      "remainingGlobalSeconds": 0,
+      "expectedAction": "stop",
+      "expectedStopReason": "global_timeout",
+      "expectedCoincidentReasons": ["global_timeout", "stage_timeout"],
+      "expectedReducedSampling": true
+    },
+    {
+      "id": "insufficient_stage_time_for_fit_stops_before_presenting_next_block",
+      "skill": "listening",
+      "history": [
+        {
+          "blockId": "L-B1-1",
+          "tier": "B1",
+          "category": "strong",
+          "selectedOptionIndices": [0, 1],
+          "correctCount": 2
+        }
+      ],
+      "remainingStageSeconds": 10,
+      "remainingGlobalSeconds": 300,
+      "expectedAction": "stop",
+      "expectedStopReason": "stage_timeout",
+      "expectedReducedSampling": true
+    },
+    {
+      "id": "exhausted_bank_returns_content_limit",
+      "skill": "reading",
+      "history": [
+        {
+          "blockId": "R-C1-1",
+          "tier": "C1",
+          "category": "mixed",
+          "selectedOptionIndices": [0, 2],
+          "correctCount": 1
+        },
+        {
+          "blockId": "R-C1-2",
+          "tier": "C1",
+          "category": "mixed",
+          "selectedOptionIndices": [0, 2],
+          "correctCount": 1
+        }
+      ],
+      "remainingStageSeconds": 60,
+      "remainingGlobalSeconds": 400,
+      "expectedAction": "stop",
+      "expectedStopReason": "content_limit",
+      "expectedReducedSampling": true
+    },
+    {
+      "id": "a1_floor_on_repeated_low_stays_at_A1",
+      "skill": "reading",
+      "history": [
+        {
+          "blockId": "R-A2-1",
+          "tier": "A2",
+          "category": "low",
+          "selectedOptionIndices": [2, 2],
+          "correctCount": 0
+        },
+        {
+          "blockId": "R-A1-1",
+          "tier": "A1",
+          "category": "low",
+          "selectedOptionIndices": [2, 2],
+          "correctCount": 0
+        }
+      ],
+      "remainingStageSeconds": 60,
+      "remainingGlobalSeconds": 400,
+      "expectedAction": "present",
+      "expectedTargetTier": "A1",
+      "expectedReducedSampling": true,
+      "expectedEvidenceCheckTriggered": true
+    },
+    {
+      "id": "c2_ceiling_confirmation_on_strong_at_C2",
+      "skill": "reading",
+      "initialTier": "C1",
+      "history": [
+        {
+          "blockId": "R-C1-1",
+          "tier": "C1",
+          "category": "strong",
+          "selectedOptionIndices": [0, 1],
+          "correctCount": 2
+        },
+        {
+          "blockId": "R-C2-1",
+          "tier": "C2",
+          "category": "strong",
+          "selectedOptionIndices": [0, 1],
+          "correctCount": 2
+        }
+      ],
+      "remainingStageSeconds": 60,
+      "remainingGlobalSeconds": 400,
+      "expectedAction": "present",
+      "expectedTargetTier": "C2",
+      "expectedReducedSampling": true,
+      "expectedEvidenceCheckTriggered": true
+    },
+    {
+      "id": "skipped_no_evidence_keeps_tier",
+      "skill": "reading",
+      "history": [
+        {
+          "blockId": "R-B2-1",
+          "tier": "B2",
+          "category": "no_evidence",
+          "selectedOptionIndices": [null, null],
+          "correctCount": 0,
+          "noEvidenceReason": "skipped"
+        }
+      ],
+      "remainingStageSeconds": 80,
+      "remainingGlobalSeconds": 400,
+      "expectedAction": "present",
+      "expectedTargetTier": "B2",
+      "expectedReducedSampling": true
+    },
+    {
+      "id": "empty_timeout_no_evidence_keeps_tier",
+      "skill": "listening",
+      "history": [
+        {
+          "blockId": "L-C1-1",
+          "tier": "C1",
+          "category": "no_evidence",
+          "selectedOptionIndices": [0, null],
+          "correctCount": 0,
+          "noEvidenceReason": "empty_timeout"
+        }
+      ],
+      "remainingStageSeconds": 80,
+      "remainingGlobalSeconds": 400,
+      "expectedAction": "present",
+      "expectedTargetTier": "C1",
+      "expectedReducedSampling": true
+    },
+    {
+      "id": "dont_know_at_A1_floors_at_A1",
+      "skill": "reading",
+      "history": [
+        {
+          "blockId": "R-A1-1",
+          "tier": "A1",
+          "category": "no_evidence",
+          "selectedOptionIndices": [null, null],
+          "correctCount": 0,
+          "noEvidenceReason": "dont_know"
+        }
+      ],
+      "remainingStageSeconds": 80,
+      "remainingGlobalSeconds": 400,
+      "expectedAction": "present",
+      "expectedTargetTier": "A1",
+      "expectedReducedSampling": true
+    },
+    {
+      "id": "untested_between_midpoint_B1_to_C2_picks_C1",
+      "skill": "reading",
+      "history": [
+        {
+          "blockId": "R-C2-1",
+          "tier": "C2",
+          "category": "low",
+          "selectedOptionIndices": [2, 2],
+          "correctCount": 0
+        },
+        {
+          "blockId": "R-B1-1",
+          "tier": "B1",
+          "category": "strong",
+          "selectedOptionIndices": [0, 1],
+          "correctCount": 2
+        }
+      ],
+      "remainingStageSeconds": 80,
+      "remainingGlobalSeconds": 400,
+      "expectedAction": "present",
+      "expectedTargetTier": "C1",
+      "expectedReducedSampling": true,
+      "expectedHasContradictoryEvidence": false
+    },
+    {
+      "id": "reading_4th_block_on_all_low_above_A1",
+      "skill": "reading",
+      "history": [
+        {
+          "blockId": "R-B2-1",
+          "tier": "B2",
+          "category": "low",
+          "selectedOptionIndices": [2, 2],
+          "correctCount": 0
+        },
+        {
+          "blockId": "R-B1-1",
+          "tier": "B1",
+          "category": "low",
+          "selectedOptionIndices": [2, 2],
+          "correctCount": 0
+        },
+        {
+          "blockId": "R-A2-1",
+          "tier": "A2",
+          "category": "low",
+          "selectedOptionIndices": [2, 2],
+          "correctCount": 0
+        }
+      ],
+      "remainingStageSeconds": 60,
+      "remainingGlobalSeconds": 350,
+      "expectedAction": "present",
+      "expectedTargetTier": "A1",
+      "expectedReducedSampling": false,
+      "expectedEvidenceCheckTriggered": true
+    },
+    {
+      "id": "strict_mode_false_and_deterministic_seed_tiebreak",
+      "skill": "reading",
+      "history": [],
+      "remainingStageSeconds": 0,
+      "remainingGlobalSeconds": 0,
+      "strictMode": false,
+      "selectionSeed": "parity-seed",
+      "bankOverride": [
+        { "blockId": "R-B1-1", "tier": "B1", "minRequiredSeconds": 20 },
+        { "blockId": "R-B1-2", "tier": "B1", "minRequiredSeconds": 20 }
+      ],
+      "expectedAction": "present",
+      "expectedTargetTier": "B1",
+      "expectedChosenBlockId": "R-B1-2",
+      "expectedReducedSampling": true,
+      "expectedHasContradictoryEvidence": false
+    }
+  ],
+  "classifyBlockOutcome": [
+    {
+      "id": "classify_strong_2_of_2",
+      "questions": [
+        { "questionId": "q1", "prompt": "Q1", "options": ["A", "B", "C"], "correctIndex": 0, "focusTag": "explicit_detail" },
+        { "questionId": "q2", "prompt": "Q2", "options": ["A", "B", "C"], "correctIndex": 2, "focusTag": "meaning_relationship" }
+      ],
+      "selectedOptionIndices": [0, 2],
+      "noEvidenceReason": null,
+      "expectedCategory": "strong",
+      "expectedCorrectCount": 2,
+      "expectedNoEvidenceReason": null
+    },
+    {
+      "id": "classify_mixed_1_of_2",
+      "questions": [
+        { "questionId": "q1", "prompt": "Q1", "options": ["A", "B", "C"], "correctIndex": 0, "focusTag": "explicit_detail" },
+        { "questionId": "q2", "prompt": "Q2", "options": ["A", "B", "C"], "correctIndex": 2, "focusTag": "meaning_relationship" }
+      ],
+      "selectedOptionIndices": [0, 1],
+      "noEvidenceReason": null,
+      "expectedCategory": "mixed",
+      "expectedCorrectCount": 1,
+      "expectedNoEvidenceReason": null
+    },
+    {
+      "id": "classify_low_0_of_2",
+      "questions": [
+        { "questionId": "q1", "prompt": "Q1", "options": ["A", "B", "C"], "correctIndex": 0, "focusTag": "explicit_detail" },
+        { "questionId": "q2", "prompt": "Q2", "options": ["A", "B", "C"], "correctIndex": 2, "focusTag": "meaning_relationship" }
+      ],
+      "selectedOptionIndices": [1, 1],
+      "noEvidenceReason": null,
+      "expectedCategory": "low",
+      "expectedCorrectCount": 0,
+      "expectedNoEvidenceReason": null
+    },
+    {
+      "id": "classify_missing_selection_empty_timeout",
+      "questions": [
+        { "questionId": "q1", "prompt": "Q1", "options": ["A", "B", "C"], "correctIndex": 0, "focusTag": "explicit_detail" },
+        { "questionId": "q2", "prompt": "Q2", "options": ["A", "B", "C"], "correctIndex": 2, "focusTag": "meaning_relationship" }
+      ],
+      "selectedOptionIndices": [0, null],
+      "noEvidenceReason": null,
+      "expectedCategory": "no_evidence",
+      "expectedCorrectCount": 0,
+      "expectedNoEvidenceReason": "empty_timeout"
+    },
+    {
+      "id": "classify_explicit_dont_know",
+      "questions": [
+        { "questionId": "q1", "prompt": "Q1", "options": ["A", "B", "C"], "correctIndex": 0, "focusTag": "explicit_detail" },
+        { "questionId": "q2", "prompt": "Q2", "options": ["A", "B", "C"], "correctIndex": 2, "focusTag": "meaning_relationship" }
+      ],
+      "selectedOptionIndices": [null, null],
+      "noEvidenceReason": "dont_know",
+      "expectedCategory": "no_evidence",
+      "expectedCorrectCount": 0,
+      "expectedNoEvidenceReason": "dont_know"
+    }
+  ],
+  "diagnosticBudget": {
+    "constants": {
+      "id": "budget_constants",
+      "introMaxSeconds": 60,
+      "readingMaxSeconds": 210,
+      "listeningMaxSeconds": 210,
+      "writingMaxSeconds": 240,
+      "writingFollowUpMaxSeconds": 75,
+      "speakingPrepMaxSeconds": 35,
+      "speakingMainMaxSeconds": 60,
+      "speakingFollowUpMaxSeconds": 35,
+      "speakingMaxSeconds": 150,
+      "transitionMaxSeconds": 5,
+      "collectionTotalSeconds": 900,
+      "resultsWindowSeconds": 90,
+      "totalSessionSeconds": 990
+    },
+    "deadlineCases": [
+      {
+        "id": "budget_standard_bounded_by_global",
+        "nowUtcMs": 1794924000000,
+        "stageCapSeconds": 210,
+        "globalCollectionDeadlineUtcMs": 1794924045000,
+        "mode": "standard",
+        "expectedStageDeadlineUtcMs": 1794924045000,
+        "expectedRemainingSeconds": 45
+      },
+      {
+        "id": "budget_standard_bounded_by_stage",
+        "nowUtcMs": 1794924000000,
+        "stageCapSeconds": 210,
+        "globalCollectionDeadlineUtcMs": 1794924900000,
+        "mode": "standard",
+        "expectedStageDeadlineUtcMs": 1794924210000,
+        "expectedRemainingSeconds": 210
+      },
+      {
+        "id": "budget_extended_triples_stage_cap",
+        "nowUtcMs": 1794924000000,
+        "stageCapSeconds": 210,
+        "globalCollectionDeadlineUtcMs": 1794924045000,
+        "mode": "extended",
+        "expectedStageDeadlineUtcMs": 1794924630000,
+        "expectedRemainingSeconds": 630
+      },
+      {
+        "id": "budget_subsecond_ceil_and_expired_zero",
+        "nowUtcMs": 1794924000000,
+        "stageCapSeconds": 60,
+        "globalCollectionDeadlineUtcMs": 1794924044001,
+        "mode": "standard",
+        "expectedStageDeadlineUtcMs": 1794924044001,
+        "expectedRemainingSeconds": 45,
+        "expiredDeadlineUtcMs": 1794923999900,
+        "expectedExpiredRemainingSeconds": 0
+      }
+    ]
+  }
+}

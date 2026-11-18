@@ -229,7 +229,7 @@ services:
       target: toolchain
     networks:
       - mockza-net
-    command: ["sh", "-c", "pnpm exec biome check . && pnpm typecheck && pnpm test"]
+    command: ["sh", "-c", "pnpm exec biome check . && pnpm typecheck && pnpm -r --workspace-concurrency=1 exec vitest run --exclude '**/cross-codebase-parity.test.ts'"]
     mem_limit: 1536m
     cpus: 1.5
 
@@ -242,7 +242,7 @@ services:
       target: checker
       args:
         FLUTTER_VERSION: "3.47.9"
-    command: ["sh", "-c", "dart format --output=none --set-exit-if-changed lib test && flutter analyze --fatal-infos && flutter test --test-randomize-ordering-seed random --reporter expanded"]
+    command: ["sh", "-c", "dart format --output=none --set-exit-if-changed lib test && flutter analyze --fatal-infos && flutter test --exclude-tags parity --test-randomize-ordering-seed random --reporter expanded"]
     mem_limit: 2048m
     cpus: 1.5
 

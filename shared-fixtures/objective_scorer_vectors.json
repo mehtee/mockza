@@ -1,0 +1,493 @@
+{
+  "schemaVersion": "2026-11-18.v1",
+  "normalize": [
+    { "id": "norm_whitespace_case", "raw": "  Solar   Energy \n\t ", "expected": "solar energy" },
+    { "id": "norm_apostrophes", "raw": "it’s a dog`s life", "expected": "it's a dog's life" },
+    { "id": "norm_dashes", "raw": "twenty-four — well–known", "expected": "twenty 4 well known" },
+    { "id": "norm_currency_usd", "raw": "  $12.50, ", "expected": "$12.50" },
+    { "id": "norm_currency_gbp", "raw": "£5!", "expected": "£5" },
+    { "id": "norm_currency_eur", "raw": "€99.", "expected": "€99" },
+    { "id": "norm_percent", "raw": "25%!", "expected": "25%" },
+    { "id": "norm_time_colon", "raw": "10:30.", "expected": "10:30" },
+    { "id": "norm_decimal", "raw": "3.5", "expected": "3.5" },
+    { "id": "norm_thousands_comma", "raw": "1,250", "expected": "1250" },
+    { "id": "norm_uk_colour_theatre", "raw": "Colour and Theatre", "expected": "color and theater" },
+    { "id": "norm_uk_organise_centre", "raw": "Organise the Centre", "expected": "organize the center" },
+    { "id": "norm_uk_travelling_grey", "raw": "travelling in grey", "expected": "traveling in gray" },
+    { "id": "norm_words_digits_0_5", "raw": "zero one two three four five", "expected": "0 1 2 3 4 5" },
+    { "id": "norm_words_digits_6_10", "raw": "six seven eight nine ten", "expected": "6 7 8 9 10" },
+    { "id": "norm_empty_punctuation", "raw": "  ... --- !!!  ", "expected": "" }
+  ],
+  "normalizeSequence": [
+    { "id": "seq_compact_lower", "raw": "cab", "expected": "C|A|B" },
+    { "id": "seq_comma_space", "raw": "c, a, b", "expected": "C|A|B" },
+    { "id": "seq_pipe_padded", "raw": " C | A | B ", "expected": "C|A|B" },
+    { "id": "seq_semicolon", "raw": "D; A; C; B", "expected": "D|A|C|B" },
+    { "id": "seq_four_upper", "raw": "ABCD", "expected": "A|B|C|D" },
+    { "id": "seq_whitespace_only", "raw": "   ", "expected": "" }
+  ],
+  "score": [
+    {
+      "id": "score_tfng",
+      "skill": "reading",
+      "moduleType": "academic",
+      "trackId": "ielts_academic",
+      "answers": [
+        { "questionId": "q1", "questionType": "tfng", "acceptedAnswers": ["TRUE"], "userAnswer": "true", "maxWords": 3 },
+        { "questionId": "q2", "questionType": "tfng", "acceptedAnswers": ["FALSE"], "userAnswer": "not given", "maxWords": 3 }
+      ],
+      "expected": {
+        "correctCount": 1,
+        "totalCount": 2,
+        "bandScore": 5.5,
+        "accuracyPercent": 50,
+        "isCalibratedFullPack": false,
+        "questionCorrectness": { "q1": true, "q2": false }
+      }
+    },
+    {
+      "id": "score_ynng",
+      "skill": "reading",
+      "moduleType": "academic",
+      "trackId": "ielts_academic",
+      "answers": [
+        { "questionId": "q1", "questionType": "ynng", "acceptedAnswers": ["NO"], "userAnswer": " no ", "maxWords": 3 },
+        { "questionId": "q2", "questionType": "ynng", "acceptedAnswers": ["NOT GIVEN"], "userAnswer": "not given", "maxWords": 3 }
+      ],
+      "expected": {
+        "correctCount": 2,
+        "totalCount": 2,
+        "bandScore": 9.0,
+        "accuracyPercent": 100,
+        "isCalibratedFullPack": false,
+        "questionCorrectness": { "q1": true, "q2": true }
+      }
+    },
+    {
+      "id": "score_mcq_single",
+      "skill": "listening",
+      "moduleType": "academic",
+      "trackId": "ielts_academic",
+      "answers": [
+        { "questionId": "q1", "questionType": "mcq_single", "acceptedAnswers": ["B"], "userAnswer": "b", "maxWords": 3 }
+      ],
+      "expected": {
+        "correctCount": 1,
+        "totalCount": 1,
+        "bandScore": 9.0,
+        "accuracyPercent": 100,
+        "isCalibratedFullPack": false,
+        "questionCorrectness": { "q1": true }
+      }
+    },
+    {
+      "id": "score_mcq_multi",
+      "skill": "listening",
+      "moduleType": "academic",
+      "trackId": "ielts_academic",
+      "answers": [
+        { "questionId": "q1", "questionType": "mcq_multi", "acceptedAnswers": ["A, C"], "userAnswer": "a, c", "maxWords": 3 }
+      ],
+      "expected": {
+        "correctCount": 1,
+        "totalCount": 1,
+        "bandScore": 9.0,
+        "accuracyPercent": 100,
+        "isCalibratedFullPack": false,
+        "questionCorrectness": { "q1": true }
+      }
+    },
+    {
+      "id": "score_matching_headings",
+      "skill": "reading",
+      "moduleType": "academic",
+      "trackId": "ielts_academic",
+      "answers": [
+        { "questionId": "q1", "questionType": "matching_headings", "acceptedAnswers": ["iv"], "userAnswer": "IV", "maxWords": 3 }
+      ],
+      "expected": {
+        "correctCount": 1,
+        "totalCount": 1,
+        "bandScore": 9.0,
+        "accuracyPercent": 100,
+        "isCalibratedFullPack": false,
+        "questionCorrectness": { "q1": true }
+      }
+    },
+    {
+      "id": "score_summary_gap_fill_uk_numeral",
+      "skill": "reading",
+      "moduleType": "academic",
+      "trackId": "ielts_academic",
+      "answers": [
+        { "questionId": "q1", "questionType": "summary_gap_fill", "acceptedAnswers": ["color"], "userAnswer": "colour", "maxWords": 1 },
+        { "questionId": "q2", "questionType": "summary_gap_fill", "acceptedAnswers": ["5"], "userAnswer": "five", "maxWords": 1 }
+      ],
+      "expected": {
+        "correctCount": 2,
+        "totalCount": 2,
+        "bandScore": 9.0,
+        "accuracyPercent": 100,
+        "isCalibratedFullPack": false,
+        "questionCorrectness": { "q1": true, "q2": true }
+      }
+    },
+    {
+      "id": "score_short_answer_maxwords_rejected",
+      "skill": "reading",
+      "moduleType": "academic",
+      "trackId": "ielts_academic",
+      "answers": [
+        { "questionId": "q1", "questionType": "short_answer", "acceptedAnswers": ["solar energy", "solar energy today"], "userAnswer": "solar energy today", "maxWords": 2 }
+      ],
+      "expected": {
+        "correctCount": 0,
+        "totalCount": 1,
+        "bandScore": 0.0,
+        "accuracyPercent": 0,
+        "isCalibratedFullPack": false,
+        "questionCorrectness": { "q1": false }
+      }
+    },
+    {
+      "id": "score_short_answer_maxwords_exact_boundary",
+      "skill": "reading",
+      "moduleType": "academic",
+      "trackId": "ielts_academic",
+      "answers": [
+        { "questionId": "q1", "questionType": "short_answer", "acceptedAnswers": ["solar power station"], "userAnswer": "solar power station", "maxWords": 3 },
+        { "questionId": "q2", "questionType": "short_answer", "acceptedAnswers": ["solar power station now"], "userAnswer": "solar power station now", "maxWords": 3 }
+      ],
+      "expected": {
+        "correctCount": 1,
+        "totalCount": 2,
+        "bandScore": 5.5,
+        "accuracyPercent": 50,
+        "isCalibratedFullPack": false,
+        "questionCorrectness": { "q1": true, "q2": false }
+      }
+    },
+    {
+      "id": "score_binary_choice_25_word_floor",
+      "skill": "reading",
+      "moduleType": "academic",
+      "trackId": "det",
+      "answers": [
+        { "questionId": "q1", "questionType": "binary_choice", "acceptedAnswers": ["this has five real words"], "userAnswer": "this has five real words", "maxWords": 3 },
+        { "questionId": "q2", "questionType": "binary_choice", "acceptedAnswers": ["REAL"], "userAnswer": "real", "maxWords": 1 }
+      ],
+      "expected": {
+        "correctCount": 2,
+        "totalCount": 2,
+        "bandScore": 160.0,
+        "accuracyPercent": 100,
+        "isCalibratedFullPack": false,
+        "questionCorrectness": { "q1": true, "q2": true }
+      }
+    },
+    {
+      "id": "score_word_completion",
+      "skill": "reading",
+      "moduleType": "academic",
+      "trackId": "toefl_ibt",
+      "answers": [
+        { "questionId": "q1", "questionType": "word_completion", "acceptedAnswers": ["circulate"], "userAnswer": "Circulate", "maxWords": 1 },
+        { "questionId": "q2", "questionType": "word_completion", "acceptedAnswers": ["habitat"], "userAnswer": "habitats", "maxWords": 1 }
+      ],
+      "expected": {
+        "correctCount": 1,
+        "totalCount": 2,
+        "bandScore": 3.5,
+        "accuracyPercent": 50,
+        "isCalibratedFullPack": false,
+        "questionCorrectness": { "q1": true, "q2": false }
+      }
+    },
+    {
+      "id": "score_reorder_sequence",
+      "skill": "reading",
+      "moduleType": "academic",
+      "trackId": "pte_academic",
+      "answers": [
+        { "questionId": "q1", "questionType": "reorder_sequence", "acceptedAnswers": ["C, A, B"], "userAnswer": "c|a|b", "maxWords": 3 },
+        { "questionId": "q2", "questionType": "reorder_sequence", "acceptedAnswers": ["D|B|A|C"], "userAnswer": "dbac", "maxWords": 3 }
+      ],
+      "expected": {
+        "correctCount": 2,
+        "totalCount": 2,
+        "bandScore": 90.0,
+        "accuracyPercent": 100,
+        "isCalibratedFullPack": false,
+        "questionCorrectness": { "q1": true, "q2": true }
+      }
+    },
+    {
+      "id": "score_dictation_25_word_floor",
+      "skill": "listening",
+      "moduleType": "academic",
+      "trackId": "pte_academic",
+      "answers": [
+        {
+          "questionId": "q1",
+          "questionType": "dictation",
+          "acceptedAnswers": ["Museums inspire curiosity across every generation in modern cities."],
+          "userAnswer": "museums inspire curiosity across every generation in modern cities",
+          "maxWords": 3
+        }
+      ],
+      "expected": {
+        "correctCount": 1,
+        "totalCount": 1,
+        "bandScore": 90.0,
+        "accuracyPercent": 100,
+        "isCalibratedFullPack": false,
+        "questionCorrectness": { "q1": true }
+      }
+    },
+    {
+      "id": "score_null_and_blank_answers",
+      "skill": "reading",
+      "moduleType": "academic",
+      "trackId": "ielts_academic",
+      "answers": [
+        { "questionId": "q1", "questionType": "short_answer", "acceptedAnswers": ["water"], "userAnswer": null, "maxWords": 3 },
+        { "questionId": "q2", "questionType": "short_answer", "acceptedAnswers": ["air"], "userAnswer": "   ", "maxWords": 3 }
+      ],
+      "expected": {
+        "correctCount": 0,
+        "totalCount": 2,
+        "bandScore": 0.0,
+        "accuracyPercent": 0,
+        "isCalibratedFullPack": false,
+        "questionCorrectness": { "q1": false, "q2": false }
+      }
+    },
+    {
+      "id": "score_empty_answers_list",
+      "skill": "reading",
+      "moduleType": "academic",
+      "trackId": "ielts_academic",
+      "answers": [],
+      "expected": {
+        "correctCount": 0,
+        "totalCount": 0,
+        "bandScore": 0.0,
+        "accuracyPercent": 0,
+        "isCalibratedFullPack": false,
+        "questionCorrectness": {}
+      }
+    },
+    {
+      "id": "score_ielts_short_11_items_uncalibrated",
+      "skill": "reading",
+      "moduleType": "academic",
+      "trackId": "ielts_academic",
+      "answers": [
+        { "questionId": "q1", "questionType": "tfng", "acceptedAnswers": ["TRUE"], "userAnswer": "true", "maxWords": 3 },
+        { "questionId": "q2", "questionType": "tfng", "acceptedAnswers": ["FALSE"], "userAnswer": "false", "maxWords": 3 },
+        { "questionId": "q3", "questionType": "tfng", "acceptedAnswers": ["NOT GIVEN"], "userAnswer": "not given", "maxWords": 3 },
+        { "questionId": "q4", "questionType": "mcq_single", "acceptedAnswers": ["A"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q5", "questionType": "mcq_single", "acceptedAnswers": ["B"], "userAnswer": "b", "maxWords": 3 },
+        { "questionId": "q6", "questionType": "mcq_single", "acceptedAnswers": ["C"], "userAnswer": "c", "maxWords": 3 },
+        { "questionId": "q7", "questionType": "short_answer", "acceptedAnswers": ["green"], "userAnswer": "green", "maxWords": 3 },
+        { "questionId": "q8", "questionType": "short_answer", "acceptedAnswers": ["blue"], "userAnswer": "blue", "maxWords": 3 },
+        { "questionId": "q9", "questionType": "short_answer", "acceptedAnswers": ["red"], "userAnswer": "red", "maxWords": 3 },
+        { "questionId": "q10", "questionType": "short_answer", "acceptedAnswers": ["gold"], "userAnswer": "gold", "maxWords": 3 },
+        { "questionId": "q11", "questionType": "short_answer", "acceptedAnswers": ["silver"], "userAnswer": "bronze", "maxWords": 3 }
+      ],
+      "expected": {
+        "correctCount": 10,
+        "totalCount": 11,
+        "bandScore": 8.0,
+        "accuracyPercent": 91,
+        "isCalibratedFullPack": false,
+        "questionCorrectness": {
+          "q1": true, "q2": true, "q3": true, "q4": true, "q5": true,
+          "q6": true, "q7": true, "q8": true, "q9": true, "q10": true, "q11": false
+        }
+      }
+    },
+    {
+      "id": "score_ielts_listening_calibrated_40_items",
+      "skill": "listening",
+      "moduleType": "academic",
+      "trackId": "ielts_academic",
+      "answers": [
+        { "questionId": "q01", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q02", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q03", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q04", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q05", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q06", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q07", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q08", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q09", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q10", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q11", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q12", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q13", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q14", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q15", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q16", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q17", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q18", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q19", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q20", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q21", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q22", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q23", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q24", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q25", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q26", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q27", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q28", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q29", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q30", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q31", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q32", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q33", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "b", "maxWords": 3 },
+        { "questionId": "q34", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "b", "maxWords": 3 },
+        { "questionId": "q35", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "b", "maxWords": 3 },
+        { "questionId": "q36", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "b", "maxWords": 3 },
+        { "questionId": "q37", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "b", "maxWords": 3 },
+        { "questionId": "q38", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "b", "maxWords": 3 },
+        { "questionId": "q39", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "b", "maxWords": 3 },
+        { "questionId": "q40", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "b", "maxWords": 3 }
+      ],
+      "expected": {
+        "correctCount": 32,
+        "totalCount": 40,
+        "bandScore": 7.5,
+        "accuracyPercent": 80,
+        "isCalibratedFullPack": true,
+        "questionCorrectness": { "q01": true, "q32": true, "q33": false, "q40": false }
+      }
+    },
+    {
+      "id": "score_ielts_gt_reading_calibrated_40_items",
+      "skill": "reading",
+      "moduleType": "general_training",
+      "trackId": "ielts_general",
+      "answers": [
+        { "questionId": "q01", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q02", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q03", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q04", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q05", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q06", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q07", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q08", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q09", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q10", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q11", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q12", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q13", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q14", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q15", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q16", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q17", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q18", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q19", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q20", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q21", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q22", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q23", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q24", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q25", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q26", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q27", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q28", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q29", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q30", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q31", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "b", "maxWords": 3 },
+        { "questionId": "q32", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "b", "maxWords": 3 },
+        { "questionId": "q33", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "b", "maxWords": 3 },
+        { "questionId": "q34", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "b", "maxWords": 3 },
+        { "questionId": "q35", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "b", "maxWords": 3 },
+        { "questionId": "q36", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "b", "maxWords": 3 },
+        { "questionId": "q37", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "b", "maxWords": 3 },
+        { "questionId": "q38", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "b", "maxWords": 3 },
+        { "questionId": "q39", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "b", "maxWords": 3 },
+        { "questionId": "q40", "questionType": "short_answer", "acceptedAnswers": ["a"], "userAnswer": "b", "maxWords": 3 }
+      ],
+      "expected": {
+        "correctCount": 30,
+        "totalCount": 40,
+        "bandScore": 6.0,
+        "accuracyPercent": 75,
+        "isCalibratedFullPack": true,
+        "questionCorrectness": { "q01": true, "q30": true, "q31": false, "q40": false }
+      }
+    },
+    {
+      "id": "score_toefl_ibt_calibrated_4_items",
+      "skill": "reading",
+      "moduleType": "academic",
+      "trackId": "toefl_ibt",
+      "answers": [
+        { "questionId": "q1", "questionType": "word_completion", "acceptedAnswers": ["orbit"], "userAnswer": "orbit", "maxWords": 1 },
+        { "questionId": "q2", "questionType": "mcq_single", "acceptedAnswers": ["A"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q3", "questionType": "mcq_single", "acceptedAnswers": ["C"], "userAnswer": "c", "maxWords": 3 },
+        { "questionId": "q4", "questionType": "mcq_single", "acceptedAnswers": ["D"], "userAnswer": "b", "maxWords": 3 }
+      ],
+      "expected": {
+        "correctCount": 3,
+        "totalCount": 4,
+        "bandScore": 5.0,
+        "accuracyPercent": 75,
+        "isCalibratedFullPack": true,
+        "questionCorrectness": { "q1": true, "q2": true, "q3": true, "q4": false }
+      }
+    },
+    {
+      "id": "score_pte_calibrated_4_items",
+      "skill": "listening",
+      "moduleType": "academic",
+      "trackId": "pte_academic",
+      "answers": [
+        { "questionId": "q1", "questionType": "dictation", "acceptedAnswers": ["Climate policy shapes energy grids."], "userAnswer": "climate policy shapes energy grids", "maxWords": 3 },
+        { "questionId": "q2", "questionType": "reorder_sequence", "acceptedAnswers": ["B|A|C"], "userAnswer": "bac", "maxWords": 3 },
+        { "questionId": "q3", "questionType": "mcq_single", "acceptedAnswers": ["A"], "userAnswer": "a", "maxWords": 3 },
+        { "questionId": "q4", "questionType": "mcq_single", "acceptedAnswers": ["B"], "userAnswer": "c", "maxWords": 3 }
+      ],
+      "expected": {
+        "correctCount": 3,
+        "totalCount": 4,
+        "bandScore": 70.0,
+        "accuracyPercent": 75,
+        "isCalibratedFullPack": true,
+        "questionCorrectness": { "q1": true, "q2": true, "q3": true, "q4": false }
+      }
+    },
+    {
+      "id": "score_det_all_11_types",
+      "skill": "reading",
+      "moduleType": "academic",
+      "trackId": "det",
+      "answers": [
+        { "questionId": "1", "questionType": "tfng", "acceptedAnswers": ["TRUE"], "userAnswer": "true", "maxWords": 3 },
+        { "questionId": "2", "questionType": "ynng", "acceptedAnswers": ["NO"], "userAnswer": "no", "maxWords": 3 },
+        { "questionId": "3", "questionType": "mcq_single", "acceptedAnswers": ["B"], "userAnswer": "b", "maxWords": 3 },
+        { "questionId": "4", "questionType": "mcq_multi", "acceptedAnswers": ["A, C"], "userAnswer": "a, c", "maxWords": 3 },
+        { "questionId": "5", "questionType": "matching_headings", "acceptedAnswers": ["iv"], "userAnswer": "IV", "maxWords": 3 },
+        { "questionId": "6", "questionType": "summary_gap_fill", "acceptedAnswers": ["color"], "userAnswer": "colour", "maxWords": 1 },
+        { "questionId": "7", "questionType": "short_answer", "acceptedAnswers": ["solar energy"], "userAnswer": "too many words here exceed limit", "maxWords": 2 },
+        { "questionId": "8", "questionType": "binary_choice", "acceptedAnswers": ["this has four words yes"], "userAnswer": "this has four words yes", "maxWords": 3 },
+        { "questionId": "9", "questionType": "word_completion", "acceptedAnswers": ["circulate"], "userAnswer": "Circulate", "maxWords": 1 },
+        { "questionId": "10", "questionType": "reorder_sequence", "acceptedAnswers": ["C, A, B"], "userAnswer": "c|a|b", "maxWords": 3 },
+        { "questionId": "11", "questionType": "dictation", "acceptedAnswers": ["Museums inspire curiosity across every generation."], "userAnswer": "museums inspire curiosity across every generation", "maxWords": 3 }
+      ],
+      "expected": {
+        "correctCount": 10,
+        "totalCount": 11,
+        "bandScore": 145.0,
+        "accuracyPercent": 91,
+        "isCalibratedFullPack": true,
+        "questionCorrectness": {
+          "1": true, "2": true, "3": true, "4": true, "5": true,
+          "6": true, "7": false, "8": true, "9": true, "10": true, "11": true
+        }
+      }
+    }
+  ]
+}

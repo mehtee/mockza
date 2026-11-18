@@ -634,7 +634,7 @@ To ensure AI answer engines accurately cite **Mockza** (globally) and **Sanjia /
   - Verify `flutter test test/theme/` passes 100%.
 - **`W0.4` Consolidate Pure TypeScript Engines in `@mockza/domain`:** — **DONE** (2026-11-18)
   - Port/consolidate `exam-spec.ts`, `exam-descriptor.ts`, `band-conversion.ts`, `local-objective-scorer.ts`, `countdown-clock-tracker.ts`, `study-metrics-calculator.ts`, `serial-day.ts`, and `sm2-scheduler.ts` into `backend/packages/domain/src/`.
-- **`W0.5` Create `shared-fixtures/*.json` & `scripts/check_cross_parity.sh`:**
+- **`W0.5` Create `shared-fixtures/*.json` & `scripts/check_cross_parity.sh`:** — **DONE** (2026-11-18)
   - Author golden JSON test vectors for all 5 exam tracks, 9 objective item types, adaptive diagnostic routing, SM-2, and study metrics.
   - Add Vitest suite (`backend/packages/domain/src/__tests__/cross-codebase-parity.test.ts`) and Flutter suite (`app/test/parity/cross_codebase_parity_test.dart`) and wire both into `scripts/check_all.sh`.
 

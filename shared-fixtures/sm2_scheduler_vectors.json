@@ -1,0 +1,184 @@
+{
+  "schemaVersion": "2026-11-18.v1",
+  "serialDay": [
+    {
+      "id": "serial_unix_epoch",
+      "utcIso": "1970-01-01T00:00:00Z",
+      "addDays": 1,
+      "expectedSerialDay": 0,
+      "expectedAfterAddDays": 1,
+      "expectedDifferenceDays": 1
+    },
+    {
+      "id": "serial_leap_day_2024",
+      "utcIso": "2024-02-29T12:34:56Z",
+      "addDays": 1,
+      "expectedSerialDay": 19782,
+      "expectedAfterAddDays": 19783,
+      "expectedDifferenceDays": 1
+    },
+    {
+      "id": "serial_leap_year_span",
+      "utcIso": "2024-01-01T23:59:59Z",
+      "addDays": 366,
+      "expectedSerialDay": 19723,
+      "expectedAfterAddDays": 20089,
+      "expectedDifferenceDays": 366
+    },
+    {
+      "id": "serial_2026_negative_offset",
+      "utcIso": "2026-11-18T23:59:59Z",
+      "addDays": -10,
+      "expectedSerialDay": 20775,
+      "expectedAfterAddDays": 20765,
+      "expectedDifferenceDays": -10
+    },
+    {
+      "id": "serial_pre_epoch",
+      "utcIso": "1969-12-31T00:00:00Z",
+      "addDays": 1,
+      "expectedSerialDay": -1,
+      "expectedAfterAddDays": 0,
+      "expectedDifferenceDays": 1
+    }
+  ],
+  "schedule": [
+    {
+      "id": "sm2_initial_again",
+      "current": { "repetitions": 0, "intervalDays": 0, "easeFactorMilli": 2500, "dueDay": 20000 },
+      "quality": "again",
+      "today": 20000,
+      "expected": { "repetitions": 0, "intervalDays": 1, "easeFactorMilli": 2180, "dueDay": 20001 }
+    },
+    {
+      "id": "sm2_initial_hard",
+      "current": { "repetitions": 0, "intervalDays": 0, "easeFactorMilli": 2500, "dueDay": 20000 },
+      "quality": "hard",
+      "today": 20000,
+      "expected": { "repetitions": 1, "intervalDays": 1, "easeFactorMilli": 2360, "dueDay": 20001 }
+    },
+    {
+      "id": "sm2_initial_good",
+      "current": { "repetitions": 0, "intervalDays": 0, "easeFactorMilli": 2500, "dueDay": 20000 },
+      "quality": "good",
+      "today": 20000,
+      "expected": { "repetitions": 1, "intervalDays": 1, "easeFactorMilli": 2500, "dueDay": 20001 }
+    },
+    {
+      "id": "sm2_initial_easy",
+      "current": { "repetitions": 0, "intervalDays": 0, "easeFactorMilli": 2500, "dueDay": 20000 },
+      "quality": "easy",
+      "today": 20000,
+      "expected": { "repetitions": 1, "intervalDays": 4, "easeFactorMilli": 2600, "dueDay": 20004 }
+    },
+    {
+      "id": "sm2_rep1_to_rep2_good",
+      "current": { "repetitions": 1, "intervalDays": 1, "easeFactorMilli": 2500, "dueDay": 20001 },
+      "quality": "good",
+      "today": 20001,
+      "expected": { "repetitions": 2, "intervalDays": 6, "easeFactorMilli": 2500, "dueDay": 20007 }
+    },
+    {
+      "id": "sm2_rep1_to_rep2_easy",
+      "current": { "repetitions": 1, "intervalDays": 4, "easeFactorMilli": 2600, "dueDay": 20004 },
+      "quality": "easy",
+      "today": 20004,
+      "expected": { "repetitions": 2, "intervalDays": 8, "easeFactorMilli": 2700, "dueDay": 20012 }
+    },
+    {
+      "id": "sm2_rep2_to_rep3_good",
+      "current": { "repetitions": 2, "intervalDays": 6, "easeFactorMilli": 2500, "dueDay": 20007 },
+      "quality": "good",
+      "today": 20007,
+      "expected": { "repetitions": 3, "intervalDays": 15, "easeFactorMilli": 2500, "dueDay": 20022 }
+    },
+    {
+      "id": "sm2_rep2_to_rep3_hard",
+      "current": { "repetitions": 2, "intervalDays": 6, "easeFactorMilli": 2500, "dueDay": 20007 },
+      "quality": "hard",
+      "today": 20007,
+      "expected": { "repetitions": 3, "intervalDays": 14, "easeFactorMilli": 2360, "dueDay": 20021 }
+    },
+    {
+      "id": "sm2_rep2_to_rep3_easy",
+      "current": { "repetitions": 2, "intervalDays": 6, "easeFactorMilli": 2500, "dueDay": 20007 },
+      "quality": "easy",
+      "today": 20007,
+      "expected": { "repetitions": 3, "intervalDays": 16, "easeFactorMilli": 2600, "dueDay": 20023 }
+    },
+    {
+      "id": "sm2_half_rounding_3_times_2_5",
+      "current": { "repetitions": 2, "intervalDays": 3, "easeFactorMilli": 2500, "dueDay": 20010 },
+      "quality": "good",
+      "today": 20010,
+      "expected": { "repetitions": 3, "intervalDays": 8, "easeFactorMilli": 2500, "dueDay": 20018 }
+    },
+    {
+      "id": "sm2_half_rounding_5_times_2_5",
+      "current": { "repetitions": 2, "intervalDays": 5, "easeFactorMilli": 2500, "dueDay": 20010 },
+      "quality": "good",
+      "today": 20010,
+      "expected": { "repetitions": 3, "intervalDays": 13, "easeFactorMilli": 2500, "dueDay": 20023 }
+    },
+    {
+      "id": "sm2_max_interval_3650_clamp",
+      "current": { "repetitions": 5, "intervalDays": 2000, "easeFactorMilli": 3950, "dueDay": 20100 },
+      "quality": "easy",
+      "today": 20100,
+      "expected": { "repetitions": 6, "intervalDays": 3650, "easeFactorMilli": 4000, "dueDay": 23750 }
+    },
+    {
+      "id": "sm2_min_ease_1300_clamp",
+      "current": { "repetitions": 1, "intervalDays": 1, "easeFactorMilli": 1350, "dueDay": 20000 },
+      "quality": "again",
+      "today": 20000,
+      "expected": { "repetitions": 0, "intervalDays": 1, "easeFactorMilli": 1300, "dueDay": 20001 }
+    },
+    {
+      "id": "sm2_max_ease_4000_clamp",
+      "current": { "repetitions": 2, "intervalDays": 10, "easeFactorMilli": 3980, "dueDay": 20050 },
+      "quality": "easy",
+      "today": 20050,
+      "expected": { "repetitions": 3, "intervalDays": 40, "easeFactorMilli": 4000, "dueDay": 20090 }
+    },
+    {
+      "id": "sm2_lapse_reset_mature",
+      "current": { "repetitions": 4, "intervalDays": 30, "easeFactorMilli": 2500, "dueDay": 20030 },
+      "quality": "again",
+      "today": 20030,
+      "expected": { "repetitions": 0, "intervalDays": 1, "easeFactorMilli": 2180, "dueDay": 20031 }
+    },
+    {
+      "id": "sm2_lapse_clamps_to_min_ease",
+      "current": { "repetitions": 2, "intervalDays": 6, "easeFactorMilli": 1500, "dueDay": 20020 },
+      "quality": "again",
+      "today": 20020,
+      "expected": { "repetitions": 0, "intervalDays": 1, "easeFactorMilli": 1300, "dueDay": 20021 }
+    }
+  ],
+  "previewIntervalsAndFormatDays": {
+    "previewCases": [
+      {
+        "id": "preview_initial_card",
+        "current": { "repetitions": 0, "intervalDays": 0, "easeFactorMilli": 2500, "dueDay": 20000 },
+        "expected": { "again": "1d", "hard": "1d", "good": "1d", "easy": "4d" }
+      },
+      {
+        "id": "preview_mature_card",
+        "current": { "repetitions": 2, "intervalDays": 12, "easeFactorMilli": 2500, "dueDay": 20000 },
+        "expected": { "again": "1d", "hard": "28d", "good": "1mo", "easy": "1mo" }
+      }
+    ],
+    "formatDaysCases": [
+      { "id": "fmt_0", "days": 0, "expected": "1d" },
+      { "id": "fmt_1", "days": 1, "expected": "1d" },
+      { "id": "fmt_29", "days": 29, "expected": "29d" },
+      { "id": "fmt_30", "days": 30, "expected": "1mo" },
+      { "id": "fmt_44", "days": 44, "expected": "1mo" },
+      { "id": "fmt_45", "days": 45, "expected": "2mo" },
+      { "id": "fmt_364", "days": 364, "expected": "12mo" },
+      { "id": "fmt_365", "days": 365, "expected": "1y" },
+      { "id": "fmt_548", "days": 548, "expected": "2y" }
+    ]
+  }
+}

@@ -1,0 +1,498 @@
+{
+  "schemaVersion": "2026-11-18.v1",
+  "calculateEstimatedOverallBand": [
+    {
+      "id": "est_empty_ielts_academic",
+      "trackId": "ielts_academic",
+      "targetBand": 7.5,
+      "currentUtcMs": 1728000000000,
+      "scoredAttempts": [],
+      "expected": {
+        "overallBand": null,
+        "isEstimated": true,
+        "scaleMin": 0.0,
+        "scaleMax": 9.0,
+        "sampleSize": 0,
+        "attemptedSkillsCount": 0,
+        "isFullFourSkillEstimate": false,
+        "diagnosticRecommended": true,
+        "changeThisMonth": null,
+        "scaleLabel": "Estimated Band",
+        "progressToTarget": 0.0
+      }
+    },
+    {
+      "id": "est_empty_det",
+      "trackId": "det",
+      "targetBand": 125.0,
+      "currentUtcMs": 1728000000000,
+      "scoredAttempts": [],
+      "expected": {
+        "overallBand": null,
+        "isEstimated": true,
+        "scaleMin": 10.0,
+        "scaleMax": 160.0,
+        "sampleSize": 0,
+        "attemptedSkillsCount": 0,
+        "isFullFourSkillEstimate": false,
+        "diagnosticRecommended": true,
+        "changeThisMonth": null,
+        "scaleLabel": "Estimated Score",
+        "progressToTarget": 0.0
+      }
+    },
+    {
+      "id": "est_single_skill_diagnostic_recommended",
+      "trackId": "ielts_academic",
+      "targetBand": 8.0,
+      "currentUtcMs": 1728000000000,
+      "scoredAttempts": [
+        { "score": 6.5, "skill": "reading", "completedAtUtcMs": 1727913600000 }
+      ],
+      "expected": {
+        "overallBand": 6.5,
+        "isEstimated": true,
+        "scaleMin": 0.0,
+        "scaleMax": 9.0,
+        "sampleSize": 1,
+        "attemptedSkillsCount": 1,
+        "isFullFourSkillEstimate": false,
+        "diagnosticRecommended": true,
+        "changeThisMonth": null,
+        "scaleLabel": "Estimated Band",
+        "progressToTarget": 0.8125
+      }
+    },
+    {
+      "id": "est_four_skills_quarter_25_rounds_up_to_half",
+      "trackId": "ielts_academic",
+      "targetBand": 7.5,
+      "currentUtcMs": 1728000000000,
+      "scoredAttempts": [
+        { "score": 6.0, "skill": "speaking", "completedAtUtcMs": 1727913600000 },
+        { "score": 6.0, "skill": "writing", "completedAtUtcMs": 1727913600000 },
+        { "score": 6.5, "skill": "reading", "completedAtUtcMs": 1727913600000 },
+        { "score": 6.5, "skill": "listening", "completedAtUtcMs": 1727913600000 }
+      ],
+      "expected": {
+        "overallBand": 6.5,
+        "isEstimated": true,
+        "scaleMin": 0.0,
+        "scaleMax": 9.0,
+        "sampleSize": 4,
+        "attemptedSkillsCount": 4,
+        "isFullFourSkillEstimate": true,
+        "diagnosticRecommended": false,
+        "changeThisMonth": null,
+        "scaleLabel": "Estimated Band",
+        "progressToTarget": 0.8666666666666667
+      }
+    },
+    {
+      "id": "est_four_skills_quarter_75_rounds_up_to_whole",
+      "trackId": "ielts_general",
+      "targetBand": 7.0,
+      "currentUtcMs": 1728000000000,
+      "scoredAttempts": [
+        { "score": 6.5, "skill": "speaking", "completedAtUtcMs": 1727913600000 },
+        { "score": 6.5, "skill": "writing", "completedAtUtcMs": 1727913600000 },
+        { "score": 7.0, "skill": "reading", "completedAtUtcMs": 1727913600000 },
+        { "score": 7.0, "skill": "listening", "completedAtUtcMs": 1727913600000 }
+      ],
+      "expected": {
+        "overallBand": 7.0,
+        "isEstimated": true,
+        "scaleMin": 0.0,
+        "scaleMax": 9.0,
+        "sampleSize": 4,
+        "attemptedSkillsCount": 4,
+        "isFullFourSkillEstimate": true,
+        "diagnosticRecommended": false,
+        "changeThisMonth": null,
+        "scaleLabel": "Estimated Band",
+        "progressToTarget": 1.0
+      }
+    },
+    {
+      "id": "est_four_skills_mean_6_125_rounds_down",
+      "trackId": "ielts_academic",
+      "targetBand": null,
+      "currentUtcMs": 1728000000000,
+      "scoredAttempts": [
+        { "score": 6.0, "skill": "speaking", "completedAtUtcMs": 1727913600000 },
+        { "score": 6.0, "skill": "writing", "completedAtUtcMs": 1727913600000 },
+        { "score": 6.0, "skill": "reading", "completedAtUtcMs": 1727913600000 },
+        { "score": 6.5, "skill": "listening", "completedAtUtcMs": 1727913600000 }
+      ],
+      "expected": {
+        "overallBand": 6.0,
+        "isEstimated": true,
+        "scaleMin": 0.0,
+        "scaleMax": 9.0,
+        "sampleSize": 4,
+        "attemptedSkillsCount": 4,
+        "isFullFourSkillEstimate": true,
+        "diagnosticRecommended": false,
+        "changeThisMonth": null,
+        "scaleLabel": "Estimated Band",
+        "progressToTarget": 0.0
+      }
+    },
+    {
+      "id": "est_toefl_ibt_positive_30d_delta",
+      "trackId": "toefl_ibt",
+      "targetBand": 5.5,
+      "currentUtcMs": 1728000000000,
+      "scoredAttempts": [
+        { "score": 3.5, "skill": "reading", "completedAtUtcMs": 1725408000000 },
+        { "score": 4.5, "skill": "reading", "completedAtUtcMs": 1727827200000 },
+        { "score": 5.0, "skill": "writing", "completedAtUtcMs": 1727913600000 },
+        { "score": 4.5, "skill": "listening", "completedAtUtcMs": 1727913600000 }
+      ],
+      "expected": {
+        "overallBand": 4.5,
+        "isEstimated": true,
+        "scaleMin": 1.0,
+        "scaleMax": 6.0,
+        "sampleSize": 4,
+        "attemptedSkillsCount": 3,
+        "isFullFourSkillEstimate": false,
+        "diagnosticRecommended": false,
+        "changeThisMonth": 1.0,
+        "scaleLabel": "Estimated Band",
+        "progressToTarget": 0.7777777777777778
+      }
+    },
+    {
+      "id": "est_pte_academic_with_delta",
+      "trackId": "pte_academic",
+      "targetBand": 75.0,
+      "currentUtcMs": 1728000000000,
+      "scoredAttempts": [
+        { "score": 60.0, "skill": "speaking", "completedAtUtcMs": 1724544000000 },
+        { "score": 68.0, "skill": "writing", "completedAtUtcMs": 1727827200000 },
+        { "score": 72.0, "skill": "reading", "completedAtUtcMs": 1727913600000 },
+        { "score": 70.0, "skill": "listening", "completedAtUtcMs": 1727913600000 }
+      ],
+      "expected": {
+        "overallBand": 68.0,
+        "isEstimated": true,
+        "scaleMin": 10.0,
+        "scaleMax": 90.0,
+        "sampleSize": 4,
+        "attemptedSkillsCount": 4,
+        "isFullFourSkillEstimate": true,
+        "diagnosticRecommended": false,
+        "changeThisMonth": 10.0,
+        "scaleLabel": "Estimated Score",
+        "progressToTarget": 0.8923076923076924
+      }
+    },
+    {
+      "id": "est_det_quantizes_5pt_step",
+      "trackId": "det",
+      "targetBand": 135.0,
+      "currentUtcMs": 1728000000000,
+      "scoredAttempts": [
+        { "score": 115.0, "skill": "reading", "completedAtUtcMs": 1724544000000 },
+        { "score": 125.0, "skill": "listening", "completedAtUtcMs": 1727827200000 },
+        { "score": 130.0, "skill": "writing", "completedAtUtcMs": 1727913600000 },
+        { "score": 120.0, "skill": "speaking", "completedAtUtcMs": 1727913600000 }
+      ],
+      "expected": {
+        "overallBand": 125.0,
+        "isEstimated": true,
+        "scaleMin": 10.0,
+        "scaleMax": 160.0,
+        "sampleSize": 4,
+        "attemptedSkillsCount": 4,
+        "isFullFourSkillEstimate": true,
+        "diagnosticRecommended": false,
+        "changeThisMonth": 10.0,
+        "scaleLabel": "Estimated Score",
+        "progressToTarget": 0.92
+      }
+    },
+    {
+      "id": "est_delta_null_when_fewer_than_3_attempts",
+      "trackId": "ielts_academic",
+      "targetBand": 7.0,
+      "currentUtcMs": 1728000000000,
+      "scoredAttempts": [
+        { "score": 5.5, "skill": "reading", "completedAtUtcMs": 1724544000000 },
+        { "score": 7.0, "skill": "writing", "completedAtUtcMs": 1727913600000 }
+      ],
+      "expected": {
+        "overallBand": 6.5,
+        "isEstimated": true,
+        "scaleMin": 0.0,
+        "scaleMax": 9.0,
+        "sampleSize": 2,
+        "attemptedSkillsCount": 2,
+        "isFullFourSkillEstimate": false,
+        "diagnosticRecommended": true,
+        "changeThisMonth": null,
+        "scaleLabel": "Estimated Band",
+        "progressToTarget": 0.9285714285714286
+      }
+    },
+    {
+      "id": "est_delta_null_when_no_recent_attempts",
+      "trackId": "ielts_academic",
+      "targetBand": 7.5,
+      "currentUtcMs": 1728000000000,
+      "scoredAttempts": [
+        { "score": 6.0, "skill": "reading", "completedAtUtcMs": 1724544000000 },
+        { "score": 6.5, "skill": "writing", "completedAtUtcMs": 1724630400000 },
+        { "score": 7.0, "skill": "listening", "completedAtUtcMs": 1724716800000 }
+      ],
+      "expected": {
+        "overallBand": 6.5,
+        "isEstimated": true,
+        "scaleMin": 0.0,
+        "scaleMax": 9.0,
+        "sampleSize": 3,
+        "attemptedSkillsCount": 3,
+        "isFullFourSkillEstimate": false,
+        "diagnosticRecommended": true,
+        "changeThisMonth": null,
+        "scaleLabel": "Estimated Band",
+        "progressToTarget": 0.8666666666666667
+      }
+    },
+    {
+      "id": "est_negative_half_step_minus_0_25_rounds_to_minus_0_5",
+      "trackId": "ielts_academic",
+      "targetBand": 7.5,
+      "currentUtcMs": 1728000000000,
+      "scoredAttempts": [
+        { "score": 7.0, "skill": "reading", "completedAtUtcMs": 1724544000000 },
+        { "score": 6.5, "skill": "writing", "completedAtUtcMs": 1727568000000 },
+        { "score": 7.0, "skill": "listening", "completedAtUtcMs": 1727827200000 }
+      ],
+      "expected": {
+        "overallBand": 7.0,
+        "isEstimated": true,
+        "scaleMin": 0.0,
+        "scaleMax": 9.0,
+        "sampleSize": 3,
+        "attemptedSkillsCount": 3,
+        "isFullFourSkillEstimate": false,
+        "diagnosticRecommended": true,
+        "changeThisMonth": -0.5,
+        "scaleLabel": "Estimated Band",
+        "progressToTarget": 0.9333333333333333
+      }
+    },
+    {
+      "id": "est_tiny_negative_delta_normalizes_zero",
+      "trackId": "ielts_academic",
+      "targetBand": 7.5,
+      "currentUtcMs": 1728000000000,
+      "scoredAttempts": [
+        { "score": 7.0, "skill": "reading", "completedAtUtcMs": 1724544000000 },
+        { "score": 6.9, "skill": "writing", "completedAtUtcMs": 1727568000000 },
+        { "score": 7.0, "skill": "listening", "completedAtUtcMs": 1727827200000 }
+      ],
+      "expected": {
+        "overallBand": 7.0,
+        "isEstimated": true,
+        "scaleMin": 0.0,
+        "scaleMax": 9.0,
+        "sampleSize": 3,
+        "attemptedSkillsCount": 3,
+        "isFullFourSkillEstimate": false,
+        "diagnosticRecommended": true,
+        "changeThisMonth": 0.0,
+        "scaleLabel": "Estimated Band",
+        "progressToTarget": 0.9333333333333333
+      }
+    },
+    {
+      "id": "est_progress_to_target_range_zero_returns_one",
+      "trackId": "toefl_ibt",
+      "targetBand": 1.0,
+      "currentUtcMs": 1728000000000,
+      "scoredAttempts": [
+        { "score": 4.0, "skill": "reading", "completedAtUtcMs": 1727827200000 }
+      ],
+      "expected": {
+        "overallBand": 4.0,
+        "isEstimated": true,
+        "scaleMin": 1.0,
+        "scaleMax": 6.0,
+        "sampleSize": 1,
+        "attemptedSkillsCount": 1,
+        "isFullFourSkillEstimate": false,
+        "diagnosticRecommended": true,
+        "changeThisMonth": null,
+        "scaleLabel": "Estimated Band",
+        "progressToTarget": 1.0
+      }
+    }
+  ],
+  "calculateSkillMetrics": [
+    {
+      "id": "skills_empty_ielts",
+      "trackId": "ielts_academic",
+      "attempts": [],
+      "expected": [
+        { "skill": "speaking", "score": null, "scaleMin": 0.0, "scaleMax": 9.0, "scoreLabel": "\u2014", "sampleCount": 0, "normalizedPosition": 0.0 },
+        { "skill": "writing", "score": null, "scaleMin": 0.0, "scaleMax": 9.0, "scoreLabel": "\u2014", "sampleCount": 0, "normalizedPosition": 0.0 },
+        { "skill": "reading", "score": null, "scaleMin": 0.0, "scaleMax": 9.0, "scoreLabel": "\u2014", "sampleCount": 0, "normalizedPosition": 0.0 },
+        { "skill": "listening", "score": null, "scaleMin": 0.0, "scaleMax": 9.0, "scoreLabel": "\u2014", "sampleCount": 0, "normalizedPosition": 0.0 }
+      ]
+    },
+    {
+      "id": "skills_partial_ielts_academic",
+      "trackId": "ielts_academic",
+      "attempts": [
+        { "score": 6.5, "skill": "speaking" },
+        { "score": 7.0, "skill": "reading" },
+        { "score": 7.5, "skill": "reading" }
+      ],
+      "expected": [
+        { "skill": "speaking", "score": 6.5, "scaleMin": 0.0, "scaleMax": 9.0, "scoreLabel": "6.5", "sampleCount": 1, "normalizedPosition": 0.7222222222222222 },
+        { "skill": "writing", "score": null, "scaleMin": 0.0, "scaleMax": 9.0, "scoreLabel": "\u2014", "sampleCount": 0, "normalizedPosition": 0.0 },
+        { "skill": "reading", "score": 7.5, "scaleMin": 0.0, "scaleMax": 9.0, "scoreLabel": "7.5", "sampleCount": 2, "normalizedPosition": 0.8333333333333334 },
+        { "skill": "listening", "score": null, "scaleMin": 0.0, "scaleMax": 9.0, "scoreLabel": "\u2014", "sampleCount": 0, "normalizedPosition": 0.0 }
+      ]
+    },
+    {
+      "id": "skills_full_toefl_ibt",
+      "trackId": "toefl_ibt",
+      "attempts": [
+        { "score": 4.5, "skill": "speaking" },
+        { "score": 5.0, "skill": "writing" },
+        { "score": 5.5, "skill": "reading" },
+        { "score": 3.5, "skill": "listening" }
+      ],
+      "expected": [
+        { "skill": "speaking", "score": 4.5, "scaleMin": 1.0, "scaleMax": 6.0, "scoreLabel": "4.5", "sampleCount": 1, "normalizedPosition": 0.7 },
+        { "skill": "writing", "score": 5.0, "scaleMin": 1.0, "scaleMax": 6.0, "scoreLabel": "5.0", "sampleCount": 1, "normalizedPosition": 0.8 },
+        { "skill": "reading", "score": 5.5, "scaleMin": 1.0, "scaleMax": 6.0, "scoreLabel": "5.5", "sampleCount": 1, "normalizedPosition": 0.9 },
+        { "skill": "listening", "score": 3.5, "scaleMin": 1.0, "scaleMax": 6.0, "scoreLabel": "3.5", "sampleCount": 1, "normalizedPosition": 0.5 }
+      ]
+    },
+    {
+      "id": "skills_pte_integer_labels",
+      "trackId": "pte_academic",
+      "attempts": [
+        { "score": 72.0, "skill": "speaking" },
+        { "score": 68.0, "skill": "writing" },
+        { "score": 74.0, "skill": "reading" },
+        { "score": 76.0, "skill": "listening" }
+      ],
+      "expected": [
+        { "skill": "speaking", "score": 72.0, "scaleMin": 10.0, "scaleMax": 90.0, "scoreLabel": "72", "sampleCount": 1, "normalizedPosition": 0.775 },
+        { "skill": "writing", "score": 68.0, "scaleMin": 10.0, "scaleMax": 90.0, "scoreLabel": "68", "sampleCount": 1, "normalizedPosition": 0.725 },
+        { "skill": "reading", "score": 74.0, "scaleMin": 10.0, "scaleMax": 90.0, "scoreLabel": "74", "sampleCount": 1, "normalizedPosition": 0.8 },
+        { "skill": "listening", "score": 76.0, "scaleMin": 10.0, "scaleMax": 90.0, "scoreLabel": "76", "sampleCount": 1, "normalizedPosition": 0.825 }
+      ]
+    }
+  ],
+  "calculateCurrentStreak": [
+    { "id": "streak_empty", "today": 20000, "studyDays": [], "expectedStreak": 0 },
+    { "id": "streak_today_3_days", "today": 20000, "studyDays": [20000, 19999, 19998], "expectedStreak": 3 },
+    { "id": "streak_yesterday_alive_2_days", "today": 20000, "studyDays": [19999, 19998], "expectedStreak": 2 },
+    { "id": "streak_gap_breaks_at_1", "today": 20000, "studyDays": [20000, 19998, 19997], "expectedStreak": 1 },
+    { "id": "streak_two_days_ago_zero", "today": 20000, "studyDays": [19998, 19997], "expectedStreak": 0 }
+  ],
+  "calculateStudyWeek": [
+    {
+      "id": "week_monday_today",
+      "today": 20000,
+      "weekdayOfToday": 1,
+      "studyDays": [20000],
+      "expected": {
+        "completedCount": 1,
+        "summaryLabel": "1/7 days studied",
+        "days": [
+          { "daySerial": 20000, "dayLabel": "M", "isCompleted": true, "isToday": true, "isFuture": false },
+          { "daySerial": 20001, "dayLabel": "T", "isCompleted": false, "isToday": false, "isFuture": true },
+          { "daySerial": 20002, "dayLabel": "W", "isCompleted": false, "isToday": false, "isFuture": true },
+          { "daySerial": 20003, "dayLabel": "Th", "isCompleted": false, "isToday": false, "isFuture": true },
+          { "daySerial": 20004, "dayLabel": "F", "isCompleted": false, "isToday": false, "isFuture": true },
+          { "daySerial": 20005, "dayLabel": "Sa", "isCompleted": false, "isToday": false, "isFuture": true },
+          { "daySerial": 20006, "dayLabel": "Su", "isCompleted": false, "isToday": false, "isFuture": true }
+        ]
+      }
+    },
+    {
+      "id": "week_wednesday_3_days",
+      "today": 20000,
+      "weekdayOfToday": 3,
+      "studyDays": [19998, 19999, 20000],
+      "expected": {
+        "completedCount": 3,
+        "summaryLabel": "3/7 days studied",
+        "days": [
+          { "daySerial": 19998, "dayLabel": "M", "isCompleted": true, "isToday": false, "isFuture": false },
+          { "daySerial": 19999, "dayLabel": "T", "isCompleted": true, "isToday": false, "isFuture": false },
+          { "daySerial": 20000, "dayLabel": "W", "isCompleted": true, "isToday": true, "isFuture": false },
+          { "daySerial": 20001, "dayLabel": "Th", "isCompleted": false, "isToday": false, "isFuture": true },
+          { "daySerial": 20002, "dayLabel": "F", "isCompleted": false, "isToday": false, "isFuture": true },
+          { "daySerial": 20003, "dayLabel": "Sa", "isCompleted": false, "isToday": false, "isFuture": true },
+          { "daySerial": 20004, "dayLabel": "Su", "isCompleted": false, "isToday": false, "isFuture": true }
+        ]
+      }
+    },
+    {
+      "id": "week_sunday_sparse",
+      "today": 20006,
+      "weekdayOfToday": 7,
+      "studyDays": [20000, 20003, 20005],
+      "expected": {
+        "completedCount": 3,
+        "summaryLabel": "3/7 days studied",
+        "days": [
+          { "daySerial": 20000, "dayLabel": "M", "isCompleted": true, "isToday": false, "isFuture": false },
+          { "daySerial": 20001, "dayLabel": "T", "isCompleted": false, "isToday": false, "isFuture": false },
+          { "daySerial": 20002, "dayLabel": "W", "isCompleted": false, "isToday": false, "isFuture": false },
+          { "daySerial": 20003, "dayLabel": "Th", "isCompleted": true, "isToday": false, "isFuture": false },
+          { "daySerial": 20004, "dayLabel": "F", "isCompleted": false, "isToday": false, "isFuture": false },
+          { "daySerial": 20005, "dayLabel": "Sa", "isCompleted": true, "isToday": false, "isFuture": false },
+          { "daySerial": 20006, "dayLabel": "Su", "isCompleted": false, "isToday": true, "isFuture": false }
+        ]
+      }
+    },
+    {
+      "id": "week_empty_study_days",
+      "today": 20002,
+      "weekdayOfToday": 2,
+      "studyDays": [],
+      "expected": {
+        "completedCount": 0,
+        "summaryLabel": "0/7 days studied",
+        "days": [
+          { "daySerial": 20001, "dayLabel": "M", "isCompleted": false, "isToday": false, "isFuture": false },
+          { "daySerial": 20002, "dayLabel": "T", "isCompleted": false, "isToday": true, "isFuture": false },
+          { "daySerial": 20003, "dayLabel": "W", "isCompleted": false, "isToday": false, "isFuture": true },
+          { "daySerial": 20004, "dayLabel": "Th", "isCompleted": false, "isToday": false, "isFuture": true },
+          { "daySerial": 20005, "dayLabel": "F", "isCompleted": false, "isToday": false, "isFuture": true },
+          { "daySerial": 20006, "dayLabel": "Sa", "isCompleted": false, "isToday": false, "isFuture": true },
+          { "daySerial": 20007, "dayLabel": "Su", "isCompleted": false, "isToday": false, "isFuture": true }
+        ]
+      }
+    },
+    {
+      "id": "week_all_seven_days_studied",
+      "today": 20006,
+      "weekdayOfToday": 7,
+      "studyDays": [20000, 20001, 20002, 20003, 20004, 20005, 20006],
+      "expected": {
+        "completedCount": 7,
+        "summaryLabel": "7/7 days studied",
+        "days": [
+          { "daySerial": 20000, "dayLabel": "M", "isCompleted": true, "isToday": false, "isFuture": false },
+          { "daySerial": 20001, "dayLabel": "T", "isCompleted": true, "isToday": false, "isFuture": false },
+          { "daySerial": 20002, "dayLabel": "W", "isCompleted": true, "isToday": false, "isFuture": false },
+          { "daySerial": 20003, "dayLabel": "Th", "isCompleted": true, "isToday": false, "isFuture": false },
+          { "daySerial": 20004, "dayLabel": "F", "isCompleted": true, "isToday": false, "isFuture": false },
+          { "daySerial": 20005, "dayLabel": "Sa", "isCompleted": true, "isToday": false, "isFuture": false },
+          { "daySerial": 20006, "dayLabel": "Su", "isCompleted": true, "isToday": true, "isFuture": false }
+        ]
+      }
+    }
+  ]
+}

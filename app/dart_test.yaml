@@ -1,0 +1,3 @@
+tags:
+  parity:
+    description: Cross-codebase golden vector parity tests requiring root shared-fixtures

@@ -34,8 +34,7 @@ abstract final class PalettePrimitives {
       GeneratedPaletteTokens.darkTextSecondary;
 
   /// Tertiary hints and non-critical captions (`#949DB2`).
-  static const Color darkTextTertiary =
-      GeneratedPaletteTokens.darkTextTertiary;
+  static const Color darkTextTertiary = GeneratedPaletteTokens.darkTextTertiary;
 
   /// Primary brand accent (`#9580FF`).
   static const Color darkAccent = GeneratedPaletteTokens.darkAccent;

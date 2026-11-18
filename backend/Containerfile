@@ -45,7 +45,7 @@ RUN pnpm run build
 
 # Stage 3: Full CI/developer toolchain container (Biome, tsc, Vitest, drizzle-kit, content-pipeline, evals)
 FROM builder AS toolchain
-CMD ["sh", "-c", "pnpm exec biome check . && pnpm typecheck && pnpm test"]
+CMD ["sh", "-c", "pnpm exec biome check . && pnpm typecheck && pnpm -r --workspace-concurrency=1 exec vitest run --exclude '**/cross-codebase-parity.test.ts'"]
 
 # Stage 4: Shared slim non-root production runtime base (pure Node 24, zero devDependencies/tsx)
 FROM node:24-alpine AS runtime-base

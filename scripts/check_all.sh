@@ -154,6 +154,17 @@ check_token_sync_gate() {
   echo "Design token sync gate checked."
 }
 
+check_cross_parity_gate() {
+  if [[ ! -f "$ROOT_DIR/scripts/check_cross_parity.sh" ]]; then
+    fail "Missing $ROOT_DIR/scripts/check_cross_parity.sh"
+    return
+  fi
+  if ! bash "$ROOT_DIR/scripts/check_cross_parity.sh"; then
+    fail "Cross-codebase parity gates failed"
+  fi
+  echo "Cross-codebase parity gate checked."
+}
+
 case "$MODE" in
   --app-only)
     check_token_sync_gate
@@ -162,13 +173,17 @@ case "$MODE" in
   --backend-only)
     check_backend_gates
     ;;
+  --parity-only)
+    check_cross_parity_gate
+    ;;
   all)
     check_token_sync_gate
     check_app_gates
     check_backend_gates
+    check_cross_parity_gate
     ;;
   *)
-    echo "Usage: $0 [all|--app-only|--backend-only]" >&2
+    echo "Usage: $0 [all|--app-only|--backend-only|--parity-only]" >&2
     exit 2
     ;;
 esac

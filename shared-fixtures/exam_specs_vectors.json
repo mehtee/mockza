@@ -1,0 +1,460 @@
+{
+  "schemaVersion": "2026-11-18.v1",
+  "roundIeltsBand": [
+    { "id": "round_zero", "rawMean": 0.0, "expected": 0.0 },
+    { "id": "round_negative_clamps", "rawMean": -1.0, "expected": 0.0 },
+    { "id": "round_exact_6", "rawMean": 6.0, "expected": 6.0 },
+    { "id": "round_6_12_down", "rawMean": 6.12, "expected": 6.0 },
+    { "id": "round_6_24_down", "rawMean": 6.24, "expected": 6.0 },
+    { "id": "round_6_25_half_up", "rawMean": 6.25, "expected": 6.5 },
+    { "id": "round_exact_6_5", "rawMean": 6.5, "expected": 6.5 },
+    { "id": "round_6_74_down", "rawMean": 6.74, "expected": 6.5 },
+    { "id": "round_6_75_up", "rawMean": 6.75, "expected": 7.0 },
+    { "id": "round_6_88_up", "rawMean": 6.88, "expected": 7.0 },
+    { "id": "round_8_9_to_9", "rawMean": 8.9, "expected": 9.0 },
+    { "id": "round_above_max_clamps", "rawMean": 9.5, "expected": 9.0 }
+  ],
+  "calculateWritingOverallBand": [
+    { "id": "writing_6_7_rounds_6_5", "task1Band": 6.0, "task2Band": 7.0, "expected": 6.5 },
+    { "id": "writing_6_75_exact_7", "task1Band": 6.0, "task2Band": 7.5, "expected": 7.0 },
+    { "id": "writing_8_6_task2_weighted", "task1Band": 8.0, "task2Band": 6.0, "expected": 6.5 },
+    { "id": "writing_7_7_equal", "task1Band": 7.0, "task2Band": 7.0, "expected": 7.0 },
+    { "id": "writing_55_65_rounds_6", "task1Band": 5.5, "task2Band": 6.5, "expected": 6.0 },
+    { "id": "writing_9_9_max", "task1Band": 9.0, "task2Band": 9.0, "expected": 9.0 }
+  ],
+  "estimateToeflLegacy120": [
+    { "id": "toefl_anchor_1_0", "band": 1.0, "expected": 5 },
+    { "id": "toefl_anchor_1_5", "band": 1.5, "expected": 14 },
+    { "id": "toefl_anchor_2_0", "band": 2.0, "expected": 25 },
+    { "id": "toefl_anchor_2_5", "band": 2.5, "expected": 38 },
+    { "id": "toefl_anchor_3_0", "band": 3.0, "expected": 51 },
+    { "id": "toefl_anchor_3_5", "band": 3.5, "expected": 64 },
+    { "id": "toefl_interp_3_75", "band": 3.75, "expected": 71 },
+    { "id": "toefl_anchor_4_0", "band": 4.0, "expected": 78 },
+    { "id": "toefl_anchor_4_5", "band": 4.5, "expected": 90 },
+    { "id": "toefl_anchor_5_0", "band": 5.0, "expected": 100 },
+    { "id": "toefl_interp_5_25", "band": 5.25, "expected": 105 },
+    { "id": "toefl_anchor_5_5", "band": 5.5, "expected": 110 },
+    { "id": "toefl_anchor_6_0", "band": 6.0, "expected": 117 }
+  ],
+  "examTrackScale": [
+    {
+      "id": "scale_ielts_acad_standard",
+      "trackId": "ielts_academic",
+      "aliasInput": "ielts_academic",
+      "packIdForResolve": "custom-acad-01",
+      "profileExamIdForResolve": "det",
+      "rawScore": 4.5,
+      "ratio": 0.75,
+      "previousTrackId": "ielts_general",
+      "previousTarget": 8.0,
+      "expectedQuantized": 4.5,
+      "expectedFormatted": "4.5",
+      "expectedFormattedWithUnit": "Band 4.5",
+      "expectedNormalizedRatio": 0.5,
+      "expectedScoreFromRatio": 7.0,
+      "expectedNextTarget": 8.0,
+      "expectedResolvedTrackId": "ielts_academic"
+    },
+    {
+      "id": "scale_ielts_gt_alias",
+      "trackId": "ielts_general",
+      "aliasInput": "general",
+      "packIdForResolve": "custom-gt-01",
+      "profileExamIdForResolve": "ielts_academic",
+      "rawScore": 6.74,
+      "ratio": 0.5,
+      "previousTrackId": "ielts_academic",
+      "previousTarget": 8.0,
+      "expectedQuantized": 6.5,
+      "expectedFormatted": "6.5",
+      "expectedFormattedWithUnit": "Band 6.5",
+      "expectedNormalizedRatio": 0.7488888888888889,
+      "expectedScoreFromRatio": 4.5,
+      "expectedNextTarget": 8.0,
+      "expectedResolvedTrackId": "ielts_general"
+    },
+    {
+      "id": "scale_ielts_gt_switch_from_toefl",
+      "trackId": "ielts_general",
+      "aliasInput": "ielts-general",
+      "packIdForResolve": "ielts-listening-seed-01",
+      "profileExamIdForResolve": "ielts_general",
+      "rawScore": 9.5,
+      "ratio": 1.0,
+      "previousTrackId": "toefl_ibt",
+      "previousTarget": 5.0,
+      "expectedQuantized": 9.0,
+      "expectedFormatted": "9.0",
+      "expectedFormattedWithUnit": "Band 9.0",
+      "expectedNormalizedRatio": 1.0,
+      "expectedScoreFromRatio": 9.0,
+      "expectedNextTarget": 7.0,
+      "expectedResolvedTrackId": "ielts_general"
+    },
+    {
+      "id": "scale_toefl_ibt_alias_pack",
+      "trackId": "toefl_ibt",
+      "aliasInput": "toefl-ibt",
+      "packIdForResolve": "toefl-reading-pack-01",
+      "profileExamIdForResolve": "ielts_academic",
+      "rawScore": 4.74,
+      "ratio": 0.5,
+      "previousTrackId": "ielts_academic",
+      "previousTarget": 7.5,
+      "expectedQuantized": 4.5,
+      "expectedFormatted": "4.5",
+      "expectedFormattedWithUnit": "Band 4.5",
+      "expectedNormalizedRatio": 0.748,
+      "expectedScoreFromRatio": 3.5,
+      "expectedNextTarget": 5.0,
+      "expectedResolvedTrackId": "toefl_ibt"
+    },
+    {
+      "id": "scale_toefl_ibt_floor_clamp",
+      "trackId": "toefl_ibt",
+      "aliasInput": "toefl",
+      "packIdForResolve": "toefl-writing-pack-01",
+      "profileExamIdForResolve": "det",
+      "rawScore": 0.2,
+      "ratio": 0.8,
+      "previousTrackId": "toefl_ibt",
+      "previousTarget": 5.5,
+      "expectedQuantized": 1.0,
+      "expectedFormatted": "1.0",
+      "expectedFormattedWithUnit": "Band 1.0",
+      "expectedNormalizedRatio": 0.0,
+      "expectedScoreFromRatio": 5.0,
+      "expectedNextTarget": 5.0,
+      "expectedResolvedTrackId": "toefl_ibt"
+    },
+    {
+      "id": "scale_pte_academic_integer",
+      "trackId": "pte_academic",
+      "aliasInput": "pte-academic",
+      "packIdForResolve": "pte-speaking-pack-01",
+      "profileExamIdForResolve": "ielts_academic",
+      "rawScore": 72.4,
+      "ratio": 0.5,
+      "previousTrackId": "det",
+      "previousTarget": 140.0,
+      "expectedQuantized": 72.0,
+      "expectedFormatted": "72",
+      "expectedFormattedWithUnit": "Score 72",
+      "expectedNormalizedRatio": 0.78,
+      "expectedScoreFromRatio": 50.0,
+      "expectedNextTarget": 65.0,
+      "expectedResolvedTrackId": "pte_academic"
+    },
+    {
+      "id": "scale_pte_academic_ceiling",
+      "trackId": "pte_academic",
+      "aliasInput": "pte",
+      "packIdForResolve": "pte-reading-pack-01",
+      "profileExamIdForResolve": "ielts_general",
+      "rawScore": 95.0,
+      "ratio": 0.0,
+      "previousTrackId": "pte_academic",
+      "previousTarget": 79.0,
+      "expectedQuantized": 90.0,
+      "expectedFormatted": "90",
+      "expectedFormattedWithUnit": "Score 90",
+      "expectedNormalizedRatio": 1.0,
+      "expectedScoreFromRatio": 10.0,
+      "expectedNextTarget": 65.0,
+      "expectedResolvedTrackId": "pte_academic"
+    },
+    {
+      "id": "scale_det_5pt_step_down",
+      "trackId": "det",
+      "aliasInput": "duolingo",
+      "packIdForResolve": "det-writing-pack-01",
+      "profileExamIdForResolve": "ielts_academic",
+      "rawScore": 127.4,
+      "ratio": 0.5,
+      "previousTrackId": "ielts_academic",
+      "previousTarget": 7.5,
+      "expectedQuantized": 125.0,
+      "expectedFormatted": "125",
+      "expectedFormattedWithUnit": "Score 125",
+      "expectedNormalizedRatio": 0.7826666666666667,
+      "expectedScoreFromRatio": 85.0,
+      "expectedNextTarget": 125.0,
+      "expectedResolvedTrackId": "det"
+    },
+    {
+      "id": "scale_det_5pt_step_up",
+      "trackId": "det",
+      "aliasInput": "duolingo_english_test",
+      "packIdForResolve": "det-listening-pack-01",
+      "profileExamIdForResolve": "pte_academic",
+      "rawScore": 127.6,
+      "ratio": 1.0,
+      "previousTrackId": "det",
+      "previousTarget": 140.0,
+      "expectedQuantized": 130.0,
+      "expectedFormatted": "130",
+      "expectedFormattedWithUnit": "Score 130",
+      "expectedNormalizedRatio": 0.784,
+      "expectedScoreFromRatio": 160.0,
+      "expectedNextTarget": 125.0,
+      "expectedResolvedTrackId": "det"
+    },
+    {
+      "id": "scale_unknown_fallback_ielts",
+      "trackId": "ielts_academic",
+      "aliasInput": "unknown_alias",
+      "packIdForResolve": "plain-pack-01",
+      "profileExamIdForResolve": "unknown",
+      "rawScore": -2.0,
+      "ratio": 0.0,
+      "previousTrackId": "ielts_general",
+      "previousTarget": 6.5,
+      "expectedQuantized": 0.0,
+      "expectedFormatted": "0.0",
+      "expectedFormattedWithUnit": "Band 0.0",
+      "expectedNormalizedRatio": 0.0,
+      "expectedScoreFromRatio": 0.0,
+      "expectedNextTarget": 6.5,
+      "expectedResolvedTrackId": "ielts_academic"
+    }
+  ],
+  "examDescriptorsAndTasks": {
+    "descriptors": [
+      {
+        "id": "desc_ielts_academic",
+        "trackId": "ielts_academic",
+        "expectedMinCalibratedObjectiveCount": 40,
+        "expectedWritingTasks": ["task1Academic", "task2Essay"],
+        "expectedFullMockTotalSeconds": 9840,
+        "expectedPackIds": {
+          "reading": "ielts-acad-reading-seed-01",
+          "listening": "ielts-listening-seed-01",
+          "writing": "ielts-writing-seed-01",
+          "speaking": "ielts-speaking-seed-01",
+          "vocabulary": "ielts-micro-drill-01"
+        },
+        "detInputs": { "reading": null, "listening": null, "writing": null, "speaking": null },
+        "expectedDetSubscores": {
+          "literacy": null,
+          "comprehension": null,
+          "conversation": null,
+          "production": null
+        },
+        "overallScoreForInsights": 7.5,
+        "expectedScoreInsights": []
+      },
+      {
+        "id": "desc_ielts_general",
+        "trackId": "ielts_general",
+        "expectedMinCalibratedObjectiveCount": 40,
+        "expectedWritingTasks": ["task1General", "task2Essay"],
+        "expectedFullMockTotalSeconds": 9840,
+        "expectedPackIds": {
+          "reading": "ielts-gt-reading-seed-01",
+          "listening": "ielts-listening-seed-01",
+          "writing": "ielts-gt-writing-pack-01",
+          "speaking": "ielts-speaking-seed-01",
+          "vocabulary": "ielts-micro-drill-01"
+        },
+        "detInputs": { "reading": null, "listening": null, "writing": null, "speaking": null },
+        "expectedDetSubscores": {
+          "literacy": null,
+          "comprehension": null,
+          "conversation": null,
+          "production": null
+        },
+        "overallScoreForInsights": 7.0,
+        "expectedScoreInsights": []
+      },
+      {
+        "id": "desc_toefl_ibt",
+        "trackId": "toefl_ibt",
+        "expectedMinCalibratedObjectiveCount": 4,
+        "expectedWritingTasks": ["toeflSentenceBuild", "toeflEmail", "toeflAcademicDiscussion"],
+        "expectedFullMockTotalSeconds": 5400,
+        "expectedPackIds": {
+          "reading": "toefl-reading-pack-01",
+          "listening": "toefl-listening-pack-01",
+          "writing": "toefl-writing-pack-01",
+          "speaking": "toefl-speaking-pack-01",
+          "vocabulary": "toefl-micro-drill-01"
+        },
+        "detInputs": { "reading": null, "listening": null, "writing": null, "speaking": null },
+        "expectedDetSubscores": {
+          "literacy": null,
+          "comprehension": null,
+          "conversation": null,
+          "production": null
+        },
+        "overallScoreForInsights": 5.0,
+        "expectedScoreInsights": [
+          { "label": "Comparable 0\u2013120", "detail": "100 / 120" }
+        ]
+      },
+      {
+        "id": "desc_pte_academic",
+        "trackId": "pte_academic",
+        "expectedMinCalibratedObjectiveCount": 4,
+        "expectedWritingTasks": ["pteSummarizeWrittenText", "pteEssay"],
+        "expectedFullMockTotalSeconds": 7200,
+        "expectedPackIds": {
+          "reading": "pte-reading-pack-01",
+          "listening": "pte-listening-pack-01",
+          "writing": "pte-writing-pack-01",
+          "speaking": "pte-speaking-pack-01",
+          "vocabulary": "pte-micro-drill-01"
+        },
+        "detInputs": { "reading": 125.0, "listening": null, "writing": null, "speaking": null },
+        "expectedDetSubscores": {
+          "literacy": 125.0,
+          "comprehension": 125.0,
+          "conversation": null,
+          "production": null
+        },
+        "overallScoreForInsights": 72.0,
+        "expectedScoreInsights": []
+      },
+      {
+        "id": "desc_det",
+        "trackId": "det",
+        "expectedMinCalibratedObjectiveCount": 4,
+        "expectedWritingTasks": ["detWriteAboutPhoto", "detInteractiveWriting", "detWritingSample"],
+        "expectedFullMockTotalSeconds": 3600,
+        "expectedPackIds": {
+          "reading": "det-reading-pack-01",
+          "listening": "det-listening-pack-01",
+          "writing": "det-writing-pack-01",
+          "speaking": "det-speaking-pack-01",
+          "vocabulary": "det-micro-drill-01"
+        },
+        "detInputs": { "reading": 140.0, "listening": 130.0, "writing": 120.0, "speaking": 110.0 },
+        "expectedDetSubscores": {
+          "literacy": 130.0,
+          "comprehension": 135.0,
+          "conversation": 120.0,
+          "production": 115.0
+        },
+        "overallScoreForInsights": 125.0,
+        "expectedScoreInsights": [
+          { "label": "Literacy", "detail": "130" },
+          { "label": "Comprehension", "detail": "135" },
+          { "label": "Conversation", "detail": "120" },
+          { "label": "Production", "detail": "115" }
+        ]
+      }
+    ],
+    "writingTasks": [
+      {
+        "id": "wtask_task1_academic",
+        "wireInput": "task1_academic",
+        "expectedTaskType": "task1Academic",
+        "expectedDefaultMinWords": 150,
+        "expectedDefaultMaxWords": null,
+        "expectedDefaultDurationSeconds": 1200,
+        "expectedRequiresSingleSentence": false,
+        "expectedShortTabLabel": "Task 1"
+      },
+      {
+        "id": "wtask_task1_general",
+        "wireInput": "task1_general",
+        "expectedTaskType": "task1General",
+        "expectedDefaultMinWords": 150,
+        "expectedDefaultMaxWords": null,
+        "expectedDefaultDurationSeconds": 1200,
+        "expectedRequiresSingleSentence": false,
+        "expectedShortTabLabel": "Task 1"
+      },
+      {
+        "id": "wtask_task2_essay",
+        "wireInput": "task2Essay",
+        "expectedTaskType": "task2Essay",
+        "expectedDefaultMinWords": 250,
+        "expectedDefaultMaxWords": null,
+        "expectedDefaultDurationSeconds": 2400,
+        "expectedRequiresSingleSentence": false,
+        "expectedShortTabLabel": "Task 2"
+      },
+      {
+        "id": "wtask_toefl_sentence_build",
+        "wireInput": "toefl_sentence_build",
+        "expectedTaskType": "toeflSentenceBuild",
+        "expectedDefaultMinWords": 15,
+        "expectedDefaultMaxWords": null,
+        "expectedDefaultDurationSeconds": 360,
+        "expectedRequiresSingleSentence": false,
+        "expectedShortTabLabel": "Task 1 · Build"
+      },
+      {
+        "id": "wtask_toefl_email",
+        "wireInput": "toefl_email",
+        "expectedTaskType": "toeflEmail",
+        "expectedDefaultMinWords": 85,
+        "expectedDefaultMaxWords": null,
+        "expectedDefaultDurationSeconds": 420,
+        "expectedRequiresSingleSentence": false,
+        "expectedShortTabLabel": "Task 2 · Email"
+      },
+      {
+        "id": "wtask_toefl_academic_discussion",
+        "wireInput": "toefl_academic_discussion",
+        "expectedTaskType": "toeflAcademicDiscussion",
+        "expectedDefaultMinWords": 100,
+        "expectedDefaultMaxWords": null,
+        "expectedDefaultDurationSeconds": 600,
+        "expectedRequiresSingleSentence": false,
+        "expectedShortTabLabel": "Task 3 · Discuss"
+      },
+      {
+        "id": "wtask_pte_summarize_written_text",
+        "wireInput": "pte_summarize_written_text",
+        "expectedTaskType": "pteSummarizeWrittenText",
+        "expectedDefaultMinWords": 5,
+        "expectedDefaultMaxWords": 75,
+        "expectedDefaultDurationSeconds": 600,
+        "expectedRequiresSingleSentence": true,
+        "expectedShortTabLabel": "Task 1 · Summary"
+      },
+      {
+        "id": "wtask_pte_essay",
+        "wireInput": "pte_essay",
+        "expectedTaskType": "pteEssay",
+        "expectedDefaultMinWords": 200,
+        "expectedDefaultMaxWords": 300,
+        "expectedDefaultDurationSeconds": 1200,
+        "expectedRequiresSingleSentence": false,
+        "expectedShortTabLabel": "Task 2 · Essay"
+      },
+      {
+        "id": "wtask_det_write_about_photo",
+        "wireInput": "det_write_about_photo",
+        "expectedTaskType": "detWriteAboutPhoto",
+        "expectedDefaultMinWords": 25,
+        "expectedDefaultMaxWords": null,
+        "expectedDefaultDurationSeconds": 60,
+        "expectedRequiresSingleSentence": false,
+        "expectedShortTabLabel": "Task 1 · Photo"
+      },
+      {
+        "id": "wtask_det_interactive_writing",
+        "wireInput": "det_interactive_writing",
+        "expectedTaskType": "detInteractiveWriting",
+        "expectedDefaultMinWords": 60,
+        "expectedDefaultMaxWords": null,
+        "expectedDefaultDurationSeconds": 480,
+        "expectedRequiresSingleSentence": false,
+        "expectedShortTabLabel": "Task 2 · Interact"
+      },
+      {
+        "id": "wtask_det_writing_sample",
+        "wireInput": "det_writing_sample",
+        "expectedTaskType": "detWritingSample",
+        "expectedDefaultMinWords": 100,
+        "expectedDefaultMaxWords": null,
+        "expectedDefaultDurationSeconds": 300,
+        "expectedRequiresSingleSentence": false,
+        "expectedShortTabLabel": "Task 3 · Sample"
+      }
+    ]
+  }
+}

@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit",
     "openapi": "tsx src/export-openapi.ts",
     "openapi:export": "tsx src/export-openapi.ts --write",
+    "export:openapi": "tsx src/export-openapi.ts --write",
     "test": "vitest run"
   },
   "dependencies": {
