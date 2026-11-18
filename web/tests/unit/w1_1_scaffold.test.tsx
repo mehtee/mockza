@@ -175,7 +175,7 @@ describe('W1.1 TanStack Router 24-route skeleton & blocker', () => {
     ['/app/diagnostic/session', 'diagnostic-session-screen'],
     ['/app/diagnostic/result', 'diagnostic-result-screen'],
     ['/app/auth/login', 'auth-screen'],
-    ['/app/home', 'route-skeleton-home'],
+    ['/app/home', 'home-screen'],
     ['/app/practice', 'route-skeleton-practice'],
     ['/app/practice/reading/ielts-acad-01', 'route-skeleton-practice-reading'],
     ['/app/practice/listening/ielts-list-01', 'route-skeleton-practice-listening'],
@@ -235,7 +235,7 @@ describe('W1.1 TanStack Router 24-route skeleton & blocker', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Leave Session' }));
 
     await waitFor(() => {
-      expect(screen.getByTestId('route-skeleton-home')).toBeTruthy();
+      expect(screen.getByTestId('home-screen')).toBeTruthy();
     });
     expect(useClockStore.getState().activeExamLock).toBe(false);
   });

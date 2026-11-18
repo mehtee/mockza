@@ -17,6 +17,7 @@ import { AuthScreen } from '@/spa/features/auth/AuthScreen';
 import { DiagnosticIntroScreen } from '@/spa/features/diagnostic/DiagnosticIntroScreen';
 import { DiagnosticResultScreen } from '@/spa/features/diagnostic/DiagnosticResultScreen';
 import { DiagnosticSessionScreen } from '@/spa/features/diagnostic/DiagnosticSessionScreen';
+import { HomeScreen } from '@/spa/features/home/HomeScreen';
 import { GoalSetupScreen } from '@/spa/features/onboarding/GoalSetupScreen';
 import { WelcomeScreen } from '@/spa/features/onboarding/WelcomeScreen';
 import { PaywallScreen } from '@/spa/features/paywall/PaywallScreen';
@@ -503,13 +504,7 @@ const loginRoute = createRoute({
 const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/home',
-  component: () => (
-    <RouteSkeletonView
-      routeId="home"
-      title="Desktop Home Dashboard"
-      description="Readiness hero, track switcher, 4-skill cards, and Due SM-2 deck (Routes.home)."
-    />
-  ),
+  component: () => <HomeScreen />,
 });
 
 const practiceRoute = createRoute({

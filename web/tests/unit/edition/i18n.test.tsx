@@ -97,10 +97,10 @@ describe('W1.4 i18n dictionaries & BiDi-safe interpolation', () => {
     render(<DesktopSimulatorApp router={router} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('route-skeleton-home')).toBeTruthy();
+      expect(screen.getByTestId('home-screen')).toBeTruthy();
     });
 
-    expect(screen.getByText('سنجیا')).toBeTruthy();
+    expect(screen.getAllByText('سنجیا').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole('button', { name: 'جمع کردن منوی کناری' })).toBeTruthy();
     const shell = screen.getByLabelText('ناوبری اصلی').parentElement;
     expect(shell?.getAttribute('dir')).toBe('rtl');

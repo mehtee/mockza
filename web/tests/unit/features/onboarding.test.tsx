@@ -101,7 +101,7 @@ describe('W4.1 Onboarding Wizard (/app/welcome & /app/onboarding/goal)', () => {
 
     fireEvent.click(screen.getByTestId('goal-skip-home-btn'));
     await waitFor(() => {
-      expect(screen.getByTestId('route-skeleton-home')).toBeTruthy();
+      expect(screen.getByTestId('home-screen')).toBeTruthy();
     });
 
     const saved = await deps.attemptStore.getUserProfile();

@@ -37,7 +37,7 @@ describe('W2.2 Desktop AuthScreen & 409 Slot Takeover', () => {
     fireEvent.click(screen.getByText('Aria Chen (band 7.5 learner)'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('route-skeleton-home')).toBeTruthy();
+      expect(screen.getByTestId('home-screen')).toBeTruthy();
     });
     const session = await deps.auth.getSession();
     expect(session.ok && session.value?.isAuthenticated).toBe(true);
@@ -80,7 +80,7 @@ describe('W2.2 Desktop AuthScreen & 409 Slot Takeover', () => {
     fireEvent.click(screen.getByTestId('auth-slot-replace-btn'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('route-skeleton-home')).toBeTruthy();
+      expect(screen.getByTestId('home-screen')).toBeTruthy();
     });
     const session = await deps.auth.getSession();
     expect(session.ok && session.value?.isAuthenticated).toBe(true);
@@ -131,7 +131,7 @@ describe('W2.2 Desktop AuthScreen & 409 Slot Takeover', () => {
     fireEvent.click(screen.getByTestId('auth-otp-submit'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('route-skeleton-home')).toBeTruthy();
+      expect(screen.getByTestId('home-screen')).toBeTruthy();
     });
     const session = await deps.auth.getSession();
     expect(session.ok && session.value?.user?.linkedProviders).toContain('sms_otp');
