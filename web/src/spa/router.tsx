@@ -32,6 +32,9 @@ import { EvaluationPendingScreen } from '@/spa/features/results/EvaluationPendin
 import { EvaluationResultScreen } from '@/spa/features/results/EvaluationResultScreen';
 import { ObjectiveResultScreen } from '@/spa/features/results/ObjectiveResultScreen';
 import { SettingsScreen } from '@/spa/features/settings/SettingsScreen';
+import { VocabHubScreen } from '@/spa/features/vocabulary/VocabHubScreen';
+import { VocabReviewScreen } from '@/spa/features/vocabulary/VocabReviewScreen';
+import { VocabWordDetailScreen } from '@/spa/features/vocabulary/VocabWordDetailScreen';
 import { useClockStore } from '@/spa/stores/clock.store';
 import { useLayoutStore } from '@/spa/stores/layout.store';
 
@@ -619,25 +622,13 @@ const objectiveResultRoute = createRoute({
 const vocabularyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/vocabulary',
-  component: () => (
-    <RouteSkeletonView
-      routeId="vocabulary"
-      title="SM-2 Vocabulary Hub"
-      description="Due today queue and virtualized academic vocabulary browser (Routes.vocabulary)."
-    />
-  ),
+  component: VocabHubScreen,
 });
 
 const vocabReviewRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/vocabulary/review',
-  component: () => (
-    <RouteSkeletonView
-      routeId="vocabulary-review"
-      title="SM-2 Flashcard Studio"
-      description="Keyboard-first spaced repetition review session (Routes.vocabReview)."
-    />
-  ),
+  component: VocabReviewScreen,
 });
 
 const vocabWordDetailRoute = createRoute({
@@ -645,14 +636,7 @@ const vocabWordDetailRoute = createRoute({
   path: '/vocabulary/$wordId',
   component: () => {
     const { wordId } = vocabWordDetailRoute.useParams();
-    return (
-      <RouteSkeletonView
-        routeId="vocabulary-word-detail"
-        title="Vocabulary Word Detail"
-        description="Lexical detail and SM-2 schedule card (Routes.vocabWordDetail)."
-        params={{ wordId }}
-      />
-    );
+    return <VocabWordDetailScreen wordId={wordId} />;
   },
 });
 
