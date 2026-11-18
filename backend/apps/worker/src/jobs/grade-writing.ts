@@ -103,10 +103,13 @@ export async function handleGradeWritingJob(
       followUpResponse?: string;
     };
     const isDiagnosticTask = rawPayload.taskType === 'diagnostic_writing';
+    const effectiveEdition =
+      rawPayload.edition ?? (process.env['EDITION'] === 'irn' ? 'irn' : 'glb');
     const result = isDiagnosticTask
       ? await gradeWritingDiagnosticGraph.invoke(
           {
             attemptId: rawPayload.attemptId,
+            edition: effectiveEdition,
             promptTitle: rawPayload.promptTitle || 'Writing Starting Check',
             basePrompt: rawPayload.basePrompt ?? rawPayload.promptBody,
             followUpPrompt: rawPayload.followUpPrompt,
@@ -115,7 +118,7 @@ export async function handleGradeWritingJob(
           } satisfies DiagnosticWritingInput,
           invokeOptions,
         )
-      : await gradeWritingGraph.invoke(payload, invokeOptions);
+      : await gradeWritingGraph.invoke({ ...payload, edition: effectiveEdition }, invokeOptions);
     const latencyMs = Date.now() - startMs;
     const numericBand = 'overallBand' in result ? result.overallBand : null;
 

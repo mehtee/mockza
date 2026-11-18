@@ -192,6 +192,9 @@
           "definition": {
             "type": "string"
           },
+          "glossFa": {
+            "type": "string"
+          },
           "contextSentence": {
             "type": "string"
           },
@@ -500,6 +503,26 @@
               "mode"
             ]
           },
+          "smsOtp": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "kavenegar",
+                  "dev_sandbox",
+                  "disabled"
+                ]
+              }
+            },
+            "required": [
+              "enabled",
+              "mode"
+            ]
+          },
           "devicePolicy": {
             "type": "object",
             "properties": {
@@ -536,6 +559,10 @@
             "type": "string",
             "nullable": true
           },
+          "phoneE164": {
+            "type": "string",
+            "nullable": true
+          },
           "displayName": {
             "type": "string",
             "nullable": true
@@ -547,7 +574,8 @@
               "enum": [
                 "email",
                 "google",
-                "apple"
+                "apple",
+                "sms_otp"
               ]
             }
           },
@@ -630,7 +658,8 @@
             "enum": [
               "email",
               "google",
-              "apple"
+              "apple",
+              "sms_otp"
             ]
           },
           "isCurrentDevice": {
@@ -755,6 +784,10 @@
           },
           "deviceMeta": {
             "$ref": "#/components/schemas/DeviceClientMeta"
+          },
+          "replaceSessionId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "required": [
@@ -790,6 +823,10 @@
           },
           "deviceMeta": {
             "$ref": "#/components/schemas/DeviceClientMeta"
+          },
+          "replaceSessionId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "required": [
@@ -831,6 +868,10 @@
           },
           "deviceMeta": {
             "$ref": "#/components/schemas/DeviceClientMeta"
+          },
+          "replaceSessionId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "required": [

@@ -21,11 +21,12 @@ import type {
 import { hashPasswordScrypt, verifyDummyPassword, verifyPasswordScrypt } from './password-hash.js';
 import type { VerifiedProviderClaims } from './provider-verify.js';
 
-export type AuthMethod = 'email' | 'google' | 'apple';
+export type AuthMethod = 'email' | 'google' | 'apple' | 'sms_otp';
 
 export interface AccountUserPayload {
   userId: string;
   email: string | null;
+  phoneE164?: string | null;
   displayName: string | null;
   linkedProviders: AuthMethod[];
   isPro: boolean;
@@ -75,6 +76,7 @@ export class DeviceSlotLimitError extends Error {
   constructor(
     public readonly slotKind: DeviceSlotKind,
     public readonly occupyingDevice: {
+      sessionId: string;
       deviceId: string;
       deviceIdShort: string;
       deviceName: string;
@@ -151,7 +153,7 @@ function mapSessionRow(
     deviceName: row.deviceName,
     locationLabel: row.locationLabel,
     ipMasked: row.ipMasked,
-    authMethod: (['email', 'google', 'apple'].includes(row.authMethod)
+    authMethod: (['email', 'google', 'apple', 'sms_otp'].includes(row.authMethod)
       ? row.authMethod
       : 'email') as AuthMethod,
     isCurrentDevice: row.deviceId === callerDeviceId,
@@ -163,6 +165,7 @@ function mapSessionRow(
 interface MemoryUser {
   userId: string;
   email: string | null;
+  phoneE164?: string | null;
   displayName: string | null;
   passwordHash: string | null;
   createdAt: Date;
@@ -199,6 +202,8 @@ interface MemoryDeviceSession {
 
 interface MemoryEntitlementState {
   isPro: boolean;
+  activePlanId?: string | null;
+  source?: 'revenuecat' | 'stripe' | 'zarinpal' | 'bazaar' | 'myket' | 'dev_sandbox' | 'none';
   expiresAt: Date | null;
   graceUntil: Date | null;
   acceptedDevicePolicyAt: Date | null;
@@ -207,7 +212,10 @@ interface MemoryEntitlementState {
 export interface MemoryAuthState {
   devices: Map<string, MemoryDevice>;
   users: Map<string, MemoryUser>;
-  accountLinks: Map<string, { userId: string; provider: 'google' | 'apple'; sub: string }>;
+  accountLinks: Map<
+    string,
+    { userId: string; provider: 'google' | 'apple' | 'sms_otp'; sub: string }
+  >;
   sessions: Map<string, MemoryDeviceSession>;
   userEntitlements: Map<string, MemoryEntitlementState>;
   deviceEntitlements: Map<string, MemoryEntitlementState>;
@@ -242,6 +250,7 @@ export interface SessionManager {
     authHeader?: string;
     appVersion?: string;
     deviceCtx: ResolvedDeviceContext;
+    replaceSessionId?: string;
   }): Promise<AuthSessionBundle>;
   loginWithEmail(params: {
     email: string;
@@ -251,6 +260,7 @@ export interface SessionManager {
     authHeader?: string;
     appVersion?: string;
     deviceCtx: ResolvedDeviceContext;
+    replaceSessionId?: string;
   }): Promise<AuthSessionBundle>;
   authenticateOAuth(params: {
     claims: VerifiedProviderClaims;
@@ -260,6 +270,17 @@ export interface SessionManager {
     authHeader?: string;
     appVersion?: string;
     deviceCtx: ResolvedDeviceContext;
+    replaceSessionId?: string;
+  }): Promise<AuthSessionBundle>;
+  authenticateSmsOtp(params: {
+    phoneE164: string;
+    displayName?: string;
+    deviceId: string;
+    deviceSecret?: string;
+    authHeader?: string;
+    appVersion?: string;
+    deviceCtx: ResolvedDeviceContext;
+    replaceSessionId?: string;
   }): Promise<AuthSessionBundle>;
   linkAuthenticatedDevice(params: {
     deviceId: string;
@@ -289,6 +310,19 @@ export interface SessionManager {
   }>;
   recordDevicePolicyConsent(params: { userId: string }): Promise<AccountUserPayload>;
   isUserOrDevicePro(params: { deviceId: string; accountKey: string }): Promise<boolean>;
+  getMemoryEntitlementSnapshot?(params: { deviceId: string; accountKey: string }): {
+    isPro: boolean;
+    activePlanId: string | null;
+    expiresAt: string | null;
+    source: 'revenuecat' | 'stripe' | 'zarinpal' | 'bazaar' | 'myket' | 'dev_sandbox' | 'none';
+  };
+  grantMemoryProEntitlement?(params: {
+    userId: string | null;
+    deviceId: string;
+    planId: string;
+    expiresAt: Date;
+    source: 'stripe' | 'zarinpal' | 'dev_sandbox';
+  }): void;
   wipeMemoryForAccount(params: { deviceIds: string[]; userId: string | null }): void;
 }
 
@@ -549,6 +583,7 @@ export function createSessionManager(env: AppEnv, db?: MockzaDb): SessionManager
       .select({
         userId: users.userId,
         email: users.email,
+        phoneE164: users.phoneE164,
         displayName: users.displayName,
         passwordHash: users.passwordHash,
       })
@@ -563,8 +598,9 @@ export function createSessionManager(env: AppEnv, db?: MockzaDb): SessionManager
 
     const providersSet = new Set<AuthMethod>();
     if (u?.passwordHash) providersSet.add('email');
+    if (u?.phoneE164) providersSet.add('sms_otp');
     for (const l of links) {
-      if (l.provider === 'google' || l.provider === 'apple') {
+      if (l.provider === 'google' || l.provider === 'apple' || l.provider === 'sms_otp') {
         providersSet.add(l.provider);
       }
     }
@@ -581,6 +617,7 @@ export function createSessionManager(env: AppEnv, db?: MockzaDb): SessionManager
     return {
       userId,
       email: u?.email ?? null,
+      phoneE164: u?.phoneE164 ?? null,
       displayName: u?.displayName ?? null,
       linkedProviders: Array.from(providersSet),
       isPro,
@@ -647,8 +684,9 @@ export function createSessionManager(env: AppEnv, db?: MockzaDb): SessionManager
     authMethod: AuthMethod;
     deviceCtx: ResolvedDeviceContext;
     now: Date;
+    replaceSessionId?: string;
   }): Promise<{ currentSession: DeviceSessionPayload; sessions: DeviceSessionPayload[] }> {
-    const { tx, userId, deviceId, authMethod, deviceCtx, now } = params;
+    const { tx, userId, deviceId, authMethod, deviceCtx, now, replaceSessionId } = params;
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${userId}))`);
 
     const activeRows = await tx
@@ -660,22 +698,46 @@ export function createSessionManager(env: AppEnv, db?: MockzaDb): SessionManager
     const otherActive = activeRows.filter((row) => row.deviceId !== deviceId);
     const conflictingSlot = otherActive.find((row) => row.slotKind === deviceCtx.slotKind);
     if (conflictingSlot) {
-      throw new DeviceSlotLimitError(deviceCtx.slotKind, {
-        deviceId: conflictingSlot.deviceId,
-        deviceIdShort: formatDeviceShort(conflictingSlot.deviceId),
-        deviceName: conflictingSlot.deviceName,
-        locationLabel: conflictingSlot.locationLabel,
-        lastSeenAt: conflictingSlot.lastSeenAt.toISOString(),
-      });
+      if (replaceSessionId && conflictingSlot.sessionId === replaceSessionId) {
+        await tx
+          .update(userDeviceSessions)
+          .set({ revokedAt: now, revokedReason: 'replaced_by_user' })
+          .where(eq(userDeviceSessions.sessionId, conflictingSlot.sessionId));
+        await tx
+          .update(devices)
+          .set({
+            linkedUserId: null,
+            tokenVersion: sql`${devices.tokenVersion} + 1`,
+            lastSeenAt: now,
+          })
+          .where(eq(devices.deviceId, conflictingSlot.deviceId));
+        await tx
+          .update(entitlements)
+          .set({ isPro: false, userId: null, expiresAt: null, graceUntil: null, updatedAt: now })
+          .where(eq(entitlements.deviceId, conflictingSlot.deviceId));
+      } else {
+        throw new DeviceSlotLimitError(deviceCtx.slotKind, {
+          sessionId: conflictingSlot.sessionId,
+          deviceId: conflictingSlot.deviceId,
+          deviceIdShort: formatDeviceShort(conflictingSlot.deviceId),
+          deviceName: conflictingSlot.deviceName,
+          locationLabel: conflictingSlot.locationLabel,
+          lastSeenAt: conflictingSlot.lastSeenAt.toISOString(),
+        });
+      }
     }
 
-    if (otherActive.length >= 2 && otherActive[0]) {
+    const remainingOther = otherActive.filter(
+      (row) => !replaceSessionId || row.sessionId !== replaceSessionId,
+    );
+    if (remainingOther.length >= 2 && remainingOther[0]) {
       throw new DeviceSlotLimitError(deviceCtx.slotKind, {
-        deviceId: otherActive[0].deviceId,
-        deviceIdShort: formatDeviceShort(otherActive[0].deviceId),
-        deviceName: otherActive[0].deviceName,
-        locationLabel: otherActive[0].locationLabel,
-        lastSeenAt: otherActive[0].lastSeenAt.toISOString(),
+        sessionId: remainingOther[0].sessionId,
+        deviceId: remainingOther[0].deviceId,
+        deviceIdShort: formatDeviceShort(remainingOther[0].deviceId),
+        deviceName: remainingOther[0].deviceName,
+        locationLabel: remainingOther[0].locationLabel,
+        lastSeenAt: remainingOther[0].lastSeenAt.toISOString(),
       });
     }
 
@@ -750,21 +812,34 @@ export function createSessionManager(env: AppEnv, db?: MockzaDb): SessionManager
     authMethod: AuthMethod;
     deviceCtx: ResolvedDeviceContext;
     now: Date;
+    replaceSessionId?: string;
   }): { currentSession: DeviceSessionPayload; sessions: DeviceSessionPayload[] } {
-    const { userId, deviceId, authMethod, deviceCtx, now } = params;
+    const { userId, deviceId, authMethod, deviceCtx, now, replaceSessionId } = params;
     const active = Array.from(memory.sessions.values()).filter(
       (s) => s.userId === userId && s.revokedAt === null,
     );
     const otherActive = active.filter((s) => s.deviceId !== deviceId);
     const conflict = otherActive.find((s) => s.slotKind === deviceCtx.slotKind);
     if (conflict) {
-      throw new DeviceSlotLimitError(deviceCtx.slotKind, {
-        deviceId: conflict.deviceId,
-        deviceIdShort: formatDeviceShort(conflict.deviceId),
-        deviceName: conflict.deviceName,
-        locationLabel: conflict.locationLabel,
-        lastSeenAt: conflict.lastSeenAt.toISOString(),
-      });
+      if (replaceSessionId && conflict.sessionId === replaceSessionId) {
+        conflict.revokedAt = now;
+        conflict.revokedReason = 'replaced_by_user';
+        const evictedDev = memory.devices.get(conflict.deviceId);
+        if (evictedDev) {
+          evictedDev.linkedUserId = null;
+          evictedDev.tokenVersion += 1;
+        }
+        memory.deviceEntitlements.delete(conflict.deviceId);
+      } else {
+        throw new DeviceSlotLimitError(deviceCtx.slotKind, {
+          sessionId: conflict.sessionId,
+          deviceId: conflict.deviceId,
+          deviceIdShort: formatDeviceShort(conflict.deviceId),
+          deviceName: conflict.deviceName,
+          locationLabel: conflict.locationLabel,
+          lastSeenAt: conflict.lastSeenAt.toISOString(),
+        });
+      }
     }
 
     const sameDevice = active.find((s) => s.deviceId === deviceId);
@@ -826,6 +901,7 @@ export function createSessionManager(env: AppEnv, db?: MockzaDb): SessionManager
     const u = memory.users.get(userId);
     const providers = new Set<AuthMethod>();
     if (u?.passwordHash) providers.add('email');
+    if (u?.phoneE164) providers.add('sms_otp');
     for (const l of memory.accountLinks.values()) {
       if (l.userId === userId) providers.add(l.provider);
     }
@@ -833,6 +909,7 @@ export function createSessionManager(env: AppEnv, db?: MockzaDb): SessionManager
     return {
       userId,
       email: u?.email ?? null,
+      phoneE164: u?.phoneE164 ?? null,
       displayName: u?.displayName ?? null,
       linkedProviders: Array.from(providers),
       isPro: isEntActive(ent, now),
@@ -905,6 +982,7 @@ export function createSessionManager(env: AppEnv, db?: MockzaDb): SessionManager
       authHeader,
       appVersion,
       deviceCtx,
+      replaceSessionId,
     }) {
       const now = new Date();
       const normalizedEmail = email.trim().toLowerCase();
@@ -991,6 +1069,7 @@ export function createSessionManager(env: AppEnv, db?: MockzaDb): SessionManager
             authMethod: 'email',
             deviceCtx,
             now,
+            replaceSessionId,
           });
           const userPayload = await buildUserPayloadDb(tx, userId, now);
           return { userId, userPayload, ...slotOutcome };
@@ -1043,6 +1122,7 @@ export function createSessionManager(env: AppEnv, db?: MockzaDb): SessionManager
         authMethod: 'email',
         deviceCtx,
         now,
+        replaceSessionId,
       });
       const userPayload = buildUserPayloadMemory(userId, now);
       const { token, expiresAt } = await signDeviceToken(
@@ -1071,6 +1151,7 @@ export function createSessionManager(env: AppEnv, db?: MockzaDb): SessionManager
       authHeader,
       appVersion,
       deviceCtx,
+      replaceSessionId,
     }) {
       const now = new Date();
       const normalizedEmail = email.trim().toLowerCase();
@@ -1121,6 +1202,7 @@ export function createSessionManager(env: AppEnv, db?: MockzaDb): SessionManager
             authMethod: 'email',
             deviceCtx,
             now,
+            replaceSessionId,
           });
           const userPayload = await buildUserPayloadDb(tx, userRow.userId, now);
           return { userPayload, ...slotOutcome };
@@ -1177,6 +1259,7 @@ export function createSessionManager(env: AppEnv, db?: MockzaDb): SessionManager
         authMethod: 'email',
         deviceCtx,
         now,
+        replaceSessionId,
       });
       persistPreparedDeviceMemory({
         deviceId,
@@ -1215,6 +1298,7 @@ export function createSessionManager(env: AppEnv, db?: MockzaDb): SessionManager
       authHeader,
       appVersion,
       deviceCtx,
+      replaceSessionId,
     }) {
       const now = new Date();
       const prepared = await prepareDeviceCheck({
@@ -1327,6 +1411,7 @@ export function createSessionManager(env: AppEnv, db?: MockzaDb): SessionManager
             authMethod: claims.provider,
             deviceCtx,
             now,
+            replaceSessionId,
           });
           const userPayload = await buildUserPayloadDb(tx, targetUserId, now);
           return { userId: targetUserId, userPayload, ...slotOutcome };
@@ -1381,6 +1466,7 @@ export function createSessionManager(env: AppEnv, db?: MockzaDb): SessionManager
         authMethod: claims.provider,
         deviceCtx,
         now,
+        replaceSessionId,
       });
 
       if (!memory.users.has(targetUserId)) {
@@ -1396,6 +1482,220 @@ export function createSessionManager(env: AppEnv, db?: MockzaDb): SessionManager
         userId: targetUserId,
         provider: claims.provider,
         sub: claims.sub,
+      });
+      persistPreparedDeviceMemory({
+        deviceId,
+        appVersion,
+        deviceCtx,
+        prepared,
+      });
+      const devAfterClaim = memory.devices.get(deviceId);
+      if (devAfterClaim) {
+        devAfterClaim.linkedUserId = targetUserId;
+      }
+      const userPayload = buildUserPayloadMemory(targetUserId, now);
+      const { token, expiresAt } = await signDeviceToken(
+        deviceId,
+        env,
+        30 * 24 * 3600,
+        prepared.tokenVersion,
+        targetUserId,
+      );
+      return {
+        accessToken: token,
+        expiresAt,
+        deviceId,
+        deviceSecret: prepared.issuedSecret,
+        user: userPayload,
+        currentSession: slotOutcome.currentSession,
+        sessions: slotOutcome.sessions,
+      };
+    },
+
+    async authenticateSmsOtp({
+      phoneE164,
+      displayName,
+      deviceId,
+      deviceSecret,
+      authHeader,
+      appVersion,
+      deviceCtx,
+      replaceSessionId,
+    }) {
+      const now = new Date();
+      const normalizedPhone = phoneE164.trim();
+      const fallbackName =
+        displayName?.trim() || `0${normalizedPhone.slice(3, 6)}...${normalizedPhone.slice(-4)}`;
+      const prepared = await prepareDeviceCheck({
+        deviceId,
+        deviceSecret,
+        authHeader,
+      });
+
+      if (db) {
+        const result = await db.transaction(async (tx) => {
+          await persistPreparedDeviceDb(tx, {
+            deviceId,
+            appVersion,
+            deviceCtx,
+            prepared,
+            now,
+          });
+
+          const [existingLink] = await tx
+            .select({ userId: accountLinks.userId })
+            .from(accountLinks)
+            .where(
+              and(
+                eq(accountLinks.provider, 'sms_otp'),
+                eq(accountLinks.providerSubject, normalizedPhone),
+              ),
+            )
+            .limit(1);
+
+          const [byPhone] = existingLink
+            ? []
+            : await tx
+                .select({ userId: users.userId })
+                .from(users)
+                .where(eq(users.phoneE164, normalizedPhone))
+                .limit(1);
+
+          const existingOwnerId = existingLink?.userId ?? byPhone?.userId ?? null;
+          if (
+            prepared.linkedUserId &&
+            existingOwnerId &&
+            prepared.linkedUserId !== existingOwnerId
+          ) {
+            throw new AuthActionError(
+              'attempt_conflict',
+              'This device is already linked to a different user account.',
+              409,
+            );
+          }
+
+          const targetUserId = existingOwnerId ?? prepared.linkedUserId ?? randomUUID();
+          const [existingUser] = await tx
+            .select({
+              userId: users.userId,
+              phoneE164: users.phoneE164,
+              displayName: users.displayName,
+            })
+            .from(users)
+            .where(eq(users.userId, targetUserId))
+            .limit(1);
+
+          if (!existingUser) {
+            await tx.insert(users).values({
+              userId: targetUserId,
+              phoneE164: normalizedPhone,
+              displayName: fallbackName,
+              createdAt: now,
+              updatedAt: now,
+            });
+          } else if (
+            !existingUser.phoneE164 ||
+            (!existingUser.displayName && displayName?.trim())
+          ) {
+            await tx
+              .update(users)
+              .set({
+                phoneE164: existingUser.phoneE164 ?? normalizedPhone,
+                displayName: existingUser.displayName ?? (displayName?.trim() || fallbackName),
+                updatedAt: now,
+              })
+              .where(eq(users.userId, targetUserId));
+          }
+
+          await tx
+            .insert(accountLinks)
+            .values({
+              linkId: randomUUID(),
+              userId: targetUserId,
+              provider: 'sms_otp',
+              providerSubject: normalizedPhone,
+            })
+            .onConflictDoNothing({
+              target: [accountLinks.provider, accountLinks.providerSubject],
+            });
+
+          const slotOutcome = await claimDeviceSlotDb({
+            tx,
+            userId: targetUserId,
+            deviceId,
+            authMethod: 'sms_otp',
+            deviceCtx,
+            now,
+            replaceSessionId,
+          });
+          const userPayload = await buildUserPayloadDb(tx, targetUserId, now);
+          return { userId: targetUserId, userPayload, ...slotOutcome };
+        });
+
+        const { token, expiresAt } = await signDeviceToken(
+          deviceId,
+          env,
+          30 * 24 * 3600,
+          prepared.tokenVersion,
+          result.userId,
+        );
+        return {
+          accessToken: token,
+          expiresAt,
+          deviceId,
+          deviceSecret: prepared.issuedSecret,
+          user: result.userPayload,
+          currentSession: result.currentSession,
+          sessions: result.sessions,
+        };
+      }
+
+      const linkKey = `sms_otp:${normalizedPhone}`;
+      const existingLink = memory.accountLinks.get(linkKey);
+      let existingOwnerId: string | null = existingLink?.userId ?? null;
+      if (!existingOwnerId) {
+        for (const u of memory.users.values()) {
+          if (u.phoneE164 === normalizedPhone) {
+            existingOwnerId = u.userId;
+            break;
+          }
+        }
+      }
+      if (prepared.linkedUserId && existingOwnerId && prepared.linkedUserId !== existingOwnerId) {
+        throw new AuthActionError(
+          'attempt_conflict',
+          'This device is already linked to a different user account.',
+          409,
+        );
+      }
+
+      const targetUserId = existingOwnerId ?? prepared.linkedUserId ?? randomUUID();
+      const slotOutcome = claimDeviceSlotMemory({
+        userId: targetUserId,
+        deviceId,
+        authMethod: 'sms_otp',
+        deviceCtx,
+        now,
+        replaceSessionId,
+      });
+
+      const existingMemUser = memory.users.get(targetUserId);
+      if (!existingMemUser) {
+        memory.users.set(targetUserId, {
+          userId: targetUserId,
+          email: null,
+          phoneE164: normalizedPhone,
+          displayName: fallbackName,
+          passwordHash: null,
+          createdAt: now,
+        });
+      } else if (!existingMemUser.phoneE164) {
+        existingMemUser.phoneE164 = normalizedPhone;
+      }
+      memory.accountLinks.set(linkKey, {
+        userId: targetUserId,
+        provider: 'sms_otp',
+        sub: normalizedPhone,
       });
       persistPreparedDeviceMemory({
         deviceId,
@@ -1792,6 +2092,37 @@ export function createSessionManager(env: AppEnv, db?: MockzaDb): SessionManager
         return isEntActive(memory.userEntitlements.get(accountKey), now);
       }
       return isEntActive(memory.deviceEntitlements.get(deviceId), now);
+    },
+
+    getMemoryEntitlementSnapshot({ deviceId, accountKey }) {
+      const now = new Date();
+      const ent =
+        accountKey !== deviceId
+          ? memory.userEntitlements.get(accountKey)
+          : memory.deviceEntitlements.get(deviceId);
+      const active = isEntActive(ent, now);
+      return {
+        isPro: active,
+        activePlanId: active ? (ent?.activePlanId ?? null) : null,
+        expiresAt: active && ent?.expiresAt ? ent.expiresAt.toISOString() : null,
+        source: active ? (ent?.source ?? 'revenuecat') : 'none',
+      };
+    },
+
+    grantMemoryProEntitlement({ userId, deviceId, planId, expiresAt, source }) {
+      const now = new Date();
+      const state: MemoryEntitlementState = {
+        isPro: true,
+        activePlanId: planId,
+        source,
+        expiresAt,
+        graceUntil: null,
+        acceptedDevicePolicyAt: now,
+      };
+      if (userId) {
+        memory.userEntitlements.set(userId, state);
+      }
+      memory.deviceEntitlements.set(deviceId, state);
     },
 
     wipeMemoryForAccount({ deviceIds, userId }) {

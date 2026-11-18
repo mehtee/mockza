@@ -129,16 +129,24 @@ export const SocialProviderDescriptorSchema = z.object({
   clientId: z.string().optional(),
 });
 
+export const SmsOtpProviderDescriptorSchema = z.object({
+  enabled: z.boolean(),
+  mode: z.enum(['kavenegar', 'dev_sandbox', 'disabled']),
+});
+
 export const DevicePolicySummarySchema = z.object({
   maxMobilePhones: z.number().int().positive().default(1),
   maxDesktopWebInstances: z.number().int().positive().default(1),
 });
+
+export const AuthMethodSchema = z.enum(['email', 'google', 'apple', 'sms_otp']);
 
 export const AuthProvidersResponseSchema = z
   .object({
     emailPasswordEnabled: z.boolean(),
     google: SocialProviderDescriptorSchema,
     apple: SocialProviderDescriptorSchema,
+    smsOtp: SmsOtpProviderDescriptorSchema.optional(),
     devicePolicy: DevicePolicySummarySchema,
   })
   .openapi('AuthProvidersResponse');
@@ -172,6 +180,7 @@ export const EmailRegisterRequestSchema = z
     deviceSecret: z.string().min(16).max(256).optional(),
     appVersion: z.string().optional(),
     deviceMeta: DeviceClientMetaSchema.optional(),
+    replaceSessionId: z.string().uuid().optional(),
   })
   .openapi('EmailRegisterRequest');
 
@@ -183,6 +192,7 @@ export const EmailLoginRequestSchema = z
     deviceSecret: z.string().min(16).max(256).optional(),
     appVersion: z.string().optional(),
     deviceMeta: DeviceClientMetaSchema.optional(),
+    replaceSessionId: z.string().uuid().optional(),
   })
   .openapi('EmailLoginRequest');
 
@@ -195,15 +205,52 @@ export const OAuthSignInRequestSchema = z
     deviceSecret: z.string().min(16).max(256).optional(),
     appVersion: z.string().optional(),
     deviceMeta: DeviceClientMetaSchema.optional(),
+    replaceSessionId: z.string().uuid().optional(),
   })
   .openapi('OAuthSignInRequest');
+
+export const OtpRequestSchema = z
+  .object({
+    phoneE164: z
+      .string()
+      .trim()
+      .regex(/^\+989\d{9}$/),
+  })
+  .openapi('OtpRequest');
+
+export const OtpRequestResponseSchema = z
+  .object({
+    retryAfterSec: z.number().int().nonnegative(),
+    devOtpHint: z.string().optional(),
+  })
+  .openapi('OtpRequestResponse');
+
+export const OtpVerifyRequestSchema = z
+  .object({
+    phoneE164: z
+      .string()
+      .trim()
+      .regex(/^\+989\d{9}$/),
+    otpCode: z
+      .string()
+      .trim()
+      .regex(/^\d{4,8}$/),
+    displayName: z.string().trim().min(1).max(100).optional(),
+    deviceId: z.string().uuid(),
+    deviceSecret: z.string().min(16).max(256).optional(),
+    appVersion: z.string().optional(),
+    deviceMeta: DeviceClientMetaSchema.optional(),
+    replaceSessionId: z.string().uuid().optional(),
+  })
+  .openapi('OtpVerifyRequest');
 
 export const AccountUserSchema = z
   .object({
     userId: z.string().uuid(),
     email: z.string().nullable(),
+    phoneE164: z.string().nullable().optional(),
     displayName: z.string().nullable(),
-    linkedProviders: z.array(z.enum(['email', 'google', 'apple'])),
+    linkedProviders: z.array(AuthMethodSchema),
     isPro: z.boolean(),
     acceptedDevicePolicyAt: z.string().nullable().optional(),
   })
@@ -220,7 +267,7 @@ export const DeviceSessionItemSchema = z
     deviceName: z.string(),
     locationLabel: z.string(),
     ipMasked: z.string().nullable(),
-    authMethod: z.enum(['email', 'google', 'apple']),
+    authMethod: AuthMethodSchema,
     isCurrentDevice: z.boolean(),
     createdAt: z.string(),
     lastSeenAt: z.string(),
@@ -288,6 +335,16 @@ export const LinkAccountResponseSchema = z
   })
   .openapi('LinkAccountResponse');
 
+const BASE_AUDIO_MIME_TYPES = ['audio/mp4', 'audio/webm', 'audio/ogg', 'audio/wav'] as const;
+
+export function normalizeAudioMimeType(raw: string): string {
+  const mime = raw.split(';')[0]?.trim().toLowerCase() ?? '';
+  if (mime === 'audio/x-m4a' || mime === 'audio/aac' || mime === 'video/mp4') {
+    return 'audio/mp4';
+  }
+  return mime;
+}
+
 export const PresignUploadRequestSchema = z
   .object({
     attemptId: z.string().uuid(),
@@ -298,7 +355,11 @@ export const PresignUploadRequestSchema = z
       .int()
       .positive()
       .max(15 * 1024 * 1024),
-    contentType: z.enum(['audio/mp4', 'audio/webm', 'audio/ogg', 'audio/wav']).default('audio/mp4'),
+    contentType: z
+      .string()
+      .transform(normalizeAudioMimeType)
+      .pipe(z.enum(BASE_AUDIO_MIME_TYPES))
+      .default('audio/mp4'),
     sha256Base64: z.string().optional(),
   })
   .openapi('PresignUploadRequest');
@@ -316,6 +377,7 @@ export const EvaluateWritingRequestSchema = z
     attemptId: z.string().uuid(),
     packId: z.string().min(1).max(120),
     examId: SupportedExamIdSchema.default('ielts_academic'),
+    edition: z.enum(['glb', 'irn']).optional(),
     taskType: WritingTaskTypeSchema,
     promptTitle: z.string().default(''),
     promptBody: z.string().default(''),
@@ -342,6 +404,7 @@ export const EvaluateSpeakingRequestSchema = z
     attemptId: z.string().uuid(),
     packId: z.string().min(1).max(120),
     examId: SupportedExamIdSchema.default('ielts_academic'),
+    edition: z.enum(['glb', 'irn']).optional(),
     partSequence: z
       .enum(['part1', 'part2', 'part3', 'part4', 'full', 'diagnostic'])
       .default('full'),
@@ -413,6 +476,7 @@ export const VocabUpgradeSchema = z
     term: z.string(),
     ipa: z.string().optional(),
     definition: z.string(),
+    glossFa: z.string().optional(),
     contextSentence: z.string(),
     paraphrases: z.array(z.string()).default([]),
     bandRationale: z.string(),
@@ -453,6 +517,7 @@ export const ExplainQuestionRequestSchema = z
     skill: z.enum(['reading', 'listening']),
     questionType: z.string(),
     userAnswer: z.string(),
+    edition: z.enum(['glb', 'irn']).optional(),
   })
   .openapi('ExplainQuestionRequest');
 
@@ -494,10 +559,72 @@ export const JobStatusResponseSchema = z
   })
   .openapi('JobStatusResponse');
 
+export const BillingSourceSchema = z
+  .enum(['revenuecat', 'stripe', 'zarinpal', 'bazaar', 'myket', 'dev_sandbox', 'none'])
+  .openapi('BillingSource');
+
+export const EntitlementSnapshotSchema = z
+  .object({
+    isPro: z.boolean(),
+    activePlanId: z.string().nullable(),
+    expiresAt: z.string().nullable(),
+    source: BillingSourceSchema,
+    freeDiagnosticUsed: z.boolean(),
+  })
+  .openapi('EntitlementSnapshot');
+
+export const ZarinpalRequestSchema = z
+  .object({
+    planId: z.string().min(1).max(64),
+    amountRial: z.number().int().positive(),
+    acceptedSingleDevicePerSlotTos: z.literal(true),
+    returnUrl: z.string().url(),
+  })
+  .openapi('ZarinpalRequest');
+
+export const ZarinpalVerifySchema = z
+  .object({
+    authority: z.string().trim().min(4).max(128),
+    status: z.string().trim().min(1).max(16).optional(),
+  })
+  .openapi('ZarinpalVerify');
+
+export const GlbCheckoutRequestSchema = z
+  .object({
+    planId: z.string().min(1).max(64),
+    acceptedSingleDevicePerSlotTos: z.literal(true),
+    returnUrl: z.string().url(),
+  })
+  .openapi('GlbCheckoutRequest');
+
+export const GlbVerifyRequestSchema = z
+  .object({
+    sessionId: z.string().trim().min(4).max(256),
+  })
+  .openapi('GlbVerifyRequest');
+
+export const BillingCheckoutOutcomeSchema = z
+  .object({
+    redirectUrl: z.string().optional(),
+    paymentUrl: z.string().optional(),
+    authority: z.string().optional(),
+    activatedSession: EntitlementSnapshotSchema.optional(),
+  })
+  .openapi('BillingCheckoutOutcome');
+
+export const CustomerPortalResponseSchema = z
+  .object({
+    portalUrl: z.string().min(1),
+  })
+  .openapi('CustomerPortalResponse');
+
 export const QuotaStatusResponseSchema = z
   .object({
     isPro: z.boolean(),
     freeDiagnosticUsed: z.boolean(),
+    activePlanId: z.string().nullable().optional(),
+    expiresAt: z.string().nullable().optional(),
+    source: BillingSourceSchema.optional(),
     dailySpeakingUsed: z.number().int().nonnegative(),
     dailySpeakingLimit: z.number().int().nonnegative(),
     dailyWritingUsed: z.number().int().nonnegative(),

@@ -19,6 +19,7 @@ export const users = pgTable(
   {
     userId: uuid('user_id').primaryKey(),
     email: text('email'),
+    phoneE164: text('phone_e164'),
     displayName: text('display_name'),
     passwordHash: text('password_hash'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -28,6 +29,9 @@ export const users = pgTable(
     uniqueIndex('idx_users_email_lower_unique')
       .on(sql`lower(${table.email})`)
       .where(sql`${table.email} IS NOT NULL`),
+    uniqueIndex('idx_users_phone_e164_unique')
+      .on(table.phoneE164)
+      .where(sql`${table.phoneE164} IS NOT NULL`),
   ],
 );
 
@@ -437,5 +441,47 @@ export const diagnosticSessions = pgTable(
   (table) => [
     index('idx_diagnostic_sessions_account').on(table.accountKey, table.createdAt),
     index('idx_diagnostic_sessions_device').on(table.deviceId, table.createdAt),
+  ],
+);
+
+export const otpChallenges = pgTable(
+  'otp_challenges',
+  {
+    challengeId: uuid('challenge_id').primaryKey(),
+    phoneE164: text('phone_e164').notNull(),
+    codeHash: text('code_hash').notNull(),
+    attempts: integer('attempts').default(0).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index('idx_otp_challenges_phone_created').on(table.phoneE164, table.createdAt)],
+);
+
+export const billingOrders = pgTable(
+  'billing_orders',
+  {
+    orderId: uuid('order_id').primaryKey(),
+    userId: uuid('user_id').references(() => users.userId, { onDelete: 'cascade' }),
+    deviceId: uuid('device_id')
+      .notNull()
+      .references(() => devices.deviceId, { onDelete: 'cascade' }),
+    edition: text('edition').notNull(),
+    provider: text('provider').notNull(), // 'zarinpal' | 'stripe' | 'dev_sandbox'
+    planId: text('plan_id').notNull(),
+    currency: text('currency').notNull(), // 'IRR' | 'USD'
+    amountMinor: integer('amount_minor').notNull(),
+    authority: text('authority').notNull().unique(),
+    refId: text('ref_id'),
+    status: text('status').default('pending').notNull(), // 'pending' | 'verified' | 'cancelled' | 'failed'
+    acceptedDevicePolicyAt: timestamp('accepted_device_policy_at', {
+      withTimezone: true,
+    }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    verifiedAt: timestamp('verified_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('idx_billing_orders_user').on(table.userId, table.createdAt),
+    index('idx_billing_orders_device').on(table.deviceId, table.createdAt),
   ],
 );

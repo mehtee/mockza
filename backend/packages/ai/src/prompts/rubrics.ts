@@ -58,3 +58,14 @@ export function buildSpeakingRubricAppendix(examIdRaw: string): string {
     `Rules: ${spec.scoringRules}`,
   ].join('\n');
 }
+
+export const IRN_PERSIAN_COACHING_APPENDIX = `
+# EDITION LOCALE OVERLAY (IRN / SANJIA — PERSIAN COACHING)
+1. Numeric scores, criterion bands, "evidenceExcerpt", "originalText", "suggestedText", "modelRewrite.rewrittenText", and upgraded vocabulary "term" MUST strictly use the exact English rubric scales and verbatim English learner/academic text so calibration matches the Global edition identically.
+2. Write ALL coaching explanation prose ("feedbackNote", "rationale", "preservedIdeasNote", "bandRationale", "actionableNextStep", "explanation", "whyWrongOptions[].reason") in clear, encouraging Persian (fa-IR) while keeping English technical rubric terms where helpful.
+3. For each entry in "vocabUpgrades", ALSO include a concise Persian academic translation/meaning in "glossFa".
+`.trim();
+
+export function buildEditionOverlayAppendix(edition?: 'glb' | 'irn'): string {
+  return edition === 'irn' ? `\n${IRN_PERSIAN_COACHING_APPENDIX}` : '';
+}

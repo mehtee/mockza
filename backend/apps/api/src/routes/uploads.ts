@@ -3,6 +3,7 @@ import { createRoute, type OpenAPIHono } from '@hono/zod-openapi';
 import type { AppEnv } from '@mockza/config';
 import {
   ApiErrorSchema,
+  normalizeAudioMimeType,
   PresignUploadRequestSchema,
   PresignUploadResponseSchema,
 } from '@mockza/contracts';
@@ -228,7 +229,7 @@ export function registerUploadRoutes(
   // Same-origin signed PUT proxy with streamed ingress byte cap (`RR-17`) and erasure fence (`RR-06`).
   app.put('/v1/uploads/signed-put', async (c) => {
     const objectKey = c.req.query('key') ?? '';
-    const contentType = c.req.query('contentType') ?? 'audio/mp4';
+    const contentType = normalizeAudioMimeType(c.req.query('contentType') ?? 'audio/mp4');
     const expStr = c.req.query('exp') ?? '0';
     const genQuery = c.req.query('gen');
     const signedGen = genQuery !== undefined ? Number.parseInt(genQuery, 10) : undefined;

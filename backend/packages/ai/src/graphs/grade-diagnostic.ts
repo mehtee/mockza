@@ -3,6 +3,7 @@ import { EvaluationModelError } from '../errors.js';
 import { OpenRouterClient } from '../models/openrouter.js';
 import { MODEL_REGISTRY } from '../models/registry.js';
 import { renderPromptFromYaml } from '../prompts/loader.js';
+import { buildEditionOverlayAppendix } from '../prompts/rubrics.js';
 
 export const DiagnosticTierHintSchema = z.enum(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']);
 
@@ -38,6 +39,7 @@ export type DiagnosticSpeakingResult = z.infer<typeof DiagnosticSpeakingResultSc
 
 export interface DiagnosticWritingInput {
   attemptId: string;
+  edition?: 'glb' | 'irn';
   promptTitle: string;
   basePrompt: string;
   followUpPrompt?: string;
@@ -47,6 +49,7 @@ export interface DiagnosticWritingInput {
 
 export interface DiagnosticSpeakingInput {
   attemptId: string;
+  edition?: 'glb' | 'irn';
   basePrompt: string;
   followUpPrompt?: string;
   turnAudios?: Array<{
@@ -130,13 +133,13 @@ export const gradeWritingDiagnosticGraph = {
     }
 
     const client = options.client ?? new OpenRouterClient({ apiKey });
-    const prompt = renderPromptFromYaml('writing_diagnostic', {
+    const prompt = `${renderPromptFromYaml('writing_diagnostic', {
       promptTitle: input.promptTitle,
       basePrompt: input.basePrompt,
       followUpPrompt: input.followUpPrompt?.trim() || 'None supplied',
       baseResponse: input.baseResponse.trim(),
       followUpResponse: input.followUpResponse?.trim() || 'None supplied',
-    });
+    })}${buildEditionOverlayAppendix(input.edition)}`;
 
     const response = await client.createChatCompletion({
       model: MODEL_REGISTRY.writingPrimary,
@@ -242,11 +245,11 @@ export const gradeSpeakingDiagnosticGraph = {
       .map((entry, idx) => `Audio #${idx + 1} (Prompt): ${entry.promptText}`)
       .join('\n');
 
-    const promptText = renderPromptFromYaml('speaking_diagnostic', {
+    const promptText = `${renderPromptFromYaml('speaking_diagnostic', {
       basePrompt: input.basePrompt,
       followUpPrompt: input.followUpPrompt?.trim() || 'None recorded',
       audioDescriptions,
-    });
+    })}${buildEditionOverlayAppendix(input.edition)}`;
 
     const contentParts: Array<
       | { type: 'text'; text: string }

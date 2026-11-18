@@ -228,7 +228,10 @@ export function registerEvaluateRoutes(
       );
     }
 
-    let effectivePayload = payload;
+    let effectivePayload = {
+      ...payload,
+      edition: payload.edition ?? env.EDITION,
+    };
     if (db) {
       const edition = env.EDITION === 'irn' ? 'irn' : 'glb';
       const [packRow] = await db
@@ -290,7 +293,7 @@ export function registerEvaluateRoutes(
 
         if (matchedSection && matchedSection.contentText.trim().length > 0) {
           effectivePayload = {
-            ...payload,
+            ...effectivePayload,
             promptTitle: matchedSection.title || payload.promptTitle,
             promptBody: matchedSection.contentText,
           };
@@ -680,7 +683,12 @@ export function registerEvaluateRoutes(
       const jobId = randomUUID();
       const executionGeneration = 1;
       const dispatchKey = `${payload.attemptId}:gen:${executionGeneration}`;
-      const jobPayload = { jobId, executionGeneration, ...payload };
+      const jobPayload = {
+        jobId,
+        executionGeneration,
+        ...payload,
+        edition: payload.edition ?? env.EDITION,
+      };
 
       try {
         await db.transaction(async (tx) => {
@@ -1195,6 +1203,7 @@ export function registerEvaluateRoutes(
       // Generate question-generic explanation using authoritative DB metadata (`RR-18`, `TD-59`).
       const generatedExplanation = await explainQuestionGraph.invoke({
         ...payload,
+        edition: payload.edition ?? env.EDITION,
         packVersion: authoritativePackVersion,
         questionType: qRow.questionType,
         skill: authoritativeSkill,

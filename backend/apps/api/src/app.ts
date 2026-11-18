@@ -18,6 +18,7 @@ import { type RequestVariables, requestIdMiddleware } from './middleware/request
 import { registerAccountRoutes } from './routes/account.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerAuthRoutes } from './routes/auth.js';
+import { registerWebBillingRoutes } from './routes/billing.js';
 import { registerCatalogRoutes } from './routes/catalog.js';
 import { registerDiagnosticRoutes } from './routes/diagnostic.js';
 import { registerEvaluateRoutes } from './routes/evaluate.js';
@@ -31,6 +32,8 @@ import { registerUploadRoutes } from './routes/uploads.js';
 import { registerBillingWebhookRoutes } from './routes/webhooks-revenuecat.js';
 import type { VerifyProviderTokenFn } from './services/provider-verify.js';
 import { createSessionManager } from './services/session-manager.js';
+import type { OtpChallengeService } from './services/sms-gateway.js';
+import type { WebBillingService } from './services/web-billing.js';
 
 export interface ApiAppDependencies {
   db?: MockzaDb;
@@ -40,6 +43,8 @@ export interface ApiAppDependencies {
   isQueueReady?: () => boolean;
   verifyProviderToken?: VerifyProviderTokenFn;
   verifyAttestationProof?: VerifyAttestationProofFn;
+  otpService?: OtpChallengeService;
+  webBillingService?: WebBillingService;
 }
 
 export function createApiApp(
@@ -80,7 +85,15 @@ export function createApiApp(
     );
   });
 
-  app.use('*', cors());
+  app.use(
+    '*',
+    cors({
+      origin: (origin) => origin || '*',
+      credentials: true,
+      allowHeaders: ['Content-Type', 'Authorization', 'X-Mockza-Edition', 'X-Attest-Proof'],
+      allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    }),
+  );
   app.use('*', requestIdMiddleware);
   app.use(
     '/v1/*',
@@ -106,7 +119,9 @@ export function createApiApp(
     challengeStore,
     verifyProviderToken: deps.verifyProviderToken,
     sessionManager,
+    otpService: deps.otpService,
   });
+  registerWebBillingRoutes(app, env, deps.db, sessionManager, deps.webBillingService);
   registerUploadRoutes(app, env, deps.db, deps.s3Client);
   registerMediaRoutes(app, env, deps.s3Client);
   registerContentRoutes(app, env, deps.db);

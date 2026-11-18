@@ -11,7 +11,7 @@ import { EvaluationModelError } from '../errors.js';
 import { OpenRouterClient } from '../models/openrouter.js';
 import { MODEL_REGISTRY } from '../models/registry.js';
 import { renderPromptFromYaml } from '../prompts/loader.js';
-import { buildSpeakingRubricAppendix } from '../prompts/rubrics.js';
+import { buildEditionOverlayAppendix, buildSpeakingRubricAppendix } from '../prompts/rubrics.js';
 import { validateAndExtractCriterionBands } from './rubric-validation.js';
 
 export type SpeakingGraphInput = z.infer<typeof EvaluateSpeakingRequestSchema> & {
@@ -55,7 +55,10 @@ export function evaluateSpeakingDemoOnly(input: SpeakingGraphInput): SpeakingGra
       label: c.label,
       band: baseScore,
       evidenceExcerpt: 'Demo response segment.',
-      feedbackNote: 'Demo preview output (AI grading key not enabled).',
+      feedbackNote:
+        input.edition === 'irn'
+          ? 'خروجی پیش‌نمایش دمو (کلید ارزیابی هوشمند فعال نیست).'
+          : 'Demo preview output (AI grading key not enabled).',
     })),
     transcriptSegments: [
       {
@@ -134,7 +137,10 @@ export const gradeSpeakingGraph = {
       turnPrompts: promptDescriptions,
     });
     const promptAppendix = buildSpeakingRubricAppendix(examId);
-    const promptText = promptAppendix ? `${basePromptText}\n${promptAppendix}` : basePromptText;
+    const editionOverlay = buildEditionOverlayAppendix(input.edition);
+    const promptText = [basePromptText, promptAppendix, editionOverlay]
+      .filter((part) => part.trim().length > 0)
+      .join('\n');
 
     // STRICT PART ORDERING: input_audio placed BEFORE text prompt per B5.2
     const contentParts: Array<

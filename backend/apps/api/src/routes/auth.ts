@@ -12,6 +12,9 @@ import {
   LinkAccountResponseSchema,
   LogoutResponseSchema,
   OAuthSignInRequestSchema,
+  OtpRequestResponseSchema,
+  OtpRequestSchema,
+  OtpVerifyRequestSchema,
 } from '@mockza/contracts';
 import type { MockzaDb } from '@mockza/db';
 import type { Context } from 'hono';
@@ -37,12 +40,18 @@ import {
   DeviceSlotLimitError,
   type SessionManager,
 } from '../services/session-manager.js';
+import {
+  createOtpChallengeService,
+  type OtpChallengeService,
+  SmsGatewayError,
+} from '../services/sms-gateway.js';
 import { reconcilePendingWebhooksForIdentities } from './webhooks-revenuecat.js';
 
 export interface AuthRouteDeps {
   challengeStore: ChallengeStore;
   verifyProviderToken?: VerifyProviderTokenFn;
   sessionManager?: SessionManager;
+  otpService?: OtpChallengeService;
 }
 
 function buildDeviceContext(
@@ -122,6 +131,16 @@ function mapAuthErrorResponse(
       err.status,
     );
   }
+  if (err instanceof SmsGatewayError) {
+    return c.json(
+      {
+        code: err.code,
+        message: err.message,
+        requestId,
+      },
+      err.status,
+    );
+  }
   return null;
 }
 
@@ -132,6 +151,7 @@ export function registerAuthRoutes(
   deps: AuthRouteDeps,
 ): void {
   const sessionManager = deps.sessionManager ?? createSessionManager(env, db);
+  const otpService = deps.otpService ?? createOtpChallengeService(env, db);
   const verifyProvider = deps.verifyProviderToken ?? verifyProviderIdToken;
   const trustedProxyIps = new Set(
     (env.TRUSTED_PROXY_IPS ?? '127.0.0.1,::1')
@@ -154,6 +174,14 @@ export function registerAuthRoutes(
     const googleMode =
       googleIds.length > 0 ? 'oidc' : devSandboxEnabled ? 'dev_sandbox' : 'disabled';
     const appleMode = appleIds.length > 0 ? 'oidc' : devSandboxEnabled ? 'dev_sandbox' : 'disabled';
+    const smsOtpMode =
+      env.EDITION !== 'irn'
+        ? 'disabled'
+        : env.KAVENEGAR_API_KEY.trim().length > 0
+          ? 'kavenegar'
+          : devSandboxEnabled
+            ? 'dev_sandbox'
+            : 'disabled';
 
     return c.json(
       AuthProvidersResponseSchema.parse({
@@ -167,6 +195,10 @@ export function registerAuthRoutes(
           enabled: appleMode !== 'disabled',
           mode: appleMode,
           ...(appleIds[0] ? { clientId: appleIds[0] } : {}),
+        },
+        smsOtp: {
+          enabled: smsOtpMode !== 'disabled',
+          mode: smsOtpMode,
         },
         devicePolicy: {
           maxMobilePhones: 1,
@@ -265,8 +297,16 @@ export function registerAuthRoutes(
       );
     }
 
-    const { email, password, displayName, deviceId, deviceSecret, appVersion, deviceMeta } =
-      parsed.data;
+    const {
+      email,
+      password,
+      displayName,
+      deviceId,
+      deviceSecret,
+      appVersion,
+      deviceMeta,
+      replaceSessionId,
+    } = parsed.data;
     try {
       const bundle = await sessionManager.registerWithEmail({
         email,
@@ -277,6 +317,7 @@ export function registerAuthRoutes(
         authHeader: c.req.header('authorization'),
         appVersion,
         deviceCtx: buildDeviceContext(c, trustedProxyIps, deviceMeta),
+        replaceSessionId,
       });
 
       if (db) {
@@ -331,7 +372,8 @@ export function registerAuthRoutes(
       );
     }
 
-    const { email, password, deviceId, deviceSecret, appVersion, deviceMeta } = parsed.data;
+    const { email, password, deviceId, deviceSecret, appVersion, deviceMeta, replaceSessionId } =
+      parsed.data;
     try {
       const bundle = await sessionManager.loginWithEmail({
         email,
@@ -341,6 +383,7 @@ export function registerAuthRoutes(
         authHeader: c.req.header('authorization'),
         appVersion,
         deviceCtx: buildDeviceContext(c, trustedProxyIps, deviceMeta),
+        replaceSessionId,
       });
 
       if (db) {
@@ -395,8 +438,16 @@ export function registerAuthRoutes(
       );
     }
 
-    const { provider, idToken, displayName, deviceId, deviceSecret, appVersion, deviceMeta } =
-      parsed.data;
+    const {
+      provider,
+      idToken,
+      displayName,
+      deviceId,
+      deviceSecret,
+      appVersion,
+      deviceMeta,
+      replaceSessionId,
+    } = parsed.data;
     try {
       const claims = await verifyProvider({ provider, idToken, env });
       const bundle = await sessionManager.authenticateOAuth({
@@ -407,6 +458,7 @@ export function registerAuthRoutes(
         authHeader: c.req.header('authorization'),
         appVersion,
         deviceCtx: buildDeviceContext(c, trustedProxyIps, deviceMeta),
+        replaceSessionId,
       });
 
       if (db) {
@@ -437,6 +489,142 @@ export function registerAuthRoutes(
         },
         401,
       );
+    }
+  });
+
+  // POST /v1/auth/otp/request (IRN +98 SMS OTP challenge)
+  app.post('/v1/auth/otp/request', strictAuthRateLimit, async (c) => {
+    if (env.EDITION !== 'irn') {
+      return c.json(
+        {
+          code: 'edition_forbidden',
+          message: 'SMS OTP authentication is only available in the IRN (Sanjia) edition.',
+          requestId: c.get('requestId'),
+        },
+        403,
+      );
+    }
+
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json(
+        {
+          code: 'validation_error',
+          message: 'Valid JSON OTP request payload required.',
+          requestId: c.get('requestId'),
+        },
+        400,
+      );
+    }
+
+    const parsed = OtpRequestSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return c.json(
+        {
+          code: 'validation_error',
+          message: 'Valid Iranian mobile number (+989XXXXXXXXX) is required.',
+          requestId: c.get('requestId'),
+        },
+        400,
+      );
+    }
+
+    try {
+      const outcome = await otpService.requestOtp({ phoneE164: parsed.data.phoneE164 });
+      return c.json(OtpRequestResponseSchema.parse(outcome), 200);
+    } catch (err) {
+      const mapped = mapAuthErrorResponse(c, err);
+      if (mapped) return mapped;
+      throw err;
+    }
+  });
+
+  // POST /v1/auth/otp/verify (IRN +98 SMS OTP sign-in/sign-up with strict 1+1 slot enforcement)
+  app.post('/v1/auth/otp/verify', strictAuthRateLimit, async (c) => {
+    if (env.EDITION !== 'irn') {
+      return c.json(
+        {
+          code: 'edition_forbidden',
+          message: 'SMS OTP verification is only available in the IRN (Sanjia) edition.',
+          requestId: c.get('requestId'),
+        },
+        403,
+      );
+    }
+
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json(
+        {
+          code: 'validation_error',
+          message: 'Valid JSON OTP verification payload required.',
+          requestId: c.get('requestId'),
+        },
+        400,
+      );
+    }
+
+    const parsed = OtpVerifyRequestSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return c.json(
+        {
+          code: 'validation_error',
+          message: 'Provide a valid +989XXXXXXXXX phone number, OTP code, and deviceId.',
+          requestId: c.get('requestId'),
+        },
+        400,
+      );
+    }
+
+    const {
+      phoneE164,
+      otpCode,
+      displayName,
+      deviceId,
+      deviceSecret,
+      appVersion,
+      deviceMeta,
+      replaceSessionId,
+    } = parsed.data;
+
+    try {
+      await otpService.verifyOtp({ phoneE164, otpCode });
+      const bundle = await sessionManager.authenticateSmsOtp({
+        phoneE164,
+        displayName,
+        deviceId,
+        deviceSecret,
+        authHeader: c.req.header('authorization'),
+        appVersion,
+        deviceCtx: buildDeviceContext(c, trustedProxyIps, deviceMeta),
+        replaceSessionId,
+      });
+
+      if (db) {
+        const reconciled = await reconcilePendingWebhooksForIdentities(db, [
+          deviceId,
+          bundle.user.userId,
+        ]);
+        if (reconciled > 0) {
+          const refreshed = await sessionManager.getAccountSessions({
+            deviceId,
+            userId: bundle.user.userId,
+          });
+          if (refreshed.user) {
+            bundle.user = refreshed.user;
+          }
+        }
+      }
+
+      return c.json(AuthSessionResponseSchema.parse(bundle), 200);
+    } catch (err) {
+      const mapped = mapAuthErrorResponse(c, err);
+      if (mapped) return mapped;
+      throw err;
     }
   });
 

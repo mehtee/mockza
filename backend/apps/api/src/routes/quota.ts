@@ -47,6 +47,9 @@ export function registerQuotaRoutes(
       return c.json(
         QuotaStatusResponseSchema.parse({
           isPro: status.isPro,
+          activePlanId: status.activePlanId,
+          expiresAt: status.expiresAt,
+          source: status.source,
           freeDiagnosticUsed: status.freeDiagnosticUsed,
           dailySpeakingUsed: status.speakingUsedToday,
           dailySpeakingLimit: status.isPro ? 10 : status.freeDiagnosticUsed ? 0 : 1,
@@ -61,20 +64,30 @@ export function registerQuotaRoutes(
       );
     }
 
-    const isProMemory = sessionManager
-      ? await sessionManager.isUserOrDevicePro({ deviceId, accountKey })
-      : false;
+    const memSnap = sessionManager?.getMemoryEntitlementSnapshot
+      ? sessionManager.getMemoryEntitlementSnapshot({ deviceId, accountKey })
+      : {
+          isPro: sessionManager
+            ? await sessionManager.isUserOrDevicePro({ deviceId, accountKey })
+            : false,
+          activePlanId: null,
+          expiresAt: null,
+          source: 'none' as const,
+        };
 
     return c.json(
       QuotaStatusResponseSchema.parse({
-        isPro: isProMemory,
+        isPro: memSnap.isPro,
+        activePlanId: memSnap.activePlanId,
+        expiresAt: memSnap.expiresAt,
+        source: memSnap.source,
         freeDiagnosticUsed: false,
         dailySpeakingUsed: 0,
-        dailySpeakingLimit: isProMemory ? 10 : 1,
+        dailySpeakingLimit: memSnap.isPro ? 10 : 1,
         dailyWritingUsed: 0,
-        dailyWritingLimit: isProMemory ? 10 : 1,
+        dailyWritingLimit: memSnap.isPro ? 10 : 1,
         monthlyUsed: 0,
-        monthlyLimit: isProMemory ? 150 : 1,
+        monthlyLimit: memSnap.isPro ? 150 : 1,
         dailyResetAt: getNextUtcDayReset(),
         monthlyResetAt: getNextUtcMonthReset(),
       }),

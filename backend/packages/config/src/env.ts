@@ -67,6 +67,16 @@ export const BaseEnvSchema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((v) => v === 'true'),
+  STRIPE_SECRET_KEY: z.string().default(''),
+  STRIPE_WEBHOOK_SECRET: z.string().default(''),
+  ZARINPAL_MERCHANT_ID: z.string().default(''),
+  ZARINPAL_SANDBOX: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+  KAVENEGAR_API_KEY: z.string().default(''),
+  KAVENEGAR_OTP_TEMPLATE: z.string().default('mockza-verify'),
+  WEB_PUBLIC_BASE_URL: z.string().default('http://127.0.0.1:45280'),
   CAFEBAZAAR_SECRET: z.string().default(''),
   MYKET_SECRET: z.string().default(''),
   MAX_AUDIO_MB: z.coerce.number().positive().max(25).default(5),

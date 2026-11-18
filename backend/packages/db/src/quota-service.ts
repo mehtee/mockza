@@ -54,6 +54,8 @@ export async function getAccountQuotaStatus(params: {
   const entRows = await params.db
     .select({
       isPro: entitlements.isPro,
+      provider: entitlements.provider,
+      productId: entitlements.productId,
       expiresAt: entitlements.expiresAt,
       graceUntil: entitlements.graceUntil,
     })
@@ -71,6 +73,8 @@ export async function getAccountQuotaStatus(params: {
     ? await params.db
         .select({
           isPro: userEntitlements.isPro,
+          provider: userEntitlements.provider,
+          productId: userEntitlements.productId,
           expiresAt: userEntitlements.expiresAt,
           graceUntil: userEntitlements.graceUntil,
         })
@@ -81,7 +85,23 @@ export async function getAccountQuotaStatus(params: {
   const isEntActive = (e: { isPro: boolean; expiresAt: Date | null; graceUntil: Date | null }) =>
     e.isPro && (!e.expiresAt || e.expiresAt > now || Boolean(e.graceUntil && e.graceUntil > now));
 
-  const isPro = entRows.some(isEntActive) || userEntRows.some(isEntActive);
+  const activeUserEnt = userEntRows.find(isEntActive);
+  const activeDevEnt = entRows.find(isEntActive);
+  const primaryActiveEnt = activeUserEnt ?? activeDevEnt;
+  const isPro = Boolean(primaryActiveEnt);
+  const VALID_SOURCES = new Set([
+    'revenuecat',
+    'stripe',
+    'zarinpal',
+    'bazaar',
+    'myket',
+    'dev_sandbox',
+    'none',
+  ]);
+  const rawSource = primaryActiveEnt?.provider;
+  const source = (
+    rawSource && VALID_SOURCES.has(rawSource) ? rawSource : isPro ? 'revenuecat' : 'none'
+  ) as 'revenuecat' | 'stripe' | 'zarinpal' | 'bazaar' | 'myket' | 'dev_sandbox' | 'none';
 
   const dailyKey = `${params.accountKey}:${utcDay}`;
   const dailyRows = await params.db
@@ -109,6 +129,9 @@ export async function getAccountQuotaStatus(params: {
 
   return {
     isPro,
+    activePlanId: primaryActiveEnt?.productId ?? null,
+    expiresAt: primaryActiveEnt?.expiresAt ? primaryActiveEnt.expiresAt.toISOString() : null,
+    source,
     freeDiagnosticUsed,
     freeRapidDiagnosticUsed,
     speakingUsedToday,

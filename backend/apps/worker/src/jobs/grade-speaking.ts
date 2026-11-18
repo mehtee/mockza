@@ -162,10 +162,13 @@ export async function handleGradeSpeakingJob(
       followUpPrompt?: string;
     };
     const isDiagnosticTask = (rawPayload.partSequence as string) === 'diagnostic';
+    const effectiveEdition =
+      rawPayload.edition ?? (process.env['EDITION'] === 'irn' ? 'irn' : 'glb');
     const result = isDiagnosticTask
       ? await gradeSpeakingDiagnosticGraph.invoke(
           {
             attemptId: rawPayload.attemptId,
+            edition: effectiveEdition,
             basePrompt: rawPayload.basePrompt ?? rawPayload.turns?.[0]?.promptText ?? '',
             followUpPrompt: rawPayload.followUpPrompt ?? rawPayload.turns?.[1]?.promptText,
             turnAudios,
@@ -175,6 +178,7 @@ export async function handleGradeSpeakingJob(
       : await gradeSpeakingGraph.invoke(
           {
             ...payload,
+            edition: effectiveEdition,
             turnAudios,
           },
           invokeOptions,
