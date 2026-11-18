@@ -23,6 +23,7 @@ import { WelcomeScreen } from '@/spa/features/onboarding/WelcomeScreen';
 import { PaywallScreen } from '@/spa/features/paywall/PaywallScreen';
 import { ListeningSimulatorScreen } from '@/spa/features/practice/ListeningSimulatorScreen';
 import { ReadingSimulatorScreen } from '@/spa/features/practice/ReadingSimulatorScreen';
+import { WritingSimulatorScreen } from '@/spa/features/practice/WritingSimulatorScreen';
 import { ObjectiveResultScreen } from '@/spa/features/results/ObjectiveResultScreen';
 import { SettingsScreen } from '@/spa/features/settings/SettingsScreen';
 import { useClockStore } from '@/spa/stores/clock.store';
@@ -545,14 +546,7 @@ const writingSessionRoute = createRoute({
   path: '/practice/writing/$packId',
   component: () => {
     const { packId } = writingSessionRoute.useParams();
-    return (
-      <RouteSkeletonView
-        routeId="practice-writing"
-        title="Writing Simulator"
-        description="Resizable 45%/55% prompt and distraction-free essay editor (Routes.writingSession)."
-        params={{ packId }}
-      />
-    );
+    return <WritingSimulatorScreen packId={packId} />;
   },
 });
 

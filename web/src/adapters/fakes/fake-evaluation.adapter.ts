@@ -20,11 +20,16 @@ export class FakeEvaluationAdapter implements IEvaluationGateway {
   private readonly clock: IClock;
   private readonly edition: EditionCode;
   private readonly jobs = new Map<string, JobStatusResponse>();
+  private quotaOverride: Partial<QuotaStatusSnapshot> | null = null;
   private nextCounter = 1;
 
   constructor(options: { readonly clock?: IClock; readonly edition?: EditionCode } = {}) {
     this.clock = options.clock ?? new FakeClock();
     this.edition = options.edition ?? 'glb';
+  }
+
+  setQuotaOverride(override: Partial<QuotaStatusSnapshot> | null): void {
+    this.quotaOverride = override;
   }
 
   async getQuotaStatus(): Promise<Result<QuotaStatusSnapshot, EvaluationGatewayError>> {
@@ -43,6 +48,7 @@ export class FakeEvaluationAdapter implements IEvaluationGateway {
       monthlyLimit: 150,
       dailyResetAt: nowIso,
       monthlyResetAt: nowIso,
+      ...this.quotaOverride,
     });
   }
 

@@ -179,7 +179,7 @@ describe('W1.1 TanStack Router 24-route skeleton & blocker', () => {
     ['/app/practice', 'route-skeleton-practice'],
     ['/app/practice/reading/ielts-acad-01', 'reading-simulator-screen'],
     ['/app/practice/listening/ielts-list-01', 'listening-simulator-screen'],
-    ['/app/practice/writing/toefl-email-01', 'route-skeleton-practice-writing'],
+    ['/app/practice/writing/toefl-email-01', 'writing-simulator-screen'],
     ['/app/practice/speaking/det-speak-01', 'route-skeleton-practice-speaking'],
     ['/app/practice/drills', 'route-skeleton-practice-drills'],
     ['/app/practice/full-mock', 'route-skeleton-practice-full-mock'],
