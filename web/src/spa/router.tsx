@@ -8,10 +8,13 @@ import {
   createRoute,
   createRouter,
   useBlocker,
+  useRouterState,
 } from '@tanstack/react-router';
 import { getActiveEditionCode, getActiveEditionDir } from '@/edition/edition-config';
 import { createTranslator } from '@/i18n';
 import { AuthScreen } from '@/spa/features/auth/AuthScreen';
+import { PaywallScreen } from '@/spa/features/paywall/PaywallScreen';
+import { SettingsScreen } from '@/spa/features/settings/SettingsScreen';
 import { useClockStore } from '@/spa/stores/clock.store';
 import { useLayoutStore } from '@/spa/stores/layout.store';
 
@@ -781,25 +784,16 @@ const compareAttemptsRoute = createRoute({
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings',
-  component: () => (
-    <RouteSkeletonView
-      routeId="settings"
-      title="Settings"
-      description="Account, active 1+1 devices, track, theme presets, audio, and cache manager (Routes.settings)."
-    />
-  ),
+  component: () => <SettingsScreen />,
 });
 
 const paywallRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/paywall',
-  component: () => (
-    <RouteSkeletonView
-      routeId="paywall"
-      title="Pro Plans & Paywall"
-      description="Free vs Pro comparison, 1+1 ToS consent, and edition checkout (Routes.paywall)."
-    />
-  ),
+  component: () => {
+    const searchStr = useRouterState({ select: (s) => s.location.searchStr });
+    return <PaywallScreen callbackSearch={searchStr} />;
+  },
 });
 
 const routeTree = rootRoute.addChildren([

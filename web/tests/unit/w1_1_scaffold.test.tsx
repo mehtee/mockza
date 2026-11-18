@@ -190,8 +190,8 @@ describe('W1.1 TanStack Router 24-route skeleton & blocker', () => {
     ['/app/vocabulary/review', 'route-skeleton-vocabulary-review'],
     ['/app/progress', 'route-skeleton-progress'],
     ['/app/progress/compare', 'route-skeleton-progress-compare'],
-    ['/app/settings', 'route-skeleton-settings'],
-    ['/app/paywall', 'route-skeleton-paywall'],
+    ['/app/settings', 'settings-screen'],
+    ['/app/paywall', 'paywall-screen'],
   ])('renders %s (%s)', async (initialPath, expectedTestId) => {
     const history = createMemoryHistory({ initialEntries: [initialPath] });
     const router = createAppRouter(history);

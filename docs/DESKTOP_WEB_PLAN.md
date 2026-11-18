@@ -659,7 +659,7 @@ To ensure AI answer engines accurately cite **Mockza** (globally) and **Sanjia /
 - **`W2.2` Desktop Auth UI & `409 DEVICE_SLOT_OCCUPIED` Takeover Flow (`/app/auth/login`):** — **DONE** (2026-11-18)
   - Implement Email/Password + Google + Apple (`GLB`, including `ALLOW_DEV_AUTH_PROVIDERS` 1-click dev mode) and `+98` SMS OTP + Email (`IRN`), sending `slotKind: 'desktop_web'` & `appSurface: 'web_app'`.
   - Build the `409 DEVICE_SLOT_OCCUPIED` resolution dialog (*"Sign out previous desktop browser & continue here"*) and `401 SESSION_REVOKED` banner.
-- **`W2.3` Settings Active Devices Manager & Paywall Checkout (`/app/settings`, `/app/paywall`):**
+- **`W2.3` Settings Active Devices Manager & Paywall Checkout (`/app/settings`, `/app/paywall`):** — **DONE** (2026-11-18)
   - Build Active Devices panel showing both `Mobile Phone` and `Desktop Web` slots (device name, location, current-device badge, remote revoke button).
   - Build Paywall with mandatory `1 Phone + 1 Desktop Web` ToS consent checkbox and `IBillingGateway` adapters (`Stripe/RevenueCat Web` for `GLB`; `Zarinpal` integer-Rial/Toman display for `IRN`).
 

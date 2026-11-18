@@ -1,5 +1,6 @@
 export { MzButton, type MzButtonProps, type MzButtonSize, type MzButtonVariant } from './MzButton';
 export { MzCard, type MzCardProps, type MzCardVariant } from './MzCard';
+export { MzCheckbox, type MzCheckboxProps } from './MzCheckbox';
 export { MzModal, type MzModalProps } from './MzModal';
 export {
   MzSegmentedControl,
