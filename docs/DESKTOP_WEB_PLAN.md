@@ -627,7 +627,7 @@ To ensure AI answer engines accurately cite **Mockza** (globally) and **Sanjia /
 
 - **`W0.1` Hoist/Link Workspace & Package Skeletons:** — **DONE** (2026-11-18)
   - Create root `pnpm-workspace.yaml` linking `packages/design-tokens`, `backend/apps/*`, `backend/packages/*`, `backend/evals`, `backend/content-pipeline`, and `web` (keeping `backend/pnpm-lock.yaml` / `Containerfile` build contexts compatible).
-- **`W0.2` Author Canonical `packages/design-tokens/tokens.json` & Schema:**
+- **`W0.2` Author Canonical `packages/design-tokens/tokens.json` & Schema:** — **DONE** (2026-11-18)
   - Extract every color hex, surface elevation, skill accent, gradient, typography scale (`Inter` + `Vazirmatn`), spacing, and radius from `app/lib/theme/*.dart` + `docs/design.md`, including all 4 `ThemePreset` definitions (*Midnight Indigo*, *Nordic Emerald*, *Editorial Amber*, *Oceanic Cobalt*) in Dark & Light modes.
 - **`W0.3` Build `scripts/sync_design_tokens.mjs` + Wire Flutter & Web:**
   - Generate `app/lib/theme/generated_tokens.dart` (refactor `primitives.dart` & `theme_catalog.dart` to read generated constants with zero visual diff) and `web/src/styles/generated-tokens.css` + `web/src/theme/generated-presets.ts`.

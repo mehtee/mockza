@@ -7,11 +7,18 @@
     ".": {
       "types": "./src/index.ts",
       "development": "./src/index.ts",
-      "default": "./dist/index.js"
-    }
+      "default": "./dist/src/index.js"
+    },
+    "./tokens.json": "./tokens.json",
+    "./tokens.schema.json": "./tokens.schema.json"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@cfworker/json-schema": "4.1.6",
+    "vitest": "^3.1.3"
   }
 }

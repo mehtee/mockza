@@ -1,0 +1,584 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mockza.com/schemas/design-tokens.schema.json",
+  "title": "Mockza Design Tokens",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "defaults",
+    "primitives",
+    "presets",
+    "typography",
+    "spacing",
+    "shapes",
+    "elevation",
+    "motion",
+    "breakpoints"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["presetId", "mode"],
+      "properties": {
+        "presetId": {
+          "$ref": "#/$defs/presetId"
+        },
+        "mode": {
+          "enum": ["dark", "light"]
+        }
+      }
+    },
+    "primitives": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/hexColorOrAlpha"
+      }
+    },
+    "presets": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "$ref": "#/$defs/preset"
+      },
+      "allOf": [
+        {
+          "contains": {
+            "type": "object",
+            "required": ["id"],
+            "properties": { "id": { "const": "midnight_indigo" } }
+          }
+        },
+        {
+          "contains": {
+            "type": "object",
+            "required": ["id"],
+            "properties": { "id": { "const": "nordic_emerald" } }
+          }
+        },
+        {
+          "contains": {
+            "type": "object",
+            "required": ["id"],
+            "properties": { "id": { "const": "editorial_amber" } }
+          }
+        },
+        {
+          "contains": {
+            "type": "object",
+            "required": ["id"],
+            "properties": { "id": { "const": "oceanic_cobalt" } }
+          }
+        }
+      ]
+    },
+    "typography": {
+      "$ref": "#/$defs/typography"
+    },
+    "spacing": {
+      "$ref": "#/$defs/spacing"
+    },
+    "shapes": {
+      "$ref": "#/$defs/shapes"
+    },
+    "elevation": {
+      "$ref": "#/$defs/elevation"
+    },
+    "motion": {
+      "$ref": "#/$defs/motion"
+    },
+    "breakpoints": {
+      "$ref": "#/$defs/breakpoints"
+    }
+  },
+  "$defs": {
+    "hexColor": {
+      "type": "string",
+      "pattern": "^#[0-9A-F]{6}$"
+    },
+    "hexColorOrAlpha": {
+      "type": "string",
+      "pattern": "^#([0-9A-F]{6}|[0-9A-F]{8})$"
+    },
+    "presetId": {
+      "type": "string",
+      "enum": ["midnight_indigo", "nordic_emerald", "editorial_amber", "oceanic_cobalt"]
+    },
+    "unitPoint2D": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "number",
+        "minimum": -1,
+        "maximum": 1
+      }
+    },
+    "gradientSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["colors", "stops", "begin", "end", "cssAngleDeg"],
+      "properties": {
+        "colors": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/$defs/hexColor"
+          }
+        },
+        "stops": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 4,
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "begin": {
+          "$ref": "#/$defs/unitPoint2D"
+        },
+        "end": {
+          "$ref": "#/$defs/unitPoint2D"
+        },
+        "cssAngleDeg": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 360
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "colors": { "minItems": 2, "maxItems": 2 },
+            "stops": {
+              "minItems": 2,
+              "maxItems": 2,
+              "prefixItems": [{ "const": 0 }, { "const": 1 }]
+            }
+          }
+        },
+        {
+          "properties": {
+            "colors": { "minItems": 3, "maxItems": 3 },
+            "stops": {
+              "minItems": 3,
+              "maxItems": 3,
+              "prefixItems": [
+                { "const": 0 },
+                { "type": "number", "minimum": 0, "maximum": 1 },
+                { "const": 1 }
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "colors": { "minItems": 4, "maxItems": 4 },
+            "stops": {
+              "minItems": 4,
+              "maxItems": 4,
+              "prefixItems": [
+                { "const": 0 },
+                { "type": "number", "minimum": 0, "maximum": 1 },
+                { "type": "number", "minimum": 0, "maximum": 1 },
+                { "const": 1 }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "semanticColors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "background",
+        "bgRaised",
+        "surface",
+        "surfaceAlt",
+        "surfaceHover",
+        "borderSubtle",
+        "borderStrong",
+        "textPrimary",
+        "textSecondary",
+        "textTertiary",
+        "primary",
+        "primaryPressed",
+        "onPrimary",
+        "focus",
+        "speakingAccent",
+        "writingAccent",
+        "readingAccent",
+        "listeningAccent",
+        "vocabAccent",
+        "success",
+        "warning",
+        "error",
+        "track",
+        "mintBg",
+        "amberBg",
+        "dangerBg",
+        "blueBg",
+        "violetBg"
+      ],
+      "properties": {
+        "background": { "$ref": "#/$defs/hexColor" },
+        "bgRaised": { "$ref": "#/$defs/hexColor" },
+        "surface": { "$ref": "#/$defs/hexColor" },
+        "surfaceAlt": { "$ref": "#/$defs/hexColor" },
+        "surfaceHover": { "$ref": "#/$defs/hexColor" },
+        "borderSubtle": { "$ref": "#/$defs/hexColor" },
+        "borderStrong": { "$ref": "#/$defs/hexColor" },
+        "textPrimary": { "$ref": "#/$defs/hexColor" },
+        "textSecondary": { "$ref": "#/$defs/hexColor" },
+        "textTertiary": { "$ref": "#/$defs/hexColor" },
+        "primary": { "$ref": "#/$defs/hexColor" },
+        "primaryPressed": { "$ref": "#/$defs/hexColor" },
+        "onPrimary": { "$ref": "#/$defs/hexColor" },
+        "focus": { "$ref": "#/$defs/hexColor" },
+        "speakingAccent": { "$ref": "#/$defs/hexColor" },
+        "writingAccent": { "$ref": "#/$defs/hexColor" },
+        "readingAccent": { "$ref": "#/$defs/hexColor" },
+        "listeningAccent": { "$ref": "#/$defs/hexColor" },
+        "vocabAccent": { "$ref": "#/$defs/hexColor" },
+        "success": { "$ref": "#/$defs/hexColor" },
+        "warning": { "$ref": "#/$defs/hexColor" },
+        "error": { "$ref": "#/$defs/hexColor" },
+        "track": { "$ref": "#/$defs/hexColor" },
+        "mintBg": { "$ref": "#/$defs/hexColor" },
+        "amberBg": { "$ref": "#/$defs/hexColor" },
+        "dangerBg": { "$ref": "#/$defs/hexColor" },
+        "blueBg": { "$ref": "#/$defs/hexColor" },
+        "violetBg": { "$ref": "#/$defs/hexColor" }
+      }
+    },
+    "modePalette": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["colors", "gradients"],
+      "properties": {
+        "colors": {
+          "$ref": "#/$defs/semanticColors"
+        },
+        "gradients": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["primaryButton", "scoreFill", "heroCard", "recommendationCard"],
+          "properties": {
+            "primaryButton": { "$ref": "#/$defs/gradientSpec" },
+            "scoreFill": { "$ref": "#/$defs/gradientSpec" },
+            "heroCard": { "$ref": "#/$defs/gradientSpec" },
+            "recommendationCard": { "$ref": "#/$defs/gradientSpec" }
+          }
+        }
+      }
+    },
+    "preset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "displayName", "description", "preview", "modes"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/presetId"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "preview": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["primary", "accent", "backgroundDark"],
+          "properties": {
+            "primary": { "$ref": "#/$defs/hexColor" },
+            "accent": { "$ref": "#/$defs/hexColor" },
+            "backgroundDark": { "$ref": "#/$defs/hexColor" }
+          }
+        },
+        "modes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["dark", "light"],
+          "properties": {
+            "dark": { "$ref": "#/$defs/modePalette" },
+            "light": { "$ref": "#/$defs/modePalette" }
+          }
+        }
+      }
+    },
+    "typographyRole": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fontRole",
+        "fontSize",
+        "fontWeight",
+        "lineHeight",
+        "letterSpacingPx",
+        "tabularNums",
+        "colorToken"
+      ],
+      "properties": {
+        "fontRole": {
+          "enum": ["sans", "mono"]
+        },
+        "fontSize": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "fontWeight": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 900
+        },
+        "lineHeight": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "letterSpacingPx": {
+          "type": ["number", "null"]
+        },
+        "tabularNums": {
+          "type": "boolean"
+        },
+        "colorToken": {
+          "enum": ["textPrimary", "textSecondary", "textTertiary"]
+        }
+      }
+    },
+    "typography": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fontFamilies", "roles", "aliases"],
+      "properties": {
+        "fontFamilies": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["flutterSans", "sansEn", "sansFa", "monoExam"],
+          "properties": {
+            "flutterSans": { "type": "string", "minLength": 1 },
+            "sansEn": { "type": "string", "minLength": 1 },
+            "sansFa": { "type": "string", "minLength": 1 },
+            "monoExam": { "type": "string", "minLength": 1 }
+          }
+        },
+        "roles": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "heroScore",
+            "headline",
+            "sectionHeading",
+            "cardTitle",
+            "cardScore",
+            "body",
+            "secondary",
+            "caption",
+            "readingPassage",
+            "timerMono"
+          ],
+          "properties": {
+            "heroScore": { "$ref": "#/$defs/typographyRole" },
+            "headline": { "$ref": "#/$defs/typographyRole" },
+            "sectionHeading": { "$ref": "#/$defs/typographyRole" },
+            "cardTitle": { "$ref": "#/$defs/typographyRole" },
+            "cardScore": { "$ref": "#/$defs/typographyRole" },
+            "body": { "$ref": "#/$defs/typographyRole" },
+            "secondary": { "$ref": "#/$defs/typographyRole" },
+            "caption": { "$ref": "#/$defs/typographyRole" },
+            "readingPassage": { "$ref": "#/$defs/typographyRole" },
+            "timerMono": { "$ref": "#/$defs/typographyRole" }
+          }
+        },
+        "aliases": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["bandDisplay", "title"],
+          "properties": {
+            "bandDisplay": {
+              "type": "string",
+              "enum": [
+                "heroScore",
+                "headline",
+                "sectionHeading",
+                "cardTitle",
+                "cardScore",
+                "body",
+                "secondary",
+                "caption",
+                "readingPassage",
+                "timerMono"
+              ]
+            },
+            "title": {
+              "type": "string",
+              "enum": [
+                "heroScore",
+                "headline",
+                "sectionHeading",
+                "cardTitle",
+                "cardScore",
+                "body",
+                "secondary",
+                "caption",
+                "readingPassage",
+                "timerMono"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "spacing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "xs",
+        "sm",
+        "md",
+        "lg",
+        "pageInset",
+        "xl",
+        "sectionSep",
+        "xxl",
+        "heroSep",
+        "minTouchTarget",
+        "bottomNavHeight",
+        "maxContentWidth"
+      ],
+      "properties": {
+        "xs": { "type": "integer", "minimum": 0 },
+        "sm": { "type": "integer", "minimum": 0 },
+        "md": { "type": "integer", "minimum": 0 },
+        "lg": { "type": "integer", "minimum": 0 },
+        "pageInset": { "type": "integer", "minimum": 0 },
+        "xl": { "type": "integer", "minimum": 0 },
+        "sectionSep": { "type": "integer", "minimum": 0 },
+        "xxl": { "type": "integer", "minimum": 0 },
+        "heroSep": { "type": "integer", "minimum": 0 },
+        "minTouchTarget": { "type": "integer", "minimum": 0 },
+        "bottomNavHeight": { "type": "integer", "minimum": 0 },
+        "maxContentWidth": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "shapes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cardRadius",
+        "controlRadius",
+        "compactRadius",
+        "pillRadius",
+        "sheetRadius",
+        "strokeWidth"
+      ],
+      "properties": {
+        "cardRadius": { "type": "number", "minimum": 0 },
+        "controlRadius": { "type": "number", "minimum": 0 },
+        "compactRadius": { "type": "number", "minimum": 0 },
+        "pillRadius": { "type": "number", "minimum": 0 },
+        "sheetRadius": { "type": "number", "minimum": 0 },
+        "strokeWidth": { "type": "number", "minimum": 0 }
+      }
+    },
+    "elevation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["appBar", "surface", "card", "toast", "borderRule", "shadows"],
+      "properties": {
+        "appBar": { "const": 0 },
+        "surface": { "const": 0 },
+        "card": { "const": 0 },
+        "toast": { "const": 4 },
+        "borderRule": { "type": "string", "minLength": 1 },
+        "shadows": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["surface", "toastDark", "toastLight"],
+          "properties": {
+            "surface": { "type": "string", "minLength": 1 },
+            "toastDark": { "type": "string", "minLength": 1 },
+            "toastLight": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "motionCurve": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "flutter", "cubicBezier"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "flutter": { "type": "string", "minLength": 1 },
+        "cubicBezier": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "motionBundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "microDurationMs",
+        "standardDurationMs",
+        "sheetDurationMs",
+        "emphasisDurationMs",
+        "standardCurve",
+        "decelerateCurve"
+      ],
+      "properties": {
+        "microDurationMs": { "type": "integer", "minimum": 0 },
+        "standardDurationMs": { "type": "integer", "minimum": 0 },
+        "sheetDurationMs": { "type": "integer", "minimum": 0 },
+        "emphasisDurationMs": { "type": "integer", "minimum": 0 },
+        "standardCurve": { "$ref": "#/$defs/motionCurve" },
+        "decelerateCurve": { "$ref": "#/$defs/motionCurve" }
+      }
+    },
+    "motion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["standard", "reduced"],
+      "properties": {
+        "standard": { "$ref": "#/$defs/motionBundle" },
+        "reduced": { "$ref": "#/$defs/motionBundle" }
+      }
+    },
+    "breakpoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tightPhoneThreshold", "medium", "expanded", "desktopMin", "desktopMax"],
+      "properties": {
+        "tightPhoneThreshold": { "type": "integer", "exclusiveMinimum": 0 },
+        "medium": { "type": "integer", "exclusiveMinimum": 0 },
+        "expanded": { "type": "integer", "exclusiveMinimum": 0 },
+        "desktopMin": { "type": "integer", "exclusiveMinimum": 0 },
+        "desktopMax": { "type": "integer", "exclusiveMinimum": 0 }
+      }
+    }
+  }
+}
