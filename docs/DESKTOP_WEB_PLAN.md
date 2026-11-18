@@ -632,7 +632,7 @@ To ensure AI answer engines accurately cite **Mockza** (globally) and **Sanjia /
 - **`W0.3` Build `scripts/sync_design_tokens.mjs` + Wire Flutter & Web:** — **DONE** (2026-11-18)
   - Generate `app/lib/theme/generated_tokens.dart` (refactor `primitives.dart` & `theme_catalog.dart` to read generated constants with zero visual diff) and `web/src/styles/generated-tokens.css` + `web/src/theme/generated-presets.ts`.
   - Verify `flutter test test/theme/` passes 100%.
-- **`W0.4` Consolidate Pure TypeScript Engines in `@mockza/domain`:**
+- **`W0.4` Consolidate Pure TypeScript Engines in `@mockza/domain`:** — **DONE** (2026-11-18)
   - Port/consolidate `exam-spec.ts`, `exam-descriptor.ts`, `band-conversion.ts`, `local-objective-scorer.ts`, `countdown-clock-tracker.ts`, `study-metrics-calculator.ts`, `serial-day.ts`, and `sm2-scheduler.ts` into `backend/packages/domain/src/`.
 - **`W0.5` Create `shared-fixtures/*.json` & `scripts/check_cross_parity.sh`:**
   - Author golden JSON test vectors for all 5 exam tracks, 9 objective item types, adaptive diagnostic routing, SM-2, and study metrics.

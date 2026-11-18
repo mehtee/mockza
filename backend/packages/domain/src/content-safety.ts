@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 export const BANNED_CONTENT_PATTERNS: RegExp[] = [
   /\bcambridge\s+(ielts|esol|university\s+press)\b/i,
   /\bets\b/i,
@@ -7,10 +5,6 @@ export const BANNED_CONTENT_PATTERNS: RegExp[] = [
   /\bbritish\s+council\b/i,
   /\bidp\s+education\b/i,
 ];
-
-export function computeContentSha256(content: string | Buffer): string {
-  return createHash('sha256').update(content).digest('hex');
-}
 
 export function checkCleanRoomSafety(text: string): { safe: boolean; violations: string[] } {
   const violations: string[] = [];
@@ -102,7 +96,10 @@ export function extractQuestionMaxWords(params: {
   prompt?: string;
   acceptedAnswers?: string[];
 }): number | null {
-  const explicit = params.evidence?.['maxWords'];
+  const explicit =
+    params.evidence && Object.hasOwn(params.evidence, 'maxWords')
+      ? params.evidence['maxWords']
+      : undefined;
   if (typeof explicit === 'number' && Number.isFinite(explicit) && explicit > 0) {
     return Math.trunc(explicit);
   }
@@ -147,21 +144,6 @@ export function stableJsonStringify(value: unknown): string {
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableJsonStringify(v)}`).join(',')}}`;
 }
 
-/** Computes canonical SHA-256 and UTF-8 byteLength over normalized sections + questions. */
-export function computeBundleContentDigest(payload: {
-  sections: unknown[];
-  questions: unknown[];
-}): { sha256: string; byteLength: number } {
-  const canonical = stableJsonStringify({
-    sections: payload.sections,
-    questions: payload.questions,
-  });
-  return {
-    sha256: computeContentSha256(canonical),
-    byteLength: Buffer.byteLength(canonical, 'utf8'),
-  };
-}
-
 export interface BundleIntegritySectionInput {
   sectionId: string;
   sectionIndex: number;
@@ -194,18 +176,64 @@ function normalizeWs(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
-/**
- * Shared ADR-008 integrity validator used at admin upsert and publish gates (`RR-14`).
- */
-export function validateExamBundleIntegrity(params: {
+/** Builds the canonical normalized sections + questions payload used for bundle SHA-256 hashing. */
+export function buildCanonicalBundleDigestPayload(params: {
+  sections: BundleIntegritySectionInput[];
+  questions: BundleIntegrityQuestionInput[];
+}): { sections: unknown[]; questions: unknown[] } {
+  const sortedSections = [...params.sections].sort((a, b) => a.sectionIndex - b.sectionIndex);
+  const sortedQuestions = [...params.questions]
+    .map((q) => ({
+      ...q,
+      questionType: normalizeQuestionType(q.questionType),
+    }))
+    .sort((a, b) => a.questionNumber - b.questionNumber);
+
+  return {
+    sections: sortedSections.map((s) => ({
+      sectionId: s.sectionId,
+      sectionIndex: s.sectionIndex,
+      sectionType: s.sectionType,
+      title: s.title,
+      instructions: s.instructions,
+      contentText: s.contentText,
+      paragraphs: s.paragraphs ?? null,
+      transcript: s.transcript ?? null,
+      mediaUrl: s.mediaObjectKey ? `/v1/media/${s.mediaObjectKey}` : null,
+      durationSeconds: s.durationSeconds,
+      wordCount: s.wordCount,
+      metadata: s.metadata ?? null,
+    })),
+    questions: sortedQuestions.map((q) => ({
+      questionId: q.questionId,
+      sectionId: q.sectionId,
+      questionNumber: q.questionNumber,
+      questionType: q.questionType,
+      prompt: q.prompt,
+      options: q.options ?? null,
+      acceptedAnswers: q.acceptedAnswers,
+      maxWords:
+        q.maxWords ??
+        extractQuestionMaxWords({
+          evidence: q.evidence ?? null,
+          prompt: q.prompt,
+          acceptedAnswers: q.acceptedAnswers,
+        }),
+      evidence: q.evidence ?? null,
+      cueTimestampMs: q.cueTimestampMs ?? null,
+    })),
+  };
+}
+
+/** Pure structural and clean-room validation for exam bundles (shared with `@mockza/domain/node`). */
+export function validateExamBundleStructure(params: {
   packId: string;
   skill: string;
   humanQaReviewed: boolean;
-  declaredSha256?: string | null;
   rawTextForSafetyCheck?: string;
   sections: BundleIntegritySectionInput[];
   questions: BundleIntegrityQuestionInput[];
-}): { valid: boolean; errors: string[]; computedDigest: { sha256: string; byteLength: number } } {
+}): { errors: string[]; normalizedPayload: { sections: unknown[]; questions: unknown[] } } {
   const errors: string[] = [];
 
   if (!params.humanQaReviewed) {
@@ -252,7 +280,10 @@ export function validateExamBundleIntegrity(params: {
   if (params.skill === 'reading') {
     const fullPassage = normalizeWs(params.sections.map((s) => s.contentText).join('\n'));
     for (const q of params.questions) {
-      const quote = q.evidence?.['exactQuote'];
+      const quote =
+        q.evidence && Object.hasOwn(q.evidence, 'exactQuote')
+          ? q.evidence['exactQuote']
+          : undefined;
       if (typeof quote === 'string' && quote.trim().length > 0) {
         if (!fullPassage.includes(normalizeWs(quote))) {
           errors.push(`Reading evidence exactQuote missing in passage for ${q.questionId}.`);
@@ -261,58 +292,11 @@ export function validateExamBundleIntegrity(params: {
     }
   }
 
-  const sortedSections = [...params.sections].sort((a, b) => a.sectionIndex - b.sectionIndex);
-  const sortedQuestions = [...params.questions]
-    .map((q) => ({
-      ...q,
-      questionType: normalizeQuestionType(q.questionType),
-    }))
-    .sort((a, b) => a.questionNumber - b.questionNumber);
-
-  const computedDigest = computeBundleContentDigest({
-    sections: sortedSections.map((s) => ({
-      sectionId: s.sectionId,
-      sectionIndex: s.sectionIndex,
-      sectionType: s.sectionType,
-      title: s.title,
-      instructions: s.instructions,
-      contentText: s.contentText,
-      paragraphs: s.paragraphs ?? null,
-      transcript: s.transcript ?? null,
-      mediaUrl: s.mediaObjectKey ? `/v1/media/${s.mediaObjectKey}` : null,
-      durationSeconds: s.durationSeconds,
-      wordCount: s.wordCount,
-      metadata: s.metadata ?? null,
-    })),
-    questions: sortedQuestions.map((q) => ({
-      questionId: q.questionId,
-      sectionId: q.sectionId,
-      questionNumber: q.questionNumber,
-      questionType: q.questionType,
-      prompt: q.prompt,
-      options: q.options ?? null,
-      acceptedAnswers: q.acceptedAnswers,
-      maxWords:
-        q.maxWords ??
-        extractQuestionMaxWords({
-          evidence: q.evidence ?? null,
-          prompt: q.prompt,
-          acceptedAnswers: q.acceptedAnswers,
-        }),
-      evidence: q.evidence ?? null,
-      cueTimestampMs: q.cueTimestampMs ?? null,
-    })),
-  });
-
-  if (params.declaredSha256 != null && params.declaredSha256 !== computedDigest.sha256) {
-    errors.push(
-      `SHA-256 mismatch for ${params.packId}: declared=${params.declaredSha256} computed=${computedDigest.sha256}.`,
-    );
-  }
-
   return {
-    valid: errors.length === 0,
     errors,
-    computedDigest,
+    normalizedPayload: buildCanonicalBundleDigestPayload({
+      sections: params.sections,
+      questions: params.questions,
+    }),
   };
 }

@@ -1,8 +1,5 @@
-import {
-  computeBundleContentDigest,
-  extractQuestionMaxWords,
-  normalizeQuestionType,
-} from '@mockza/domain';
+import { extractQuestionMaxWords, normalizeQuestionType } from '@mockza/domain';
+import { computeBundleContentDigest } from '@mockza/domain/node';
 import { describe, expect, it } from 'vitest';
 import { STARTER_EXAM_BUNDLES, STARTER_MICRO_DRILLS } from '../index.js';
 

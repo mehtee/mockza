@@ -1,8 +1,5 @@
-import {
-  computeBundleContentDigest,
-  extractQuestionMaxWords,
-  normalizeQuestionType,
-} from '@mockza/domain';
+import { extractQuestionMaxWords, normalizeQuestionType } from '@mockza/domain';
+import { computeBundleContentDigest } from '@mockza/domain/node';
 import type { SeedExamBundle } from './starter-exams.js';
 
 interface MultiBundleParams {

@@ -11,11 +11,8 @@ import {
   microDrills,
   vocabDeckCards,
 } from '@mockza/db';
-import {
-  checkCleanRoomSafety,
-  normalizeQuestionType,
-  validateExamBundleIntegrity,
-} from '@mockza/domain';
+import { checkCleanRoomSafety, normalizeQuestionType } from '@mockza/domain';
+import { validateExamBundleIntegrity } from '@mockza/domain/node';
 import { contentTypeFromKey, putObjectBuffer } from '@mockza/storage';
 import { asc, eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';

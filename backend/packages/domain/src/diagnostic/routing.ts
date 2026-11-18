@@ -181,6 +181,9 @@ export function selectNextObjectiveBlock(params: {
   initialTier?: AuthoringTier;
   strictMode?: boolean;
 }): NextBlockSelectionResult {
+  if (!Object.hasOwn(DIAGNOSTIC_STAGE_LIMITS, params.skill)) {
+    throw new Error(`Unsupported diagnostic skill: ${String(params.skill)}`);
+  }
   const limits = DIAGNOSTIC_STAGE_LIMITS[params.skill];
   const strict = params.strictMode ?? true;
   const summary = summarizeHistory(params.history);
@@ -420,6 +423,9 @@ export function deriveObjectivePlacement(params: {
   stopReason: DiagnosticStopReason | null;
   skippedByUser?: boolean;
 }): ObjectivePlacementResult {
+  if (!Object.hasOwn(DIAGNOSTIC_STAGE_LIMITS, params.skill)) {
+    throw new Error(`Unsupported diagnostic skill: ${String(params.skill)}`);
+  }
   const limits = DIAGNOSTIC_STAGE_LIMITS[params.skill];
   const valid = params.history.filter((h) => h.category !== 'no_evidence');
   const summary = summarizeHistory(params.history);

@@ -1,9 +1,6 @@
 import { loadEnv } from '@mockza/config';
-import {
-  computeBundleContentDigest,
-  extractQuestionMaxWords,
-  normalizeQuestionType,
-} from '@mockza/domain';
+import { extractQuestionMaxWords, normalizeQuestionType } from '@mockza/domain';
+import { computeBundleContentDigest } from '@mockza/domain/node';
 import { count, sql } from 'drizzle-orm';
 import { createDbClient, type MockzaDb } from './client.js';
 import {

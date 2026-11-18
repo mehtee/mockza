@@ -1,5 +1,8 @@
 /** Rounds a 4-criterion mean score to the nearest official IELTS 0.5 band. */
 export function roundIeltsBand(rawMean: number): number {
+  if (!Number.isFinite(rawMean)) {
+    return 0;
+  }
   const clamped = Math.max(0, Math.min(9, rawMean));
   const halfSteps = Math.round(clamped * 2) / 2;
   return Math.max(0, Math.min(9, halfSteps));
@@ -142,8 +145,14 @@ export function normalizeSupportedExamId(raw?: string | null): SupportedExamId {
   return 'ielts_academic';
 }
 
+function getExamScale(examId: SupportedExamId): ExamScaleSpec {
+  return Object.hasOwn(EXAM_SCALES, examId)
+    ? EXAM_SCALES[examId]
+    : EXAM_SCALES[normalizeSupportedExamId(examId)];
+}
+
 export function quantizeExamScore(raw: number, examId: SupportedExamId): number {
-  const scale = EXAM_SCALES[examId];
+  const scale = getExamScale(examId);
   if (!Number.isFinite(raw)) {
     return scale.min;
   }
@@ -154,13 +163,13 @@ export function quantizeExamScore(raw: number, examId: SupportedExamId): number 
 }
 
 export function scoreFromNormalizedQuality(ratio: number, examId: SupportedExamId): number {
-  const scale = EXAM_SCALES[examId];
+  const scale = getExamScale(examId);
   const clampedRatio = Math.min(1, Math.max(0, Number.isFinite(ratio) ? ratio : 0));
   return quantizeExamScore(scale.min + clampedRatio * (scale.max - scale.min), examId);
 }
 
 export function normalizeScoreToQualityRatio(score: number, examId: SupportedExamId): number {
-  const scale = EXAM_SCALES[examId];
+  const scale = getExamScale(examId);
   const span = scale.max - scale.min;
   if (span <= 0 || !Number.isFinite(score)) {
     return 0;
@@ -200,7 +209,7 @@ export function estimateToeflLegacy120(band: number): number {
 
 export function computeExamOverallFromCriteria(values: number[], examId: SupportedExamId): number {
   if (values.length === 0) {
-    return EXAM_SCALES[examId].min;
+    return getExamScale(examId).min;
   }
   const avg = values.reduce((sum, item) => sum + item, 0) / values.length;
   if (examId === 'ielts_academic' || examId === 'ielts_general') {
@@ -230,7 +239,7 @@ export function getExamRubricSpec(
   skill: 'writing' | 'speaking',
   taskType?: string,
 ): ExamRubricSpec {
-  const scale = EXAM_SCALES[examId];
+  const scale = getExamScale(examId);
 
   if (skill === 'writing') {
     switch (examId) {

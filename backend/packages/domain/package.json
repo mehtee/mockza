@@ -8,6 +8,11 @@
       "types": "./src/index.ts",
       "development": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./src/node.ts",
+      "development": "./src/node.ts",
+      "default": "./dist/node.js"
     }
   },
   "scripts": {
