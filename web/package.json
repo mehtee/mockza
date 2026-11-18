@@ -9,6 +9,7 @@
     "build:glb": "PUBLIC_EDITION=glb astro build",
     "build:irn": "PUBLIC_EDITION=irn astro build",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
     "test": "vitest run"
   },
   "dependencies": {

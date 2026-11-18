@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_LIB="$ROOT_DIR/app/lib"
+WEB_DIR="$ROOT_DIR/web"
 MODE="${1:-all}"
 
 ERRORS=0
@@ -165,6 +166,110 @@ check_cross_parity_gate() {
   echo "Cross-codebase parity gate checked."
 }
 
+require_min_ram_mb() {
+  local min_mb="${1:-500}"
+  local hard_floor_mb=450
+  local max_retries=5
+  local attempt=0
+  if command -v free >/dev/null 2>&1; then
+    while true; do
+      local avail_mb
+      avail_mb=$(free -m | awk '/^Mem:/ {print $7}')
+      if [[ -z "$avail_mb" || "$avail_mb" -ge "$min_mb" ]]; then
+        return 0
+      fi
+      if [[ "$avail_mb" -ge "$hard_floor_mb" && "$attempt" -lt "$max_retries" ]]; then
+        attempt=$((attempt + 1))
+        echo "INFO: Available RAM ${avail_mb} MiB < ${min_mb} MiB; waiting 3s to settle (${attempt}/${max_retries})..." >&2
+        sleep 3
+        continue
+      fi
+      if [[ "$avail_mb" -ge "$hard_floor_mb" ]]; then
+        echo "WARN: Available RAM ${avail_mb} MiB (< ${min_mb} MiB target, >= ${hard_floor_mb} MiB floor); proceeding cautiously." >&2
+        return 0
+      fi
+      fail "Insufficient available RAM (${avail_mb} MiB < ${hard_floor_mb} MiB floor required for sequential web build/test gates)."
+      return 1
+    done
+  fi
+  return 0
+}
+
+check_web_gates() {
+  if [[ ! -d "$WEB_DIR/src" ]]; then
+    fail "Missing $WEB_DIR/src"
+    return
+  fi
+
+  export NODE_OPTIONS="--max-old-space-size=320"
+
+  # 0. Low-RAM preflight check
+  require_min_ram_mb 500 || return
+
+  # 1. TypeScript strict check (384 MiB heap with 512 MiB fallback for growing web surface)
+  if ! (cd "$ROOT_DIR" && (NODE_OPTIONS="--max-old-space-size=384" pnpm --filter @mockza/web typecheck || (echo "Retrying web typecheck with 512 MiB heap..." >&2 && NODE_OPTIONS="--max-old-space-size=512" pnpm --filter @mockza/web typecheck))); then
+    fail "Web TypeScript typecheck failed"
+  fi
+
+  # 2. ESLint 9 boundary & code quality check
+  if ! (cd "$ROOT_DIR" && pnpm --filter @mockza/web lint); then
+    fail "Web ESLint boundary check failed"
+  fi
+
+  # 3. Static grep verifying 0 forbidden imports in web/src/spa/features, web/src/spa/routes & web/src/components
+  for target_dir in "$WEB_DIR/src/spa/features" "$WEB_DIR/src/spa/routes" "$WEB_DIR/src/components"; do
+    if [[ -d "$target_dir" ]]; then
+      while IFS= read -r -d '' f; do
+        if strip_comments "$f" | grep -Eq "(from|import)\s+['\"](@/)?(adapters(/|['\"])|composition(/|['\"])|dexie(/|['\"])|@mockza/db(/|['\"])|@mockza/ai(/|['\"]))|import\s*\(\s*['\"](@/)?(adapters(/|['\"])|composition(/|['\"])|dexie(/|['\"])|@mockza/db(/|['\"])|@mockza/ai(/|['\"]))|['\"](\.\./)+(adapters|composition)(/|['\"])"; then
+          fail "Forbidden adapter/composition/dexie/db/ai import in $f"
+        fi
+      done < <(find "$target_dir" \( -name '*.ts' -o -name '*.tsx' \) -type f -print0)
+    fi
+  done
+
+  # 4. Static grep verifying 0 physical LTR CSS classes outside LtrExamBoundary
+  for target_dir in "$WEB_DIR/src/spa" "$WEB_DIR/src/components"; do
+    if [[ -d "$target_dir" ]]; then
+      while IFS= read -r -d '' f; do
+        if [[ "$(basename "$f")" == "LtrExamBoundary.tsx" ]]; then
+          continue
+        fi
+        if strip_comments "$f" | sed -E "s/(data|aria)-[a-zA-Z0-9_-]+=['\"][^'\"]*['\"]//g" | grep -Eq "(^|[[:space:]'\"\`:\[])(-?(ml|mr|pl|pr)-(0|px|auto|[0-9][^[:space:]'\"\`]*|\[[^[:space:]'\"\`]+\])|-?(left|right)-(0|px|auto|full|[0-9][^[:space:]'\"\`]*|\[[^[:space:]'\"\`]+\])|(border-l|border-r|rounded-l|rounded-r|rounded-(tl|tr|bl|br))(-[^[:space:]'\"\`]+)?|(text|float|clear|origin)-(left|right))([[:space:]'\"\`]|$)"; then
+          fail "Physical LTR-only CSS class found outside LtrExamBoundary in $f"
+        fi
+      done < <(find "$target_dir" \( -name '*.ts' -o -name '*.tsx' \) -type f -print0)
+    fi
+  done
+
+  # 5. Design token SSOT sync check
+  check_token_sync_gate
+
+  # 6. Vitest unit + contract tests (single fork worker, sequential)
+  require_min_ram_mb 500 || return
+  if ! (cd "$ROOT_DIR" && pnpm --filter @mockza/web exec vitest run --pool=forks --poolOptions.forks.singleFork --maxWorkers=1); then
+    fail "Web Vitest unit/contract tests failed"
+  fi
+
+  # 7. Dual GLB & IRN Astro static builds + bundle isolation greps (strictly sequential)
+  require_min_ram_mb 500 || return
+  rm -rf "$WEB_DIR/dist-glb"
+  if ! (cd "$ROOT_DIR" && (PUBLIC_EDITION=glb NODE_OPTIONS="--max-old-space-size=320" pnpm --filter @mockza/web build:glb || (echo "Retrying GLB build with 384 MiB heap..." >&2 && rm -rf "$WEB_DIR/dist-glb" && PUBLIC_EDITION=glb NODE_OPTIONS="--max-old-space-size=384" pnpm --filter @mockza/web build:glb))); then
+    fail "Web GLB Astro build failed"
+  elif grep -rnEIi "sanjia|navia|zarinpal|zibal|kavenegar|jalaali|تومان|formatTomanFromRial" "$WEB_DIR/dist-glb/"; then
+    fail "GLB bundle isolation breach: IRN-only identifier/domain found in web/dist-glb/"
+  fi
+
+  require_min_ram_mb 500 || return
+  rm -rf "$WEB_DIR/dist-irn"
+  if ! (cd "$ROOT_DIR" && (PUBLIC_EDITION=irn NODE_OPTIONS="--max-old-space-size=320" pnpm --filter @mockza/web build:irn || (echo "Retrying IRN build with 384 MiB heap..." >&2 && rm -rf "$WEB_DIR/dist-irn" && PUBLIC_EDITION=irn NODE_OPTIONS="--max-old-space-size=384" pnpm --filter @mockza/web build:irn))); then
+    fail "Web IRN Astro build failed"
+  elif grep -rnEI "stripe|revenuecat|accounts\.google\.com|appleid\.apple\.com|googletagmanager|firebase" "$WEB_DIR/dist-irn/"; then
+    fail "IRN bundle isolation breach: GLB-only tracker/billing identifier found in web/dist-irn/"
+  fi
+
+  echo "Web static, test & dual-edition bundle isolation gates checked."
+}
+
 case "$MODE" in
   --app-only)
     check_token_sync_gate
@@ -173,6 +278,9 @@ case "$MODE" in
   --backend-only)
     check_backend_gates
     ;;
+  --web-only)
+    check_web_gates
+    ;;
   --parity-only)
     check_cross_parity_gate
     ;;
@@ -180,10 +288,11 @@ case "$MODE" in
     check_token_sync_gate
     check_app_gates
     check_backend_gates
+    check_web_gates
     check_cross_parity_gate
     ;;
   *)
-    echo "Usage: $0 [all|--app-only|--backend-only|--parity-only]" >&2
+    echo "Usage: $0 [all|--app-only|--backend-only|--web-only|--parity-only]" >&2
     exit 2
     ;;
 esac

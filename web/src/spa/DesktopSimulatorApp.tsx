@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { Component, type ErrorInfo, type ReactNode, useEffect, useState } from 'react';
+import { createAppDependencies } from '@/composition/bootstrap';
+import { type AppDependencies, AppDependenciesProvider } from '@/spa/deps';
 import { type AppRouter, createAppRouter } from '@/spa/router';
 import {
   subscribeSystemThemeChange,
@@ -60,6 +62,7 @@ class SimulatorErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundary
 export interface DesktopSimulatorAppProps {
   readonly router?: AppRouter;
   readonly queryClient?: QueryClient;
+  readonly dependencies?: AppDependencies;
 }
 
 export function createDefaultQueryClient(): QueryClient {
@@ -77,7 +80,11 @@ export function createDefaultQueryClient(): QueryClient {
 export function DesktopSimulatorApp({
   router: providedRouter,
   queryClient: providedQueryClient,
+  dependencies: providedDependencies,
 }: DesktopSimulatorAppProps) {
+  const [dependencies] = useState(
+    () => providedDependencies ?? createAppDependencies(),
+  );
   const [queryClient] = useState(
     () => providedQueryClient ?? createDefaultQueryClient(),
   );
@@ -90,9 +97,11 @@ export function DesktopSimulatorApp({
 
   return (
     <SimulatorErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>
+      <AppDependenciesProvider dependencies={dependencies}>
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      </AppDependenciesProvider>
     </SimulatorErrorBoundary>
   );
 }

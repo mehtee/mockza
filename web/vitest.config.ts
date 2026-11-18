@@ -5,6 +5,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    setupFiles: ['fake-indexeddb/auto'],
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
   },
   resolve: {

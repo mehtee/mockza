@@ -676,8 +676,13 @@ export class DexieStorageAdapter implements IOfflineAttemptStore, IVocabSrsStore
         const prev = existing?.value as DailyStudyLogRecord | undefined;
         const nextRecord: DailyStudyLogRecord = {
           serialDay: input.serialDay,
-          studySeconds: Math.max(0, (prev?.studySeconds ?? 0) + input.addSeconds),
-          completedItems: Math.max(0, (prev?.completedItems ?? 0) + input.addCompletedItems),
+          studySeconds:
+            Math.max(0, (prev?.studySeconds ?? 0) + Math.max(0, Math.trunc(input.addSeconds))),
+          completedItems:
+            Math.max(
+              0,
+              (prev?.completedItems ?? 0) + Math.max(0, Math.trunc(input.addCompletedItems)),
+            ),
           updatedAtMs: this.clock.nowMs(),
         };
         await this.db.localPreferences.put({

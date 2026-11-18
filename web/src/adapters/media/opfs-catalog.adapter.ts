@@ -1,3 +1,4 @@
+import type { ApiClient, ApiClientError } from '@/adapters/http/api-client';
 import {
   type AppEditionCode,
   type SkillKind,
@@ -516,6 +517,7 @@ export interface OpfsCatalogAdapterOptions {
   readonly db: MockzaDexieDb;
   readonly edition: AppEditionCode;
   readonly clock?: IClock;
+  readonly apiClient?: ApiClient;
   readonly fetchFn?: typeof fetch;
   readonly apiBaseUrl?: string;
   readonly cdnBaseUrl?: string;
@@ -523,6 +525,23 @@ export interface OpfsCatalogAdapterOptions {
   readonly quotaBytes?: number;
   readonly binaryStore?: MediaBinaryStore;
   readonly binaryStoreOptions?: MediaBinaryStoreOptions;
+}
+
+function mapApiErrorToCatalogError(error: ApiClientError): CatalogGatewayError {
+  switch (error.kind) {
+    case 'network':
+    case 'validation':
+      return error;
+    case 'unauthorized':
+    case 'device_slot_occupied':
+    case 'entitlement_required':
+    case 'quota_exceeded':
+      return {
+        kind: 'unexpected',
+        message: error.message,
+        cause: error,
+      };
+  }
 }
 
 function toStorageError(message: string, cause: unknown, code?: StorageError['code']): StorageError {
@@ -555,6 +574,7 @@ export class OpfsCatalogAdapter implements ICatalogMediaGateway {
   private readonly db: MockzaDexieDb;
   private readonly edition: AppEditionCode;
   private readonly clock: IClock;
+  private readonly apiClient?: ApiClient;
   private readonly fetchFn: typeof fetch;
   private readonly apiBaseUrl: string;
   private readonly cdnBaseUrl: string;
@@ -566,6 +586,7 @@ export class OpfsCatalogAdapter implements ICatalogMediaGateway {
     this.db = options.db;
     this.edition = options.edition;
     this.clock = options.clock ?? createDefaultClock();
+    this.apiClient = options.apiClient;
     this.fetchFn = options.fetchFn ?? ((input, init) => globalThis.fetch(input, init));
     this.apiBaseUrl = (options.apiBaseUrl ?? '').replace(/\/+$/, '');
     this.cdnBaseUrl = (options.cdnBaseUrl ?? '').replace(/\/+$/, '');
@@ -602,20 +623,7 @@ export class OpfsCatalogAdapter implements ICatalogMediaGateway {
 
   async syncCatalogManifest(): Promise<Result<readonly CatalogPackRecord[], CatalogGatewayError>> {
     try {
-      const response = await this.fetchFn(this.resolveApiUrl('/v1/catalog/manifest'), {
-        method: 'GET',
-        headers: this.buildApiHeaders(),
-      });
-      if (!response.ok) {
-        return err<NetworkError>({
-          kind: 'network',
-          message: `Catalog manifest request failed (${response.status})`,
-          retryable: response.status >= 500 || response.status === 429,
-          status: response.status,
-        });
-      }
-
-      const body = (await response.json()) as {
+      type ManifestResponse = {
         readonly packs?: ReadonlyArray<{
           readonly packId: string;
           readonly edition?: AppEditionCode;
@@ -635,6 +643,29 @@ export class OpfsCatalogAdapter implements ICatalogMediaGateway {
           readonly isFreeSample: boolean;
         }>;
       };
+
+      let body: ManifestResponse;
+      if (this.apiClient) {
+        const apiRes = await this.apiClient.get<ManifestResponse>('/v1/catalog/manifest');
+        if (!apiRes.ok) {
+          return err(mapApiErrorToCatalogError(apiRes.error));
+        }
+        body = apiRes.value;
+      } else {
+        const response = await this.fetchFn(this.resolveApiUrl('/v1/catalog/manifest'), {
+          method: 'GET',
+          headers: this.buildApiHeaders(),
+        });
+        if (!response.ok) {
+          return err<NetworkError>({
+            kind: 'network',
+            message: `Catalog manifest request failed (${response.status})`,
+            retryable: response.status >= 500 || response.status === 429,
+            status: response.status,
+          });
+        }
+        body = (await response.json()) as ManifestResponse;
+      }
 
       const rawPacks = body.packs ?? [];
       const now = this.clock.nowMs();
@@ -725,8 +756,13 @@ export class OpfsCatalogAdapter implements ICatalogMediaGateway {
           if (refreshed.ok && refreshed.value.bundleJson) {
             return ok(JSON.parse(refreshed.value.bundleJson) as ExamBundlePayload);
           }
-          // Offline fallback to cached bundle if refresh failed over network.
-          return ok(parsed);
+          if (!refreshed.ok) {
+            if (refreshed.error.kind === 'network') {
+              // Offline fallback to cached bundle if refresh failed over network.
+              return ok(parsed);
+            }
+            return err(refreshed.error);
+          }
         } catch {
           // Corrupt JSON: fall through to re-download.
         }
@@ -755,23 +791,34 @@ export class OpfsCatalogAdapter implements ICatalogMediaGateway {
     packId: string,
   ): Promise<Result<CatalogPackRecord, CatalogGatewayError>> {
     try {
-      const response = await this.fetchFn(
-        this.resolveApiUrl(`/v1/exams/${encodeURIComponent(packId)}`),
-        {
-          method: 'GET',
-          headers: this.buildApiHeaders(),
-        },
-      );
-      if (!response.ok) {
-        return err<NetworkError>({
-          kind: 'network',
-          message: `Exam bundle download failed (${response.status})`,
-          retryable: response.status >= 500 || response.status === 429,
-          status: response.status,
-        });
-      }
+      let bundle: ExamBundlePayload;
+      if (this.apiClient) {
+        const apiRes = await this.apiClient.get<ExamBundlePayload>(
+          `/v1/exams/${encodeURIComponent(packId)}`,
+        );
+        if (!apiRes.ok) {
+          return err(mapApiErrorToCatalogError(apiRes.error));
+        }
+        bundle = apiRes.value;
+      } else {
+        const response = await this.fetchFn(
+          this.resolveApiUrl(`/v1/exams/${encodeURIComponent(packId)}`),
+          {
+            method: 'GET',
+            headers: this.buildApiHeaders(),
+          },
+        );
+        if (!response.ok) {
+          return err<NetworkError>({
+            kind: 'network',
+            message: `Exam bundle download failed (${response.status})`,
+            retryable: response.status >= 500 || response.status === 429,
+            status: response.status,
+          });
+        }
 
-      const bundle = (await response.json()) as ExamBundlePayload;
+        bundle = (await response.json()) as ExamBundlePayload;
+      }
       if (!bundle || !bundle.pack) {
         return err({
           kind: 'validation',
@@ -918,20 +965,7 @@ export class OpfsCatalogAdapter implements ICatalogMediaGateway {
 
   async syncDrills(): Promise<Result<readonly CachedDrillRecord[], CatalogError>> {
     try {
-      const response = await this.fetchFn(this.resolveApiUrl('/v1/drills'), {
-        method: 'GET',
-        headers: this.buildApiHeaders(),
-      });
-      if (!response.ok) {
-        return err<NetworkError>({
-          kind: 'network',
-          message: `Drills sync failed (${response.status})`,
-          retryable: response.status >= 500 || response.status === 429,
-          status: response.status,
-        });
-      }
-
-      const body = (await response.json()) as {
+      type DrillsResponse = {
         readonly drills?: ReadonlyArray<{
           readonly drillId: string;
           readonly title: string;
@@ -941,6 +975,30 @@ export class OpfsCatalogAdapter implements ICatalogMediaGateway {
           readonly items: readonly unknown[];
         }>;
       };
+
+      let body: DrillsResponse;
+      if (this.apiClient) {
+        const apiRes = await this.apiClient.get<DrillsResponse>('/v1/drills');
+        if (!apiRes.ok) {
+          return err(mapApiErrorToCatalogError(apiRes.error));
+        }
+        body = apiRes.value;
+      } else {
+        const response = await this.fetchFn(this.resolveApiUrl('/v1/drills'), {
+          method: 'GET',
+          headers: this.buildApiHeaders(),
+        });
+        if (!response.ok) {
+          return err<NetworkError>({
+            kind: 'network',
+            message: `Drills sync failed (${response.status})`,
+            retryable: response.status >= 500 || response.status === 429,
+            status: response.status,
+          });
+        }
+
+        body = (await response.json()) as DrillsResponse;
+      }
 
       const now = this.clock.nowMs();
       const drills: CachedDrillRecord[] = (body.drills ?? []).map((d) => ({
@@ -1241,7 +1299,7 @@ export class OpfsCatalogAdapter implements ICatalogMediaGateway {
 
       return ok({
         totalBytes,
-        quotaBytes: MEDIA_CACHE_QUOTA_BYTES,
+        quotaBytes: this.quotaBytes as typeof MEDIA_CACHE_QUOTA_BYTES,
         packCount: cachedPacks,
         userRecordingBytes,
       });

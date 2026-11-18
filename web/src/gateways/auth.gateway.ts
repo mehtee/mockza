@@ -160,7 +160,7 @@ export interface IAuthGateway {
 export interface IDeviceSlotGateway {
   listActiveDevices(): Promise<Result<readonly ActiveDeviceSlot[], DeviceSlotGatewayError>>;
   revokeDeviceSession(
-    sessionId: string,
+    targetDeviceId: string,
   ): Promise<Result<RevokeDeviceSessionResult, DeviceSlotGatewayError>>;
   revokeOtherDeviceSessions(): Promise<Result<RevokeDeviceSessionResult, DeviceSlotGatewayError>>;
   recordDevicePolicyConsent(): Promise<

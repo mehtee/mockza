@@ -316,6 +316,9 @@ export class DexieOutboxAdapter implements ISyncOutboxGateway {
         const outcome = await this.dispatchItem(item, payload);
         if (outcome.status === 'succeeded') {
           succeededCount++;
+        } else if (outcome.status === 'retry_scheduled') {
+          failedRetryableCount++;
+          break;
         } else if (outcome.status === 'terminal') {
           failedRetryableCount++;
           if (outcome.stoppedReason) {

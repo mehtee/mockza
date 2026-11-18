@@ -692,8 +692,10 @@ export class WebAudioPlayerAdapter implements IAudioPlayerGateway {
         }
         try {
           await element.play();
-          status = 'playing';
-          emit();
+          if (status !== 'ended' && status !== 'error') {
+            status = 'playing';
+            emit();
+          }
           return ok(undefined);
         } catch (cause) {
           status = 'error';
