@@ -25,6 +25,7 @@ export interface AudioStudioPlayerProps {
   readonly source: AudioSourceSpec;
   readonly playbackMode: AudioPlaybackMode;
   readonly transcriptSegments?: readonly TranscriptSegmentItem[];
+  readonly externalSeekRequest?: { readonly sec: number; readonly seq: number } | null;
   readonly onEnded?: () => void;
   readonly onPlaybackStateChange?: (state: AudioPlaybackState) => void;
 }
@@ -35,6 +36,7 @@ export function AudioStudioPlayer({
   source,
   playbackMode,
   transcriptSegments = [],
+  externalSeekRequest = null,
   onEnded,
   onPlaybackStateChange,
 }: AudioStudioPlayerProps) {
@@ -123,6 +125,11 @@ export function AudioStudioPlayer({
     },
     [isExamLocked, playback.durationSec],
   );
+
+  useEffect(() => {
+    if (!externalSeekRequest || isExamLocked || !handleRef.current) return;
+    handleSeek(externalSeekRequest.sec);
+  }, [externalSeekRequest, handleSeek, isExamLocked]);
 
   const handleCycleSpeed = useCallback(() => {
     if (isExamLocked || !handleRef.current) return;

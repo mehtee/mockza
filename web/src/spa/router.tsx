@@ -21,6 +21,7 @@ import { HomeScreen } from '@/spa/features/home/HomeScreen';
 import { GoalSetupScreen } from '@/spa/features/onboarding/GoalSetupScreen';
 import { WelcomeScreen } from '@/spa/features/onboarding/WelcomeScreen';
 import { PaywallScreen } from '@/spa/features/paywall/PaywallScreen';
+import { ListeningSimulatorScreen } from '@/spa/features/practice/ListeningSimulatorScreen';
 import { ReadingSimulatorScreen } from '@/spa/features/practice/ReadingSimulatorScreen';
 import { ObjectiveResultScreen } from '@/spa/features/results/ObjectiveResultScreen';
 import { SettingsScreen } from '@/spa/features/settings/SettingsScreen';
@@ -535,14 +536,7 @@ const listeningSessionRoute = createRoute({
   path: '/practice/listening/$packId',
   component: () => {
     const { packId } = listeningSessionRoute.useParams();
-    return (
-      <RouteSkeletonView
-        routeId="practice-listening"
-        title="Listening Simulator"
-        description="Studio audio player and multi-track listening workspace (Routes.listeningSession)."
-        params={{ packId }}
-      />
-    );
+    return <ListeningSimulatorScreen packId={packId} />;
   },
 });
 

@@ -35,6 +35,7 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
     readonly sectionId: string;
     readonly span: PassageEvidenceSpan | null;
     readonly cueSec: number | null;
+    readonly seq: number;
   } | null>(null);
   const [explanationsByQId, setExplanationsByQId] = useState<
     Record<string, ExplainQuestionResponse>
@@ -128,11 +129,12 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
       bundle.sections.find((s) => s.sectionId === question.sectionId) ?? bundle.sections[0];
     if (!section) return;
     const span = resolveObjectiveEvidenceSpan(section.contentText, question.evidence);
-    setActiveEvidence({
+    setActiveEvidence((prev) => ({
       sectionId: section.sectionId,
       span,
       cueSec: question.cueTimestampMs ? Math.round(question.cueTimestampMs / 1000) : null,
-    });
+      seq: (prev?.seq ?? 0) + 1,
+    }));
   };
 
   return (
@@ -216,10 +218,15 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
                 <h2 className="text-base font-bold text-text-primary">{activeSection?.title}</h2>
                 <AudioStudioPlayer
                   source={{
-                    mediaKey: bundle.pack.packId,
+                    mediaKey: `${bundle.pack.packId}:${activeSection?.sectionId ?? 'main'}`,
                     fallbackUrl: activeSection?.mediaUrl ?? bundle.pack.mediaUrl ?? '',
                   }}
                   playbackMode="study_interactive"
+                  externalSeekRequest={
+                    activeEvidence?.cueSec !== null && activeEvidence?.cueSec !== undefined
+                      ? { sec: activeEvidence.cueSec, seq: activeEvidence.seq }
+                      : null
+                  }
                   transcriptSegments={
                     activeSection?.transcript?.map((line, i) => ({
                       id: `tr-${i}`,

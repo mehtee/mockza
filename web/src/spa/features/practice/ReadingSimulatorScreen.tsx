@@ -1,6 +1,5 @@
-import { useNavigate } from '@tanstack/react-router';
 import { Bookmark, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   type KeyboardShortcutHint,
   MzObjectiveAnswerInput,
@@ -12,12 +11,11 @@ import {
 } from '@/components/exam-kit';
 import { MzBanner, MzButton, MzCard, MzSegmentedControl } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
-import type { ExamBundlePayload } from '@/gateways/catalog.gateway';
 import type { AnnotationColorCode, PassageAnnotationRecord } from '@/gateways/storage.gateway';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
-import { useClockStore } from '@/spa/stores/clock.store';
-import { buildScoredObjectiveAttempt, generateUuid } from '@/spa/objective-sim-helpers';
+import { generateUuid } from '@/spa/objective-sim-helpers';
+import { useObjectiveSimulatorSession } from '@/spa/useObjectiveSimulatorSession';
 
 export interface ReadingSimulatorScreenProps {
   readonly packId: string;
@@ -36,261 +34,59 @@ export function ReadingSimulatorScreen({
 }: ReadingSimulatorScreenProps) {
   const deps = useDeps();
   const t = createTranslator(deps.edition);
-  const navigate = useNavigate();
-  const setActiveExamLock = useClockStore((s) => s.setActiveExamLock);
 
-  const attemptIdRef = useRef(generateUuid());
-  const startedAtRef = useRef(deps.clock.nowMs());
-  const autoSubmittedRef = useRef(false);
+  const session = useObjectiveSimulatorSession({
+    packId,
+    skill: 'reading',
+    initialExamMode,
+    mockSessionId,
+    mockStageKey,
+    onMockStageComplete,
+  });
 
-  const [bundle, setBundle] = useState<ExamBundlePayload | null>(null);
-  const [profileExamId, setProfileExamId] = useState('ielts_academic');
-  const [examMode, setExamMode] = useState<'exam' | 'study'>(initialExamMode);
-  const [viewMode, setViewMode] = useState<'focused' | 'all'>('focused');
-  const [isPaused, setIsPaused] = useState(false);
-  const [remainingSeconds, setRemainingSeconds] = useState<number>(3600);
-  const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
-  const [answersByQuestionId, setAnswersByQuestionId] = useState<Record<string, string>>({});
-  const [flaggedQuestionIds, setFlaggedQuestionIds] = useState<Record<string, boolean>>({});
   const [annotations, setAnnotations] = useState<PassageAnnotationRecord[]>([]);
   const [statusBanner, setStatusBanner] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     let mounted = true;
-    async function hydrate() {
-      const [bundleRes, profileRes, annRes, draftRes] = await Promise.all([
-        deps.catalog.ensureExamBundle(packId),
-        deps.attemptStore.getUserProfile(),
-        deps.attemptStore.getPassageAnnotations(packId),
-        deps.attemptStore.getActiveDraft(packId, 'reading'),
-      ]);
-      if (!mounted) return;
-      if (!bundleRes.ok) {
-        setErrorMsg(bundleRes.error.message);
-        return;
+    void deps.attemptStore.getPassageAnnotations(packId).then((res) => {
+      if (mounted && res.ok) {
+        setAnnotations([...res.value]);
       }
-      setBundle(bundleRes.value);
-      const durationSec = bundleRes.value.pack.durationSeconds || 3600;
-      setRemainingSeconds(durationSec);
-
-      if (profileRes.ok && profileRes.value?.examId) {
-        setProfileExamId(profileRes.value.examId);
-      }
-      if (annRes.ok) {
-        setAnnotations([...annRes.value]);
-      }
-      if (draftRes.ok && draftRes.value) {
-        attemptIdRef.current = draftRes.value.attemptId;
-        setRemainingSeconds(draftRes.value.timerRemainingSec || durationSec);
-        const restoredAnswers: Record<string, string> = {};
-        for (const [k, v] of Object.entries(draftRes.value.answersJson)) {
-          if (typeof v === 'string') {
-            restoredAnswers[k] = v;
-          }
-        }
-        setAnswersByQuestionId(restoredAnswers);
-        const restoredFlags: Record<string, boolean> = {};
-        for (const qId of draftRes.value.flaggedQuestionIds) {
-          restoredFlags[qId] = true;
-        }
-        setFlaggedQuestionIds(restoredFlags);
-        setActiveQuestionIndex(draftRes.value.currentQuestionIndex);
-      }
-    }
-    void hydrate();
+    });
     return () => {
       mounted = false;
     };
-  }, [deps.attemptStore, deps.catalog, packId]);
+  }, [deps.attemptStore, packId]);
 
-  useEffect(() => {
-    if (!bundle) return;
-    setActiveExamLock(examMode === 'exam', bundle.pack.title);
-    return () => {
-      setActiveExamLock(false);
-    };
-  }, [bundle, examMode, setActiveExamLock]);
-
-  const sortedQuestions = useMemo(
-    () =>
-      bundle
-        ? [...bundle.questions].sort((a, b) => a.questionNumber - b.questionNumber)
-        : [],
-    [bundle],
-  );
-
-  const sortedSections = useMemo(
-    () =>
-      bundle
-        ? [...bundle.sections].sort((a, b) => a.sectionIndex - b.sectionIndex)
-        : [],
-    [bundle],
-  );
-
-  const activeQuestion = sortedQuestions[activeQuestionIndex] ?? sortedQuestions[0] ?? null;
-  const activeSectionIndex = useMemo(() => {
-    if (!activeQuestion) return 0;
-    const idx = sortedSections.findIndex((s) => s.sectionId === activeQuestion.sectionId);
-    return idx >= 0 ? idx : 0;
-  }, [activeQuestion, sortedSections]);
-  const activeSection = sortedSections[activeSectionIndex] ?? sortedSections[0] ?? null;
-
-  const sectionQuestions = useMemo(
-    () =>
-      activeSection
-        ? sortedQuestions.filter((q) => q.sectionId === activeSection.sectionId)
-        : sortedQuestions,
-    [activeSection, sortedQuestions],
-  );
-
-  const handleAnswerChange = useCallback(
-    (questionId: string, nextValue: string) => {
-      setAnswersByQuestionId((prev) => {
-        const updated = { ...prev, [questionId]: nextValue };
-        if (bundle) {
-          void deps.attemptStore.saveAttemptDraft({
-            attemptId: attemptIdRef.current,
-            packId,
-            skill: 'reading',
-            examId: bundle.pack.examId as never,
-            taskType: 'reading',
-            draftText: '',
-            wordCount: 0,
-            answersJson: updated,
-            flaggedQuestionIds: Object.entries(flaggedQuestionIds)
-              .filter(([, flagged]) => flagged)
-              .map(([qId]) => qId),
-            currentQuestionIndex: activeQuestionIndex,
-            timerRemainingSec: remainingSeconds,
-            usedStudyMode: examMode === 'study',
-            mockSessionId,
-            mockStageKey,
-            updatedAtMs: deps.clock.nowMs(),
-          });
-        }
-        return updated;
-      });
-    },
-    [
-      activeQuestionIndex,
-      bundle,
-      deps.attemptStore,
-      deps.clock,
-      examMode,
-      flaggedQuestionIds,
-      mockSessionId,
-      mockStageKey,
-      packId,
-      remainingSeconds,
-    ],
-  );
-
-  const toggleFlag = useCallback(
-    (questionId: string) => {
-      setFlaggedQuestionIds((prev) => ({
-        ...prev,
-        [questionId]: !prev[questionId],
-      }));
-    },
-    [],
-  );
-
-  const handleSubmit = useCallback(async () => {
-    if (!bundle || isSubmitting) return;
-    setIsSubmitting(true);
-
-    const nowMs = deps.clock.nowMs();
-    const { record } = buildScoredObjectiveAttempt({
-      attemptId: attemptIdRef.current,
-      bundle,
-      skill: 'reading',
-      profileExamId,
-      answersByQuestionId,
-      startedAtUtcMs: startedAtRef.current,
-      nowMs,
-      usedStudyMode: examMode === 'study',
-      mockSessionId,
-      mockStageKey,
-    });
-
-    await deps.attemptStore.completeObjectiveAttempt(record);
-    await deps.attemptStore.deleteDraft(record.attemptId);
-    await deps.attemptStore.incrementDailyStudyLog({
-      serialDay: deps.clock.todaySerialDay(),
-      addSeconds: record.durationSeconds,
-      addCompletedItems: 1,
-    });
-
-    setIsSubmitting(false);
-    setActiveExamLock(false);
-
-    if (onMockStageComplete) {
-      onMockStageComplete(record.attemptId);
-      return;
-    }
-
-    await navigate({
-      to: '/practice/objective-result/$attemptId',
-      params: { attemptId: record.attemptId },
-    });
-  }, [
-    answersByQuestionId,
-    bundle,
-    deps.attemptStore,
-    deps.clock,
-    examMode,
-    isSubmitting,
-    mockSessionId,
-    mockStageKey,
-    navigate,
-    onMockStageComplete,
+  const {
+    attemptId,
     profileExamId,
-    setActiveExamLock,
-  ]);
-
-  // Countdown timer with automatic Exam Mode submission on expiry
-  useEffect(() => {
-    if (!bundle || isPaused) return;
-    const timer = window.setInterval(() => {
-      setRemainingSeconds((prev) => {
-        if (prev <= 1) {
-          if (examMode === 'exam' && !autoSubmittedRef.current) {
-            autoSubmittedRef.current = true;
-            void handleSubmit();
-          }
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [bundle, examMode, handleSubmit, isPaused]);
-
-  // Desktop keyboard shortcuts: J/K step question, F flag current
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      const target = event.target as HTMLElement | null;
-      const tag = target?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) return;
-      if (event.ctrlKey || event.metaKey || event.altKey) return;
-
-      const lower = event.key.toLowerCase();
-      if (lower === 'j') {
-        event.preventDefault();
-        setActiveQuestionIndex((idx) => Math.min(sortedQuestions.length - 1, idx + 1));
-      } else if (lower === 'k') {
-        event.preventDefault();
-        setActiveQuestionIndex((idx) => Math.max(0, idx - 1));
-      } else if (lower === 'f' && activeQuestion) {
-        event.preventDefault();
-        toggleFlag(activeQuestion.questionId);
-      }
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [activeQuestion, sortedQuestions.length, toggleFlag]);
+    bundle,
+    examMode,
+    setExamMode,
+    viewMode,
+    setViewMode,
+    isPaused,
+    setIsPaused,
+    remainingSeconds,
+    activeQuestionIndex,
+    setActiveQuestionIndex,
+    answersByQuestionId,
+    flaggedQuestionIds,
+    errorMsg,
+    isSubmitting,
+    sortedQuestions,
+    sortedSections,
+    activeQuestion,
+    activeSectionIndex,
+    activeSection,
+    sectionQuestions,
+    handleAnswerChange,
+    toggleFlag,
+    handleSubmit,
+    requestExit,
+  } = session;
 
   const handleAddAnnotation = useCallback(
     async (input: {
@@ -352,14 +148,23 @@ export function ReadingSimulatorScreen({
         paraphraseHints: [],
         usageNote: null,
         sourceSkill: 'reading',
-        sourceAttemptId: attemptIdRef.current,
+        sourceAttemptId: attemptId,
         sourceRefLabel: activeSection?.title ?? null,
         createdAtMs: nowMs,
         updatedAtMs: nowMs,
       });
       setStatusBanner(t('simBookmarkSavedToast', { word: cleanWord }));
     },
-    [activeSection?.title, bundle?.pack.examId, deps.clock, deps.vocabStore, packId, profileExamId, t],
+    [
+      activeSection?.title,
+      attemptId,
+      bundle?.pack.examId,
+      deps.clock,
+      deps.vocabStore,
+      packId,
+      profileExamId,
+      t,
+    ],
   );
 
   const shortcuts: readonly KeyboardShortcutHint[] = [
@@ -389,9 +194,7 @@ export function ReadingSimulatorScreen({
 
   return (
     <div data-testid="reading-simulator-screen" className="flex flex-col gap-3">
-      {statusBanner ? (
-        <MzBanner tone="success">{statusBanner}</MzBanner>
-      ) : null}
+      {statusBanner ? <MzBanner tone="success">{statusBanner}</MzBanner> : null}
 
       <SimulatorWorkspaceShell
         breadcrumb={bundle.pack.title}
@@ -401,14 +204,14 @@ export function ReadingSimulatorScreen({
         examMode={examMode}
         isPaused={isPaused}
         onTogglePause={() => setIsPaused((p) => !p)}
-        onRequestExit={() => void navigate({ to: '/home' })}
+        onRequestExit={requestExit}
         shortcuts={shortcuts}
         headerActions={
           <div className="flex flex-wrap items-center gap-2">
             <MzSegmentedControl<'exam' | 'study'>
               ariaLabel="Simulation Mode"
               value={examMode}
-              onChange={(mode) => setExamMode(mode)}
+              onChange={setExamMode}
               options={[
                 { value: 'exam', label: t('workspaceExamModeBadge') },
                 { value: 'study', label: t('workspaceStudyModeBadge') },

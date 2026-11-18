@@ -685,7 +685,7 @@ To ensure AI answer engines accurately cite **Mockza** (globally) and **Sanjia /
 
 - **`W5.1` Desktop Split-Pane Reading Simulator (`/app/practice/reading/$packId`):** — **DONE** (2026-11-18)
   - Side-by-side passage + Focused/All-Questions toggle, UTF-16 highlights & notes, Exam timer auto-submit, instant `LocalObjectiveScorer` evaluation, and `/app/practice/objective-result/$attemptId` with jumped `evidenceSpans` + AI Tutor drawer.
-- **`W5.2` Desktop Studio Listening Simulator (`/app/practice/listening/$packId`):**
+- **`W5.2` Desktop Studio Listening Simulator (`/app/practice/listening/$packId`):** — **DONE** (2026-11-18)
   - Pre-buffered OPFS `.m4a` playback, strict one-play Exam lock vs. Study speed/seek/clickable transcript, dictation & multi-track items, and objective review.
 - **`W5.3` Desktop Split-Pane Writing Simulator (`/app/practice/writing/$packId`):**
   - All 11 task types across the 5 tracks (IELTS Charts/Letters/Essays, TOEFL Build-a-Sentence/Email/Discussion, PTE Single-Sentence Summary/Essay, DET Photo/Interactive/Sample), `500ms` + `pagehide` Dexie autosave, quota check, and async job submission.
