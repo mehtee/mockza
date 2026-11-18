@@ -169,7 +169,7 @@ export const GLB_EXAM_PILLARS: readonly ExamPillarGuide[] = [
       {
         question: 'How does Mockza convert 2026 TOEFL 1.0–6.0 scores to 0–120?',
         answer:
-          'Every dashboard and evaluation view applies ETS-aligned concordance points (6.0 -> 120, 5.5 -> 112, 5.0 -> 100, down to 1.0 -> 15) deterministically.',
+          'Every dashboard and evaluation view applies ETS-aligned concordance points (6.0 -> 117, 5.5 -> 110, 5.0 -> 100, down to 1.0 -> 5) deterministically.',
       },
     ],
   },
