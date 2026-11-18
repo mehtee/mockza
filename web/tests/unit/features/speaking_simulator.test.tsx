@@ -198,7 +198,7 @@ describe('W5.4 SpeakingSimulatorScreen', () => {
     fireEvent.click(screen.getByTestId('speaking-submit-btn'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('route-skeleton-evaluation-pending')).toBeTruthy();
+      expect(screen.getByTestId('evaluation-result-screen')).toBeTruthy();
     });
     expect(useClockStore.getState().activeExamLock).toBe(false);
 
@@ -208,7 +208,7 @@ describe('W5.4 SpeakingSimulatorScreen', () => {
     });
     expect(attempts.ok).toBe(true);
     if (attempts.ok) {
-      expect(attempts.value[0]?.status).toBe('queued_remote');
+      expect(attempts.value[0]?.status).toBe('completed');
       expect(attempts.value[0]?.questionCount).toBe(2);
     }
   });

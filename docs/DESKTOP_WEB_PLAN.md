@@ -696,7 +696,7 @@ To ensure AI answer engines accurately cite **Mockza** (globally) and **Sanjia /
 
 ### Phase `W6` — AI Evaluation Master-Detail Review, SM-2 Vocabulary & Progress Analytics
 
-- **`W6.1` Async Grading Progress & Master-Detail Evaluation Review (`/app/evaluation/{pending,result}/...`):**
+- **`W6.1` Async Grading Progress & Master-Detail Evaluation Review (`/app/evaluation/{pending,result}/...`):** — **DONE** (2026-11-18)
   - Non-blocking background polling toast + split-pane Evaluation Review: inline clickable error/upgrade spans on left; criterion scores, TOEFL `/120` concordance, DET 4 subscores, Model Rewrite diff, and 1-click *Add Upgraded Vocab to SM-2* on right.
 - **`W6.2` Virtualized SM-2 Vocabulary Hub & Keyboard Flashcard Studio (`/app/vocabulary`, `/app/vocabulary/review`):**
   - `@tanstack/react-virtual` browser over `320+` seeded + Mistake-to-Deck cards (`GLB` English / `IRN` Persian-glossed) and `Space`/`1–4` keyboard SRS review session.

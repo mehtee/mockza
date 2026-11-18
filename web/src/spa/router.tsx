@@ -28,6 +28,8 @@ import { PracticeCatalogScreen } from '@/spa/features/practice/PracticeCatalogSc
 import { ReadingSimulatorScreen } from '@/spa/features/practice/ReadingSimulatorScreen';
 import { SpeakingSimulatorScreen } from '@/spa/features/practice/SpeakingSimulatorScreen';
 import { WritingSimulatorScreen } from '@/spa/features/practice/WritingSimulatorScreen';
+import { EvaluationPendingScreen } from '@/spa/features/results/EvaluationPendingScreen';
+import { EvaluationResultScreen } from '@/spa/features/results/EvaluationResultScreen';
 import { ObjectiveResultScreen } from '@/spa/features/results/ObjectiveResultScreen';
 import { SettingsScreen } from '@/spa/features/settings/SettingsScreen';
 import { useClockStore } from '@/spa/stores/clock.store';
@@ -592,14 +594,7 @@ const evaluationPendingRoute = createRoute({
   path: '/evaluation/pending/$jobId',
   component: () => {
     const { jobId } = evaluationPendingRoute.useParams();
-    return (
-      <RouteSkeletonView
-        routeId="evaluation-pending"
-        title="AI Evaluation Pending"
-        description="Live 4-stage async grading stepper (Routes.evaluationPending)."
-        params={{ jobId }}
-      />
-    );
+    return <EvaluationPendingScreen jobId={jobId} />;
   },
 });
 
@@ -608,14 +603,7 @@ const evaluationResultRoute = createRoute({
   path: '/evaluation/result/$id',
   component: () => {
     const { id } = evaluationResultRoute.useParams();
-    return (
-      <RouteSkeletonView
-        routeId="evaluation-result"
-        title="Evaluation Review"
-        description="Master-detail AI rubric review, spans, and model rewrite diff (Routes.evaluationResult)."
-        params={{ id }}
-      />
-    );
+    return <EvaluationResultScreen id={id} />;
   },
 });
 
