@@ -212,26 +212,48 @@ resolve_flutter() {
 
 cmd_web() {
   load_env
-  resolve_flutter
-  cd "$APP_DIR"
-  if [[ ! -d "$APP_DIR/.dart_tool" ]]; then
-    "$FLUTTER_BIN" pub get
-  fi
-  local device="${MOCKZA_WEB_DEVICE:-}"
-  if [[ -z "$device" ]]; then
-    if [[ -n "${DISPLAY:-}" ]]; then
-      device="chrome"
-    else
-      device="web-server"
-    fi
-  fi
+  local mode="${1:---static}"
+  local edition="${MOCKZA_EDITION:-glb}"
   local web_host="${MOCKZA_WEB_HOST:-127.0.0.1}"
-  local public_host="${MOCKZA_PUBLIC_HOST:-127.0.0.1}"
-  local api_url="${MOCKZA_API_BASE_URL:-http://${public_host}:${PORT}}"
-  exec "$FLUTTER_BIN" run -d "$device" \
-    --web-hostname "$web_host" \
-    --web-port "$MOCKZA_WEB_PORT" \
-    --dart-define="MOCKZA_API_BASE_URL=${api_url}"
+  local web_port="${MOCKZA_WEB_PORT:-45280}"
+
+  if [[ "$mode" == "--flutter" ]]; then
+    resolve_flutter
+    cd "$APP_DIR"
+    if [[ ! -d "$APP_DIR/.dart_tool" ]]; then
+      "$FLUTTER_BIN" pub get
+    fi
+    local device="${MOCKZA_WEB_DEVICE:-}"
+    if [[ -z "$device" ]]; then
+      if [[ -n "${DISPLAY:-}" ]]; then
+        device="chrome"
+      else
+        device="web-server"
+      fi
+    fi
+    local public_host="${MOCKZA_PUBLIC_HOST:-127.0.0.1}"
+    local api_url="${MOCKZA_API_BASE_URL:-http://${public_host}:${PORT}}"
+    exec "$FLUTTER_BIN" run -d "$device" \
+      --web-hostname "$web_host" \
+      --web-port "$web_port" \
+      --dart-define="MOCKZA_API_BASE_URL=${api_url}"
+  fi
+
+  resolve_pnpm
+  if [[ "$mode" == "--dev" ]]; then
+    cd "$ROOT_DIR/web"
+    exec "${PNPM_CMD[@]}" exec astro dev --host "$web_host" --port "$web_port"
+  fi
+
+  local dist_dir="$ROOT_DIR/web/dist-${edition}"
+  if [[ "$mode" == "--rebuild" || ! -d "$dist_dir" ]]; then
+    "${PNPM_CMD[@]}" --dir "$ROOT_DIR" --filter @mockza/web "build:${edition}"
+    node "$ROOT_DIR/scripts/compress_web_dist.mjs" "$dist_dir"
+  fi
+
+  echo "Serving pre-compressed Astro Desktop Web (${edition}) at http://${web_host}:${web_port}"
+  MOCKZA_EDITION="$edition" MOCKZA_WEB_HOST="$web_host" MOCKZA_WEB_PORT="$web_port" MOCKZA_WEB_ROOT="$dist_dir" \
+    exec node "$ROOT_DIR/scripts/serve_web_static.mjs"
 }
 
 cmd_serve() {

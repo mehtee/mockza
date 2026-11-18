@@ -206,8 +206,8 @@ check_web_gates() {
   # 0. Low-RAM preflight check
   require_min_ram_mb 500 || return
 
-  # 1. TypeScript strict check (512 MiB heap with 640 MiB fallback for growing web surface)
-  if ! (cd "$ROOT_DIR" && (NODE_OPTIONS="--max-old-space-size=512" pnpm --filter @mockza/web typecheck || (echo "Retrying web typecheck with 640 MiB heap..." >&2 && NODE_OPTIONS="--max-old-space-size=640" pnpm --filter @mockza/web typecheck))); then
+  # 1. TypeScript strict check (640 MiB heap for growing web surface)
+  if ! (cd "$ROOT_DIR" && NODE_OPTIONS="--max-old-space-size=640" pnpm --filter @mockza/web typecheck); then
     fail "Web TypeScript typecheck failed"
   fi
 
@@ -265,6 +265,14 @@ check_web_gates() {
     fail "Web IRN Astro build failed"
   elif grep -rnEI "stripe|revenuecat|accounts\.google\.com|appleid\.apple\.com|googletagmanager|firebase" "$WEB_DIR/dist-irn/"; then
     fail "IRN bundle isolation breach: GLB-only tracker/billing identifier found in web/dist-irn/"
+  fi
+
+  # 8. Pre-compress .br/.gz static assets & verify SEO/zero-JS/header/burst budget
+  if [[ -f "$ROOT_DIR/scripts/check_web_budget.mjs" ]]; then
+    require_min_ram_mb 500 || return
+    if ! (cd "$ROOT_DIR" && node "$ROOT_DIR/scripts/check_web_budget.mjs"); then
+      fail "Web static asset budget / compression check failed"
+    fi
   fi
 
   echo "Web static, test & dual-edition bundle isolation gates checked."

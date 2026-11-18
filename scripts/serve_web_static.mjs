@@ -5,8 +5,10 @@ import { fileURLToPath } from 'node:url';
 import { createGzip } from 'node:zlib';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DEFAULT_DIST = existsSync(path.join(__dirname, '..', 'web', 'dist-glb'))
-  ? path.join(__dirname, '..', 'web', 'dist-glb')
+const EDITION_DIST_DIR =
+  process.env.MOCKZA_EDITION === 'irn' ? 'dist-irn' : 'dist-glb';
+const DEFAULT_DIST = existsSync(path.join(__dirname, '..', 'web', EDITION_DIST_DIR))
+  ? path.join(__dirname, '..', 'web', EDITION_DIST_DIR)
   : path.join(__dirname, '..', 'app', 'build', 'web');
 const WEB_ROOT = path.resolve(process.env.MOCKZA_WEB_ROOT ?? DEFAULT_DIST);
 const HOST = process.env.MOCKZA_WEB_HOST ?? '127.0.0.1';

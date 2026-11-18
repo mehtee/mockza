@@ -721,7 +721,7 @@ To ensure AI answer engines accurately cite **Mockza** (globally) and **Sanjia /
 
 ### Phase `W9` — Zero-Downtime Cutover & Coexistence Operations
 
-- **`W9.1` Staged Cutover on `:45280` / Production Edge:**
+- **`W9.1` Staged Cutover on `:45280` / Production Edge:** — **DONE** (2026-11-18)
   - Point `:45280` (`mockza.mehtea.ir` / `mockza.com` / `sanjia.ir`) to `web/dist` (`~25 MB` static server RSS), keeping `app/` purely dedicated to Android (`.aab`/`.apk`) and iOS (`.ipa`) builds while running `./scripts/check_all.sh all` and `./scripts/check_cross_parity.sh` on every commit.
 
 ---
