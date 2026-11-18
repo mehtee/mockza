@@ -2,6 +2,7 @@ export { FakeAudioPlayerAdapter, FakeAudioRecorderAdapter, type FakeAudioRecorde
 export { FakeAuthAdapter, type FakeAuthAdapterOptions } from './fake-auth.adapter';
 export { FakeBillingAdapter, type FakeBillingAdapterOptions } from './fake-billing.adapter';
 export { FakeCatalogAdapter, type FakeCatalogAdapterOptions } from './fake-catalog.adapter';
+export { FakeDiagnosticAdapter } from './fake-diagnostic.adapter';
 export { DEFAULT_FAKE_CLOCK_MS, FakeClock } from './fake-clock';
 export { FakeStorageAdapter, type FakeStorageAdapterOptions } from './fake-storage.adapter';
 export { FakeTelemetryAdapter, type RecordedTelemetryError, type RecordedTelemetryEvent } from './fake-telemetry.adapter';

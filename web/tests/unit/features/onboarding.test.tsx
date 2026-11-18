@@ -54,7 +54,7 @@ describe('W4.1 Onboarding Wizard (/app/welcome & /app/onboarding/goal)', () => {
     fireEvent.click(screen.getByTestId('goal-start-diagnostic-btn'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('route-skeleton-diagnostic-intro')).toBeTruthy();
+      expect(screen.getByTestId('diagnostic-intro-screen')).toBeTruthy();
     });
 
     const savedProfile = await deps.attemptStore.getUserProfile();

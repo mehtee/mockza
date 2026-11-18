@@ -4,6 +4,7 @@ import type { IAudioPlayerGateway, IAudioRecorderGateway } from '@/gateways/audi
 import type { IAuthGateway, IDeviceSlotGateway } from '@/gateways/auth.gateway';
 import type { IBillingGateway } from '@/gateways/billing.gateway';
 import type { ICatalogMediaGateway } from '@/gateways/catalog.gateway';
+import type { IDiagnosticGateway } from '@/gateways/diagnostic.gateway';
 import type {
   IOfflineAttemptStore,
   ISyncOutboxGateway,
@@ -22,6 +23,7 @@ export interface AppDependencies {
   readonly syncOutbox: ISyncOutboxGateway;
   readonly vocabStore: IVocabSrsStore;
   readonly catalog: ICatalogMediaGateway;
+  readonly diagnostic: IDiagnosticGateway;
   readonly telemetry: ITelemetryGateway;
   readonly clock: IClock;
 }

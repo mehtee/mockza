@@ -5,6 +5,7 @@ import {
   FakeBillingAdapter,
   FakeCatalogAdapter,
   FakeClock,
+  FakeDiagnosticAdapter,
   FakeStorageAdapter,
   FakeTelemetryAdapter,
 } from '@/adapters/fakes';
@@ -26,6 +27,7 @@ export interface TestDependenciesBundle {
   readonly fakeAudioRecorder: FakeAudioRecorderAdapter;
   readonly fakeAudioPlayer: FakeAudioPlayerAdapter;
   readonly fakeCatalog: FakeCatalogAdapter;
+  readonly fakeDiagnostic: FakeDiagnosticAdapter;
   readonly fakeStorage: FakeStorageAdapter;
   readonly fakeTelemetry: FakeTelemetryAdapter;
 }
@@ -46,6 +48,7 @@ export function createTestDependenciesBundle(
   const fakeAudioRecorder = new FakeAudioRecorderAdapter();
   const fakeAudioPlayer = new FakeAudioPlayerAdapter();
   const fakeCatalog = new FakeCatalogAdapter({ clock: fakeClock });
+  const fakeDiagnostic = new FakeDiagnosticAdapter({ clock: fakeClock });
   const fakeStorage = new FakeStorageAdapter({
     clock: fakeClock,
     catalog: fakeCatalog,
@@ -63,6 +66,7 @@ export function createTestDependenciesBundle(
     syncOutbox: fakeStorage,
     vocabStore: fakeStorage,
     catalog: fakeCatalog,
+    diagnostic: fakeDiagnostic,
     telemetry: fakeTelemetry,
     clock: fakeClock,
     ...options.overrides,
@@ -76,6 +80,7 @@ export function createTestDependenciesBundle(
     fakeAudioRecorder,
     fakeAudioPlayer,
     fakeCatalog,
+    fakeDiagnostic,
     fakeStorage,
     fakeTelemetry,
   };

@@ -12,7 +12,11 @@ import {
 } from '@tanstack/react-router';
 import { getActiveEditionCode, getActiveEditionDir } from '@/edition/edition-config';
 import { createTranslator } from '@/i18n';
+import type { DiagnosticSkill } from '@mockza/domain';
 import { AuthScreen } from '@/spa/features/auth/AuthScreen';
+import { DiagnosticIntroScreen } from '@/spa/features/diagnostic/DiagnosticIntroScreen';
+import { DiagnosticResultScreen } from '@/spa/features/diagnostic/DiagnosticResultScreen';
+import { DiagnosticSessionScreen } from '@/spa/features/diagnostic/DiagnosticSessionScreen';
 import { GoalSetupScreen } from '@/spa/features/onboarding/GoalSetupScreen';
 import { WelcomeScreen } from '@/spa/features/onboarding/WelcomeScreen';
 import { PaywallScreen } from '@/spa/features/paywall/PaywallScreen';
@@ -247,15 +251,14 @@ function AppRootLayout() {
   const edition = getActiveEditionCode();
   const dir = getActiveEditionDir();
   const t = createTranslator(edition);
-  const activeExamLock = useClockStore((state) => state.activeExamLock);
   const activeSessionLabel = useClockStore((state) => state.activeSessionLabel);
   const setActiveExamLock = useClockStore((state) => state.setActiveExamLock);
   const sidebarCollapsed = useLayoutStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useLayoutStore((state) => state.toggleSidebar);
 
   const blocker = useBlocker({
-    shouldBlockFn: () => activeExamLock,
-    enableBeforeUnload: () => activeExamLock,
+    shouldBlockFn: () => useClockStore.getState().activeExamLock,
+    enableBeforeUnload: () => useClockStore.getState().activeExamLock,
     withResolver: true,
   });
 
@@ -421,53 +424,42 @@ const goalSetupRoute = createRoute({
 const diagnosticIntroRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/diagnostic/intro',
-  component: () => (
-    <RouteSkeletonView
-      routeId="diagnostic-intro"
-      title="Rapid Starting-Level Check Preflight"
-      description="Zero-scroll preflight audio check and timing mode selector (Routes.diagnosticIntro)."
-    />
-  ),
+  component: () => <DiagnosticIntroScreen />,
 });
+
+const parseRetakeSkill = (search: Record<string, unknown>): { retakeSkill?: DiagnosticSkill } => {
+  const val = search['retakeSkill'];
+  if (val === 'reading' || val === 'listening' || val === 'writing' || val === 'speaking') {
+    return { retakeSkill: val };
+  }
+  return {};
+};
 
 const diagnosticSessionRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/diagnostic/session',
-  component: () => (
-    <RouteSkeletonView
-      routeId="diagnostic-session"
-      title="Rapid Diagnostic Session"
-      description="Adaptive 4-skill diagnostic session workspace (Routes.diagnosticSession)."
-    />
-  ),
+  validateSearch: parseRetakeSkill,
+  component: () => {
+    const search = diagnosticSessionRoute.useSearch();
+    return <DiagnosticSessionScreen retakeSkill={search.retakeSkill} />;
+  },
 });
 
 const diagnosticSessionByIdRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/diagnostic/session/$diagId',
+  validateSearch: parseRetakeSkill,
   component: () => {
     const { diagId } = diagnosticSessionByIdRoute.useParams();
-    return (
-      <RouteSkeletonView
-        routeId="diagnostic-session-id"
-        title="Rapid Diagnostic Session"
-        description="Adaptive 4-skill diagnostic session workspace (Routes.diagnosticSession)."
-        params={{ diagId }}
-      />
-    );
+    const search = diagnosticSessionByIdRoute.useSearch();
+    return <DiagnosticSessionScreen diagId={diagId} retakeSkill={search.retakeSkill} />;
   },
 });
 
 const diagnosticResultRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/diagnostic/result',
-  component: () => (
-    <RouteSkeletonView
-      routeId="diagnostic-result"
-      title="Diagnostic Baseline Result"
-      description="Overall baseline score, confidence range, and action plan (Routes.diagnosticResult)."
-    />
-  ),
+  component: () => <DiagnosticResultScreen />,
 });
 
 const diagnosticResultByIdRoute = createRoute({
@@ -475,14 +467,7 @@ const diagnosticResultByIdRoute = createRoute({
   path: '/diagnostic/result/$diagId',
   component: () => {
     const { diagId } = diagnosticResultByIdRoute.useParams();
-    return (
-      <RouteSkeletonView
-        routeId="diagnostic-result-id"
-        title="Diagnostic Baseline Result"
-        description="Overall baseline score, confidence range, and action plan (Routes.diagnosticResult)."
-        params={{ diagId }}
-      />
-    );
+    return <DiagnosticResultScreen diagId={diagId} />;
   },
 });
 

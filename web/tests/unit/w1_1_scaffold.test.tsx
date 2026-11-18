@@ -171,9 +171,9 @@ describe('W1.1 TanStack Router 24-route skeleton & blocker', () => {
   it.each([
     ['/app/welcome', 'welcome-screen'],
     ['/app/onboarding/goal', 'goal-setup-screen'],
-    ['/app/diagnostic/intro', 'route-skeleton-diagnostic-intro'],
-    ['/app/diagnostic/session', 'route-skeleton-diagnostic-session'],
-    ['/app/diagnostic/result', 'route-skeleton-diagnostic-result'],
+    ['/app/diagnostic/intro', 'diagnostic-intro-screen'],
+    ['/app/diagnostic/session', 'diagnostic-session-screen'],
+    ['/app/diagnostic/result', 'diagnostic-result-screen'],
     ['/app/auth/login', 'auth-screen'],
     ['/app/home', 'route-skeleton-home'],
     ['/app/practice', 'route-skeleton-practice'],

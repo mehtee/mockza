@@ -2,6 +2,7 @@ import { DexieOutboxAdapter } from '@/adapters/dexie/dexie-outbox.adapter';
 import { DexieStorageAdapter } from '@/adapters/dexie/dexie-storage.adapter';
 import { MockzaDexieDb } from '@/adapters/dexie/mockza-db';
 import { ApiClient, createHttpOutboxTransport } from '@/adapters/http/api-client';
+import { HttpDiagnosticAdapter } from '@/adapters/http/http-diagnostic.adapter';
 import type { HttpAuthAdapter } from '@/adapters/http/http-auth.adapter';
 import { HttpTelemetryAdapter, SystemClock } from '@/adapters/http/http-telemetry.adapter';
 import { OpfsCatalogAdapter } from '@/adapters/media/opfs-catalog.adapter';
@@ -120,6 +121,7 @@ export function createEditionDependencies(options: EditionBootstrapOptions): App
       };
     },
   });
+  const diagnostic = new HttpDiagnosticAdapter({ apiClient, fetchFn: options.fetchFn });
   const telemetry = new HttpTelemetryAdapter({ apiClient, clock });
 
   return {
@@ -133,6 +135,7 @@ export function createEditionDependencies(options: EditionBootstrapOptions): App
     syncOutbox,
     vocabStore: storageAdapter,
     catalog: catalogAdapter,
+    diagnostic,
     telemetry,
     clock,
   };

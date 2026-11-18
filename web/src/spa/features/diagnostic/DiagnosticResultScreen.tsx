@@ -1,0 +1,237 @@
+import type { DiagnosticSkill } from '@mockza/domain';
+import { Link, useNavigate } from '@tanstack/react-router';
+import {
+  BookOpen,
+  CheckCircle2,
+  Clock,
+  Headphones,
+  Mic,
+  PenTool,
+  RefreshCw,
+  Sparkles,
+} from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { MzBanner, MzButton, MzCard } from '@/components/ui';
+import type { DiagnosticSessionDto } from '@/gateways/diagnostic.gateway';
+import { createTranslator } from '@/i18n';
+import { useDeps } from '@/spa/deps';
+import { parseDiagnosticStateJson } from './diagnostic-state';
+
+export interface DiagnosticResultScreenProps {
+  readonly diagId?: string;
+}
+
+const SKILL_META: readonly {
+  readonly skill: DiagnosticSkill;
+  readonly label: string;
+  readonly Icon: typeof BookOpen;
+}[] = [
+  { skill: 'reading', label: 'Reading', Icon: BookOpen },
+  { skill: 'listening', label: 'Listening', Icon: Headphones },
+  { skill: 'writing', label: 'Writing', Icon: PenTool },
+  { skill: 'speaking', label: 'Speaking', Icon: Mic },
+] as const;
+
+export function DiagnosticResultScreen({ diagId: routeDiagId }: DiagnosticResultScreenProps = {}) {
+  const deps = useDeps();
+  const t = createTranslator(deps.edition);
+  const navigate = useNavigate();
+
+  const [session, setSession] = useState<DiagnosticSessionDto | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const loadResults = useCallback(async () => {
+    setErrorMsg(null);
+    let targetDiagId = routeDiagId;
+
+    if (!targetDiagId) {
+      const latestRes = await deps.attemptStore.getLatestDiagnosticSession();
+      const parsed = parseDiagnosticStateJson(latestRes.ok ? latestRes.value : null);
+      if (parsed?.remoteSession) {
+        setSession(parsed.remoteSession);
+        targetDiagId = parsed.diagId;
+      } else if (parsed?.diagId) {
+        targetDiagId = parsed.diagId;
+      }
+    }
+
+    if (!targetDiagId) return;
+
+    const remoteRes = await deps.diagnostic.getSession(targetDiagId);
+    if (remoteRes.ok) {
+      setSession(remoteRes.value);
+    } else if (!session) {
+      setErrorMsg(remoteRes.error.message);
+    }
+  }, [deps.attemptStore, deps.diagnostic, routeDiagId, session]);
+
+  useEffect(() => {
+    void loadResults();
+  }, [loadResults]);
+
+  const anyPending =
+    session &&
+    Object.values(session.skills).some((outcome) => outcome.status === 'pending');
+
+  useEffect(() => {
+    if (!anyPending) return;
+    const timer = window.setInterval(() => {
+      void loadResults();
+    }, 2500);
+    return () => window.clearInterval(timer);
+  }, [anyPending, loadResults]);
+
+  if (!session) {
+    return (
+      <div data-testid="diagnostic-result-screen" className="mx-auto max-w-4xl p-6 text-start">
+        {errorMsg ? (
+          <MzBanner tone="danger">{errorMsg}</MzBanner>
+        ) : (
+          <MzCard variant="default">
+            <p className="text-sm text-text-secondary">No baseline report found yet.</p>
+            <Link
+              to="/diagnostic/intro"
+              className="mt-3 inline-flex text-xs font-semibold text-primary hover:underline"
+            >
+              {t('diagIntroTitle')}
+            </Link>
+          </MzCard>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div data-testid="diagnostic-result-screen" className="mx-auto flex max-w-5xl flex-col gap-6 pb-10 text-start">
+      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border-subtle pb-4">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">{t('diagResultTitle')}</h1>
+          <p className="mt-1 text-sm text-text-secondary">{t('diagResultSubtitle')}</p>
+        </div>
+
+        <MzButton
+          variant="secondary"
+          size="sm"
+          leadingIcon={<RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />}
+          onClick={() => void loadResults()}
+        >
+          Refresh
+        </MzButton>
+      </header>
+
+      {errorMsg ? <MzBanner tone="danger">{errorMsg}</MzBanner> : null}
+
+      {/* Recommended Next Action Hero */}
+      <MzCard variant="hero">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+            <div>
+              <h2 className="text-base font-bold text-text-primary">
+                {session.recommendedFirstAction.title}
+              </h2>
+              <p className="mt-1 text-xs text-text-secondary">
+                {session.recommendedFirstAction.description}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Link
+              to="/practice/drills"
+              data-testid="diag-recommended-cta"
+              className="inline-flex h-9 items-center justify-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-strong"
+            >
+              {t('diagStartRecommendedAction')}
+            </Link>
+            <Link
+              to="/home"
+              data-testid="diag-go-home-link"
+              className="inline-flex h-9 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-3 text-xs font-semibold text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+            >
+              {t('diagGoHomeAction')}
+            </Link>
+          </div>
+        </div>
+      </MzCard>
+
+      {/* 4-Skill Baseline Grid with Single-Skill Retake */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {SKILL_META.map(({ skill, label, Icon }) => {
+          const outcome = session.skills[skill];
+          const statusLabel =
+            outcome.status === 'pending'
+              ? t('diagPendingStatusLabel')
+              : outcome.status === 'skipped'
+                ? t('diagSkippedStatusLabel')
+                : outcome.status === 'insufficient_evidence'
+                  ? t('diagInsufficientStatusLabel')
+                  : t('diagProvisionalStatusLabel');
+
+          return (
+            <MzCard
+              key={skill}
+              variant="default"
+              data-testid={`diag-skill-card-${skill}`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <Icon className="h-5 w-5 text-primary" aria-hidden="true" />
+                  <div>
+                    <h3 className="text-base font-bold text-text-primary">{label}</h3>
+                    <span
+                      className={[
+                        'inline-flex items-center gap-1 text-[11px] font-semibold',
+                        outcome.status === 'provisional'
+                          ? 'text-success'
+                          : outcome.status === 'pending'
+                            ? 'text-focus'
+                            : 'text-text-secondary',
+                      ].join(' ')}
+                    >
+                      {outcome.status === 'provisional' ? (
+                        <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                      ) : (
+                        <Clock className="h-3 w-3" aria-hidden="true" />
+                      )}
+                      {statusLabel}
+                    </span>
+                  </div>
+                </div>
+
+                <MzButton
+                  variant="ghost"
+                  size="sm"
+                  data-testid={`diag-retake-${skill}-btn`}
+                  onClick={() =>
+                    void navigate({
+                      to: '/diagnostic/session/$diagId',
+                      params: { diagId: session.diagId },
+                      search: { retakeSkill: skill },
+                    })
+                  }
+                >
+                  {t('diagRetakeSkillAction')}
+                </MzButton>
+              </div>
+
+              {outcome.suggestedPracticeLevel ? (
+                <p className="mt-3 rounded-[var(--mz-radius-compact)] border border-primary/35 bg-surface-alt px-3 py-2 text-xs font-semibold text-text-primary">
+                  {outcome.suggestedPracticeLevel}
+                </p>
+              ) : null}
+
+              {outcome.observations.length > 0 ? (
+                <ul className="mt-3 flex flex-col gap-1 text-xs text-text-secondary">
+                  {outcome.observations.map((obs) => (
+                    <li key={obs}>• {obs}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </MzCard>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
