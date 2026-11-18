@@ -1,0 +1,63 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+
+const edition = import.meta.env.PUBLIC_EDITION === 'irn' ? 'irn' : 'glb';
+const isIrn = edition === 'irn';
+const brandName = isIrn ? 'سنجیا (Sanjia)' : 'Mockza';
+const headline = isIrn
+  ? 'شبیه‌ساز دسکتاپ آزمون‌های بین‌المللی زبان'
+  : 'Desktop-First English Exam Simulator';
+const subtitle = isIrn
+  ? 'آیلتس آکادمیک و جنرال، تافل ۲۰۲۶، پی‌تی‌ای آکادمیک و دولینگو — با محیط استاندارد دو‌ستونه، تمرین آفلاین و تصحیح هوشمند.'
+  : 'IELTS Academic & General, TOEFL iBT 2026, PTE Academic, and Duolingo English Test — native desktop split-pane workspaces with offline-first persistence.';
+const ctaStart = isIrn ? 'شروع آشنایی و تعیین سطح' : 'Get Started';
+const ctaHome = isIrn ? 'ورود به داشبورد دسکتاپ' : 'Open Desktop Dashboard';
+---
+
+<BaseLayout>
+  <main class="mx-auto flex min-h-dvh max-w-5xl flex-col justify-center px-6 py-16 text-start">
+    <div class="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-8 sm:p-12">
+      <div class="mb-4 inline-flex items-center gap-2 rounded-[var(--mz-radius-pill)] border border-border-subtle bg-surface-alt px-3 py-1 text-xs font-medium text-text-secondary">
+        <span class="inline-block h-2 w-2 rounded-full bg-primary"></span>
+        <span>{brandName}</span>
+        <span class="text-text-tertiary">•</span>
+        <span class="tabular-nums">{isIrn ? 'نسخه ایران (IRN)' : 'Global Edition (GLB)'}</span>
+      </div>
+
+      <h1 class="text-3xl font-bold tracking-tight text-text-primary sm:text-4xl">
+        {headline}
+      </h1>
+
+      <p class="mt-4 max-w-2xl text-base leading-relaxed text-text-secondary">
+        {subtitle}
+      </p>
+
+      <div class="mt-8 flex flex-wrap items-center gap-4">
+        <a
+          href="/app/welcome"
+          class="inline-flex items-center justify-center rounded-[var(--mz-radius-control)] bg-primary px-6 py-3 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-pressed"
+        >
+          {ctaStart}
+        </a>
+        <a
+          href="/app/home"
+          class="inline-flex items-center justify-center rounded-[var(--mz-radius-control)] border border-border-strong bg-surface-alt px-6 py-3 text-sm font-semibold text-text-primary transition-colors hover:bg-surface-hover"
+        >
+          {ctaHome}
+        </a>
+      </div>
+
+      <ul class="mt-10 grid grid-cols-1 gap-4 border-t border-border-subtle pt-8 text-sm text-text-secondary sm:grid-cols-3">
+        <li class="border-s-2 border-skill-reading ps-3">
+          {isIrn ? 'پنج آزمون استاندارد جهانی' : '5 Official-Aligned Exam Tracks'}
+        </li>
+        <li class="border-s-2 border-skill-writing ps-3">
+          {isIrn ? 'ذخیره‌سازی آفلاین و بازیابی آنی' : 'Offline-First Draft & Audio Cache'}
+        </li>
+        <li class="border-s-2 border-skill-speaking ps-3">
+          {isIrn ? 'محیط انگلیسی چپ‌به‌راست در آزمون' : 'Keyboard-First Split-Pane Ergonomics'}
+        </li>
+      </ul>
+    </div>
+  </main>
+</BaseLayout>

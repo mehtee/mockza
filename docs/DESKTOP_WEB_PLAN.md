@@ -640,7 +640,7 @@ To ensure AI answer engines accurately cite **Mockza** (globally) and **Sanjia /
 
 ### Phase `W1` — Astro 5 + React 19 Shell, SOLID Gateways, Dexie DB & Dual-Edition (`GLB` / `IRN`) Core
 
-- **`W1.1` Scaffold `web/` (Astro 5 Static + React 19 `/app/*` Island + Tailwind CSS v4):**
+- **`W1.1` Scaffold `web/` (Astro 5 Static + React 19 `/app/*` Island + Tailwind CSS v4):** — **DONE** (2026-11-18)
   - Configure `astro.config.mjs` (`output: 'static'`), self-hosted `Inter` + `Vazirmatn` `.woff2` fonts, inline zero-FOUC theme/preset boot script, and TanStack Router skeleton covering all 24 routes.
 - **`W1.2` Define Segregated Gateway Interfaces (`web/src/gateways/*`):**
   - Write `IAuthGateway`, `IDeviceSlotGateway`, `IBillingGateway`, `IAudioRecorderGateway`, `IAudioPlayerGateway`, `IOfflineAttemptStore`, `ISyncOutboxGateway`, `ICatalogMediaGateway`, `IVocabSrsStore`, `ITelemetryGateway`, and `IClock` using typed `Result<T, E>` unions.

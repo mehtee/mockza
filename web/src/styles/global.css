@@ -1,0 +1,64 @@
+@import "tailwindcss";
+@import "./generated-tokens.css";
+@import "@fontsource/inter/latin-400.css";
+@import "@fontsource/inter/latin-500.css";
+@import "@fontsource/inter/latin-600.css";
+@import "@fontsource/inter/latin-700.css";
+@import "@fontsource/vazirmatn/arabic-400.css";
+@import "@fontsource/vazirmatn/arabic-500.css";
+@import "@fontsource/vazirmatn/arabic-600.css";
+@import "@fontsource/vazirmatn/arabic-700.css";
+@import "@fontsource/jetbrains-mono/latin-400.css";
+@import "@fontsource/jetbrains-mono/latin-500.css";
+@import "@fontsource/jetbrains-mono/latin-600.css";
+@import "@fontsource/jetbrains-mono/latin-700.css";
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: var(--mz-border-subtle);
+  }
+
+  html {
+    background-color: var(--mz-bg-canvas);
+    color: var(--mz-text-primary);
+    font-family: var(--mz-font-sans-en);
+    text-align: start;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html[dir="rtl"] {
+    font-family: var(--mz-font-sans-fa);
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background-color: var(--mz-bg-canvas);
+    color: var(--mz-text-primary);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--mz-focus);
+    outline-offset: 2px;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.font-en {
+  font-family: var(--mz-font-sans-en);
+}
+
+.font-fa {
+  font-family: var(--mz-font-sans-fa);
+}
+
+.font-mono-exam {
+  font-family: var(--mz-font-mono);
+  font-variant-numeric: tabular-nums;
+}

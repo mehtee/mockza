@@ -1,0 +1,34 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { DesktopSimulatorApp } from '@/spa/DesktopSimulatorApp';
+
+export function getStaticPaths() {
+  const slugs: Array<string | undefined> = [
+    undefined,
+    'welcome',
+    'onboarding/goal',
+    'diagnostic/intro',
+    'diagnostic/session',
+    'diagnostic/result',
+    'auth/login',
+    'home',
+    'practice',
+    'practice/drills',
+    'practice/full-mock',
+    'vocabulary',
+    'vocabulary/review',
+    'progress',
+    'progress/compare',
+    'settings',
+    'paywall',
+  ];
+
+  return slugs.map((slug) => ({
+    params: { slug },
+  }));
+}
+---
+
+<BaseLayout>
+  <DesktopSimulatorApp client:only="react" />
+</BaseLayout>
