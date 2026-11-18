@@ -23,6 +23,7 @@ import { WelcomeScreen } from '@/spa/features/onboarding/WelcomeScreen';
 import { PaywallScreen } from '@/spa/features/paywall/PaywallScreen';
 import { ListeningSimulatorScreen } from '@/spa/features/practice/ListeningSimulatorScreen';
 import { ReadingSimulatorScreen } from '@/spa/features/practice/ReadingSimulatorScreen';
+import { SpeakingSimulatorScreen } from '@/spa/features/practice/SpeakingSimulatorScreen';
 import { WritingSimulatorScreen } from '@/spa/features/practice/WritingSimulatorScreen';
 import { ObjectiveResultScreen } from '@/spa/features/results/ObjectiveResultScreen';
 import { SettingsScreen } from '@/spa/features/settings/SettingsScreen';
@@ -555,14 +556,7 @@ const speakingSessionRoute = createRoute({
   path: '/practice/speaking/$packId',
   component: () => {
     const { packId } = speakingSessionRoute.useParams();
-    return (
-      <RouteSkeletonView
-        routeId="practice-speaking"
-        title="Speaking Simulator"
-        description="Cue card stage and 60fps waveform microphone studio (Routes.speakingSession)."
-        params={{ packId }}
-      />
-    );
+    return <SpeakingSimulatorScreen packId={packId} />;
   },
 });
 
