@@ -376,7 +376,11 @@ export class HttpAuthAdapter implements IAuthGateway, IDeviceSlotGateway {
         cause: res.error,
       });
     }
-    return ok(res.value);
+    const snap = res.value;
+    return ok({
+      ...snap,
+      smsOtpEnabled: snap.smsOtp?.enabled ?? snap.smsOtpEnabled ?? false,
+    });
   }
 
   protected async submitSessionAuth(

@@ -11,6 +11,7 @@ import {
 } from '@tanstack/react-router';
 import { getActiveEditionCode, getActiveEditionDir } from '@/edition/edition-config';
 import { createTranslator } from '@/i18n';
+import { AuthScreen } from '@/spa/features/auth/AuthScreen';
 import { useClockStore } from '@/spa/stores/clock.store';
 import { useLayoutStore } from '@/spa/stores/layout.store';
 
@@ -323,6 +324,14 @@ function AppRootLayout() {
           >
             {sidebarCollapsed ? t('navSettings').slice(0, 1) : t('navSettings')}
           </Link>
+          <Link
+            to="/auth/login"
+            aria-label={t('authSignInAction')}
+            data-testid="nav-auth-link"
+            className="mt-2 rounded-[var(--mz-radius-compact)] border border-border-subtle px-3 py-2 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+          >
+            {sidebarCollapsed ? t('authSignInAction').slice(0, 1) : t('authSignInAction')}
+          </Link>
         </nav>
       </aside>
 
@@ -487,13 +496,30 @@ const diagnosticResultByIdRoute = createRoute({
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/auth/login',
-  component: () => (
-    <RouteSkeletonView
-      routeId="auth-login"
-      title="Sign In"
-      description="Dual-edition authentication and 409 device slot resolution (Routes.login)."
-    />
-  ),
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): {
+    returnTo?: string;
+    reason?: string;
+    mode?: 'sign_up' | 'sign_in';
+  } => ({
+    returnTo: typeof search['returnTo'] === 'string' ? search['returnTo'] : undefined,
+    reason: typeof search['reason'] === 'string' ? search['reason'] : undefined,
+    mode:
+      search['mode'] === 'sign_up' || search['mode'] === 'sign_in'
+        ? (search['mode'] as 'sign_up' | 'sign_in')
+        : undefined,
+  }),
+  component: () => {
+    const search = loginRoute.useSearch();
+    return (
+      <AuthScreen
+        returnTo={search.returnTo}
+        reason={search.reason}
+        initialMode={search.mode}
+      />
+    );
+  },
 });
 
 const homeRoute = createRoute({

@@ -146,6 +146,31 @@ export const faMessages = {
   authSlotReplaceAction: 'خروج از مرورگر قبلی و ورود در اینجا',
   authSessionRevokedBanner:
     'نشست دسکتاپ شما از دستگاه دیگری بسته شد. لطفاً دوباره وارد شوید.',
+  authHeroSubtitle:
+    'اشتراک پرو و تاریخچه تمرین‌های خود را هم‌زمان روی ۱ گوشی موبایل و ۱ مرورگر دسکتاپ همگام‌سازی کنید.',
+  authDisplayNameLabel: 'نام نمایشی (اختیاری)',
+  authPasswordHintMin8: 'حداقل ۸ کاراکتر',
+  authOrEmailDivider: 'یا ورود با ایمیل',
+  authOtpCodeLabel: 'کد تایید ۶ رقمی',
+  authOtpResendCountdown: 'ارسال مجدد تا {sec} ثانیه دیگر',
+  authOtpChangePhoneAction: 'ویرایش شماره',
+  authOtpDevHintBadge: 'کد آزمایشی توسعه: {code}',
+  authTabSmsOtp: 'ورود پیامکی',
+  authTabEmail: 'ایمیل',
+  authDevSandboxBadge: 'محیط توسعه',
+  authDevPersonaModalTitle: 'انتخاب حساب آزمایشی ({provider})',
+  authDevPersonaModalDesc:
+    'تا زمان تنظیم کلیدهای نهایی، یکی از حساب‌های آزمایشی را انتخاب کنید.',
+  authSlotActiveBadge: '۱ از ۱ فعال',
+  authSlotOpenBadge: '۰ از ۱ آزاد',
+  authMobileSlotTitle: 'گوشی موبایل',
+  authDesktopSlotTitle: 'مرورگر دسکتاپ',
+  authPolicyNoticeBody:
+    'هر اشتراک هم‌زمان شامل ۱ گوشی موبایل و ۱ مرورگر دسکتاپ است. در هر زمان می‌توانید نشست‌ها را در تنظیمات مدیریت یا لغو کنید.',
+  authAlreadySignedInBanner: 'با حساب {identity} وارد شده‌اید.',
+  authContinueHomeAction: 'ورود به داشبورد',
+  authMultiExamSyncBullet:
+    'همگام‌سازی پیشرفت در هر ۵ آزمون: آیلتس آکادمیک و جنرال، تافل iBT ۲۰۲۶، پی‌تی‌ای و دولینگو (DET).',
 
   // Settings & Paywall
   settingsAccountSection: 'حساب کاربری',

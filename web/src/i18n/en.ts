@@ -149,6 +149,31 @@ export const enMessages = {
   authSlotReplaceAction: 'Sign Out Previous Browser & Continue',
   authSessionRevokedBanner:
     'Your desktop session was signed out from another device. Please sign in again.',
+  authHeroSubtitle:
+    'Sync your Pro subscription and practice history across 1 Mobile Phone and 1 Desktop Web browser.',
+  authDisplayNameLabel: 'Display Name (optional)',
+  authPasswordHintMin8: 'Minimum 8 characters',
+  authOrEmailDivider: 'or with email',
+  authOtpCodeLabel: '6-Digit Verification Code',
+  authOtpResendCountdown: 'Resend available in {sec}s',
+  authOtpChangePhoneAction: 'Edit Number',
+  authOtpDevHintBadge: 'Dev Sandbox OTP: {code}',
+  authTabSmsOtp: 'SMS OTP',
+  authTabEmail: 'Email',
+  authDevSandboxBadge: 'Dev Sandbox',
+  authDevPersonaModalTitle: 'Select {provider} Dev Persona',
+  authDevPersonaModalDesc:
+    'Choose a local test persona until live OAuth credentials are configured.',
+  authSlotActiveBadge: '1 / 1 Active',
+  authSlotOpenBadge: '0 / 1 Open',
+  authMobileSlotTitle: 'Mobile Phone',
+  authDesktopSlotTitle: 'Desktop Web',
+  authPolicyNoticeBody:
+    'Each subscription strictly supports 1 signed-in Mobile Phone + 1 Desktop Web session. Manage or revoke devices anytime in Settings.',
+  authAlreadySignedInBanner: 'Signed in as {identity}.',
+  authContinueHomeAction: 'Go to Dashboard',
+  authMultiExamSyncBullet:
+    'Sync progress across IELTS Academic & General, TOEFL iBT (2026), PTE Academic, and DET.',
 
   // Settings & Paywall
   settingsAccountSection: 'Account',

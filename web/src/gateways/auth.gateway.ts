@@ -34,9 +34,15 @@ export type AuthProviderKind = 'email' | 'google' | 'apple' | 'sms_otp';
 export type SocialProviderDescriptor = Readonly<(typeof SocialProviderDescriptorSchema)['_output']>;
 export type DevicePolicySummary = Readonly<(typeof DevicePolicySummarySchema)['_output']>;
 
+export interface SmsOtpProviderDescriptor {
+  readonly enabled: boolean;
+  readonly mode: 'kavenegar' | 'dev_sandbox' | 'disabled';
+}
+
 export interface AuthProvidersSnapshot {
   readonly emailPasswordEnabled: boolean;
   readonly smsOtpEnabled?: boolean;
+  readonly smsOtp?: SmsOtpProviderDescriptor;
   readonly google: SocialProviderDescriptor;
   readonly apple: SocialProviderDescriptor;
   readonly devicePolicy: DevicePolicySummary;

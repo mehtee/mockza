@@ -3,8 +3,8 @@ export type EditionCode = 'glb' | 'irn';
 export interface EditionFeatures {
   readonly oauthGoogleApple: boolean;
   readonly smsOtp: boolean;
-  readonly zarinpal: boolean;
-  readonly naviaHandoff: boolean;
+  readonly localPaymentGateway: boolean;
+  readonly ecosystemHandoff: boolean;
 }
 
 export interface EditionConfig {
@@ -34,8 +34,8 @@ function createGlbEditionConfig(): EditionConfig {
     features: {
       oauthGoogleApple: true,
       smsOtp: false,
-      zarinpal: false,
-      naviaHandoff: false,
+      localPaymentGateway: false,
+      ecosystemHandoff: false,
     },
   };
 }
@@ -54,8 +54,8 @@ function createIrnEditionConfig(): EditionConfig {
     features: {
       oauthGoogleApple: false,
       smsOtp: true,
-      zarinpal: true,
-      naviaHandoff: true,
+      localPaymentGateway: true,
+      ecosystemHandoff: true,
     },
   };
 }

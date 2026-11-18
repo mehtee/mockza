@@ -206,8 +206,8 @@ check_web_gates() {
   # 0. Low-RAM preflight check
   require_min_ram_mb 500 || return
 
-  # 1. TypeScript strict check (384 MiB heap with 512 MiB fallback for growing web surface)
-  if ! (cd "$ROOT_DIR" && (NODE_OPTIONS="--max-old-space-size=384" pnpm --filter @mockza/web typecheck || (echo "Retrying web typecheck with 512 MiB heap..." >&2 && NODE_OPTIONS="--max-old-space-size=512" pnpm --filter @mockza/web typecheck))); then
+  # 1. TypeScript strict check (512 MiB heap with 640 MiB fallback for growing web surface)
+  if ! (cd "$ROOT_DIR" && (NODE_OPTIONS="--max-old-space-size=512" pnpm --filter @mockza/web typecheck || (echo "Retrying web typecheck with 640 MiB heap..." >&2 && NODE_OPTIONS="--max-old-space-size=640" pnpm --filter @mockza/web typecheck))); then
     fail "Web TypeScript typecheck failed"
   fi
 

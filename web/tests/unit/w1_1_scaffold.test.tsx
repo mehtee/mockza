@@ -1,6 +1,7 @@
 import { createMemoryHistory } from '@tanstack/react-router';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createTestDependencies } from '@/composition/bootstrap-test';
 import { DesktopSimulatorApp } from '@/spa/DesktopSimulatorApp';
 import { MAPPED_ROUTE_CATALOG, createAppRouter } from '@/spa/router';
 import { useAudioStore } from '@/spa/stores/audio.store';
@@ -173,7 +174,7 @@ describe('W1.1 TanStack Router 24-route skeleton & blocker', () => {
     ['/app/diagnostic/intro', 'route-skeleton-diagnostic-intro'],
     ['/app/diagnostic/session', 'route-skeleton-diagnostic-session'],
     ['/app/diagnostic/result', 'route-skeleton-diagnostic-result'],
-    ['/app/auth/login', 'route-skeleton-auth-login'],
+    ['/app/auth/login', 'auth-screen'],
     ['/app/home', 'route-skeleton-home'],
     ['/app/practice', 'route-skeleton-practice'],
     ['/app/practice/reading/ielts-acad-01', 'route-skeleton-practice-reading'],
@@ -195,7 +196,12 @@ describe('W1.1 TanStack Router 24-route skeleton & blocker', () => {
     const history = createMemoryHistory({ initialEntries: [initialPath] });
     const router = createAppRouter(history);
 
-    render(<DesktopSimulatorApp router={router} />);
+    render(
+      <DesktopSimulatorApp
+        router={router}
+        dependencies={createTestDependencies({ edition: 'glb' })}
+      />,
+    );
 
     await waitFor(() => {
       expect(screen.getByTestId(expectedTestId)).toBeTruthy();
@@ -209,7 +215,12 @@ describe('W1.1 TanStack Router 24-route skeleton & blocker', () => {
     });
     const router = createAppRouter(history);
 
-    render(<DesktopSimulatorApp router={router} />);
+    render(
+      <DesktopSimulatorApp
+        router={router}
+        dependencies={createTestDependencies({ edition: 'glb' })}
+      />,
+    );
 
     await waitFor(() => {
       expect(screen.getByTestId('route-skeleton-practice-reading')).toBeTruthy();

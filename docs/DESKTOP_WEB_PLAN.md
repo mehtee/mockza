@@ -656,7 +656,7 @@ To ensure AI answer engines accurately cite **Mockza** (globally) and **Sanjia /
 - **`W2.1` Backend IRN Extensions (Cleanly Gated by `EDITION=irn`):** — **DONE** (2026-11-18)
   - Add `/v1/auth/otp/{request,verify}` (pluggable `SmsGateway`: dev console/sandbox + `Kavenegar`/`Sms.ir`) and `/v1/billing/zarinpal/{request,verify}` (integer `IRR` ledger + Shetab callback verification) in `backend/apps/api/`, plus `irn` Persian coaching overlay in `backend/packages/ai/src/prompts/rubrics.ts`.
   - Add `ffmpeg` WebM/Opus -> `16 kHz` mono `.m4a` normalization guard in `backend/apps/worker/` so non-Safari desktop browser recordings grade identically to mobile `.m4a` uploads.
-- **`W2.2` Desktop Auth UI & `409 DEVICE_SLOT_OCCUPIED` Takeover Flow (`/app/auth/login`):**
+- **`W2.2` Desktop Auth UI & `409 DEVICE_SLOT_OCCUPIED` Takeover Flow (`/app/auth/login`):** — **DONE** (2026-11-18)
   - Implement Email/Password + Google + Apple (`GLB`, including `ALLOW_DEV_AUTH_PROVIDERS` 1-click dev mode) and `+98` SMS OTP + Email (`IRN`), sending `slotKind: 'desktop_web'` & `appSurface: 'web_app'`.
   - Build the `409 DEVICE_SLOT_OCCUPIED` resolution dialog (*"Sign out previous desktop browser & continue here"*) and `401 SESSION_REVOKED` banner.
 - **`W2.3` Settings Active Devices Manager & Paywall Checkout (`/app/settings`, `/app/paywall`):**

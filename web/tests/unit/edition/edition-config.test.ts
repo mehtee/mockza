@@ -28,8 +28,8 @@ describe('W1.4 EditionConfig (GLB vs IRN)', () => {
       features: {
         oauthGoogleApple: true,
         smsOtp: false,
-        zarinpal: false,
-        naviaHandoff: false,
+        localPaymentGateway: false,
+        ecosystemHandoff: false,
       },
     });
   });
@@ -52,8 +52,8 @@ describe('W1.4 EditionConfig (GLB vs IRN)', () => {
       features: {
         oauthGoogleApple: false,
         smsOtp: true,
-        zarinpal: true,
-        naviaHandoff: true,
+        localPaymentGateway: true,
+        ecosystemHandoff: true,
       },
     });
   });

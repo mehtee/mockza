@@ -14,6 +14,7 @@ import type { AppDependencies } from './container';
 export interface TestDependenciesOptions {
   readonly edition?: EditionCode;
   readonly initialClockMs?: number;
+  readonly allowDevAuth?: boolean;
   readonly overrides?: Partial<AppDependencies>;
 }
 
@@ -34,7 +35,11 @@ export function createTestDependenciesBundle(
 ): TestDependenciesBundle {
   const edition = options.edition ?? 'glb';
   const fakeClock = new FakeClock(options.initialClockMs);
-  const fakeAuth = new FakeAuthAdapter({ clock: fakeClock, edition });
+  const fakeAuth = new FakeAuthAdapter({
+    clock: fakeClock,
+    edition,
+    allowDevAuth: options.allowDevAuth,
+  });
   const fakeBilling = new FakeBillingAdapter({
     currencyKind: edition === 'irn' ? 'IRR' : 'USD',
   });
