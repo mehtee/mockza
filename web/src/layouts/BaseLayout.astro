@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import { getActiveEditionConfig } from '@/edition/edition-config';
+import { getPublicSiteCopyForBuild } from '@/seo/public-catalog';
 import {
   DEFAULT_THEME_MODE,
   DEFAULT_THEME_PRESET_ID,
@@ -10,21 +11,37 @@ import {
 export interface Props {
   title?: string;
   description?: string;
+  canonicalPath?: string;
+  ogImagePath?: string;
+  markdownTwinPath?: string;
+  jsonLd?: Record<string, unknown> | readonly Record<string, unknown>[];
+  showPublicNav?: boolean;
 }
 
 const editionConfig = getActiveEditionConfig();
+const siteCopy = getPublicSiteCopyForBuild();
 const isIrn = editionConfig.edition === 'irn';
 const lang = isIrn ? 'fa' : 'en';
 const dir = editionConfig.dir;
 const fontClass = isIrn ? 'font-fa' : 'font-en';
+const siteOrigin = Astro.site ? Astro.site.toString().replace(/\/$/, '') : `https://${editionConfig.domain}`;
 const defaultTitle = isIrn
   ? 'سنجیا | شبیه‌ساز دسکتاپ آزمون‌های بین‌المللی زبان'
   : 'Mockza | Desktop English Exam Simulator';
-const defaultDescription = isIrn
-  ? 'شبیه‌ساز دسکتاپ آیلتس، تافل ۲۰۲۶، پی‌تی‌ای و دولینگو با ارزیابی هوشمند و مرور واژگان SM-2.'
-  : 'Desktop simulator for IELTS Academic, IELTS General, TOEFL iBT 2026, PTE Academic, and Duolingo English Test.';
+const defaultDescription = siteCopy.heroSubtitle;
 
-const { title = defaultTitle, description = defaultDescription } = Astro.props;
+const {
+  title = defaultTitle,
+  description = defaultDescription,
+  canonicalPath,
+  ogImagePath,
+  markdownTwinPath,
+  jsonLd,
+  showPublicNav = false,
+} = Astro.props;
+
+const canonicalUrl = canonicalPath ? `${siteOrigin}${canonicalPath}` : undefined;
+const ogImageUrl = ogImagePath ? `${siteOrigin}${ogImagePath}` : `${siteOrigin}/og/home.svg`;
 ---
 
 <!doctype html>
@@ -39,9 +56,61 @@ const { title = defaultTitle, description = defaultDescription } = Astro.props;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <title>{title}</title>
+    {canonicalUrl ? <link rel="canonical" href={canonicalUrl} /> : null}
+    {markdownTwinPath ? (
+      <link rel="alternate" type="text/markdown" href={markdownTwinPath} />
+    ) : null}
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    {canonicalUrl ? <meta property="og:url" content={canonicalUrl} /> : null}
+    <meta property="og:image" content={ogImageUrl} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageUrl} />
+    {jsonLd ? (
+      <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+    ) : null}
     <script is:inline set:html={ZERO_FOUC_THEME_BOOT_SCRIPT} />
   </head>
   <body class={`bg-canvas text-text-primary antialiased ${fontClass}`}>
+    {showPublicNav ? (
+      <header class="border-b border-border-subtle bg-bg-raised">
+        <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">
+          <a href="/" class="text-base font-bold text-text-primary">
+            {siteCopy.brandTitle}
+          </a>
+          <nav aria-label="Public navigation" class="flex flex-wrap items-center gap-4 text-xs font-medium text-text-secondary">
+            <a href="/" class="hover:text-text-primary">{siteCopy.navHome}</a>
+            <a href="/calculators" class="hover:text-text-primary">{siteCopy.navCalculators}</a>
+            <a href="/samples" class="hover:text-text-primary">{siteCopy.navSamples}</a>
+            <a href="/vocab" class="hover:text-text-primary">{siteCopy.navVocab}</a>
+            <a
+              href="/app/welcome"
+              class="inline-flex h-8 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3 font-semibold text-on-primary hover:bg-primary-strong"
+            >
+              {siteCopy.navOpenApp}
+            </a>
+          </nav>
+        </div>
+      </header>
+    ) : null}
     <slot />
+    {showPublicNav ? (
+      <footer class="border-t border-border-subtle bg-bg-raised py-8 text-xs text-text-secondary">
+        <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6">
+          <p>{siteCopy.brandTitle} · {editionConfig.domain}</p>
+          <div class="flex flex-wrap items-center gap-4">
+            <a href="/ielts-academic" class="hover:text-text-primary">IELTS Academic</a>
+            <a href="/ielts-general" class="hover:text-text-primary">IELTS General</a>
+            <a href="/toefl-ibt" class="hover:text-text-primary">TOEFL iBT 2026</a>
+            <a href="/pte-academic" class="hover:text-text-primary">PTE Academic</a>
+            <a href="/duolingo-english-test" class="hover:text-text-primary">DET</a>
+            <a href="/llms.txt" class="hover:text-text-primary">llms.txt</a>
+          </div>
+        </div>
+      </footer>
+    ) : null}
   </body>
 </html>

@@ -705,7 +705,7 @@ To ensure AI answer engines accurately cite **Mockza** (globally) and **Sanjia /
 
 ### Phase `W7` — Static SEO + GEO Public Growth Layer (`mockza.com` & `sanjia.ir`)
 
-- **`W7.1` Public Landing & 5 Exam Pillar Pages (`0 KB` JS Static HTML):**
+- **`W7.1` Public Landing & 5 Exam Pillar Pages (`0 KB` JS Static HTML):** — **DONE** (2026-11-18)
   - Build localized `GLB` (`en-US`) and `IRN` (`fa-IR` RTL) landing pages and exam hubs (`/ielts-academic`, `/ielts-general`, `/toefl-ibt`, `/pte-academic`, `/duolingo-english-test`).
 - **`W7.2` Interactive Score Calculators, Sample Bank & Public Vocab Pages:**
   - Build band/concordance calculators backed by `@mockza/domain`, sample annotated essays, and static vocabulary reference pages with direct CTAs into `/app/*`.
