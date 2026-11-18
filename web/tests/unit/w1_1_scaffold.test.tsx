@@ -177,7 +177,7 @@ describe('W1.1 TanStack Router 24-route skeleton & blocker', () => {
     ['/app/auth/login', 'auth-screen'],
     ['/app/home', 'home-screen'],
     ['/app/practice', 'route-skeleton-practice'],
-    ['/app/practice/reading/ielts-acad-01', 'route-skeleton-practice-reading'],
+    ['/app/practice/reading/ielts-acad-01', 'reading-simulator-screen'],
     ['/app/practice/listening/ielts-list-01', 'route-skeleton-practice-listening'],
     ['/app/practice/writing/toefl-email-01', 'route-skeleton-practice-writing'],
     ['/app/practice/speaking/det-speak-01', 'route-skeleton-practice-speaking'],
@@ -185,7 +185,7 @@ describe('W1.1 TanStack Router 24-route skeleton & blocker', () => {
     ['/app/practice/full-mock', 'route-skeleton-practice-full-mock'],
     ['/app/evaluation/pending/job-42', 'route-skeleton-evaluation-pending'],
     ['/app/evaluation/result/eval-99', 'route-skeleton-evaluation-result'],
-    ['/app/practice/objective-result/attempt-7', 'route-skeleton-objective-result'],
+    ['/app/practice/objective-result/attempt-7', 'objective-result-screen'],
     ['/app/vocabulary', 'route-skeleton-vocabulary'],
     ['/app/vocabulary/review', 'route-skeleton-vocabulary-review'],
     ['/app/progress', 'route-skeleton-progress'],
@@ -223,7 +223,7 @@ describe('W1.1 TanStack Router 24-route skeleton & blocker', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId('route-skeleton-practice-reading')).toBeTruthy();
+      expect(screen.getByTestId('reading-simulator-screen')).toBeTruthy();
     });
 
     fireEvent.click(screen.getByRole('link', { name: 'Home' }));

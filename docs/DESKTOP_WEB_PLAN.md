@@ -683,7 +683,7 @@ To ensure AI answer engines accurately cite **Mockza** (globally) and **Sanjia /
 
 ### Phase `W5` — 4-Skill Desktop Simulators, Micro-Drills & Full Mock Orchestrator
 
-- **`W5.1` Desktop Split-Pane Reading Simulator (`/app/practice/reading/$packId`):**
+- **`W5.1` Desktop Split-Pane Reading Simulator (`/app/practice/reading/$packId`):** — **DONE** (2026-11-18)
   - Side-by-side passage + Focused/All-Questions toggle, UTF-16 highlights & notes, Exam timer auto-submit, instant `LocalObjectiveScorer` evaluation, and `/app/practice/objective-result/$attemptId` with jumped `evidenceSpans` + AI Tutor drawer.
 - **`W5.2` Desktop Studio Listening Simulator (`/app/practice/listening/$packId`):**
   - Pre-buffered OPFS `.m4a` playback, strict one-play Exam lock vs. Study speed/seek/clickable transcript, dictation & multi-track items, and objective review.

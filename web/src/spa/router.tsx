@@ -21,6 +21,8 @@ import { HomeScreen } from '@/spa/features/home/HomeScreen';
 import { GoalSetupScreen } from '@/spa/features/onboarding/GoalSetupScreen';
 import { WelcomeScreen } from '@/spa/features/onboarding/WelcomeScreen';
 import { PaywallScreen } from '@/spa/features/paywall/PaywallScreen';
+import { ReadingSimulatorScreen } from '@/spa/features/practice/ReadingSimulatorScreen';
+import { ObjectiveResultScreen } from '@/spa/features/results/ObjectiveResultScreen';
 import { SettingsScreen } from '@/spa/features/settings/SettingsScreen';
 import { useClockStore } from '@/spa/stores/clock.store';
 import { useLayoutStore } from '@/spa/stores/layout.store';
@@ -524,14 +526,7 @@ const readingSessionRoute = createRoute({
   path: '/practice/reading/$packId',
   component: () => {
     const { packId } = readingSessionRoute.useParams();
-    return (
-      <RouteSkeletonView
-        routeId="practice-reading"
-        title="Reading Simulator"
-        description="Resizable 55%/45% split-pane reading workspace (Routes.readingSession)."
-        params={{ packId }}
-      />
-    );
+    return <ReadingSimulatorScreen packId={packId} />;
   },
 });
 
@@ -676,14 +671,7 @@ const objectiveResultRoute = createRoute({
   path: '/practice/objective-result/$attemptId',
   component: () => {
     const { attemptId } = objectiveResultRoute.useParams();
-    return (
-      <RouteSkeletonView
-        routeId="objective-result"
-        title="Objective Result Review"
-        description="Split review with evidence spans and AI Tutor drawer (Routes.objectiveResult)."
-        params={{ attemptId }}
-      />
-    );
+    return <ObjectiveResultScreen attemptId={attemptId} />;
   },
 });
 

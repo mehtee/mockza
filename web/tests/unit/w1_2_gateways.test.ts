@@ -377,6 +377,7 @@ describe('W1.2 Static dependency boundary hygiene for web/src/gateways/*', () =>
     'billing.gateway.ts',
     'catalog.gateway.ts',
     'diagnostic.gateway.ts',
+    'evaluation.gateway.ts',
     'index.ts',
     'result.ts',
     'storage.gateway.ts',

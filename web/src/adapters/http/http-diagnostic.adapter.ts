@@ -9,6 +9,7 @@ import type {
 } from '@/gateways/diagnostic.gateway';
 import { err, ok, type Result } from '@/gateways/result';
 import type { ApiClient, ApiClientError } from './api-client';
+import { uploadPresignedAudioClip } from './presigned-audio-upload';
 
 function mapApiErrorToDiagnosticError(error: ApiClientError): DiagnosticGatewayError {
   switch (error.kind) {
@@ -83,40 +84,11 @@ export class HttpDiagnosticAdapter implements IDiagnosticGateway {
     readonly partIndex: number;
     readonly clip: import('@/gateways/audio.gateway').RecordedClip;
   }): Promise<Result<{ readonly objectKey: string }, DiagnosticGatewayError>> {
-    const presignRes = await this.apiClient.post<{
-      readonly uploadUrl: string;
-      readonly objectKey: string;
-    }>('/v1/uploads/presign', {
-      attemptId: params.attemptId,
-      partIndex: params.partIndex,
-      byteLength: params.clip.byteLength,
-      contentType: params.clip.strippedContentType,
+    const res = await uploadPresignedAudioClip({
+      apiClient: this.apiClient,
+      fetchFn: this.fetchFn,
+      ...params,
     });
-    if (!presignRes.ok) {
-      return err(mapApiErrorToDiagnosticError(presignRes.error));
-    }
-
-    try {
-      const putResponse = await this.fetchFn(presignRes.value.uploadUrl, {
-        method: 'PUT',
-        headers: { 'content-type': params.clip.strippedContentType },
-        body: params.clip.blob,
-      });
-      if (!putResponse.ok) {
-        return err({
-          kind: 'network',
-          status: putResponse.status,
-          retryable: true,
-          message: `Diagnostic audio upload failed with HTTP ${putResponse.status}`,
-        });
-      }
-      return ok({ objectKey: presignRes.value.objectKey });
-    } catch (cause) {
-      return err({
-        kind: 'network',
-        retryable: true,
-        message: cause instanceof Error ? cause.message : 'Diagnostic audio upload network error',
-      });
-    }
+    return res.ok ? res : err(mapApiErrorToDiagnosticError(res.error));
   }
 }
