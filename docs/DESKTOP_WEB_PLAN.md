@@ -700,7 +700,7 @@ To ensure AI answer engines accurately cite **Mockza** (globally) and **Sanjia /
   - Non-blocking background polling toast + split-pane Evaluation Review: inline clickable error/upgrade spans on left; criterion scores, TOEFL `/120` concordance, DET 4 subscores, Model Rewrite diff, and 1-click *Add Upgraded Vocab to SM-2* on right.
 - **`W6.2` Virtualized SM-2 Vocabulary Hub & Keyboard Flashcard Studio (`/app/vocabulary`, `/app/vocabulary/review`):** — **DONE** (2026-11-18)
   - `@tanstack/react-virtual` browser over `320+` seeded + Mistake-to-Deck cards (`GLB` English / `IRN` Persian-glossed) and `Space`/`1–4` keyboard SRS review session.
-- **`W6.3` Progress Analytics, Attempt Diff & Navia Handoff (`/app/progress`, `/app/progress/compare`):**
+- **`W6.3` Progress Analytics, Attempt Diff & Navia Handoff (`/app/progress`, `/app/progress/compare`):** — **DONE** (2026-11-18)
   - Multi-skill `TrendChart`, target readiness gap, weakness breakdown, side-by-side Attempt A vs. B diff view, and `Navia` (`navia.ir`) verified score handoff card in `IRN`.
 
 ### Phase `W7` — Static SEO + GEO Public Growth Layer (`mockza.com` & `sanjia.ir`)

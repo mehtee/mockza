@@ -188,8 +188,8 @@ describe('W1.1 TanStack Router 24-route skeleton & blocker', () => {
     ['/app/practice/objective-result/attempt-7', 'objective-result-screen'],
     ['/app/vocabulary', 'vocab-hub-screen'],
     ['/app/vocabulary/review', 'vocab-review-screen'],
-    ['/app/progress', 'route-skeleton-progress'],
-    ['/app/progress/compare', 'route-skeleton-progress-compare'],
+    ['/app/progress', 'progress-screen'],
+    ['/app/progress/compare', 'compare-attempts-screen'],
     ['/app/settings', 'settings-screen'],
     ['/app/paywall', 'paywall-screen'],
   ])('renders %s (%s)', async (initialPath, expectedTestId) => {

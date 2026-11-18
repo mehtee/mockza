@@ -28,6 +28,8 @@ import { PracticeCatalogScreen } from '@/spa/features/practice/PracticeCatalogSc
 import { ReadingSimulatorScreen } from '@/spa/features/practice/ReadingSimulatorScreen';
 import { SpeakingSimulatorScreen } from '@/spa/features/practice/SpeakingSimulatorScreen';
 import { WritingSimulatorScreen } from '@/spa/features/practice/WritingSimulatorScreen';
+import { CompareAttemptsScreen } from '@/spa/features/progress/CompareAttemptsScreen';
+import { ProgressScreen } from '@/spa/features/progress/ProgressScreen';
 import { EvaluationPendingScreen } from '@/spa/features/results/EvaluationPendingScreen';
 import { EvaluationResultScreen } from '@/spa/features/results/EvaluationResultScreen';
 import { ObjectiveResultScreen } from '@/spa/features/results/ObjectiveResultScreen';
@@ -643,25 +645,13 @@ const vocabWordDetailRoute = createRoute({
 const progressRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/progress',
-  component: () => (
-    <RouteSkeletonView
-      routeId="progress"
-      title="Progress Analytics"
-      description="Trajectory chart, skill radar, and weakness breakdown (Routes.progress)."
-    />
-  ),
+  component: ProgressScreen,
 });
 
 const compareAttemptsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/progress/compare',
-  component: () => (
-    <RouteSkeletonView
-      routeId="progress-compare"
-      title="Compare Attempts"
-      description="Side-by-side Attempt A vs Attempt B diff workspace (Routes.compareAttempts)."
-    />
-  ),
+  component: CompareAttemptsScreen,
 });
 
 const settingsRoute = createRoute({
