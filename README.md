@@ -29,6 +29,7 @@ mockza/
 │   ├── ADR.md                  # System Architecture Decision Records & Schemas (v3.0)
 │   ├── PDR-Iran.md             # Iran Domestic Edition (IRN / Sanjia) Requirements
 │   ├── ADR-Iran.md             # Iran Domestic Edition Technical Architecture
+│   ├── DESKTOP_WEB_PLAN.md     # Non-Flutter Desktop Web (Astro 5 + React 19) Architecture & Plan
 │   └── design.md · UI-UX-TLDR.md · PLAN.md · RAPID_DIAGNOSTIC_PLAN.md · proposed_backend.md
 ├── app/                        # Flutter Client (Dart 3 + Impeller, Single-Package Feature-First MVVM)
 │   ├── README.md               # Flutter architecture, theme system, flavors & commands
@@ -144,5 +145,6 @@ docker compose --profile loadtest run --rm k6
 - **[docs/PDR.md](file:///home/mahdi/projects/ideas/mockza/docs/PDR.md)** — Complete Global Edition (`GLB`) Product Design, 5-track exam specs, KPIs, device policy & functional requirements (`v3.0`).
 - **[docs/ADR.md](file:///home/mahdi/projects/ideas/mockza/docs/ADR.md)** — System Architecture Decision Records (`ADR-001`–`ADR-018`), Drizzle/Drift schemas, AI routing & repo blueprint (`v3.0`).
 - **[docs/PDR-Iran.md](file:///home/mahdi/projects/ideas/mockza/docs/PDR-Iran.md)** & **[docs/ADR-Iran.md](file:///home/mahdi/projects/ideas/mockza/docs/ADR-Iran.md)** — Iran Domestic Edition (`IRN` / *Sanjia*) extensions, BiDi RTL/LTR boundary rules, and domestic payment adapters.
+- **[docs/DESKTOP_WEB_PLAN.md](file:///home/mahdi/projects/ideas/mockza/docs/DESKTOP_WEB_PLAN.md)** — Non-Flutter Desktop Web (`Astro 5 Static + React 19 SPA`) architecture, SSOT token/engine/prompt sync, SEO+GEO layer, and `W0`–`W9` execution plan for both `Mockza` (`GLB`) and `Sanjia` (`IRN`).
 - **[app/README.md](file:///home/mahdi/projects/ideas/mockza/app/README.md)** — Flutter client architecture, modular components, and commands.
 - **[app/test/e2e/README.md](file:///home/mahdi/projects/ideas/mockza/app/test/e2e/README.md)** — Hermetic E2E harness and extensible Page-Object Robot guide.
