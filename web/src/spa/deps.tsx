@@ -40,6 +40,10 @@ export function AppDependenciesProvider({
   return createElement(AppDependenciesContext.Provider, { value: dependencies }, children);
 }
 
+export function useOptionalDeps(): AppDependencies | null {
+  return useContext(AppDependenciesContext);
+}
+
 export function useDeps(): AppDependencies {
   const ctx = useContext(AppDependenciesContext);
   if (ctx === null) {

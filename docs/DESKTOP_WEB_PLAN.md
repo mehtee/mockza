@@ -665,7 +665,7 @@ To ensure AI answer engines accurately cite **Mockza** (globally) and **Sanjia /
 
 ### Phase `W3` — DRY Polymorphic Exam Component Kit (`web/src/components/exam-kit/`)
 
-- **`W3.1` Workspace Chrome & Split-Pane Engine:**
+- **`W3.1` Workspace Chrome & Split-Pane Engine:** — **DONE** (2026-11-18)
   - Build `<SimulatorWorkspaceShell />`, `<SplitPaneWorkspace />` (`react-resizable-panels` with Dexie ratio persistence), `<QuestionPaletteBar />` (verified distinct `current`, `answered`, `current+answered`, `flagged` visual states), and `<CompactPreflightHeader />`.
 - **`W3.2` Polymorphic Question Inputs & SVG Stimulus Viewer:**
   - Build `<MzObjectiveAnswerInput />` (all 9 question mechanics + keyboard shortcuts), `<MzSequenceOrderControl />` (click + keyboard + drag reorder), and `<ExamSvgChartCard />` (zoom/pan + lightbox).
