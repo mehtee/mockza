@@ -691,7 +691,7 @@ To ensure AI answer engines accurately cite **Mockza** (globally) and **Sanjia /
   - All 11 task types across the 5 tracks (IELTS Charts/Letters/Essays, TOEFL Build-a-Sentence/Email/Discussion, PTE Single-Sentence Summary/Essay, DET Photo/Interactive/Sample), `500ms` + `pagehide` Dexie autosave, quota check, and async job submission.
 - **`W5.4` Desktop Waveform Speaking Simulator (`/app/practice/speaking/$packId`):** — **DONE** (2026-11-18)
   - Track-accurate prep/record state machine (`Skip Prep & Start Recording` when `prep > 0` vs. immediate `Start Recording Answer` on zero-prep TOEFL Interview / DET), live waveform, multi-turn presigned upload, and async job submission.
-- **`W5.5` Practice Catalog, 7 Micro-Drills & Full Mock Orchestrator (`/app/practice`, `/app/practice/drills`, `/app/practice/full-mock`):**
+- **`W5.5` Practice Catalog, 7 Micro-Drills & Full Mock Orchestrator (`/app/practice`, `/app/practice/drills`, `/app/practice/full-mock`):** — **DONE** (2026-11-18)
   - Multi-filter desktop pack catalog with 1-click offline pack pre-download, keyboard-fast 3-minute Micro-Drills, and full multi-section timed Mock Day orchestrator with inter-section break screen.
 
 ### Phase `W6` — AI Evaluation Master-Detail Review, SM-2 Vocabulary & Progress Analytics

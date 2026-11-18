@@ -21,7 +21,10 @@ import { HomeScreen } from '@/spa/features/home/HomeScreen';
 import { GoalSetupScreen } from '@/spa/features/onboarding/GoalSetupScreen';
 import { WelcomeScreen } from '@/spa/features/onboarding/WelcomeScreen';
 import { PaywallScreen } from '@/spa/features/paywall/PaywallScreen';
+import { FullMockOrchestratorScreen } from '@/spa/features/practice/FullMockOrchestratorScreen';
 import { ListeningSimulatorScreen } from '@/spa/features/practice/ListeningSimulatorScreen';
+import { MicroDrillsScreen } from '@/spa/features/practice/MicroDrillsScreen';
+import { PracticeCatalogScreen } from '@/spa/features/practice/PracticeCatalogScreen';
 import { ReadingSimulatorScreen } from '@/spa/features/practice/ReadingSimulatorScreen';
 import { SpeakingSimulatorScreen } from '@/spa/features/practice/SpeakingSimulatorScreen';
 import { WritingSimulatorScreen } from '@/spa/features/practice/WritingSimulatorScreen';
@@ -515,13 +518,7 @@ const homeRoute = createRoute({
 const practiceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/practice',
-  component: () => (
-    <RouteSkeletonView
-      routeId="practice"
-      title="Practice Catalog"
-      description="Filterable exam pack catalog with offline caching (Routes.practice)."
-    />
-  ),
+  component: PracticeCatalogScreen,
 });
 
 const readingSessionRoute = createRoute({
@@ -563,13 +560,7 @@ const speakingSessionRoute = createRoute({
 const microDrillsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/practice/drills',
-  component: () => (
-    <RouteSkeletonView
-      routeId="practice-drills"
-      title="Micro-Drills"
-      description="7 rapid 3-minute skill drills with Mistake-to-Deck capture (Routes.microDrills)."
-    />
-  ),
+  component: () => <MicroDrillsScreen />,
 });
 
 const microDrillByIdRoute = createRoute({
@@ -577,27 +568,14 @@ const microDrillByIdRoute = createRoute({
   path: '/practice/drills/$drillId',
   component: () => {
     const { drillId } = microDrillByIdRoute.useParams();
-    return (
-      <RouteSkeletonView
-        routeId="practice-drill-id"
-        title="Micro-Drill Session"
-        description="Focused 3-minute micro-drill session (Routes.microDrill)."
-        params={{ drillId }}
-      />
-    );
+    return <MicroDrillsScreen initialDrillId={drillId} />;
   },
 });
 
 const fullMockRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/practice/full-mock',
-  component: () => (
-    <RouteSkeletonView
-      routeId="practice-full-mock"
-      title="Full Mock Orchestrator"
-      description="Track-ordered multi-section timed mock exam (Routes.fullMock)."
-    />
-  ),
+  component: () => <FullMockOrchestratorScreen />,
 });
 
 const fullMockByIdRoute = createRoute({
@@ -605,14 +583,7 @@ const fullMockByIdRoute = createRoute({
   path: '/practice/full-mock/$mockId',
   component: () => {
     const { mockId } = fullMockByIdRoute.useParams();
-    return (
-      <RouteSkeletonView
-        routeId="practice-full-mock-id"
-        title="Full Mock Session"
-        description="Track-ordered multi-section timed mock exam (Routes.practiceFullMock)."
-        params={{ mockId }}
-      />
-    );
+    return <FullMockOrchestratorScreen mockId={mockId} />;
   },
 });
 
