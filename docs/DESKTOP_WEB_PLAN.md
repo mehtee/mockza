@@ -625,7 +625,7 @@ To ensure AI answer engines accurately cite **Mockza** (globally) and **Sanjia /
 
 ### Phase `W0` — Monorepo Workspace, Design Tokens SSOT & Cross-Codebase Parity Foundation
 
-- **`W0.1` Hoist/Link Workspace & Package Skeletons:**
+- **`W0.1` Hoist/Link Workspace & Package Skeletons:** — **DONE** (2026-11-18)
   - Create root `pnpm-workspace.yaml` linking `packages/design-tokens`, `backend/apps/*`, `backend/packages/*`, `backend/evals`, `backend/content-pipeline`, and `web` (keeping `backend/pnpm-lock.yaml` / `Containerfile` build contexts compatible).
 - **`W0.2` Author Canonical `packages/design-tokens/tokens.json` & Schema:**
   - Extract every color hex, surface elevation, skill accent, gradient, typography scale (`Inter` + `Vazirmatn`), spacing, and radius from `app/lib/theme/*.dart` + `docs/design.md`, including all 4 `ThemePreset` definitions (*Midnight Indigo*, *Nordic Emerald*, *Editorial Amber*, *Oceanic Cobalt*) in Dark & Light modes.

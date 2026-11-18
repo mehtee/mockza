@@ -1,0 +1,39 @@
+{
+  "name": "mockza",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@12.8.1",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "tokens:sync": "node scripts/sync_design_tokens.mjs",
+    "tokens:check": "node scripts/sync_design_tokens.mjs --check",
+    "check:gates": "bash scripts/check_all.sh all",
+    "check:parity": "bash scripts/check_cross_parity.sh",
+    "build": "pnpm -r --workspace-concurrency=1 build",
+    "typecheck": "pnpm -r --workspace-concurrency=1 typecheck",
+    "test": "pnpm -r --workspace-concurrency=1 test",
+    "backend:install": "pnpm --dir backend install --frozen-lockfile",
+    "backend:build": "pnpm --dir backend build",
+    "backend:typecheck": "pnpm --dir backend typecheck",
+    "backend:lint": "pnpm --dir backend lint",
+    "backend:test": "pnpm --dir backend test",
+    "backend:dev:api": "pnpm --dir backend dev:api",
+    "backend:dev:worker": "pnpm --dir backend dev:worker",
+    "backend:eval": "pnpm --dir backend eval",
+    "backend:content:validate": "pnpm --dir backend content:validate",
+    "web:dev": "pnpm --filter @mockza/web dev",
+    "web:build": "pnpm --filter @mockza/web build",
+    "web:typecheck": "pnpm --filter @mockza/web typecheck",
+    "web:test": "pnpm --filter @mockza/web test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.0.0",
+    "@types/node": "^22.15.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.3"
+  }
+}

@@ -1,0 +1,10 @@
+packages:
+  - "packages/*"
+  - "backend/apps/*"
+  - "backend/packages/*"
+  - "backend/evals"
+  - "backend/content-pipeline"
+  - "web"
+
+allowBuilds:
+  esbuild: true
