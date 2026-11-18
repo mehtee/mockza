@@ -716,7 +716,7 @@ To ensure AI answer engines accurately cite **Mockza** (globally) and **Sanjia /
 
 - **`W8.1` Playwright Page-Object Robot Suites (`Web-E2E 1`–`Web-E2E 8`):** — **DONE** (2026-11-18)
   - Mirror all 7 Flutter E2E journeys on Desktop viewports (`1440×900` & `1280×800`) plus `Web-E2E 8` testing `Sanjia` (`IRN`) RTL chrome + `<LtrExamBoundary>` invariants, Jalali dates, SMS OTP, Zarinpal sandbox callback, and SEO/GEO endpoints.
-- **`W8.2` Containerization, Caddy/Nginx Static Compression & `k6` Load Proof:**
+- **`W8.2` Containerization, Caddy/Nginx Static Compression & `k6` Load Proof:** — **DONE** (2026-11-18)
   - Create `web/Containerfile` (builds `dist-glb` or `dist-irn` with pre-compressed `.br` and `.gz` assets), update `scripts/serve_web_static.mjs` & `compose.yaml`, verify Lighthouse (`>= 98` Performance, `100` SEO/A11y), and run `k6` concurrency validation.
 
 ### Phase `W9` — Zero-Downtime Cutover & Coexistence Operations

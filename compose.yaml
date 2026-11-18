@@ -196,13 +196,12 @@ services:
   web:
     image: mockza-web:local
     build:
-      context: ./app
-      dockerfile: Containerfile
+      context: .
+      dockerfile: web/Containerfile
       target: web-runtime
       args:
-        FLUTTER_VERSION: "3.47.9"
-        MOCKZA_EDITION: ${MOCKZA_WEB_FLAVOR:-global}
-        MOCKZA_API_BASE_URL: ${MOCKZA_API_BASE_URL:-}
+        PUBLIC_EDITION: ${MOCKZA_EDITION:-glb}
+        PUBLIC_API_BASE_URL: ${MOCKZA_API_BASE_URL:-}
     restart: unless-stopped
     networks:
       - mockza-net
@@ -211,7 +210,7 @@ services:
         condition: service_healthy
     ports:
       - "0.0.0.0:${MOCKZA_WEB_PORT:-45280}:8080"
-    mem_limit: 256m
+    mem_limit: 128m
     cpus: 0.5
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
@@ -283,3 +282,17 @@ services:
     command: ["run", "/scripts/load_test.js"]
     mem_limit: 1024m
     cpus: 2.0
+
+  k6-web:
+    profiles: ["loadtest"]
+    image: grafana/k6:0.54.0
+    networks:
+      - mockza-net
+    depends_on:
+      web:
+        condition: service_healthy
+    volumes:
+      - ./scripts:/scripts:ro
+    command: ["run", "/scripts/k6_web_load.js"]
+    mem_limit: 512m
+    cpus: 1.0

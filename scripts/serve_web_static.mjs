@@ -85,6 +85,11 @@ function resolveFilePath(urlPath) {
 }
 
 const server = http.createServer((req, res) => {
+  if ((req.url ?? '') === '/healthz') {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' }).end('ok\n');
+    return;
+  }
+
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405).end();
     return;

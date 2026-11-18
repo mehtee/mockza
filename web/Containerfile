@@ -1,0 +1,58 @@
+# syntax=docker/dockerfile:1.7
+# Multi-stage Containerfile for Mockza / Sanjia Desktop Web (Astro 5 Static + React 19 /app/* SPA)
+
+FROM node:24-alpine AS pnpm-base
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+    PNPM_HOME="/pnpm" \
+    PATH="/pnpm:$PATH"
+WORKDIR /repo
+RUN corepack enable && corepack prepare pnpm@12.8.1 --activate
+
+FROM pnpm-base AS builder
+ARG PUBLIC_EDITION=glb
+ARG PUBLIC_API_BASE_URL=
+ENV PUBLIC_EDITION=${PUBLIC_EDITION} \
+    PUBLIC_API_BASE_URL=${PUBLIC_API_BASE_URL} \
+    NODE_OPTIONS="--max-old-space-size=1024"
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/design-tokens/package.json ./packages/design-tokens/
+COPY backend/package.json backend/tsconfig.base.json ./backend/
+COPY backend/apps/api/package.json ./backend/apps/api/
+COPY backend/apps/worker/package.json ./backend/apps/worker/
+COPY backend/packages/config/package.json ./backend/packages/config/
+COPY backend/packages/contracts/package.json ./backend/packages/contracts/
+COPY backend/packages/domain/package.json ./backend/packages/domain/
+COPY backend/packages/db/package.json ./backend/packages/db/
+COPY backend/packages/storage/package.json ./backend/packages/storage/
+COPY backend/packages/ai/package.json ./backend/packages/ai/
+COPY backend/content-pipeline/package.json ./backend/content-pipeline/
+COPY backend/evals/package.json ./backend/evals/
+COPY web/package.json ./web/
+RUN pnpm --filter @mockza/web... install --frozen-lockfile
+
+COPY packages/design-tokens ./packages/design-tokens
+COPY backend/packages/config ./backend/packages/config
+COPY backend/packages/contracts ./backend/packages/contracts
+COPY backend/packages/domain ./backend/packages/domain
+COPY web ./web
+COPY scripts/compress_web_dist.mjs ./scripts/compress_web_dist.mjs
+
+RUN pnpm --filter @mockza/web^... build && \
+    pnpm --filter @mockza/web "build:${PUBLIC_EDITION}" && \
+    node /repo/scripts/compress_web_dist.mjs "/repo/web/dist-${PUBLIC_EDITION}" && \
+    mv "/repo/web/dist-${PUBLIC_EDITION}" /repo/dist-final
+
+FROM nginx:1.27-alpine AS web-runtime
+RUN mkdir -p /etc/nginx/snippets
+COPY web/nginx_security_headers.conf /etc/nginx/snippets/security_headers.conf
+COPY web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /repo/dist-final /usr/share/nginx/html
+RUN chown -R nginx:nginx /var/cache/nginx /var/log/nginx /etc/nginx/conf.d /usr/share/nginx/html \
+    && touch /run/nginx.pid \
+    && chown nginx:nginx /run/nginx.pid
+USER nginx
+EXPOSE 8080
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+  CMD ["wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+CMD ["nginx", "-g", "daemon off;"]
