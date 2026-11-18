@@ -1,6 +1,8 @@
 # Sanjia (Iran Edition) — Architecture Decision Records (ADR-Iran)
 
-> **Architectural Summary:** `ADR-Iran.md` extends the shared Flutter architecture in [ADR.md](file:///home/mahdi/projects/ideas/mockza/ADR.md) to deliver the **Persian-first Iran Domestic Edition (`IRN` — `1.0.0+20001.irn`)** targeting **Android (Cafe Bazaar, Myket, Direct APK)** and **iOS/Desktop (Flutter Web/PWA)**. It locks down **hard compile-time isolation** from Global `Mockza` (`GLB`), **BiDi RTL+LTR exam isolation**, **TOEFL (`TPO`/`NEO`) & DET schemas**, **Zarinpal/Bazaar/Myket billing in integer Rials**, **SMS OTP cross-device entitlements**, and a **Zero-VPN domestic edge relay**.
+> **Architectural Summary:** `ADR-Iran.md` extends the shared Flutter architecture in [ADR.md](file:///home/mahdi/projects/ideas/mockza/docs/ADR.md) to deliver the **Persian-first Iran Domestic Edition (`IRN` — `1.0.0+20001.irn`)** targeting **Android (Cafe Bazaar, Myket, Direct APK)** and **iOS/Desktop (Flutter Web/PWA)**. It locks down **hard compile-time isolation** from Global `Mockza` (`GLB`), **BiDi RTL+LTR exam isolation**, **TOEFL (`TPO`/`NEO`) & DET schemas**, **Zarinpal/Bazaar/Myket billing in integer Rials**, **SMS OTP cross-device entitlements**, and a **Zero-VPN domestic edge relay**.
+>
+> **Shared Core Alignment (`v3.0`):** The underlying multi-exam engine (`ExamTrack`, `ExamDescriptor`, `TOEFL iBT 2026`, `PTE Academic`, `DET`, `IELTS Ac/GT`), `main_iran.dart` flavor entrypoint, `EdgeInsetsDirectional` RTL-compliant UI, and strict `1 Phone + 1 Desktop Web` device-slot backend (`user_device_sessions`) are **already implemented in the shared core**. Remaining `IRN`-exclusive work covers domestic billing adapters (`Zarinpal`/`Bazaar`/`Myket`), SMS OTP login, edge Jalali date formatting, `LtrExamBoundary`, and Persian AI rubric prompt packs.
 
 ---
 
@@ -55,7 +57,7 @@ Implemented via an immutable `EditionConfig` provided at compile time in `main_g
 
 ### `ADR-IRN-001`: Compile-Time Flavors & Hard Developer-Account Isolation
 * **Status:** Accepted
-* **Context:** Shipping domestic Cambridge/TOEFL TPO/NEO content or Zarinpal/Cafe Bazaar payment flows inside any binary uploaded to Apple App Store or Google Play threatens termination of the global `Mockza` developer account ([PDR-Iran Sec. 4 Q1](file:///home/mahdi/projects/ideas/mockza/PDR-Iran.md)).
+* **Context:** Shipping domestic Cambridge/TOEFL TPO/NEO content or Zarinpal/Cafe Bazaar payment flows inside any binary uploaded to Apple App Store or Google Play threatens termination of the global `Mockza` developer account ([PDR-Iran Sec. 4 Q1](file:///home/mahdi/projects/ideas/mockza/docs/PDR-Iran.md)).
 * **Decision:**
   * Separate flavor composition roots (`lib/main_global.dart` vs `lib/main_iran.dart`) overriding the identical provider interface list (`billingGatewayProvider`, `catalogEndpointProvider`, `telemetryGatewayProvider`, `authGatewayProvider`) over a flavor-blind `App`.
   * Run **Android APK/AAB** (`applicationId: ir.sanjia.app`) exclusively for Cafe Bazaar, Myket, and direct download, and **Flutter Web / Responsive PWA** (`app.sanjia.ir`) for Iranian iOS Safari users + Desktop TPO/NEO test-takers.
@@ -118,7 +120,7 @@ Implemented via an immutable `EditionConfig` provided at compile time in `main_g
 
 ## 4. Iran-Flavor Repository Additions
 
-Extending `lib/` and `bff/` from [ADR.md](file:///home/mahdi/projects/ideas/mockza/ADR.md) cleanly:
+Extending `lib/` and `backend/` from [ADR.md](file:///home/mahdi/projects/ideas/mockza/docs/ADR.md) cleanly:
 
 ```text
 mockza/

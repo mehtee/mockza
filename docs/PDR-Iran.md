@@ -1,6 +1,8 @@
 # Sanjia (Iran Edition) — Product Design & Requirements (PDR-Iran)
 
-> **Executive Thesis:** The **Iran Domestic Edition (`IRN`)** is a Persian-first, mobile-native All-4-Skill exam simulator & AI coach tailored specifically for Iranian applicants preparing for **TOEFL iBT (TPO, NEO & New Academic Discussion formats)**, **IELTS (Cambridge / Actual series)**, and the **Duolingo English Test (DET)**. Engineered as a **strictly isolated build flavor & domestic distribution track** (Cafe Bazaar, Myket, Web/iOS PWA + Zarinpal Shetab checkout) separate from Global [PDR.md](file:///home/mahdi/projects/ideas/mockza/PDR.md), it competes directly with *Testinno* (`testinno.ir`) and *TestHelper* (`testhelper.com`) while creating a built-in cross-funnel with **Navia (`ناویا`)** for BS/MS/PhD admissions.
+> **Executive Thesis:** The **Iran Domestic Edition (`IRN`)** is a Persian-first, mobile-native All-4-Skill exam simulator & AI coach tailored specifically for Iranian applicants preparing for **TOEFL iBT (2026 & `TPO`/`NEO` formats)**, **IELTS (`Cambridge` / Actual series)**, **PTE Academic**, and the **Duolingo English Test (DET)**. Engineered as a **strictly isolated build flavor & domestic distribution track** (Cafe Bazaar, Myket, Web/iOS PWA + Zarinpal Shetab checkout) separate from Global [PDR.md](file:///home/mahdi/projects/ideas/mockza/docs/PDR.md), it competes directly with *Testinno* (`testinno.ir`) and *TestHelper* (`testhelper.com`) while creating a built-in cross-funnel with **Navia (`ناویا`)** for BS/MS/PhD admissions.
+>
+> **Shared Core Status (`v3.0`):** Shared multi-exam schemas (`IELTS Ac/GT`, `TOEFL iBT 2026`, `PTE`, `DET`), rapid 4-skill diagnostic flow, `main_iran.dart` flavor entrypoint, `1 Phone + 1 Desktop Web` device-slot governance, and RTL directional primitives are already live in the core codebase; only Iran-specific payment (`Zarinpal`/`Bazaar`/`Myket`), SMS OTP, Jalali formatting, and Persian AI rubric/catalog content remain for the `IRN` rollout track.
 
 ---
 
@@ -9,7 +11,7 @@
 | Field | Specification |
 | :--- | :--- |
 | **Recommended Brand Name** | **`Sanjia` (`سنجیا`)** *(Top `-ia` pick pairing natively with `Navia` / `ناویا`; see Section 2 for verified alternatives)* |
-| **Edition & Versioning Code** | **Iran Domestic Edition (`IRN`)** — Canonical Version `1.0.0+20001.irn` *(Catalog Prefix: `IRN-*`; isolated from Global `GLB-*` in [PDR.md](file:///home/mahdi/projects/ideas/mockza/PDR.md))* |
+| **Edition & Versioning Code** | **Iran Domestic Edition (`IRN`)** — Canonical Version `1.0.0+20001.irn` *(Catalog Prefix: `IRN-*`; isolated from Global `GLB-*` in [PDR.md](file:///home/mahdi/projects/ideas/mockza/docs/PDR.md))* |
 | **Primary Interface Language** | **Persian (`fa-IR`, RTL)** navigation, coaching, explanations & Jalali dates + **Strict LTR (`en`)** exam stimulus isolation |
 | **Target Channels** | **Android:** Cafe Bazaar (`کافه‌بازار`), Myket (`مایکت`), Direct APK; **iOS & Desktop:** Responsive Flutter Web/PWA (`app.<brand>.ir`) + optional domestic iOS distribution |
 | **Target Exams** | **TOEFL iBT** (`TPO` + `NEO TOEFL` + Academic Discussion), **IELTS Academic & General** (`Cambridge`/`Actual`), **Duolingo English Test (`DET`)** |
@@ -42,7 +44,7 @@ Your sister product **`Navia` (`ناویا`)** handles AI-guided university appl
 
 ## 3. Canonical Multi-Edition Versioning Schema (`GLB` vs. `IRN`)
 
-To strictly differentiate international clean-room builds ([PDR.md](file:///home/mahdi/projects/ideas/mockza/PDR.md)) from the Iranian domestic build—across App Stores, developer consoles, BFF endpoints, crash dumps, and content CDN packs—Mockza enforces a **3-Layer Versioning Schema**:
+To strictly differentiate international clean-room builds ([PDR.md](file:///home/mahdi/projects/ideas/mockza/docs/PDR.md)) from the Iranian domestic build—across App Stores, developer consoles, BFF endpoints, crash dumps, and content CDN packs—Mockza enforces a **3-Layer Versioning Schema**:
 
 | Layer | International Clean-Room (`Mockza`) | Iran Domestic (`Sanjia`) | Purpose & Hard Rule |
 | :--- | :--- | :--- | :--- |
@@ -90,7 +92,7 @@ To strictly differentiate international clean-room builds ([PDR.md](file:///home
 
 ## 7. Scope & Functional Requirements (Iran Edition Extensions)
 
-In addition to the 4-Skill Core (`FR-001`..`FR-037`) in [PDR.md](file:///home/mahdi/projects/ideas/mockza/PDR.md), the Iran Edition adds:
+In addition to the 4-Skill Core (`FR-001`..`FR-046`) in [PDR.md](file:///home/mahdi/projects/ideas/mockza/docs/PDR.md), the Iran Edition adds:
 
 ### 7.1 Persian-First BiDi UX & Jalali Experience (`IRN-FR-001` .. `IRN-FR-005`)
 * **`IRN-FR-001` Persian Main UI + Isolated English Stimulus:** Navigation tabs, onboarding, streak banners, AI commentary, and error explanations render in clean **Persian (`RTL`)** using `Vazirmatn` typography—while all English exam prompts, Reading passages, Writing editors, timers, and decimal scores render inside **strict `LTR` directional boundaries** so punctuation (`?`, `.`, parentheses) never mirrors.
