@@ -674,7 +674,7 @@ To ensure AI answer engines accurately cite **Mockza** (globally) and **Sanjia /
 
 ### Phase `W4` — Onboarding, Home Bento Dashboard & Rapid Starting-Level Check
 
-- **`W4.1` Onboarding Wizard (`/app/welcome`, `/app/onboarding/goal`):**
+- **`W4.1` Onboarding Wizard (`/app/welcome`, `/app/onboarding/goal`):** — **DONE** (2026-11-18)
   - 5-track selection (`IELTS Academic`, `IELTS General`, `TOEFL iBT 2026`, `PTE Academic`, `DET`), dynamic scale-clamped target slider, Gregorian (`GLB`) / Jalali (`IRN`) exam date picker, and direct launch into Rapid Check.
 - **`W4.2` Rapid ~10–15 Min Starting-Level Check (`/app/diagnostic/{intro,session,result}`):**
   - Zero-scroll preflight intro, 2-stage adaptive Reading & Listening (`DiagnosticRouter`), short Writing & Speaking capture, `Standard` / `Extended 3x` / `Accessible Audio` modes, confidence-interval baseline report, and single-skill retake.

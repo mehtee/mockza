@@ -13,6 +13,8 @@ import {
 import { getActiveEditionCode, getActiveEditionDir } from '@/edition/edition-config';
 import { createTranslator } from '@/i18n';
 import { AuthScreen } from '@/spa/features/auth/AuthScreen';
+import { GoalSetupScreen } from '@/spa/features/onboarding/GoalSetupScreen';
+import { WelcomeScreen } from '@/spa/features/onboarding/WelcomeScreen';
 import { PaywallScreen } from '@/spa/features/paywall/PaywallScreen';
 import { SettingsScreen } from '@/spa/features/settings/SettingsScreen';
 import { useClockStore } from '@/spa/stores/clock.store';
@@ -407,25 +409,13 @@ const appIndexRoute = createRoute({
 const welcomeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/welcome',
-  component: () => (
-    <RouteSkeletonView
-      routeId="welcome"
-      title="Welcome to Mockza Desktop"
-      description="Onboarding entry route (Routes.welcome)."
-    />
-  ),
+  component: () => <WelcomeScreen />,
 });
 
 const goalSetupRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/onboarding/goal',
-  component: () => (
-    <RouteSkeletonView
-      routeId="onboarding-goal"
-      title="Goal & Track Setup"
-      description="5-track selection, target score slider, and exam date picker (Routes.goalSetup)."
-    />
-  ),
+  component: () => <GoalSetupScreen />,
 });
 
 const diagnosticIntroRoute = createRoute({
