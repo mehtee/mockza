@@ -644,7 +644,7 @@ To ensure AI answer engines accurately cite **Mockza** (globally) and **Sanjia /
   - Configure `astro.config.mjs` (`output: 'static'`), self-hosted `Inter` + `Vazirmatn` `.woff2` fonts, inline zero-FOUC theme/preset boot script, and TanStack Router skeleton covering all 24 routes.
 - **`W1.2` Define Segregated Gateway Interfaces (`web/src/gateways/*`):** — **DONE** (2026-11-18)
   - Write `IAuthGateway`, `IDeviceSlotGateway`, `IBillingGateway`, `IAudioRecorderGateway`, `IAudioPlayerGateway`, `IOfflineAttemptStore`, `ISyncOutboxGateway`, `ICatalogMediaGateway`, `IVocabSrsStore`, `ITelemetryGateway`, and `IClock` using typed `Result<T, E>` unions.
-- **`W1.3` Implement Dexie.js v4 Offline Store, Outbox & OPFS Media Cache (`web/src/adapters/dexie/` & `media/`):**
+- **`W1.3` Implement Dexie.js v4 Offline Store, Outbox & OPFS Media Cache (`web/src/adapters/dexie/` & `media/`):** — **DONE** (2026-11-18)
   - Implement all 14 IndexedDB tables, SHA-256 verified OPFS/Cache media loader, `pagehide`/`visibilitychange` synchronous draft flush, and online/offline FIFO outbox sync worker.
 - **`W1.4` Implement Dual-Edition BiDi, i18n & Jalali Edge Layer (`web/src/edition/` & `i18n/`):**
   - Build `<LtrExamBoundary />`, logical RTL/LTR layout primitives, typed `en` + `fa` dictionaries, Persian numeral formatter, and edge-only `jalaali-js` date formatter/picker (`IRN`) with unit tests proving canonical UTC/SerialDay storage invariance.
