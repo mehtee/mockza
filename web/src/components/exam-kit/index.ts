@@ -41,3 +41,29 @@ export {
   sanitizeSvgMarkup,
   type ExamSvgChartCardProps,
 } from './ExamSvgChartCard';
+export {
+  PassageAnnotatorPane,
+  extractContextSentence,
+  getUtf16SelectionOffsets,
+  slicePassageSegments,
+  validateSpanBounds,
+  type PassageAnnotatorPaneProps,
+  type PassageEvidenceSpan,
+  type PassageSegment,
+  type PassageSelectionDraft,
+} from './PassageAnnotatorPane';
+export {
+  DistractionFreeEssayEditor,
+  countEssaySentences,
+  countEssayWords,
+  type DistractionFreeEssayEditorProps,
+} from './DistractionFreeEssayEditor';
+export {
+  AudioStudioPlayer,
+  type AudioStudioPlayerProps,
+  type TranscriptSegmentItem,
+} from './AudioStudioPlayer';
+export {
+  WaveformMicRecorder,
+  type WaveformMicRecorderProps,
+} from './WaveformMicRecorder';
