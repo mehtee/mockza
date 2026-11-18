@@ -1,0 +1,65 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { getActiveEditionConfig } from '@/edition/edition-config';
+import { getPublicSiteCopyForBuild, getPublicVocabForBuild } from '@/seo/public-catalog';
+
+const editionConfig = getActiveEditionConfig();
+const isIrn = editionConfig.edition === 'irn';
+const copy = getPublicSiteCopyForBuild();
+const entries = getPublicVocabForBuild();
+---
+
+<BaseLayout
+  title={
+    isIrn
+      ? `مرجع واژگان آکادمیک آیلتس و تافل با ترجمه فارسی | ${copy.brandTitle}`
+      : `High-Leverage Academic Vocabulary Reference | ${copy.brandTitle}`
+  }
+  description={copy.heroSubtitle}
+  canonicalPath="/vocab"
+  showPublicNav
+>
+  <main class="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-12 text-start">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h1 class="text-3xl font-bold text-text-primary">
+          {isIrn ? 'بانک واژگان آکادمیک با الگوریتم SM-2' : 'Academic Vocabulary Reference'}
+        </h1>
+        <p class="mt-2 text-sm text-text-secondary">
+          {isIrn
+            ? 'لغات پرتکرار آیلتس و تافل همراه با تلفظ، جمله نمونه و تمرین دوره‌ای SM-2.'
+            : 'Master high-utility academic vocabulary synced directly into the spaced-repetition studio.'}
+        </p>
+      </div>
+      <a
+        href="/app/vocabulary/review"
+        class="inline-flex h-10 items-center rounded-[var(--mz-radius-control)] bg-primary px-5 text-xs font-semibold text-on-primary hover:bg-primary-strong"
+      >
+        {isIrn ? 'شروع مرور فلش‌کارت SM-2' : 'Launch SM-2 Review'}
+      </a>
+    </div>
+
+    <div class="grid gap-4 md:grid-cols-2">
+      {entries.map((word) => (
+        <article class="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-5">
+          <div class="flex items-baseline justify-between gap-2">
+            <h2 dir="ltr" lang="en" class="text-lg font-bold text-text-primary">
+              {word.headword}
+            </h2>
+            <span dir="ltr" lang="en" class="font-mono-exam text-xs text-text-tertiary">
+              {word.ipa}
+            </span>
+          </div>
+          <p class="mt-1 text-xs font-semibold text-primary">{word.topic}</p>
+          <p class="mt-2 text-sm text-text-secondary">{word.definition}</p>
+          {isIrn && word.glossFa ? (
+            <p class="mt-1 text-sm font-bold text-primary">{word.glossFa}</p>
+          ) : null}
+          <p dir="ltr" lang="en" class="mt-2 text-xs italic text-text-tertiary">
+            {word.example}
+          </p>
+        </article>
+      ))}
+    </div>
+  </main>
+</BaseLayout>

@@ -1,4 +1,9 @@
-import type { ExamPillarGuide, PublicSiteCopy } from './public-catalog-glb';
+import type {
+  ExamPillarGuide,
+  PublicSiteCopy,
+  PublicVocabEntry,
+  SampleAnnotatedEssay,
+} from './public-catalog-glb';
 
 export const IRN_PUBLIC_COPY: PublicSiteCopy = {
   brandTitle: 'سنجیا (Sanjia)',
@@ -170,5 +175,65 @@ export const IRN_EXAM_PILLARS: readonly ExamPillarGuide[] = [
           'هر زیرنمره از ترکیب جفت مهارت‌های مرتبط (مانند ریدینگ+رایتینگ برای Literacy و لیسنینگ+اسپیکینگ برای Conversation) به‌صورت دقیق استخراج می‌شود.',
       },
     ],
+  },
+];
+
+export const IRN_SAMPLE_ESSAYS: readonly SampleAnnotatedEssay[] = [
+  {
+    id: 'ielts-t2-urban-transit',
+    examLabel: 'رایتینگ آیلتس Task 2',
+    scoreBadge: 'مدل نمره ۸.۵',
+    promptTitle: 'سرمایه‌گذاری در حمل‌ونقل ریلی در برابر توسعه بزرگراه‌ها',
+    excerpt:
+      'Expanding suburban expressways temporarily relieves bottlenecks yet induces additional commuter volume within five years. Conversely, dedicated light-rail corridors permanently shift modal share and stabilize per-capita transit emissions.',
+    examinerNote:
+      'ساختار مقایسه علت و معلول بسیار منسجم است (CC 8.5) و استفاده از کلوکیشن‌های دقیق باعث ارتقای Lexical Resource شده است.',
+    upgradedTerms: ['induce', 'modal share', 'bottleneck'],
+  },
+  {
+    id: 'toefl-2026-discussion',
+    examLabel: 'تافل ۲۰۲۶ · Academic Discussion',
+    scoreBadge: 'نمره ۶.۰ (معادل ۱۲۰)',
+    promptTitle: 'استفاده از پروژه‌های متن‌باز در دروس مهندسی دانشگاه',
+    excerpt:
+      'While standardized textbooks solidify mathematical intuition, integrating live open-source repositories teaches students reproducibility, code review discipline, and regression profiling under realistic constraints.',
+    examinerNote:
+      'پاسخ مستقیم به دیدگاه‌های هم‌کلاسی با افزودن مثال کاربردی و پرهیز از جملات کلیشه‌ای.',
+    upgradedTerms: ['reproducibility', 'mitigate', 'solidify'],
+  },
+];
+
+export const IRN_PUBLIC_VOCAB_ENTRIES: readonly PublicVocabEntry[] = [
+  {
+    headword: 'ubiquitous',
+    ipa: '/juːˈbɪk.wɪ.təs/',
+    topic: 'فناوری',
+    definition: 'Present, appearing, or found everywhere across modern environments.',
+    glossFa: 'همه‌جا حاضر و فراگیر',
+    example: 'Automated telemetry has become ubiquitous across regional logistics hubs.',
+  },
+  {
+    headword: 'attenuate',
+    ipa: '/əˈten.ju.eɪt/',
+    topic: 'علوم و محیط زیست',
+    definition: 'Reduce the force, severity, or intensity of an effect.',
+    glossFa: 'کاهش شدت یا تضعیف اثر',
+    example: 'Coastal wetlands attenuate storm surges before floodwaters reach densely settled blocks.',
+  },
+  {
+    headword: 'mitigate',
+    ipa: '/ˈmɪt.ɪ.ɡeɪt/',
+    topic: 'سیاست شهری',
+    definition: 'Make a harmful outcome or risk less severe or painful.',
+    glossFa: 'تخفیف دادن یا کم کردن آسیب',
+    example: 'Off-peak transit pricing helps mitigate morning highway congestion.',
+  },
+  {
+    headword: 'disparate',
+    ipa: '/ˈdɪs.pər.ət/',
+    topic: 'روش پژوهش',
+    definition: 'Essentially different in kind and not readily comparable without normalization.',
+    glossFa: 'ناهمگون و متفاوت از نظر ساختار',
+    example: 'Concordance tables reconcile disparate scoring scales cleanly.',
   },
 ];

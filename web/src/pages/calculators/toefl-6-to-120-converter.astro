@@ -1,0 +1,65 @@
+---
+import { estimateToeflLegacy120 } from '@mockza/domain';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { getActiveEditionConfig } from '@/edition/edition-config';
+import { ScoreCalculatorsIsland } from '@/seo/ScoreCalculatorsIsland';
+import { getPublicSiteCopyForBuild } from '@/seo/public-catalog';
+
+const editionConfig = getActiveEditionConfig();
+const isIrn = editionConfig.edition === 'irn';
+const copy = getPublicSiteCopyForBuild();
+
+const rows = [6.0, 5.5, 5.0, 4.5, 4.0, 3.5, 3.0, 2.5, 2.0, 1.5, 1.0].map((band) => ({
+  band: band.toFixed(1),
+  legacy: estimateToeflLegacy120(band),
+}));
+---
+
+<BaseLayout
+  title={
+    isIrn
+      ? `تبدیل نمره تافل ۲۰۲۶ (۱ تا ۶ به ۱۲۰) | ${copy.brandTitle}`
+      : `TOEFL iBT 2026 Band 1.0–6.0 to 0–120 Converter | ${copy.brandTitle}`
+  }
+  description={
+    isIrn
+      ? 'جدول کامل و ماشین‌حساب تبدیل نمره مقیاس جدید تافل ۱ تا ۶ به نمره قدیمی ۰ تا ۱۲۰.'
+      : 'Convert 2026 TOEFL iBT 1.0–6.0 band scores into 0–120 university admission equivalents.'
+  }
+  canonicalPath="/calculators/toefl-6-to-120-converter"
+  markdownTwinPath="/calculators/toefl-6-to-120-converter.md"
+  showPublicNav
+>
+  <main class="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-12 text-start">
+    <section class="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-6">
+      <h1 class="text-2xl font-bold text-text-primary">
+        {isIrn
+          ? 'ماشین‌حساب و جدول هم‌ارز تافل ۱.۰–۶.۰ به ۰–۱۲۰'
+          : 'TOEFL 1.0–6.0 to 0–120 Concordance Table & Converter'}
+      </h1>
+      <p class="mt-2 text-sm text-text-secondary">
+        {isIrn
+          ? 'تافل iBT از ژانویه ۲۰۲۶ از مقیاس ۶.۰ استفاده می‌کند؛ این ابزار معادل دقیق ۰–۱۲۰ را نمایش می‌دهد.'
+          : 'Compare the 2026 1.0–6.0 TOEFL iBT band scale against traditional 0–120 university cutoffs.'}
+      </p>
+      <table class="mt-4 w-full text-xs">
+        <thead>
+          <tr class="border-b border-border-subtle text-text-tertiary">
+            <th class="py-2 text-start">2026 Band Scale</th>
+            <th class="py-2 text-end">Equivalent / 120</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr class="border-b border-border-subtle/50">
+              <td class="py-2 font-mono-exam">{r.band}</td>
+              <td class="py-2 text-end font-mono-exam font-bold text-primary">{r.legacy}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+
+    <ScoreCalculatorsIsland client:load isIrn={isIrn} />
+  </main>
+</BaseLayout>

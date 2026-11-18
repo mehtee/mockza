@@ -12,6 +12,25 @@ export interface ExamPillarFaqItem {
   readonly answer: string;
 }
 
+export interface SampleAnnotatedEssay {
+  readonly id: string;
+  readonly examLabel: string;
+  readonly scoreBadge: string;
+  readonly promptTitle: string;
+  readonly excerpt: string;
+  readonly examinerNote: string;
+  readonly upgradedTerms: readonly string[];
+}
+
+export interface PublicVocabEntry {
+  readonly headword: string;
+  readonly ipa: string;
+  readonly topic: string;
+  readonly definition: string;
+  readonly example: string;
+  readonly glossFa?: string;
+}
+
 export interface ExamPillarGuide {
   readonly slug: ExamPillarSlug;
   readonly examId: SupportedExamId;
@@ -211,5 +230,61 @@ export const GLB_EXAM_PILLARS: readonly ExamPillarGuide[] = [
           'Literacy combines Reading & Writing, Comprehension combines Reading & Listening, Conversation combines Listening & Speaking, and Production combines Writing & Speaking.',
       },
     ],
+  },
+];
+
+export const GLB_SAMPLE_ESSAYS: readonly SampleAnnotatedEssay[] = [
+  {
+    id: 'ielts-t2-urban-transit',
+    examLabel: 'IELTS Writing Task 2',
+    scoreBadge: 'Band 8.5 Model',
+    promptTitle: 'Public Rail Subsidies vs. Urban Highway Expansion',
+    excerpt:
+      'Expanding suburban expressways temporarily relieves bottlenecks yet induces additional commuter volume within five years. Conversely, dedicated light-rail corridors permanently shift modal share and stabilize per-capita transit emissions.',
+    examinerNote:
+      'Strong concession-contrast progression (CC 8.5) paired with precise collocations ("induces additional volume", "modal share").',
+    upgradedTerms: ['induce', 'modal share', 'bottleneck'],
+  },
+  {
+    id: 'toefl-2026-discussion',
+    examLabel: 'TOEFL iBT 2026 · Academic Discussion',
+    scoreBadge: 'Band 6.0 Model (120/120)',
+    promptTitle: 'Open-Source Benchmarks in University Engineering Courses',
+    excerpt:
+      'While standardized textbooks solidify mathematical intuition, integrating live open-source repositories teaches students reproducibility, code review discipline, and regression profiling under realistic constraints.',
+    examinerNote:
+      'Engages directly with peer viewpoints, introduces original engineering nuance, and maintains compact lexical precision.',
+    upgradedTerms: ['reproducibility', 'mitigate', 'solidify'],
+  },
+];
+
+export const GLB_PUBLIC_VOCAB_ENTRIES: readonly PublicVocabEntry[] = [
+  {
+    headword: 'ubiquitous',
+    ipa: '/juːˈbɪk.wɪ.təs/',
+    topic: 'Technology',
+    definition: 'Present, appearing, or found everywhere across modern environments.',
+    example: 'Automated telemetry has become ubiquitous across regional logistics hubs.',
+  },
+  {
+    headword: 'attenuate',
+    ipa: '/əˈten.ju.eɪt/',
+    topic: 'Science & Environment',
+    definition: 'Reduce the force, severity, or intensity of an effect.',
+    example: 'Coastal wetlands attenuate storm surges before floodwaters reach densely settled blocks.',
+  },
+  {
+    headword: 'mitigate',
+    ipa: '/ˈmɪt.ɪ.ɡeɪt/',
+    topic: 'Urban Policy',
+    definition: 'Make a harmful outcome or risk less severe or painful.',
+    example: 'Off-peak transit pricing helps mitigate morning highway congestion.',
+  },
+  {
+    headword: 'disparate',
+    ipa: '/ˈdɪs.pər.ət/',
+    topic: 'Research Methods',
+    definition: 'Essentially different in kind and not readily comparable without normalization.',
+    example: 'Concordance tables reconcile disparate scoring scales cleanly.',
   },
 ];

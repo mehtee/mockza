@@ -2,13 +2,29 @@ import type { SupportedExamId } from '@mockza/domain';
 import {
   GLB_EXAM_PILLARS,
   GLB_PUBLIC_COPY,
+  GLB_PUBLIC_VOCAB_ENTRIES,
+  GLB_SAMPLE_ESSAYS,
   type ExamPillarGuide,
   type ExamPillarSlug,
   type PublicSiteCopy,
+  type PublicVocabEntry,
+  type SampleAnnotatedEssay,
 } from './public-catalog-glb';
-import { IRN_EXAM_PILLARS, IRN_PUBLIC_COPY } from './public-catalog-irn';
+import {
+  IRN_EXAM_PILLARS,
+  IRN_PUBLIC_COPY,
+  IRN_PUBLIC_VOCAB_ENTRIES,
+  IRN_SAMPLE_ESSAYS,
+} from './public-catalog-irn';
 
-export type { ExamPillarFaqItem, ExamPillarGuide, ExamPillarSlug, PublicSiteCopy } from './public-catalog-glb';
+export type {
+  ExamPillarFaqItem,
+  ExamPillarGuide,
+  ExamPillarSlug,
+  PublicSiteCopy,
+  PublicVocabEntry,
+  SampleAnnotatedEssay,
+} from './public-catalog-glb';
 
 export function getPublicSiteCopyForBuild(): PublicSiteCopy {
   if (import.meta.env.PUBLIC_EDITION === 'irn') {
@@ -41,4 +57,18 @@ export function getExamSlugForTrack(examId: SupportedExamId): ExamPillarSlug {
     default:
       return 'ielts-academic';
   }
+}
+
+export function getSampleEssaysForBuild(): readonly SampleAnnotatedEssay[] {
+  if (import.meta.env.PUBLIC_EDITION === 'irn') {
+    return IRN_SAMPLE_ESSAYS;
+  }
+  return GLB_SAMPLE_ESSAYS;
+}
+
+export function getPublicVocabForBuild(): readonly PublicVocabEntry[] {
+  if (import.meta.env.PUBLIC_EDITION === 'irn') {
+    return IRN_PUBLIC_VOCAB_ENTRIES;
+  }
+  return GLB_PUBLIC_VOCAB_ENTRIES;
 }
