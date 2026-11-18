@@ -667,7 +667,7 @@ To ensure AI answer engines accurately cite **Mockza** (globally) and **Sanjia /
 
 - **`W3.1` Workspace Chrome & Split-Pane Engine:** — **DONE** (2026-11-18)
   - Build `<SimulatorWorkspaceShell />`, `<SplitPaneWorkspace />` (`react-resizable-panels` with Dexie ratio persistence), `<QuestionPaletteBar />` (verified distinct `current`, `answered`, `current+answered`, `flagged` visual states), and `<CompactPreflightHeader />`.
-- **`W3.2` Polymorphic Question Inputs & SVG Stimulus Viewer:**
+- **`W3.2` Polymorphic Question Inputs & SVG Stimulus Viewer:** — **DONE** (2026-11-18)
   - Build `<MzObjectiveAnswerInput />` (all 9 question mechanics + keyboard shortcuts), `<MzSequenceOrderControl />` (click + keyboard + drag reorder), and `<ExamSvgChartCard />` (zoom/pan + lightbox).
 - **`W3.3` Native DOM Passage Annotator, Essay Editor & Web Audio Studio:**
   - Build `<PassageAnnotatorPane />` (DOM Selection <-> UTF-16 code-unit offset mapper + highlight/note/vocab popover), `<DistractionFreeEssayEditor />` (Exam Mode spellcheck/Grammarly lock + word/sentence rules), `<AudioStudioPlayer />`, and `<WaveformMicRecorder />` (60fps `<canvas>` `AnalyserNode` meter).
