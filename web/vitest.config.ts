@@ -7,6 +7,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['fake-indexeddb/auto'],
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
+    exclude: ['tests/e2e/**', 'node_modules/**'],
   },
   resolve: {
     alias: {

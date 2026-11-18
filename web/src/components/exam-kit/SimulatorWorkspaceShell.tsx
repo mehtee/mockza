@@ -91,7 +91,7 @@ export function SimulatorWorkspaceShell({
   return (
     <div
       data-testid="simulator-workspace-shell"
-      className="flex h-[calc(100dvh-2rem)] min-h-[600px] flex-col overflow-hidden rounded-[var(--mz-radius-card)] border border-border-subtle bg-canvas text-start"
+      className="flex h-[calc(100dvh-3rem)] min-h-[540px] flex-col overflow-hidden rounded-[var(--mz-radius-card)] border border-border-subtle bg-canvas text-start"
     >
       {/* Top Distraction-Free Chrome Bar */}
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-bg-raised px-4 py-2.5">

@@ -136,7 +136,7 @@ export function SplitPaneWorkspace({
           <section
             aria-label={leftLabel}
             data-testid="split-pane-left"
-            className="h-full overflow-y-auto scroll-smooth p-5"
+            className="h-full overflow-y-auto p-5"
           >
             {leftPane}
           </section>
@@ -165,7 +165,7 @@ export function SplitPaneWorkspace({
           <section
             aria-label={rightLabel}
             data-testid="split-pane-right"
-            className="h-full overflow-y-auto scroll-smooth p-5"
+            className="h-full overflow-y-auto p-5"
           >
             {rightPane}
           </section>

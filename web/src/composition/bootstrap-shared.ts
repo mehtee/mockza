@@ -42,10 +42,18 @@ export interface EditionBootstrapOptions {
  * single-sourced while delegating edition-specific auth and billing via factories.
  */
 export function createEditionDependencies(options: EditionBootstrapOptions): AppDependencies {
-  const apiBaseUrl = options.apiBaseUrl ?? options.defaultApiBaseUrl;
+  const isLocalHost =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost');
+  const apiBaseUrl =
+    options.apiBaseUrl ??
+    import.meta.env?.['PUBLIC_API_BASE_URL'] ??
+    (isLocalHost
+      ? `${window.location.protocol}//${window.location.hostname}:45281`
+      : options.defaultApiBaseUrl);
   const cdnBaseUrl = options.cdnBaseUrl ?? options.defaultCdnBaseUrl;
   const allowDevAuth =
-    options.allowDevAuth ?? import.meta.env.PUBLIC_ALLOW_DEV_AUTH === 'true';
+    options.allowDevAuth ?? (import.meta.env?.['PUBLIC_ALLOW_DEV_AUTH'] === 'true' || isLocalHost);
 
   const clock = new SystemClock();
   const db = new MockzaDexieDb(options.dbName);
