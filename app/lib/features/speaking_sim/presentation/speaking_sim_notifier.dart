@@ -985,16 +985,23 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
 
     try {
       final profile = await profileRepo.loadOrInitializePrimary();
-      final examId = profile.examId == 'ielts_general'
-          ? 'ielts_general'
-          : 'ielts_academic';
+      final effectiveTrack = ExamTrack.resolveForPackOrProfile(
+        packId: state.packId,
+        profileExamId: profile.examId,
+      );
+      final examId = effectiveTrack.id;
 
       final orderedTurns = _orderedRecordedTurns;
 
+      final totalPromptParts = state.prompts
+          .map((prompt) => prompt.partIndex)
+          .toSet();
       final representedParts = orderedTurns
           .map((turn) => turn.partIndex)
           .toSet();
-      final canonicalPartSequence = representedParts.containsAll({1, 2, 3})
+      final canonicalPartSequence =
+          totalPromptParts.length > 1 &&
+              representedParts.containsAll(totalPromptParts)
           ? 'full'
           : 'part${orderedTurns.first.partIndex}';
 

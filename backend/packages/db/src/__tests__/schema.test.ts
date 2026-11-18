@@ -63,8 +63,8 @@ describe('@mockza/db schema definitions', () => {
     const { STARTER_EXAM_BUNDLES, STARTER_MICRO_DRILLS, STARTER_VOCAB_CARDS } = await import(
       '../index.js'
     );
-    expect(STARTER_EXAM_BUNDLES.length).toBe(24);
-    expect(STARTER_MICRO_DRILLS.length).toBe(4);
+    expect(STARTER_EXAM_BUNDLES.length).toBe(36);
+    expect(STARTER_MICRO_DRILLS.length).toBe(7);
     expect(STARTER_VOCAB_CARDS.length).toBe(320);
   });
 });

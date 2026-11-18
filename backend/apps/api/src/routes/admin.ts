@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import type { S3Client } from '@aws-sdk/client-s3';
 import { type OpenAPIHono, z } from '@hono/zod-openapi';
 import type { AppEnv } from '@mockza/config';
+import { CatalogTrackSchema, SupportedExamIdSchema } from '@mockza/contracts';
 import {
   catalogPacks,
   examQuestions,
@@ -53,7 +54,7 @@ const AdminQuestionInputSchema = z.object({
   prompt: z.string().min(1),
   options: z.array(z.string()).nullable().optional(),
   acceptedAnswers: z.array(z.string()),
-  maxWords: z.number().int().positive().max(20).optional(),
+  maxWords: z.number().int().positive().max(40).optional(),
   evidence: z.record(z.string(), z.unknown()).nullable().optional(),
   cueTimestampMs: z.number().int().nonnegative().nullable().optional(),
 });
@@ -61,9 +62,9 @@ const AdminQuestionInputSchema = z.object({
 const AdminUpsertExamSchema = z.object({
   packId: z.string().min(3).max(120),
   edition: z.enum(['glb', 'irn', 'all']).default('all'),
-  examId: z.enum(['ielts_academic', 'ielts_general']).default('ielts_academic'),
+  examId: SupportedExamIdSchema.default('ielts_academic'),
   skill: z.enum(['reading', 'listening', 'writing', 'speaking', 'fullMock']),
-  track: z.enum(['academic', 'general']).default('academic'),
+  track: CatalogTrackSchema.default('academic'),
   title: z.string().min(1),
   description: z.string().default(''),
   durationSeconds: z.number().int().nonnegative().default(900),

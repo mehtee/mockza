@@ -55,9 +55,8 @@ class OnboardingState {
       selectedTrack == ExamTrack.ieltsGeneral;
 
   /// Returns a formatted display label for the selected score.
-  String get formattedTargetScore => isIeltsScale
-      ? 'Band ${targetBand.toStringAsFixed(1)}'
-      : '${targetBand.round()} pts';
+  String get formattedTargetScore =>
+      selectedTrack.formatScoreWithUnit(targetBand);
 
   /// Returns a copy with updated onboarding selections.
   OnboardingState copyWith({
@@ -106,14 +105,7 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
 
   /// Updates the selected target score using track-appropriate step increments.
   void selectTargetBand(double band) {
-    final clamped = band.clamp(
-      state.selectedTrack.minScore,
-      state.selectedTrack.maxScore,
-    );
-    final quantized = state.isIeltsScale
-        ? (clamped * 2).round() / 2.0
-        : clamped.roundToDouble();
-    state = state.copyWith(targetBand: quantized);
+    state = state.copyWith(targetBand: state.selectedTrack.quantizeScore(band));
   }
 
   /// Sets target days until exam.

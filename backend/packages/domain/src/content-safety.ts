@@ -30,10 +30,15 @@ export type CanonicalQuestionType =
   | 'matching_headings'
   | 'summary_gap_fill'
   | 'short_answer'
+  | 'binary_choice'
+  | 'word_completion'
+  | 'reorder_sequence'
+  | 'dictation'
   | 'writing_prompt'
   | 'speaking_part1'
   | 'speaking_part2'
-  | 'speaking_part3';
+  | 'speaking_part3'
+  | 'speaking_part4';
 
 /**
  * Normalizes backend/seed/admin question-type strings into the canonical vocabulary
@@ -67,6 +72,14 @@ export function normalizeQuestionType(raw: string): CanonicalQuestionType {
     case 'form_completion':
     case 'sentence_completion':
       return 'summary_gap_fill';
+    case 'binary_choice':
+      return 'binary_choice';
+    case 'word_completion':
+      return 'word_completion';
+    case 'reorder_sequence':
+      return 'reorder_sequence';
+    case 'dictation':
+      return 'dictation';
     case 'writing_prompt':
       return 'writing_prompt';
     case 'speaking_part1':
@@ -75,13 +88,16 @@ export function normalizeQuestionType(raw: string): CanonicalQuestionType {
       return 'speaking_part2';
     case 'speaking_part3':
       return 'speaking_part3';
+    case 'speaking_part4':
+      return 'speaking_part4';
     default:
       return 'short_answer';
   }
 }
 
-/** Extracts or infers an IELTS word-count limit from question metadata/prompt/answers (`TD-28`). */
+/** Extracts or infers an IELTS/exam word-count limit from question metadata/prompt/answers (`TD-28`). */
 export function extractQuestionMaxWords(params: {
+  questionType?: string;
   evidence?: Record<string, unknown> | null;
   prompt?: string;
   acceptedAnswers?: string[];
@@ -109,6 +125,10 @@ export function extractQuestionMaxWords(params: {
     if (maxWords > 3) {
       return maxWords;
     }
+  }
+  const normalizedType = params.questionType ? normalizeQuestionType(params.questionType) : null;
+  if (normalizedType === 'dictation' || normalizedType === 'reorder_sequence') {
+    return 25;
   }
   return null;
 }

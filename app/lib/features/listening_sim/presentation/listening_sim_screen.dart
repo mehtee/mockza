@@ -397,12 +397,6 @@ class _QuestionsFormView extends StatelessWidget {
         const SizedBox(height: SpacingTokens.md),
         ...visibleQuestions.map((q) {
           final current = answers[q.number];
-          final isChoice = q.options.isNotEmpty;
-          final isMulti = q.questionType == ObjectiveQuestionType.mcqMulti;
-          final selectedMulti = (current ?? '')
-              .split(',')
-              .map((s) => s.trim())
-              .toSet();
 
           return Padding(
             padding: const EdgeInsetsDirectional.only(bottom: SpacingTokens.md),
@@ -417,43 +411,12 @@ class _QuestionsFormView extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: SpacingTokens.sm),
-                  if (isChoice)
-                    ...List.generate(q.options.length, (idx) {
-                      final rawOpt = q.options[idx];
-                      final parsed = parseObjectiveChoiceOption(
-                        q.questionType,
-                        rawOpt,
-                        idx,
-                        q.acceptedVariants,
-                      );
-                      final selected = isMulti
-                          ? (selectedMulti.contains(parsed.value) ||
-                                selectedMulti.contains(parsed.label) ||
-                                selectedMulti.contains(rawOpt))
-                          : (current == parsed.value ||
-                                current == parsed.label ||
-                                current == rawOpt);
-                      return Padding(
-                        padding: const EdgeInsetsDirectional.only(
-                          bottom: SpacingTokens.xs,
-                        ),
-                        child: MzChoiceOptionTile(
-                          badgeLabel: parsed.label,
-                          text: parsed.displayText,
-                          isSelected: selected,
-                          onTap: () => isMulti
-                              ? onToggleMulti(q.number, parsed.value)
-                              : onAnswer(q.number, parsed.value),
-                        ),
-                      );
-                    })
-                  else
-                    MzControlledAnswerField(
-                      value: current ?? '',
-                      hint:
-                          'Max ${q.maxWords} word${q.maxWords == 1 ? '' : 's'}',
-                      onChanged: (val) => onAnswer(q.number, val),
-                    ),
+                  MzObjectiveAnswerInput(
+                    question: q,
+                    currentAnswer: current,
+                    onAnswer: onAnswer,
+                    onToggleMulti: onToggleMulti,
+                  ),
                 ],
               ),
             ),

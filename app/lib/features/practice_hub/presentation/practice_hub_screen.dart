@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockza/core/exams/exam_descriptor.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/data/repositories/exam_catalog_repository.dart';
@@ -44,6 +45,11 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
     final shapes = AppShapes.of(context);
 
     final allPacks = packsAsync.asData?.value ?? const <InstalledExamPack>[];
+    final profile = ref.watch(practiceProfileProvider).asData?.value;
+    final activeTrack = state.selectedTrack == 'all'
+        ? ExamTrack.fromId(profile?.examId ?? 'ielts_academic')
+        : ExamTrack.fromId(state.selectedTrack);
+    final descriptor = ExamDescriptor.forTrack(activeTrack);
     final filteredPacks = allPacks
         .where((pack) {
           if (state.selectedSkill != null &&
@@ -215,6 +221,24 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                         isSelected: state.selectedTrack == 'general',
                         onTap: () => notifier.setTrackFilter('general'),
                       ),
+                      const SizedBox(width: SpacingTokens.xs),
+                      _FilterChip(
+                        label: 'TOEFL',
+                        isSelected: state.selectedTrack == 'toefl',
+                        onTap: () => notifier.setTrackFilter('toefl'),
+                      ),
+                      const SizedBox(width: SpacingTokens.xs),
+                      _FilterChip(
+                        label: 'PTE',
+                        isSelected: state.selectedTrack == 'pte',
+                        onTap: () => notifier.setTrackFilter('pte'),
+                      ),
+                      const SizedBox(width: SpacingTokens.xs),
+                      _FilterChip(
+                        label: 'DET',
+                        isSelected: state.selectedTrack == 'det',
+                        onTap: () => notifier.setTrackFilter('det'),
+                      ),
                     ],
                   ),
                 ),
@@ -225,14 +249,16 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                     state.selectedSkill == SkillKind.speaking)
                   TaskCard(
                     title: 'Speaking Simulator',
-                    subtitle: '3-Part Live Cue Card & AI Band Evaluation',
+                    subtitle: '${activeTrack.shortName} · Speaking Evaluation',
                     glyph: LucideGlyph.mic,
                     tint: IconWellTint.blue,
-                    durationText: _isExamMode ? '14 min' : 'Untimed',
-                    questionsText: '3 Parts',
+                    durationText: _isExamMode ? 'Timed' : 'Untimed',
+                    questionsText: activeTrack == ExamTrack.toeflIbt
+                        ? '2 Parts'
+                        : '3 Parts',
                     onTap: () => context.push(
                       AppRoutes.buildSpeakingSim(
-                        'ielts-speaking-seed-01',
+                        descriptor.speakingPackId,
                         _isExamMode,
                       ),
                     ),
@@ -241,16 +267,14 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                     state.selectedSkill == SkillKind.writing)
                   TaskCard(
                     title: 'Writing Simulator',
-                    subtitle: 'Task 1 Visual Chart & Task 2 Essay Evaluator',
+                    subtitle: '${activeTrack.shortName} · AI Rubric Evaluator',
                     glyph: LucideGlyph.pencil,
                     tint: IconWellTint.violet,
-                    durationText: _isExamMode ? '60 min' : 'Untimed',
-                    questionsText: '2 Tasks',
+                    durationText: _isExamMode ? 'Timed' : 'Untimed',
+                    questionsText: '${descriptor.writingTasks.length} Tasks',
                     onTap: () => context.push(
                       AppRoutes.buildWritingSim(
-                        state.selectedTrack == 'general'
-                            ? 'ielts-writing-gt-01'
-                            : 'ielts-writing-seed-01',
+                        descriptor.writingPackId,
                         _isExamMode,
                       ),
                     ),
@@ -260,16 +284,14 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                   TaskCard(
                     title: 'Reading Simulator',
                     subtitle:
-                        'Passage Highlighting, Notes & Instant Band Score',
+                        '${activeTrack.shortName} · Highlighting & Instant Score',
                     glyph: LucideGlyph.bookOpen,
                     tint: IconWellTint.mint,
-                    durationText: _isExamMode ? '60 min' : 'Untimed',
-                    questionsText: '3 Passages',
+                    durationText: _isExamMode ? 'Timed' : 'Untimed',
+                    questionsText: 'Reading',
                     onTap: () => context.push(
                       AppRoutes.buildReadingSim(
-                        state.selectedTrack == 'general'
-                            ? 'ielts-gt-reading-seed-01'
-                            : 'ielts-acad-reading-seed-01',
+                        descriptor.readingPackId,
                         _isExamMode,
                       ),
                     ),
@@ -278,14 +300,15 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                     state.selectedSkill == SkillKind.listening)
                   TaskCard(
                     title: 'Listening Simulator',
-                    subtitle: '4-Section Audio Track & Synced Transcript',
+                    subtitle:
+                        '${activeTrack.shortName} · Audio Track & Transcript',
                     glyph: LucideGlyph.headphones,
                     tint: IconWellTint.blue,
-                    durationText: _isExamMode ? '30 min' : 'Study Mode',
-                    questionsText: '4 Sections',
+                    durationText: _isExamMode ? 'Timed' : 'Study Mode',
+                    questionsText: 'Listening',
                     onTap: () => context.push(
                       AppRoutes.buildListeningSim(
-                        'ielts-listening-seed-01',
+                        descriptor.listeningPackId,
                         _isExamMode,
                       ),
                     ),
@@ -316,7 +339,9 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                     tint: IconWellTint.blue,
                     durationText: '~10–15 min',
                     questionsText: '4 Skills',
-                    onTap: () => context.push(AppRoutes.buildDiagnosticIntro()),
+                    onTap: () => context.push(
+                      AppRoutes.buildDiagnosticIntro(examId: activeTrack.id),
+                    ),
                   ),
                   MzCard(
                     variant: MzCardVariant.hero,
@@ -335,9 +360,11 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: <Widget>[
                                   Text(
-                                    state.selectedTrack == 'general'
+                                    activeTrack == ExamTrack.ieltsGeneral
                                         ? 'Full IELTS General Training Mock'
-                                        : 'Full IELTS Academic Mock Exam',
+                                        : activeTrack == ExamTrack.ieltsAcademic
+                                        ? 'Full IELTS Academic Mock Exam'
+                                        : 'Full ${activeTrack.displayName} Mock Exam',
                                     style: typography.cardTitle,
                                   ),
                                   const SizedBox(height: SpacingTokens.xs),
@@ -357,9 +384,11 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                           label: 'Open Full Mock Planner',
                           onPressed: () => context.push(
                             AppRoutes.buildPracticeFullMock(
-                              state.selectedTrack == 'general'
+                              activeTrack == ExamTrack.ieltsGeneral
                                   ? 'mock-gt-01'
-                                  : 'mock-acad-01',
+                                  : activeTrack == ExamTrack.ieltsAcademic
+                                  ? 'mock-acad-01'
+                                  : 'mock-${activeTrack.catalogTrack}-01',
                             ),
                           ),
                         ),

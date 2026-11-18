@@ -76,6 +76,14 @@ function normalizeCanonicalQuestionType(raw: string): string {
     case 'form_completion':
     case 'sentence_completion':
       return 'summary_gap_fill';
+    case 'binary_choice':
+      return 'binary_choice';
+    case 'word_completion':
+      return 'word_completion';
+    case 'reorder_sequence':
+      return 'reorder_sequence';
+    case 'dictation':
+      return 'dictation';
     case 'writing_prompt':
       return 'writing_prompt';
     case 'speaking_part1':
@@ -84,12 +92,15 @@ function normalizeCanonicalQuestionType(raw: string): string {
       return 'speaking_part2';
     case 'speaking_part3':
       return 'speaking_part3';
+    case 'speaking_part4':
+      return 'speaking_part4';
     default:
       return 'short_answer';
   }
 }
 
 function extractCanonicalMaxWords(params: {
+  questionType?: string;
   evidence?: Record<string, unknown> | null;
   prompt?: string;
   acceptedAnswers?: string[];
@@ -117,6 +128,12 @@ function extractCanonicalMaxWords(params: {
     if (maxWords > 3) {
       return maxWords;
     }
+  }
+  const normalizedType = params.questionType
+    ? normalizeCanonicalQuestionType(params.questionType)
+    : null;
+  if (normalizedType === 'dictation' || normalizedType === 'reorder_sequence') {
+    return 25;
   }
   return null;
 }
@@ -190,10 +207,15 @@ const VALID_SEED_QUESTION_TYPES = new Set([
   'gap_fill',
   'form_completion',
   'short_answer',
+  'binary_choice',
+  'word_completion',
+  'reorder_sequence',
+  'dictation',
   'writing_prompt',
   'speaking_part1',
   'speaking_part2',
   'speaking_part3',
+  'speaking_part4',
 ]);
 
 async function loadStarterBundles(currentFile: string): Promise<ParsedExamBundle[]> {
@@ -287,6 +309,7 @@ export async function validateAllPacks(): Promise<ValidationSummary> {
         options: q.optionsJson ?? null,
         acceptedAnswers: q.acceptedAnswersJson,
         maxWords: extractCanonicalMaxWords({
+          questionType: q.questionType,
           evidence: q.evidenceJson ?? null,
           prompt: q.prompt,
           acceptedAnswers: q.acceptedAnswersJson,

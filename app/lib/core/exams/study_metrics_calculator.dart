@@ -207,12 +207,9 @@ abstract final class StudyMetricsCalculator {
         skillAverages.reduce((a, b) => a + b) / skillAverages.length;
 
     // Apply exam-specific rounding
-    final double overallScore;
-    if (track == ExamTrack.ieltsAcademic || track == ExamTrack.ieltsGeneral) {
-      overallScore = ExamSpec.roundIeltsBand(rawOverallMean);
-    } else {
-      overallScore = (rawOverallMean * 2).round() / 2.0;
-    }
+    final overallScore = track.isIelts
+        ? ExamSpec.roundIeltsBand(rawOverallMean)
+        : track.quantizeScore(rawOverallMean);
 
     // 30-day delta calculation:
     // Requires >= 3 total attempts, with at least 1 baseline attempt >= 30 days old.
@@ -237,13 +234,8 @@ abstract final class StudyMetricsCalculator {
             recentAttempts.reduce((a, b) => a + b) / recentAttempts.length;
 
         final rawDelta = recentMean - baselineMean;
-        // Round delta to nearest 0.5 for IELTS, 1.0 for others
-        if (track == ExamTrack.ieltsAcademic ||
-            track == ExamTrack.ieltsGeneral) {
-          changeThisMonth = (rawDelta * 2).round() / 2.0;
-        } else {
-          changeThisMonth = rawDelta.roundToDouble();
-        }
+        final step = track.scoreStep;
+        changeThisMonth = (rawDelta / step).round() * step;
       }
     }
 
@@ -295,20 +287,16 @@ abstract final class StudyMetricsCalculator {
         );
       } else {
         final avg = scores.reduce((a, b) => a + b) / scores.length;
-        final double rounded;
-        if (track == ExamTrack.ieltsAcademic ||
-            track == ExamTrack.ieltsGeneral) {
-          rounded = ExamSpec.roundIeltsBand(avg);
-        } else {
-          rounded = (avg * 2).round() / 2.0;
-        }
+        final rounded = track.isIelts
+            ? ExamSpec.roundIeltsBand(avg)
+            : track.quantizeScore(avg);
         results.add(
           SkillScoreSummary(
             skill: skill,
             score: rounded,
             scaleMin: track.minScore,
             scaleMax: track.maxScore,
-            scoreLabel: rounded.toStringAsFixed(1),
+            scoreLabel: track.formatScore(rounded),
             sampleCount: scores.length,
           ),
         );

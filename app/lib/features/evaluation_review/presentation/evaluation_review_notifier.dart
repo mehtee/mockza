@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/core/models/speaking_evaluation.dart';
 import 'package:mockza/core/models/writing_evaluation.dart';
@@ -99,6 +100,7 @@ class EvaluationReviewState {
     required this.skill,
     required this.status,
     required this.targetBandScore,
+    this.examTrack = ExamTrack.ieltsAcademic,
     this.isLoading = false,
     this.notFound = false,
     this.selectedTabIndex = 0,
@@ -204,6 +206,9 @@ class EvaluationReviewState {
   /// True if the attempt used a full 40-item objective pack / full timed prompt (`RR-10`).
   final bool isCalibratedFullPack;
 
+  /// Active exam track (`ielts_academic`, `toefl_ibt`, `pte_academic`, `det`).
+  final ExamTrack examTrack;
+
   /// True if completed in untimed Study Mode rather than Exam Mode (`RR-10`).
   final bool usedStudyMode;
 
@@ -217,6 +222,7 @@ class EvaluationReviewState {
   /// Creates an updated copy of [EvaluationReviewState].
   EvaluationReviewState copyWith({
     String? attemptId,
+    ExamTrack? examTrack,
     String? packId,
     String? packTitle,
     SkillKind? skill,
@@ -287,6 +293,7 @@ class EvaluationReviewState {
     isFlagging: isFlagging ?? this.isFlagging,
     isCalibratedFullPack: isCalibratedFullPack ?? this.isCalibratedFullPack,
     usedStudyMode: usedStudyMode ?? this.usedStudyMode,
+    examTrack: examTrack ?? this.examTrack,
   );
 }
 
@@ -372,6 +379,13 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
 
     final skill = SkillKind.values.byName(row.skill);
     final status = AttemptStatus.values.byName(row.status);
+    final examTrack = ExamTrack.resolveForPackOrProfile(
+      packId: row.packId,
+      profileExamId: row.examId,
+    );
+    final targetScore = profile.examId == examTrack.id
+        ? profile.targetBand
+        : examTrack.targetScoreDefault;
     final submissionMap = _decodeJsonMap(row.submissionJson);
     final evalMap = row.evaluationJson != null && row.evaluationJson!.isNotEmpty
         ? _decodeJsonMap(row.evaluationJson!)
@@ -434,6 +448,7 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
     final comparison = await _loadBaselineComparison(
       currentAttemptId: row.attemptId,
       currentPackId: row.packId,
+      examTrack: examTrack,
       currentTitle: _shortDateLabel(row.updatedAt),
       currentOverallBand: overallBand,
       skill: skill,
@@ -451,7 +466,8 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
       packTitle: packTitle,
       skill: skill,
       status: status,
-      targetBandScore: profile.targetBand,
+      examTrack: examTrack,
+      targetBandScore: targetScore,
       isLoading: false,
       notFound: false,
       writingResult: writingResult,
@@ -621,7 +637,7 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
           headword: cleanHeadword,
           definition: definition.trim().isNotEmpty
               ? definition.trim()
-              : 'Captured from IELTS ${state.skill.name} review',
+              : 'Captured from ${state.examTrack.shortName} ${state.skill.name} review',
           topicTag: topicTag,
           ipa: ipa,
           contextSentence: contextSentence,
@@ -682,17 +698,20 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
 
   /// Builds a readable summary string for platform sharing.
   String buildShareSummary() {
+    final track = state.examTrack;
     final bandText = state.overallBand != null
-        ? 'Band ${state.overallBand!.toStringAsFixed(1)}'
+        ? track.formatScoreWithUnit(state.overallBand!)
         : 'Pending';
     final buf = StringBuffer()
-      ..writeln('Mockza IELTS ${_skillLabel(state.skill)} — $bandText')
+      ..writeln(
+        'Mockza ${track.shortName} ${_skillLabel(state.skill)} — $bandText',
+      )
       ..writeln('Pack: ${state.packTitle}');
 
     if (state.writingResult != null) {
       for (final c in state.writingResult!.criteria) {
         buf.writeln(
-          '${c.criterionCode} (${c.criterionLabel}): ${c.band.toStringAsFixed(1)}',
+          '${c.criterionCode} (${c.criterionLabel}): ${track.formatScore(c.band)}',
         );
       }
       if (state.writingResult!.actionableNextStep.isNotEmpty) {
@@ -701,7 +720,7 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
     } else if (state.speakingResult != null) {
       for (final c in state.speakingResult!.criteria) {
         buf.writeln(
-          '${c.criterionCode} (${c.criterionLabel}): ${c.band.toStringAsFixed(1)}',
+          '${c.criterionCode} (${c.criterionLabel}): ${track.formatScore(c.band)}',
         );
       }
       if (state.speakingResult!.actionableNextStep.isNotEmpty) {
@@ -856,6 +875,7 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
   Future<AttemptComparisonSnapshot?> _loadBaselineComparison({
     required String currentAttemptId,
     required String currentPackId,
+    required ExamTrack examTrack,
     required String currentTitle,
     required double? currentOverallBand,
     required SkillKind skill,
@@ -873,7 +893,12 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
               a.attemptId != currentAttemptId &&
               a.skill == skill &&
               a.status == AttemptStatus.scored &&
-              a.overallBand != null,
+              a.overallBand != null &&
+              ExamTrack.resolveForPackOrProfile(
+                    packId: a.packId,
+                    profileExamId: a.examId,
+                  ) ==
+                  examTrack,
         )
         .toList(growable: false);
     if (candidates.isEmpty) return null;
@@ -938,16 +963,20 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
       final prevMap = _decodeJsonMap(baselineRow.submissionJson);
       final prevCorrect = (prevMap['correctCount'] as num?)?.toInt() ?? 0;
       final prevTotal = (prevMap['totalCount'] as num?)?.toInt() ?? 0;
-      final prevPct = prevTotal > 0 ? (prevCorrect / prevTotal) * 9.0 : 0.0;
-      final currPct = currentTotalCount > 0
-          ? (currentCorrectCount / currentTotalCount) * 9.0
-          : 0.0;
+      final prevScaled = prevTotal > 0
+          ? examTrack.scoreFromRatio(prevCorrect / prevTotal)
+          : examTrack.minScore;
+      final currScaled = currentTotalCount > 0
+          ? examTrack.scoreFromRatio(currentCorrectCount / currentTotalCount)
+          : examTrack.minScore;
+      final rangeLabel =
+          '${examTrack.formatScore(examTrack.minScore)}-${examTrack.formatScore(examTrack.maxScore)}';
       deltas.add(
         CriterionDelta(
           code: 'ACC',
-          label: 'Accuracy (normalized 0-9)',
-          previousBand: double.parse(prevPct.toStringAsFixed(1)),
-          currentBand: double.parse(currPct.toStringAsFixed(1)),
+          label: 'Accuracy ($rangeLabel)',
+          previousBand: prevScaled,
+          currentBand: currScaled,
         ),
       );
     }
@@ -1039,6 +1068,28 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
         return 'Lexical Resource';
       case 'GRA':
         return 'Grammatical Range & Accuracy';
+      case 'DEV':
+        return 'Task Development';
+      case 'ORG':
+        return 'Organization & Coherence';
+      case 'LANG':
+        return 'Language Use';
+      case 'CONT':
+        return 'Content & Relevance';
+      case 'FORM':
+        return 'Formal Requirements';
+      case 'GRAM':
+        return 'Grammar Accuracy';
+      case 'VOC':
+        return 'Vocabulary Range';
+      case 'LIT':
+        return 'Literacy';
+      case 'COMP':
+        return 'Comprehension';
+      case 'CONV':
+        return 'Conversation';
+      case 'PROD':
+        return 'Production';
       default:
         return code;
     }
@@ -1054,6 +1105,26 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
         return 'Grammatical Range & Accuracy';
       case 'PR':
         return 'Pronunciation';
+      case 'DEL':
+        return 'Delivery & Pacing';
+      case 'LANG':
+        return 'Language Use';
+      case 'TOP':
+        return 'Topic Development';
+      case 'CONT':
+        return 'Content Coverage';
+      case 'FLU':
+        return 'Oral Fluency';
+      case 'PRON':
+        return 'Pronunciation';
+      case 'LIT':
+        return 'Literacy';
+      case 'COMP':
+        return 'Comprehension';
+      case 'CONV':
+        return 'Conversation';
+      case 'PROD':
+        return 'Production';
       default:
         return code;
     }
@@ -1079,7 +1150,7 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
       case 'transcoding':
         return 'Transcribing speaking response...';
       case 'evaluating':
-        return 'Scoring official IELTS rubric criteria...';
+        return 'Scoring exam rubric criteria...';
       case 'repairing':
         return 'Verifying rubric quotes & schema consistency...';
       case 'queued':
@@ -1109,6 +1180,10 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
       p,
     ) {
       if (p == 'ielts') return 'IELTS';
+      if (p == 'toefl') return 'TOEFL';
+      if (p == 'ibt') return 'iBT';
+      if (p == 'pte') return 'PTE';
+      if (p == 'det') return 'DET';
       if (p == 'acad') return 'Academic';
       if (p == 'gt') return 'General';
       return p[0].toUpperCase() + p.substring(1);

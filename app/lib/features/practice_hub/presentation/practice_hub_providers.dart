@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
+import 'package:mockza/core/models/user_profile.dart';
 import 'package:mockza/data/repositories/attempt_repository.dart';
 import 'package:mockza/data/repositories/exam_catalog_repository.dart';
 import 'package:mockza/features/practice_hub/presentation/practice_hub_notifier.dart';
@@ -38,4 +39,10 @@ final StreamProvider<List<AttemptSummary>> practiceHubAttemptsProvider =
           .watchRecentAttempts(
             limit: 500,
           ),
+    );
+
+/// Streams primary learner profile to calibrate Practice Hub default exam track.
+final StreamProvider<UserProfile?> practiceProfileProvider =
+    StreamProvider<UserProfile?>(
+      (ref) => ref.watch(profileRepositoryProvider).watchPrimaryProfile(),
     );

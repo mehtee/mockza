@@ -15,6 +15,8 @@ class MetricHero extends StatelessWidget {
   const new({
     this.estimatedScore,
     this.targetScore = 7.5,
+    this.minScore = 0,
+    this.maxScore = 9,
     this.scoreDeltaText,
     this.scaleLabel = 'Estimated Band',
     this.onTapDiagnostic,
@@ -27,6 +29,12 @@ class MetricHero extends StatelessWidget {
 
   /// Target band score (e.g. 7.5).
   final double targetScore;
+
+  /// Scale floor for this track (`0`, `1`, or `10`).
+  final double minScore;
+
+  /// Scale ceiling for this track (`9`, `6`, `90`, or `160`).
+  final double maxScore;
 
   /// Optional change pill text (e.g. "+0.5 this month").
   /// Rule #6: ONLY show when supported by sufficient attempts.
@@ -83,7 +91,9 @@ class MetricHero extends StatelessWidget {
           if (hasScore) ...<Widget>[
             // Big 72pt tabular score
             Text(
-              estimatedScore!.toStringAsFixed(1),
+              (maxScore > 10 || estimatedScore! > 9.5)
+                  ? estimatedScore!.round().toString()
+                  : estimatedScore!.toStringAsFixed(1),
               style: typography.heroScore.copyWith(
                 color: colors.textPrimary,
               ),
@@ -93,6 +103,8 @@ class MetricHero extends StatelessWidget {
             ScoreMeter(
               score: estimatedScore,
               targetScore: targetScore,
+              minScore: minScore,
+              maxScore: maxScore,
             ),
           ] else ...<Widget>[
             // Honest unestimated state (Rule #6)

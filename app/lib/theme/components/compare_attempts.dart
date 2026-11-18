@@ -98,7 +98,7 @@ class CompareAttempts extends StatelessWidget {
               ),
               MzChip(
                 label:
-                    '${isPositive ? "+" : ""}${overallDelta.toStringAsFixed(1)}',
+                    '${isPositive ? "+" : ""}${(attempt1Overall > 9.5 || attempt2Overall > 9.5) ? overallDelta.round().toString() : overallDelta.toStringAsFixed(1)}',
                 glyph: isPositive ? LucideGlyph.trendingUp : null,
                 variant: isPositive
                     ? MzChipVariant.positive
@@ -127,7 +127,9 @@ class CompareAttempts extends StatelessWidget {
                     ),
                     const SizedBox(height: SpacingTokens.xs),
                     Text(
-                      attempt1Overall.toStringAsFixed(1),
+                      attempt1Overall > 9.5
+                          ? attempt1Overall.round().toString()
+                          : attempt1Overall.toStringAsFixed(1),
                       style: typography.cardScore.copyWith(
                         color: colors.textSecondary,
                       ),
@@ -150,7 +152,9 @@ class CompareAttempts extends StatelessWidget {
                     ),
                     const SizedBox(height: SpacingTokens.xs),
                     Text(
-                      attempt2Overall.toStringAsFixed(1),
+                      attempt2Overall > 9.5
+                          ? attempt2Overall.round().toString()
+                          : attempt2Overall.toStringAsFixed(1),
                       style: typography.cardScore.copyWith(
                         color: colors.textPrimary,
                       ),
@@ -166,6 +170,13 @@ class CompareAttempts extends StatelessWidget {
             final cDelta = criterion.delta;
             final isCDiff = cDelta != 0.0;
             final isCPositive = cDelta > 0;
+            final isIntScale =
+                criterion.previousBand > 9.5 ||
+                criterion.currentBand > 9.5 ||
+                attempt1Overall > 9.5 ||
+                attempt2Overall > 9.5;
+            String fmt(double v) =>
+                isIntScale ? v.round().toString() : v.toStringAsFixed(1);
 
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: SpacingTokens.sm),
@@ -180,7 +191,7 @@ class CompareAttempts extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${criterion.previousBand.toStringAsFixed(1)} → ${criterion.currentBand.toStringAsFixed(1)}',
+                    '${fmt(criterion.previousBand)} → ${fmt(criterion.currentBand)}',
                     style: typography.secondary.copyWith(
                       color: colors.textSecondary,
                       fontFeatures: const <FontFeature>[
@@ -195,7 +206,7 @@ class CompareAttempts extends StatelessWidget {
                       alignment: AlignmentDirectional.centerEnd,
                       child: isCDiff
                           ? Text(
-                              '${isCPositive ? "+" : ""}${cDelta.toStringAsFixed(1)}',
+                              '${isCPositive ? "+" : ""}${fmt(cDelta)}',
                               style: typography.caption.copyWith(
                                 color: isCPositive
                                     ? colors.success
@@ -204,7 +215,7 @@ class CompareAttempts extends StatelessWidget {
                               ),
                             )
                           : Text(
-                              '0.0',
+                              isIntScale ? '0' : '0.0',
                               style: typography.caption.copyWith(
                                 color: colors.textTertiary,
                               ),

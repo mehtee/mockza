@@ -756,116 +756,8 @@ class _QuestionsPane extends StatelessWidget {
 
   Widget _buildQuestionCard(BuildContext context, QuestionSpec q) {
     final typography = AppTypography.of(context);
-    final colors = AppColors.of(context);
     final current = answers[q.number];
 
-    if (q.questionType == ObjectiveQuestionType.tfng ||
-        q.questionType == ObjectiveQuestionType.ynng) {
-      final labels = q.questionType == ObjectiveQuestionType.ynng
-          ? const <String>['YES', 'NO', 'NOT GIVEN']
-          : const <String>['TRUE', 'FALSE', 'NOT GIVEN'];
-      return MzCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Expanded(
-                  child: Text(
-                    '${q.number}. ${q.prompt}',
-                    style: typography.body.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                if (allowAiExplain)
-                  MzIconButton(
-                    glyph: LucideGlyph.info,
-                    semanticLabel: 'Ask AI why',
-                    onPressed: () => onAskAi(q),
-                  ),
-              ],
-            ),
-            const SizedBox(height: SpacingTokens.md),
-            MzBinaryChoiceRow(
-              labels: labels,
-              selectedLabel: current,
-              onSelect: (lbl) => onAnswer(q.number, lbl),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if ((q.questionType == ObjectiveQuestionType.mcqSingle ||
-            q.questionType == ObjectiveQuestionType.mcqMulti ||
-            q.questionType == ObjectiveQuestionType.matchingHeadings) &&
-        q.options.isNotEmpty) {
-      final isMulti = q.questionType == ObjectiveQuestionType.mcqMulti;
-      final selectedMulti = (current ?? '')
-          .split(',')
-          .map((s) => s.trim())
-          .toSet();
-      return MzCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Expanded(
-                  child: Text(
-                    '${q.number}. ${q.prompt}',
-                    style: typography.body.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                if (allowAiExplain)
-                  MzIconButton(
-                    glyph: LucideGlyph.info,
-                    semanticLabel: 'Ask AI why',
-                    onPressed: () => onAskAi(q),
-                  ),
-              ],
-            ),
-            const SizedBox(height: SpacingTokens.sm),
-            ...List.generate(q.options.length, (oIdx) {
-              final rawOpt = q.options[oIdx];
-              final parsed = parseObjectiveChoiceOption(
-                q.questionType,
-                rawOpt,
-                oIdx,
-                q.acceptedVariants,
-              );
-              final isSel = isMulti
-                  ? (selectedMulti.contains(parsed.value) ||
-                        selectedMulti.contains(parsed.label) ||
-                        selectedMulti.contains(rawOpt))
-                  : (current == parsed.value ||
-                        current == parsed.label ||
-                        current == rawOpt);
-              return Padding(
-                padding: const EdgeInsetsDirectional.only(
-                  bottom: SpacingTokens.xs,
-                ),
-                child: MzChoiceOptionTile(
-                  badgeLabel: parsed.label,
-                  text: parsed.displayText,
-                  isSelected: isSel,
-                  onTap: () => isMulti
-                      ? onToggleMulti(q.number, parsed.value)
-                      : onAnswer(q.number, parsed.value),
-                ),
-              );
-            }),
-          ],
-        ),
-      );
-    }
-
-    // Gap-fill / short-answer with stateful controller
     return MzCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -887,16 +779,12 @@ class _QuestionsPane extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: SpacingTokens.xs),
-          Text(
-            'Max ${q.maxWords} word${q.maxWords == 1 ? '' : 's'}',
-            style: typography.caption.copyWith(color: colors.textTertiary),
-          ),
-          const SizedBox(height: SpacingTokens.sm),
-          MzControlledAnswerField(
-            value: current ?? '',
-            hint: 'Type answer...',
-            onChanged: (val) => onAnswer(q.number, val),
+          const SizedBox(height: SpacingTokens.md),
+          MzObjectiveAnswerInput(
+            question: q,
+            currentAnswer: current,
+            onAnswer: onAnswer,
+            onToggleMulti: onToggleMulti,
           ),
         ],
       ),

@@ -1,4 +1,4 @@
-import { SPEAKING_CRITERIA, WRITING_CRITERIA_TASK1, WRITING_CRITERIA_TASK2 } from '@mockza/domain';
+import { getExamRubricSpec, normalizeSupportedExamId, quantizeExamScore } from '@mockza/domain';
 import { EvaluationModelError } from '../errors.js';
 
 export type RubricCriterionInput = {
@@ -10,8 +10,9 @@ export type RubricCriterionInput = {
 };
 
 export function validateAndExtractCriterionBands(params: {
+  examId?: string;
   skill: 'writing' | 'speaking';
-  taskType?: 'task1Academic' | 'task1General' | 'task2Essay';
+  taskType?: string;
   rawCriteria: unknown;
 }): [number, number, number, number] {
   const criteria = Array.isArray(params.rawCriteria)
@@ -25,12 +26,9 @@ export function validateAndExtractCriterionBands(params: {
     );
   }
 
-  const expectedCodes: readonly string[] =
-    params.skill === 'speaking'
-      ? SPEAKING_CRITERIA
-      : params.taskType === 'task2Essay'
-        ? WRITING_CRITERIA_TASK2
-        : WRITING_CRITERIA_TASK1;
+  const examId = normalizeSupportedExamId(params.examId);
+  const spec = getExamRubricSpec(examId, params.skill, params.taskType);
+  const expectedCodes: readonly string[] = spec.criteria.map((c) => c.code);
 
   const seenCodes = new Set<string>();
   const bands: number[] = [];
@@ -46,11 +44,11 @@ export function validateAndExtractCriterionBands(params: {
     }
     seenCodes.add(code);
 
-    const band = Number(criterion?.band);
-    if (!Number.isFinite(band) || band < 0 || band > 9) {
+    const rawBand = Number(criterion?.band);
+    if (!Number.isFinite(rawBand) || rawBand < spec.scale.min || rawBand > spec.scale.max) {
       throw new EvaluationModelError(
         'model_invalid_output',
-        `${params.skill === 'writing' ? 'Writing' : 'Speaking'} model output contained invalid criterion band values.`,
+        `${params.skill === 'writing' ? 'Writing' : 'Speaking'} model output contained invalid criterion band values for ${spec.scale.label} (${spec.scale.min}..${spec.scale.max}).`,
         true,
       );
     }
@@ -67,7 +65,7 @@ export function validateAndExtractCriterionBands(params: {
       );
     }
 
-    bands.push(band);
+    bands.push(quantizeExamScore(rawBand, examId));
   }
 
   if (seenCodes.size !== expectedCodes.length) {

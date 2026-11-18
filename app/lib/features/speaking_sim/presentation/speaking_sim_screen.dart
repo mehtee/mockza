@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mockza/features/speaking_sim/presentation/speaking_sim_notifier.dart';
 import 'package:mockza/features/speaking_sim/presentation/speaking_sim_providers.dart';
+import 'package:mockza/providers.dart';
 import 'package:mockza/routing/routes.dart';
 import 'package:mockza/routing/safe_pop.dart';
 import 'package:mockza/theme/app_colors.dart';
@@ -12,6 +13,7 @@ import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/audio_level_meter.dart';
+import 'package:mockza/theme/components/chart_stage_card.dart';
 import 'package:mockza/theme/components/exam_exit_guard.dart';
 import 'package:mockza/theme/components/mic_preflight_card.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
@@ -465,11 +467,14 @@ class _PromptAndMicCheckView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                state.activePart == 2
-                    ? 'Part 2 Candidate Cue Card'
-                    : (state.activePart == 1
-                          ? 'Part 1 Examiner Question'
-                          : 'Part 3 Follow-Up Discussion'),
+                state.sessionTitle.trim().isNotEmpty
+                    ? 'Part ${state.activePart} · ${state.sessionTitle}'
+                    : switch (state.activePart) {
+                        1 => 'Part 1 Examiner Question',
+                        2 => 'Part 2 Candidate Cue Card',
+                        3 => 'Part 3 Follow-Up Discussion',
+                        _ => 'Part ${state.activePart} Speaking Prompt',
+                      },
                 style: typography.caption.copyWith(color: colors.textSecondary),
               ),
               const SizedBox(height: SpacingTokens.xs),
@@ -521,8 +526,9 @@ class _PromptAndMicCheckView extends StatelessWidget {
           ),
         ),
 
-        // Optional Scratchpad for Part 2
-        if (state.activePart == 2) ...<Widget>[
+        // Optional Scratchpad for timed prep tasks (IELTS Part 2, PTE Describe Image / Retell Lecture)
+        if ((currentPrompt?.prepSeconds ?? 0) > 0 ||
+            state.activePart == 2) ...<Widget>[
           const SizedBox(height: SpacingTokens.md),
           MzCard(
             child: Column(
@@ -548,6 +554,27 @@ class _PromptAndMicCheckView extends StatelessWidget {
           ),
         ],
         const SizedBox(height: SpacingTokens.md),
+
+        if (currentPrompt != null &&
+            currentPrompt.chartSvg != null &&
+            currentPrompt.chartSvg!.isNotEmpty) ...<Widget>[
+          Consumer(
+            builder: (ctx, ref, _) {
+              final raw = currentPrompt.chartSvg!;
+              final resolved = ref
+                  .watch(editionConfigProvider)
+                  .resolveMediaUrl(raw);
+              return ExamSvgChartCard(
+                chartSvgOrPath: raw,
+                resolvedUrl: resolved,
+                caption: state.sessionTitle.isNotEmpty
+                    ? state.sessionTitle
+                    : 'Visual Prompt',
+              );
+            },
+          ),
+          const SizedBox(height: SpacingTokens.md),
+        ],
 
         // Recorded Clip Playback Preview + Optional Study Mode Re-record
         if (hasClipForCurrent &&

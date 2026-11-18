@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mockza/core/auth/auth_models.dart';
 import 'package:mockza/core/config/edition_config.dart';
+import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/core/models/user_profile.dart';
 import 'package:mockza/core/preferences/appearance_settings.dart';
@@ -26,6 +27,7 @@ class SettingsState {
     required this.speakingRemaining,
     required this.writingRemaining,
     required this.appUserId,
+    this.track = ExamTrack.ieltsAcademic,
     this.presetId = AppearanceSettings.defaultPresetId,
     this.appVersionLabel = 'v1.0.0',
     this.isBusy = false,
@@ -39,6 +41,9 @@ class SettingsState {
 
   /// Active distribution edition (`global` or `iran`).
   final AppEdition edition;
+
+  /// Active exam track across IELTS, TOEFL iBT, PTE, and DET.
+  final ExamTrack track;
 
   /// Active IELTS track.
   final ExamModuleType examModule;
@@ -91,6 +96,7 @@ class SettingsState {
   /// Returns a copy with updated settings values.
   SettingsState copyWith({
     AppEdition? edition,
+    ExamTrack? track,
     ExamModuleType? examModule,
     double? targetBand,
     String? themeMode,
@@ -111,6 +117,7 @@ class SettingsState {
     bool clearStatusMessage = false,
   }) => SettingsState(
     edition: edition ?? this.edition,
+    track: track ?? this.track,
     examModule: examModule ?? this.examModule,
     targetBand: targetBand ?? this.targetBand,
     themeMode: themeMode ?? this.themeMode,
@@ -173,6 +180,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
             (profile) {
               if (profile == null || _isDisposed) return;
               state = state.copyWith(
+                track: ExamTrack.fromId(profile.examId),
                 examModule: profile.examModule,
                 targetBand: profile.targetBand,
                 isPro: profile.isPro,
@@ -211,6 +219,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       );
       if (!_isDisposed) {
         state = state.copyWith(
+          track: ExamTrack.fromId(profile.examId),
           examModule: profile.examModule,
           targetBand: profile.targetBand,
           isPro: profile.isPro,
@@ -413,17 +422,44 @@ class SettingsNotifier extends Notifier<SettingsState> {
     }
   }
 
-  /// Updates target band inside local state and persists to SQLite.
+  /// Updates target score inside local state and persists to SQLite.
   void setTargetBand(double band) {
-    final clamped = band.clamp(5.0, 9.0);
-    state = state.copyWith(targetBand: clamped, clearStatusMessage: true);
-    unawaited(_persistPreferences(targetBand: clamped));
+    final quantized = state.track.quantizeScore(band);
+    state = state.copyWith(targetBand: quantized, clearStatusMessage: true);
+    unawaited(_persistPreferences(targetBand: quantized));
   }
 
-  /// Updates exam track and persists to SQLite.
+  /// Updates active [ExamTrack] (resets target score when switching scale) and persists.
+  void setTrack(ExamTrack track) {
+    final module = track == ExamTrack.ieltsGeneral
+        ? ExamModuleType.generalTraining
+        : ExamModuleType.academic;
+    final nextTarget = track.nextTargetWhenSwitchingFrom(
+      state.track,
+      state.targetBand,
+    );
+    state = state.copyWith(
+      track: track,
+      examModule: module,
+      targetBand: nextTarget,
+      clearStatusMessage: true,
+    );
+    unawaited(
+      _persistPreferences(
+        targetBand: nextTarget,
+        examModule: module,
+        track: track,
+      ),
+    );
+  }
+
+  /// Updates IELTS exam track and persists to SQLite.
   void setExamModule(ExamModuleType module) {
-    state = state.copyWith(examModule: module, clearStatusMessage: true);
-    unawaited(_persistPreferences(examModule: module));
+    setTrack(
+      module == ExamModuleType.generalTraining
+          ? ExamTrack.ieltsGeneral
+          : ExamTrack.ieltsAcademic,
+    );
   }
 
   /// Updates visual theme mode and persists to secure storage & SQLite.
@@ -442,19 +478,22 @@ class SettingsNotifier extends Notifier<SettingsState> {
   Future<void> _persistPreferences({
     double? targetBand,
     ExamModuleType? examModule,
+    ExamTrack? track,
   }) async {
     try {
       final profileRepo = ref.read(profileRepositoryProvider);
       final primary = await profileRepo.loadOrInitializePrimary();
-      final nextModule = examModule ?? state.examModule;
-      final nextExamId = nextModule == ExamModuleType.generalTraining
-          ? 'ielts_general'
-          : 'ielts_academic';
+      final nextTrack = track ?? state.track;
+      final nextModule =
+          examModule ??
+          (nextTrack == ExamTrack.ieltsGeneral
+              ? ExamModuleType.generalTraining
+              : ExamModuleType.academic);
       await profileRepo.saveTargetPreferences(
         deviceId: primary.deviceId,
         targetBand: targetBand ?? state.targetBand,
         examModule: nextModule,
-        examId: nextExamId,
+        examId: nextTrack.id,
         targetDateSerial: primary.targetDateSerial,
       );
     } on Object {

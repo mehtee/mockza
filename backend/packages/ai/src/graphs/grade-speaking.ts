@@ -1,10 +1,17 @@
 import { type EvaluateSpeakingRequestSchema, EvaluationOutputSchema } from '@mockza/contracts';
-import { computeOverallBandFromCriteria } from '@mockza/domain';
+import {
+  ALL_CRITERION_CODES,
+  computeExamOverallFromCriteria,
+  getExamRubricSpec,
+  normalizeSupportedExamId,
+  scoreFromNormalizedQuality,
+} from '@mockza/domain';
 import type { z } from 'zod';
 import { EvaluationModelError } from '../errors.js';
 import { OpenRouterClient } from '../models/openrouter.js';
 import { MODEL_REGISTRY } from '../models/registry.js';
 import { renderPromptFromYaml } from '../prompts/loader.js';
+import { buildSpeakingRubricAppendix } from '../prompts/rubrics.js';
 import { validateAndExtractCriterionBands } from './rubric-validation.js';
 
 export type SpeakingGraphInput = z.infer<typeof EvaluateSpeakingRequestSchema> & {
@@ -29,44 +36,27 @@ export interface SpeakingInvokeOptions {
  * outside production. Never used as a fallback on missing audio or model failures.
  */
 export function evaluateSpeakingDemoOnly(input: SpeakingGraphInput): SpeakingGraphOutput {
+  const examId = normalizeSupportedExamId(input.examId);
+  const spec = getExamRubricSpec(examId, 'speaking');
   const partIndex = input.turns?.[0]?.partIndex ?? 1;
-  const baseBand = 6.0;
-  const overallBand = computeOverallBandFromCriteria([baseBand, baseBand, baseBand, baseBand]);
+  const ratio = examId === 'ielts_academic' || examId === 'ielts_general' ? 6 / 9 : 0.65;
+  const baseScore = scoreFromNormalizedQuality(ratio, examId);
+  const overallBand = computeExamOverallFromCriteria(
+    [baseScore, baseScore, baseScore, baseScore],
+    examId,
+  );
 
   return EvaluationOutputSchema.parse({
     attemptId: input.attemptId,
     overallBand,
     isEstimated: true,
-    criteria: [
-      {
-        code: 'FC',
-        label: 'Fluency and Coherence',
-        band: baseBand,
-        evidenceExcerpt: 'Demo response segment.',
-        feedbackNote: 'Demo preview output (AI grading key not enabled).',
-      },
-      {
-        code: 'LR',
-        label: 'Lexical Resource',
-        band: baseBand,
-        evidenceExcerpt: 'Demo response segment.',
-        feedbackNote: 'Demo preview output (AI grading key not enabled).',
-      },
-      {
-        code: 'GRA',
-        label: 'Grammatical Range and Accuracy',
-        band: baseBand,
-        evidenceExcerpt: 'Demo response segment.',
-        feedbackNote: 'Demo preview output (AI grading key not enabled).',
-      },
-      {
-        code: 'PR',
-        label: 'Pronunciation',
-        band: baseBand,
-        evidenceExcerpt: 'Demo response segment.',
-        feedbackNote: 'Demo preview output (AI grading key not enabled).',
-      },
-    ],
+    criteria: spec.criteria.map((c) => ({
+      code: c.code,
+      label: c.label,
+      band: baseScore,
+      evidenceExcerpt: 'Demo response segment.',
+      feedbackNote: 'Demo preview output (AI grading key not enabled).',
+    })),
     transcriptSegments: [
       {
         segmentId: 'demo-seg-1',
@@ -132,16 +122,19 @@ export const gradeSpeakingGraph = {
       );
     }
 
+    const examId = normalizeSupportedExamId(input.examId);
     const client = options.client ?? new OpenRouterClient({ apiKey });
     const promptDescriptions = audioEntries
       .map((entry, idx) => `Audio #${idx + 1} (Part ${entry.partIndex}): ${entry.promptText}`)
       .join('\n');
 
-    const promptText = renderPromptFromYaml('speaking', {
-      examId: input.examId,
+    const basePromptText = renderPromptFromYaml('speaking', {
+      examId,
       partSequence: input.partSequence,
       turnPrompts: promptDescriptions,
     });
+    const promptAppendix = buildSpeakingRubricAppendix(examId);
+    const promptText = promptAppendix ? `${basePromptText}\n${promptAppendix}` : basePromptText;
 
     // STRICT PART ORDERING: input_audio placed BEFORE text prompt per B5.2
     const contentParts: Array<
@@ -194,14 +187,20 @@ export const gradeSpeakingGraph = {
       throw new EvaluationModelError('audio_missing', reason, false);
     }
 
-    const normalized = normalizeSpeakingModelOutput(parsed, input.turns?.[0]?.partIndex ?? 1);
+    const spec = getExamRubricSpec(examId, 'speaking');
+    const normalized = normalizeSpeakingModelOutput(
+      parsed,
+      input.turns?.[0]?.partIndex ?? 1,
+      spec.criteria[0]?.code ?? 'FC',
+    );
 
     const bands = validateAndExtractCriterionBands({
+      examId,
       skill: 'speaking',
       rawCriteria: normalized['criteria'],
     });
 
-    const overallBand = computeOverallBandFromCriteria(bands);
+    const overallBand = computeExamOverallFromCriteria(bands, examId);
 
     const validated = EvaluationOutputSchema.safeParse({
       ...normalized,
@@ -243,6 +242,7 @@ function mapIssueCategoryToAnnotationType(
 function normalizeSpeakingModelOutput(
   parsed: Record<string, unknown>,
   fallbackPartIndex: number,
+  fallbackCriterionCode: string = 'FC',
 ): Record<string, unknown> {
   const rawIssues = Array.isArray(parsed['issues']) ? parsed['issues'].filter(isRecord) : [];
   const issuesById = new Map<string, Record<string, unknown>>();
@@ -365,7 +365,7 @@ function normalizeSpeakingModelOutput(
   let recommendedDrill: Record<string, unknown> | undefined;
   if (isRecord(parsed['recommendedDrill'])) {
     const drill = parsed['recommendedDrill'];
-    const validCodes = new Set(['FC', 'LR', 'GRA', 'PR', 'TA', 'TR', 'CC']);
+    const validCodes = new Set<string>(ALL_CRITERION_CODES);
     const weakestFromCriteria = Array.isArray(rawCriteria)
       ? rawCriteria
           .filter(isRecord)
@@ -378,7 +378,7 @@ function normalizeSpeakingModelOutput(
         ? rawWeakest
         : typeof weakestFromCriteria === 'string' && validCodes.has(weakestFromCriteria)
           ? weakestFromCriteria
-          : 'FC';
+          : fallbackCriterionCode;
     recommendedDrill = {
       drillType:
         typeof drill['drillType'] === 'string' && drill['drillType'].trim().length > 0

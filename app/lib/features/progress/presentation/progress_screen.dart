@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockza/core/exams/exam_descriptor.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/exams/study_metrics_calculator.dart';
 import 'package:mockza/core/models/attempt_status.dart';
@@ -40,13 +41,17 @@ class ProgressScreen extends ConsumerWidget {
     final attempts = attemptsAsync.asData?.value ?? const <AttemptSummary>[];
     final dailyLogs = logsAsync.asData?.value ?? const <DailyStudySummary>[];
     final profile = profileAsync.asData?.value;
-    final targetBand = profile?.targetBand ?? 7.5;
-    final track = profile?.examModule == ExamModuleType.generalTraining
-        ? ExamTrack.ieltsGeneral
-        : ExamTrack.ieltsAcademic;
+    final track = ExamTrack.fromId(profile?.examId ?? 'ielts_academic');
+    final targetBand = profile?.targetBand ?? track.targetScoreDefault;
 
     final now = ref.watch(clockProvider).now();
-    final filteredAttempts = _filterByTimeframe(attempts, timeframe, now);
+    final scaleAttempts = attempts
+        .where((a) {
+          final aTrack = ExamTrack.fromId(a.examId);
+          return (track.isIelts && aTrack.isIelts) || aTrack == track;
+        })
+        .toList(growable: false);
+    final filteredAttempts = _filterByTimeframe(scaleAttempts, timeframe, now);
 
     final scoredAttempts = filteredAttempts
         .where((a) => a.countsTowardCalibratedBand)
@@ -115,7 +120,13 @@ class ProgressScreen extends ConsumerWidget {
                 <Widget>[
                   _buildTimeframeBar(context, ref, timeframe),
                   const SizedBox(height: SpacingTokens.lg),
-                  _buildScoreHero(context, bandSummary, targetBand),
+                  _buildScoreHero(
+                    context,
+                    bandSummary,
+                    targetBand,
+                    track,
+                    skillMetrics,
+                  ),
                   const SizedBox(height: SpacingTokens.lg),
                   _buildStatsRow(context, filteredAttempts.length, streakDays),
                   const SizedBox(height: SpacingTokens.xl),
@@ -126,7 +137,7 @@ class ProgressScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: SpacingTokens.sm),
-                  _buildTrendCard(context, trendPoints, targetBand),
+                  _buildTrendCard(context, trendPoints, targetBand, track),
                   const SizedBox(height: SpacingTokens.xl),
                   Wrap(
                     alignment: WrapAlignment.spaceBetween,
@@ -215,12 +226,31 @@ class ProgressScreen extends ConsumerWidget {
     BuildContext context,
     EstimatedBandSummary summary,
     double target,
+    ExamTrack track,
+    List<SkillScoreSummary> skillMetrics,
   ) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
     final scoreText = summary.overallBand != null
-        ? 'Band ${summary.overallBand!.toStringAsFixed(1)}'
+        ? track.formatScoreWithUnit(summary.overallBand!)
         : 'Not yet estimated';
+    final headingLabel = track.isIelts || track == ExamTrack.toeflIbt
+        ? 'ESTIMATED OVERALL BAND'
+        : 'ESTIMATED OVERALL SCORE';
+
+    double? skillVal(SkillKind s) => skillMetrics
+        .cast<SkillScoreSummary?>()
+        .firstWhere((m) => m?.skill == s, orElse: () => null)
+        ?.score;
+    final insights = summary.overallBand != null
+        ? ExamDescriptor.forTrack(track).buildScoreInsights(
+            overallScore: summary.overallBand!,
+            reading: skillVal(SkillKind.reading),
+            listening: skillVal(SkillKind.listening),
+            writing: skillVal(SkillKind.writing),
+            speaking: skillVal(SkillKind.speaking),
+          )
+        : const <({String label, String detail})>[];
 
     return MzCard(
       variant: MzCardVariant.hero,
@@ -241,9 +271,9 @@ class ProgressScreen extends ConsumerWidget {
                   Flexible(
                     child: Text(
                       summary.overallBand == null
-                          ? 'ESTIMATED OVERALL BAND'
+                          ? headingLabel
                           : (summary.isFullFourSkillEstimate
-                                ? 'ESTIMATED OVERALL BAND'
+                                ? headingLabel
                                 : 'PARTIAL ESTIMATE (${summary.attemptedSkillsCount}/4 SKILLS)'),
                       style: typography.caption.copyWith(
                         color: colors.textSecondary,
@@ -257,7 +287,7 @@ class ProgressScreen extends ConsumerWidget {
               if (summary.changeThisMonth != null)
                 MzChip(
                   label:
-                      '${summary.changeThisMonth! >= 0 ? '+' : ''}${summary.changeThisMonth!.toStringAsFixed(1)} this month',
+                      '${summary.changeThisMonth! >= 0 ? '+' : ''}${track.usesIntegerDisplay ? summary.changeThisMonth!.round().toString() : summary.changeThisMonth!.toStringAsFixed(1)} this month',
                   isSelected: true,
                 ),
             ],
@@ -269,10 +299,27 @@ class ProgressScreen extends ConsumerWidget {
           ),
           const SizedBox(height: SpacingTokens.sm),
           ScoreMeter(
-            score: summary.overallBand ?? 0.0,
+            score: summary.overallBand ?? track.minScore,
             targetScore: target,
-            label: 'Target Band ${target.toStringAsFixed(1)}',
+            minScore: track.minScore,
+            maxScore: track.maxScore,
+            label: 'Target ${track.formatScoreWithUnit(target)}',
           ),
+          if (insights.isNotEmpty) ...<Widget>[
+            const SizedBox(height: SpacingTokens.sm),
+            Wrap(
+              spacing: SpacingTokens.xs,
+              runSpacing: SpacingTokens.xs,
+              children: insights
+                  .map(
+                    (i) => MzChip(
+                      label: '${i.label}: ${i.detail}',
+                      isSelected: true,
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          ],
         ],
       ),
     );
@@ -343,10 +390,13 @@ class ProgressScreen extends ConsumerWidget {
     BuildContext context,
     List<ScoreTrendPoint> points,
     double target,
+    ExamTrack track,
   ) => MzCard(
     child: TrendChart(
       points: points,
       targetScore: target,
+      minScore: track.minScore,
+      maxScore: track.maxScore,
     ),
   );
 

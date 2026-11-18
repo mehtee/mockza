@@ -1,6 +1,7 @@
 import { createRoute, type OpenAPIHono, z } from '@hono/zod-openapi';
 import type { AppEnv } from '@mockza/config';
 import {
+  CatalogTrackSchema,
   ExamBundleResponseSchema,
   MicroDrillsResponseSchema,
   VocabDeckResponseSchema,
@@ -105,7 +106,7 @@ export function registerContentRoutes(
           edition: edition as 'glb' | 'irn',
           examId: packRow.examId,
           skill: packRow.skill,
-          track: (packRow.track === 'general' ? 'general' : 'academic') as 'academic' | 'general',
+          track: CatalogTrackSchema.catch('academic').parse(packRow.track),
           title: packRow.title,
           description: packRow.description,
           durationSeconds: packRow.durationSeconds,
@@ -146,6 +147,7 @@ export function registerContentRoutes(
           options: q.optionsJson ?? null,
           acceptedAnswers: q.acceptedAnswersJson,
           maxWords: extractQuestionMaxWords({
+            questionType: q.questionType,
             evidence: q.evidenceJson ?? null,
             prompt: q.prompt,
             acceptedAnswers: q.acceptedAnswersJson,

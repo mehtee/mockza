@@ -152,14 +152,22 @@ class _TrendChartPainter extends CustomPainter {
       ..color = gridColor
       ..strokeWidth = 1.0;
 
-    for (var s = minScore; s <= maxScore; s += 1.0) {
+    final safeRange = range <= 0 ? 1.0 : range;
+    final gridStep = safeRange <= 10
+        ? 1.0
+        : (safeRange == 150 ? 50.0 : (safeRange / 4).roundToDouble());
+    final isIntegerScale = maxScore > 10;
+
+    for (var s = minScore; s <= maxScore + 0.001; s += gridStep) {
       final y = getY(s);
       canvas.drawLine(
         Offset(leftPadding, y),
         Offset(leftPadding + chartWidth, y),
         gridPaint,
       );
-      if (s == minScore ||
+      if (isIntegerScale) {
+        drawLabel(s.round().toString(), Offset(0, y - 6));
+      } else if (s == minScore ||
           s == maxScore ||
           s == ((minScore + maxScore) / 2).roundToDouble()) {
         drawLabel(s.toStringAsFixed(1), Offset(0, y - 6));

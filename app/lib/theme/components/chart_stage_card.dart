@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
@@ -118,5 +119,61 @@ class ChartStageCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Shared dark-canvas SVG prompt viewer for Writing Task 1, DET photo prompts,
+/// and PTE Describe Image speaking tasks (`DRY` reuse over [ChartStageCard]).
+class ExamSvgChartCard extends StatelessWidget {
+  /// Creates an [ExamSvgChartCard].
+  const new({
+    required this.chartSvgOrPath,
+    required this.resolvedUrl,
+    this.caption,
+    super.key,
+  });
+
+  /// Raw inline `<svg...>` XML or relative/absolute media path.
+  final String chartSvgOrPath;
+
+  /// Resolved HTTP(S) URL for network SVG fallback when not inline XML.
+  final String resolvedUrl;
+
+  /// Optional figure caption displayed below the graphic.
+  final String? caption;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final typography = AppTypography.of(context);
+    final isInlineSvg = chartSvgOrPath.trimLeft().startsWith('<svg');
+
+    Widget buildSvgWidget(BuildContext _) => isInlineSvg
+        ? SvgPicture.string(chartSvgOrPath)
+        : SvgPicture.network(
+            resolvedUrl,
+            placeholderBuilder: (_) => Center(
+              child: Padding(
+                padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
+                child: CircularProgressIndicator(color: colors.primary),
+              ),
+            ),
+            errorBuilder: (_, _, _) => Center(
+              child: Padding(
+                padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
+                child: Text(
+                  caption != null && caption!.isNotEmpty
+                      ? caption!
+                      : 'Visual figure preview unavailable offline',
+                  style: typography.caption.copyWith(
+                    color: AppColors.dark.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          );
+
+    return ChartStageCard(chartBuilder: buildSvgWidget, caption: caption);
   }
 }

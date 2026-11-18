@@ -19,6 +19,7 @@ class SkillMetricCard extends StatelessWidget {
     LucideGlyph? glyph,
     IconWellTint? tint,
     this.score,
+    this.minScore = 0,
     this.maxScore = 9.0,
     this.onTap,
     super.key,
@@ -44,7 +45,10 @@ class SkillMetricCard extends StatelessWidget {
   /// Current evaluated band score (or null if unattempted).
   final double? score;
 
-  /// Scale maximum (9.0 for IELTS).
+  /// Scale minimum (`0` for IELTS, `1` for TOEFL, `10` for PTE/DET).
+  final double minScore;
+
+  /// Scale maximum (`9` IELTS, `6` TOEFL, `90` PTE, `160` DET).
   final double maxScore;
 
   /// Tap callback opening skill analytics.
@@ -57,7 +61,10 @@ class SkillMetricCard extends StatelessWidget {
     final typography = AppTypography.of(context);
 
     final hasScore = score != null && score! > 0.0;
-    final fraction = hasScore ? (score! / maxScore).clamp(0.0, 1.0) : 0.0;
+    final span = maxScore - minScore;
+    final fraction = (hasScore && span > 0)
+        ? ((score! - minScore) / span).clamp(0.0, 1.0)
+        : 0.0;
 
     final accentColor = switch (tint) {
       IconWellTint.blue => colors.speakingAccent,
@@ -99,7 +106,11 @@ class SkillMetricCard extends StatelessWidget {
           const SizedBox(height: SpacingTokens.md),
           // Score display
           Text(
-            hasScore ? score!.toStringAsFixed(1) : '—',
+            hasScore
+                ? ((maxScore > 10 || score! > 9.5)
+                      ? score!.round().toString()
+                      : score!.toStringAsFixed(1))
+                : '—',
             style: typography.cardScore.copyWith(
               color: colors.textPrimary,
             ),

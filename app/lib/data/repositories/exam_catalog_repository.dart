@@ -6,6 +6,7 @@ import 'package:drift/drift.dart';
 import 'package:meta/meta.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/models/attempt_status.dart';
+import 'package:mockza/core/models/writing_evaluation.dart';
 import 'package:mockza/data/db/app_database.dart';
 
 /// Domain summary of an exam pack synced from PostgreSQL catalog.
@@ -436,22 +437,20 @@ final class ExamCatalogRepository {
         .whereType<Map<String, dynamic>>()
         .map((s) {
           final secType = (s['sectionType'] as String?) ?? 'task2Essay';
-          final isTask1 = secType.toLowerCase().contains('task1');
+          final secIndex = (s['sectionIndex'] as num?)?.toInt() ?? 1;
           final meta =
               (s['metadata'] as Map<String, dynamic>?) ??
               const <String, dynamic>{};
-          final normalizedType = switch (secType) {
-            'task1_academic' || 'task1Academic' => 'task1Academic',
-            'task1_general' || 'task1General' => 'task1General',
-            _ =>
-              isTask1
-                  ? ((pack['track'] == 'general')
-                        ? 'task1General'
-                        : 'task1Academic')
-                  : 'task2Essay',
-          };
+          final metaTaskType = meta['taskType'] as String?;
+          final isLegacyTask1 = secType.toLowerCase().contains('task1');
+          final resolvedType = (metaTaskType == null && isLegacyTask1)
+              ? ((pack['track'] == 'general')
+                    ? WritingTaskType.task1General
+                    : WritingTaskType.task1Academic)
+              : WritingTaskType.fromWire(metaTaskType ?? secType);
           final rawMedia =
-              (s['mediaUrl'] as String?) ?? (pack['mediaUrl'] as String?);
+              (s['mediaUrl'] as String?) ??
+              (secIndex == 1 ? pack['mediaUrl'] as String? : null);
           final resolvedMedia =
               (rawMedia != null &&
                   cachedInline is Map &&
@@ -460,19 +459,18 @@ final class ExamCatalogRepository {
               : rawMedia;
           return WritingTaskSpec(
             taskId: (s['sectionId'] as String?) ?? '${pack['packId']}-t',
-            taskType: normalizedType,
-            title:
-                (s['title'] as String?) ??
-                (isTask1 ? 'Writing Task 1' : 'Writing Task 2'),
+            taskType: resolvedType.name,
+            title: (s['title'] as String?) ?? resolvedType.fullTitle,
             promptBody:
                 (s['contentText'] as String?) ??
                 (s['instructions'] as String?) ??
                 '',
             minWords:
-                (meta['minWords'] as num?)?.toInt() ?? (isTask1 ? 150 : 250),
+                (meta['minWords'] as num?)?.toInt() ??
+                resolvedType.defaultMinWords,
             recommendedSeconds:
                 (s['durationSeconds'] as num?)?.toInt() ??
-                (isTask1 ? 1200 : 2400),
+                resolvedType.defaultDurationSeconds,
             chartSvg: resolvedMedia,
             chartCaption: meta['chartCaption'] as String?,
           );
@@ -504,6 +502,7 @@ final class ExamCatalogRepository {
       );
     }
 
+    final cachedInline = bundle['cachedMediaInline'];
     final prompts = <SpeakingPromptSpec>[];
     for (final s in rawSections.whereType<Map<String, dynamic>>()) {
       final secId = (s['sectionId'] as String?) ?? '';
@@ -525,12 +524,23 @@ final class ExamCatalogRepository {
                 .where((line) => line.isNotEmpty)
                 .toList(growable: false);
 
-      final prepSeconds =
-          (meta['prepDurationSeconds'] as num?)?.toInt() ??
-          (meta['prepSeconds'] as num?)?.toInt() ??
-          (partIndex == 2 ? 60 : 0);
+      final rawMedia = s['mediaUrl'] as String?;
+      final resolvedSectionMedia =
+          (rawMedia != null &&
+              cachedInline is Map &&
+              cachedInline[rawMedia] is String)
+          ? cachedInline[rawMedia] as String
+          : rawMedia;
+
+      final zeroPrep = meta['zeroPrep'] == true;
+      final prepSeconds = zeroPrep
+          ? 0
+          : (meta['prepDurationSeconds'] as num?)?.toInt() ??
+                (meta['prepSeconds'] as num?)?.toInt() ??
+                (partIndex == 2 ? 60 : 0);
       final sectionSpeakSeconds =
           (meta['speakDurationSeconds'] as num?)?.toInt() ??
+          (meta['speakSeconds'] as num?)?.toInt() ??
           (s['durationSeconds'] as num?)?.toInt() ??
           (partIndex == 2 ? 120 : 60);
 
@@ -543,18 +553,37 @@ final class ExamCatalogRepository {
                 90,
               );
         for (final q in secQuestions) {
+          final qPrompt =
+              (q['prompt'] as String?) ??
+              (contentText.isNotEmpty
+                  ? contentText
+                  : (s['title'] as String?) ?? '');
+          final qEv = q['evidence'] as Map<String, dynamic>?;
+          final qTaskType = (qEv?['taskType'] as String?) ?? '';
+          final qBullets = bullets.isNotEmpty
+              ? (partIndex == 2 ? bullets : const <String>[])
+              : qPrompt
+                    .split('\n')
+                    .map((line) => line.trim())
+                    .where((line) => line.startsWith('- '))
+                    .map((line) => line.substring(2).trim())
+                    .where((line) => line.isNotEmpty)
+                    .toList(growable: false);
+          final qMedia = (qTaskType.isEmpty || qTaskType == 'describe_image')
+              ? resolvedSectionMedia
+              : null;
           prompts.add(
             SpeakingPromptSpec(
               promptId: (q['questionId'] as String?) ?? '$secId-q',
               partIndex: partIndex,
-              promptText:
-                  (q['prompt'] as String?) ??
-                  (contentText.isNotEmpty
-                      ? contentText
-                      : (s['title'] as String?) ?? ''),
-              bulletPoints: partIndex == 2 ? bullets : const <String>[],
-              prepSeconds: prepSeconds,
-              speakSeconds: perQuestionSpeakSeconds,
+              promptText: qPrompt,
+              bulletPoints: qBullets,
+              prepSeconds:
+                  (qEv?['prepSeconds'] as num?)?.toInt() ?? prepSeconds,
+              speakSeconds:
+                  (qEv?['speakSeconds'] as num?)?.toInt() ??
+                  perQuestionSpeakSeconds,
+              chartSvg: qMedia,
             ),
           );
         }
@@ -569,6 +598,7 @@ final class ExamCatalogRepository {
             bulletPoints: bullets,
             prepSeconds: prepSeconds,
             speakSeconds: sectionSpeakSeconds,
+            chartSvg: resolvedSectionMedia,
           ),
         );
       }
@@ -629,26 +659,7 @@ final class ExamCatalogRepository {
   QuestionSpec _parseQuestionSpec(Map<String, dynamic> qItem) {
     final rawType = ((qItem['questionType'] as String?) ?? 'short_answer')
         .toLowerCase();
-    final qType = switch (rawType) {
-      'tfng' || 'true_false_not_given' => ObjectiveQuestionType.tfng,
-      'ynng' || 'yes_no_not_given' => ObjectiveQuestionType.ynng,
-      'mcq_single' ||
-      'mcqsingle' ||
-      'mcq' ||
-      'multiple_choice' => ObjectiveQuestionType.mcqSingle,
-      'mcq_multi' ||
-      'mcqmulti' ||
-      'multiple_choice_multi' => ObjectiveQuestionType.mcqMulti,
-      'matching_headings' ||
-      'matchingheadings' ||
-      'matching' => ObjectiveQuestionType.matchingHeadings,
-      'summary_gap_fill' ||
-      'summarygapfill' ||
-      'gap_fill' ||
-      'form_completion' ||
-      'sentence_completion' => ObjectiveQuestionType.summaryGapFill,
-      _ => ObjectiveQuestionType.shortAnswer,
-    };
+    final qType = ObjectiveQuestionType.fromWire(rawType);
 
     final rawEv = qItem['evidence'] as Map<String, dynamic>?;
     final evidenceSpan = rawEv != null
@@ -673,10 +684,15 @@ final class ExamCatalogRepository {
     final explicitMaxWords =
         (qItem['maxWords'] as num?)?.toInt() ??
         (rawEv?['maxWords'] as num?)?.toInt();
+    final defaultMaxWords =
+        (qType == ObjectiveQuestionType.dictation ||
+            qType == ObjectiveQuestionType.reorderSequence)
+        ? 25
+        : 3;
     final maxWords =
         explicitMaxWords ??
         _inferMaxWords(qItem['prompt'] as String?, accepted) ??
-        3;
+        defaultMaxWords;
 
     return QuestionSpec(
       questionId: (qItem['questionId'] as String?) ?? '',

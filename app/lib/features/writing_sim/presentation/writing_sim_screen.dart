@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mockza/core/models/writing_evaluation.dart';
 import 'package:mockza/features/writing_sim/presentation/writing_sim_providers.dart';
@@ -158,10 +157,12 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
                           child: MzSegmentedPillStrip(
                             items: List.generate(state.tasks.length, (i) {
                               final taskSpec = state.tasks[i];
-                              final isTask1 = !taskSpec.taskType.contains('2');
+                              final parsedType = WritingTaskType.fromWire(
+                                taskSpec.taskType,
+                              );
                               return (
                                 label:
-                                    '${isTask1 ? 'Task 1' : 'Task 2'} (${taskSpec.minWords}w)',
+                                    '${parsedType.shortTabLabel} (${taskSpec.minWords}w)',
                                 isSelected: state.activeTaskIndex == i,
                                 onTap: () => notifier.selectTaskIndex(i),
                               );
@@ -190,7 +191,9 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
                       ),
                     ),
                     child: Text(
-                      '${state.wordCount} / ${state.minimumWordCount}w',
+                      state.taskType.defaultMaxWords != null
+                          ? '${state.wordCount} / ${state.minimumWordCount}-${state.taskType.defaultMaxWords}w'
+                          : '${state.wordCount} / ${state.minimumWordCount}w',
                       style: typography.caption.copyWith(
                         color: state.meetsWordMinimum
                             ? colors.success
@@ -277,7 +280,7 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
                           expandedAttachment:
                               (state.chartSvg != null &&
                                   state.chartSvg!.isNotEmpty)
-                              ? _TaskChartView(
+                              ? ExamSvgChartCard(
                                   chartSvgOrPath: state.chartSvg!,
                                   resolvedUrl: editionConfig.resolveMediaUrl(
                                     state.chartSvg!,
@@ -394,37 +397,5 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
     );
   }
 
-  static String _headingForTaskType(WritingTaskType type) => switch (type) {
-    WritingTaskType.task1Academic => 'Academic Writing Task 1 (Chart/Diagram)',
-    WritingTaskType.task1General => 'General Training Writing Task 1 (Letter)',
-    WritingTaskType.task2Essay => 'IELTS Writing Task 2 (Essay)',
-  };
-}
-
-class _TaskChartView extends StatelessWidget {
-  const new({
-    required this.chartSvgOrPath,
-    required this.resolvedUrl,
-    this.caption,
-  });
-
-  final String chartSvgOrPath;
-  final String resolvedUrl;
-  final String? caption;
-
-  @override
-  Widget build(BuildContext context) {
-    final isInlineSvg = chartSvgOrPath.trimLeft().startsWith('<svg');
-
-    Widget buildSvgWidget(BuildContext _) => isInlineSvg
-        ? SvgPicture.string(chartSvgOrPath)
-        : SvgPicture.network(
-            resolvedUrl,
-            placeholderBuilder: (_) => const Center(
-              child: CircularProgressIndicator(),
-            ),
-          );
-
-    return ChartStageCard(chartBuilder: buildSvgWidget, caption: caption);
-  }
+  static String _headingForTaskType(WritingTaskType type) => type.fullTitle;
 }

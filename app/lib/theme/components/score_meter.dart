@@ -49,6 +49,10 @@ class ScoreMeter extends StatelessWidget {
     final shapes = AppShapes.of(context);
     final typography = AppTypography.of(context);
 
+    final isIntegerScale = maxScore > 10;
+    String formatVal(double val) =>
+        isIntegerScale ? val.round().toString() : val.toStringAsFixed(1);
+
     final range = maxScore - minScore;
     final scoreFraction = range > 0
         ? ((score - minScore) / range).clamp(0.0, 1.0)
@@ -59,8 +63,8 @@ class ScoreMeter extends StatelessWidget {
 
     return Semantics(
       label:
-          'Score progress ${score.toStringAsFixed(1)} of ${maxScore.toStringAsFixed(1)}, target ${targetScore.toStringAsFixed(1)}',
-      value: score.toStringAsFixed(1),
+          'Score progress ${formatVal(score)} of ${maxScore.toStringAsFixed(0)}, target ${formatVal(targetScore)}',
+      value: formatVal(score),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -124,7 +128,7 @@ class ScoreMeter extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Target ${targetScore.toStringAsFixed(1)}',
+                  'Target ${formatVal(targetScore)}',
                   style: typography.caption.copyWith(
                     color: colors.textSecondary,
                     fontWeight: FontWeight.w600,

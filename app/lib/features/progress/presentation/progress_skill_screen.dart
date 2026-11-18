@@ -75,15 +75,23 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
       orElse: () => SkillKind.speaking,
     );
 
+    final profile = await ref
+        .read(profileRepositoryProvider)
+        .loadOrInitializePrimary();
+    final activeTrack = ExamTrack.fromId(profile.examId);
     final attemptRepo = ref.read(attemptRepositoryProvider);
     final recent = await attemptRepo.watchRecentAttempts(limit: 100).first;
     final matching = recent
-        .where(
-          (a) =>
-              a.skill == targetSkill &&
-              a.status == AttemptStatus.scored &&
-              a.overallBand != null,
-        )
+        .where((a) {
+          if (a.skill != targetSkill ||
+              a.status != AttemptStatus.scored ||
+              a.overallBand == null) {
+            return false;
+          }
+          final aTrack = ExamTrack.fromId(a.examId);
+          return (activeTrack.isIelts && aTrack.isIelts) ||
+              aTrack == activeTrack;
+        })
         .toList(growable: false);
 
     if (!mounted) return;
@@ -106,7 +114,10 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
       0,
       (sum, item) => sum + item.overallBand!,
     );
-    final avgBand = ExamSpec.roundIeltsBand(totalBand / matching.length);
+    final rawAvg = totalBand / matching.length;
+    final avgBand = activeTrack.isIelts
+        ? ExamSpec.roundIeltsBand(rawAvg)
+        : activeTrack.quantizeScore(rawAvg);
 
     final criterionSums = <String, List<double>>{};
     final feedbackByCriterion = <String, String>{};
@@ -170,7 +181,10 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
     final criterionAvgs = criterionSums.entries
         .map((e) {
           final avg = e.value.reduce((a, b) => a + b) / e.value.length;
-          return (label: e.key, band: ExamSpec.roundIeltsBand(avg));
+          final rounded = activeTrack.isIelts
+              ? ExamSpec.roundIeltsBand(avg)
+              : activeTrack.quantizeScore(avg);
+          return (label: e.key, band: rounded);
         })
         .toList(growable: false);
 
@@ -180,9 +194,9 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
       final sorted = [...criterionAvgs]
         ..sort((a, b) => b.band.compareTo(a.band));
       strongest =
-          '${sorted.first.label} (${sorted.first.band.toStringAsFixed(1)}): ${feedbackByCriterion[sorted.first.label] ?? 'Highest scoring criterion across recent attempts.'}';
+          '${sorted.first.label} (${activeTrack.formatScore(sorted.first.band)}): ${feedbackByCriterion[sorted.first.label] ?? 'Highest scoring criterion across recent attempts.'}';
       weakest =
-          '${sorted.last.label} (${sorted.last.band.toStringAsFixed(1)}): ${feedbackByCriterion[sorted.last.label] ?? 'Focus on this criterion in your next practice test.'}';
+          '${sorted.last.label} (${activeTrack.formatScore(sorted.last.band)}): ${feedbackByCriterion[sorted.last.label] ?? 'Focus on this criterion in your next practice test.'}';
     } else if (totalQuestions > 0) {
       final acc = ((totalCorrect / totalQuestions) * 100).round();
       strongest =
@@ -211,7 +225,8 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
     final profile = ref.watch(progressProfileProvider).asData?.value;
-    final targetBand = profile?.targetBand ?? 7.5;
+    final activeTrack = ExamTrack.fromId(profile?.examId ?? 'ielts_academic');
+    final targetBand = profile?.targetBand ?? activeTrack.targetScoreDefault;
     final skillName = _formattedSkillName(widget.skill);
 
     return MzScaffold(
@@ -246,6 +261,7 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
                       children: <Widget>[
                         _buildSkillHeroCard(
                           context,
+                          track: activeTrack,
                           skillName: skillName,
                           averageBand: _averageBand!,
                           targetBand: targetBand,
@@ -263,6 +279,7 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
                           ..._criterionAverages.map(
                             (c) => _buildCriterionRow(
                               context,
+                              activeTrack,
                               c.label,
                               c.band,
                               targetBand,
@@ -312,6 +329,7 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
 
   Widget _buildSkillHeroCard(
     BuildContext context, {
+    required ExamTrack track,
     required String skillName,
     required double averageBand,
     required double targetBand,
@@ -320,9 +338,12 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
     final gap = averageBand - targetBand;
+    final formattedGap = track.usesIntegerDisplay
+        ? gap.round().toString()
+        : gap.toStringAsFixed(1);
     final gapLabel = gap >= 0
-        ? 'On target (+${gap.toStringAsFixed(1)})'
-        : 'Gap to Target: ${gap.toStringAsFixed(1)} Band';
+        ? 'On target (+$formattedGap)'
+        : 'Gap to Target: $formattedGap ${track.unitLabel}';
 
     return MzCard(
       variant: MzCardVariant.hero,
@@ -333,12 +354,12 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
             children: <Widget>[
               MzChip(label: skillName, isSelected: true),
               const Spacer(),
-              MzChip(label: 'Target ${targetBand.toStringAsFixed(1)}'),
+              MzChip(label: 'Target ${track.formatScore(targetBand)}'),
             ],
           ),
           const SizedBox(height: SpacingTokens.md),
           Text(
-            'Band ${averageBand.toStringAsFixed(1)}',
+            track.formatScoreWithUnit(averageBand),
             style: typography.heroScore.copyWith(color: colors.textPrimary),
           ),
           const SizedBox(height: SpacingTokens.xs),
@@ -350,6 +371,8 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
           ScoreMeter(
             score: averageBand,
             targetScore: targetBand,
+            minScore: track.minScore,
+            maxScore: track.maxScore,
             label: gapLabel,
           ),
         ],
@@ -359,6 +382,7 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
 
   Widget _buildCriterionRow(
     BuildContext context,
+    ExamTrack track,
     String name,
     double score,
     double targetBand,
@@ -384,7 +408,7 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
                   ),
                 ),
                 Text(
-                  'Band ${score.toStringAsFixed(1)}',
+                  track.formatScoreWithUnit(score),
                   style: typography.cardScore.copyWith(
                     color: colors.textPrimary,
                   ),
@@ -395,6 +419,8 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
             ScoreMeter(
               score: score,
               targetScore: targetBand,
+              minScore: track.minScore,
+              maxScore: track.maxScore,
               trackHeight: 6,
               showLabels: false,
             ),

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mockza/core/exams/exam_descriptor.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/exams/study_metrics_calculator.dart';
 import 'package:mockza/core/models/attempt_status.dart';
@@ -223,14 +224,23 @@ class HomeNotifier extends Notifier<HomeState> {
     );
   }
 
+  bool _matchesActiveScale(AttemptSummary a) {
+    final attemptTrack = ExamTrack.fromId(a.examId);
+    if (state.track.isIelts && attemptTrack.isIelts) return true;
+    return attemptTrack == state.track;
+  }
+
   void _recomputeDashboard() {
     final clock = ref.read(clockProvider);
     final now = clock.now();
     final today = SerialDay.fromUtcDateTime(now);
     final nowUtcMs = now.toUtc().millisecondsSinceEpoch;
 
-    final scoredAttempts = _latestAttempts
-        .where((a) => a.countsTowardCalibratedBand)
+    final trackAttempts = _latestAttempts
+        .where((a) => a.countsTowardCalibratedBand && _matchesActiveScale(a))
+        .toList(growable: false);
+
+    final scoredAttempts = trackAttempts
         .map(
           (a) => (
             score: a.overallBand!,
@@ -247,8 +257,7 @@ class HomeNotifier extends Notifier<HomeState> {
       currentUtcMs: nowUtcMs,
     );
 
-    final skillList = _latestAttempts
-        .where((a) => a.countsTowardCalibratedBand)
+    final skillList = trackAttempts
         .map((a) => (score: a.overallBand!, skill: a.skill))
         .toList(growable: false);
     final skillMetrics = StudyMetricsCalculator.calculateSkillMetrics(
@@ -307,31 +316,28 @@ class HomeNotifier extends Notifier<HomeState> {
       reason =
           'No scored ${targetSkill.name} attempt yet — build your full baseline.';
     } else if (coreMetrics.isNotEmpty) {
+      final sentinel = state.track.maxScore + 1;
       final sorted = [...coreMetrics]
-        ..sort((a, b) => (a.score ?? 99).compareTo(b.score ?? 99));
+        ..sort(
+          (a, b) => (a.score ?? sentinel).compareTo(b.score ?? sentinel),
+        );
       final weakest = sorted.first;
       targetSkill = weakest.skill;
-      final scoreStr = weakest.score?.toStringAsFixed(1) ?? '—';
+      final scoreStr = weakest.score != null
+          ? state.track.formatScore(weakest.score!)
+          : '—';
       reason =
-          'Your lowest skill is ${targetSkill.name} ($scoreStr). Raise it to boost your overall band.';
+          'Your lowest skill is ${targetSkill.name} ($scoreStr). Raise it to reach your target.';
     }
 
-    final isGeneral = state.track == ExamTrack.ieltsGeneral;
-    final defaultPackId = switch (targetSkill) {
-      SkillKind.speaking => 'ielts-speaking-seed-01',
-      SkillKind.writing =>
-        isGeneral ? 'ielts-writing-gt-01' : 'ielts-writing-seed-01',
-      SkillKind.reading =>
-        isGeneral ? 'ielts-gt-reading-seed-01' : 'ielts-acad-reading-seed-01',
-      SkillKind.listening => 'ielts-listening-seed-01',
-      SkillKind.vocabulary => 'ielts-speaking-seed-01',
-    };
+    final descriptor = ExamDescriptor.forTrack(state.track);
+    final defaultPackId = descriptor.defaultPackIdForSkill(targetSkill);
 
     final matchingPack = _latestPacks.cast<InstalledExamPack?>().firstWhere(
       (p) =>
           p != null &&
           p.skill == targetSkill &&
-          (!isGeneral || p.track == 'general'),
+          p.track == state.track.catalogTrack,
       orElse: () => null,
     );
     final packId = matchingPack?.packId ?? defaultPackId;
@@ -365,12 +371,16 @@ class HomeNotifier extends Notifier<HomeState> {
 
   /// Changes the active exam track from the header chip and persists to SQLite.
   void setTrack(ExamTrack track) {
-    state = state.copyWith(track: track);
+    final nextTarget = track.nextTargetWhenSwitchingFrom(
+      state.track,
+      state.targetBand,
+    );
+    state = state.copyWith(track: track, targetBand: nextTarget);
     _recomputeDashboard();
-    unawaited(_persistTrack(track));
+    unawaited(_persistTrack(track, nextTarget));
   }
 
-  Future<void> _persistTrack(ExamTrack track) async {
+  Future<void> _persistTrack(ExamTrack track, double targetBand) async {
     try {
       final profileRepo = ref.read(profileRepositoryProvider);
       final primary = await profileRepo.loadOrInitializePrimary();
@@ -379,7 +389,7 @@ class HomeNotifier extends Notifier<HomeState> {
           : ExamModuleType.academic;
       await profileRepo.saveTargetPreferences(
         deviceId: primary.deviceId,
-        targetBand: state.targetBand,
+        targetBand: targetBand,
         examModule: module,
         examId: track.id,
         targetDateSerial: primary.targetDateSerial,

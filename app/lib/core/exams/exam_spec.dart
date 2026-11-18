@@ -6,9 +6,13 @@ enum ExamTrack {
   ieltsAcademic(
     id: 'ielts_academic',
     displayName: 'IELTS Academic',
+    shortName: 'IELTS Academic',
     scaleLabel: 'Estimated Band',
+    unitLabel: 'Band',
+    catalogTrack: 'academic',
     minScore: 0,
     maxScore: 9,
+    scoreStep: 0.5,
     targetScoreDefault: 7.5,
   ),
 
@@ -16,48 +20,68 @@ enum ExamTrack {
   ieltsGeneral(
     id: 'ielts_general',
     displayName: 'IELTS General Training',
+    shortName: 'IELTS General',
     scaleLabel: 'Estimated Band',
+    unitLabel: 'Band',
+    catalogTrack: 'general',
     minScore: 0,
     maxScore: 9,
-    targetScoreDefault: 7.5,
+    scoreStep: 0.5,
+    targetScoreDefault: 7,
   ),
 
-  /// Pearson Test of English Academic (roadmap).
-  pteAcademic(
-    id: 'pte_academic',
-    displayName: 'PTE Academic',
-    scaleLabel: 'Estimated Score',
-    minScore: 10,
-    maxScore: 90,
-    targetScoreDefault: 65,
-  ),
-
-  /// TOEFL iBT (roadmap).
+  /// TOEFL iBT (2026 1.0–6.0 Band Scale).
   toeflIbt(
     id: 'toefl_ibt',
     displayName: 'TOEFL iBT',
-    scaleLabel: 'Estimated Score',
-    minScore: 0,
-    maxScore: 120,
-    targetScoreDefault: 100,
+    shortName: 'TOEFL iBT',
+    scaleLabel: 'Estimated Band',
+    unitLabel: 'Band',
+    catalogTrack: 'toefl',
+    minScore: 1,
+    maxScore: 6,
+    scoreStep: 0.5,
+    targetScoreDefault: 5,
   ),
 
-  /// Duolingo English Test (roadmap).
+  /// Pearson Test of English Academic (10–90 GSE Scale).
+  pteAcademic(
+    id: 'pte_academic',
+    displayName: 'PTE Academic',
+    shortName: 'PTE Academic',
+    scaleLabel: 'Estimated Score',
+    unitLabel: 'Score',
+    catalogTrack: 'pte',
+    minScore: 10,
+    maxScore: 90,
+    scoreStep: 1,
+    targetScoreDefault: 65,
+  ),
+
+  /// Duolingo English Test (10–160 Scale in 5-point increments).
   det(
     id: 'det',
     displayName: 'Duolingo English Test',
+    shortName: 'Duolingo (DET)',
     scaleLabel: 'Estimated Score',
+    unitLabel: 'Score',
+    catalogTrack: 'det',
     minScore: 10,
     maxScore: 160,
+    scoreStep: 5,
     targetScoreDefault: 125,
   );
 
   new({
     required this.id,
     required this.displayName,
+    required this.shortName,
     required this.scaleLabel,
+    required this.unitLabel,
+    required this.catalogTrack,
     required this.minScore,
     required this.maxScore,
+    required this.scoreStep,
     required this.targetScoreDefault,
   });
 
@@ -67,8 +91,17 @@ enum ExamTrack {
   /// User-facing display title.
   final String displayName;
 
+  /// Compact badge label.
+  final String shortName;
+
   /// Scale metric label (e.g. "Estimated Band" or "Estimated Score").
   final String scaleLabel;
+
+  /// Score unit noun ("Band" or "Score").
+  final String unitLabel;
+
+  /// Backend catalog `track` filter value.
+  final String catalogTrack;
 
   /// Minimum score floor.
   final double minScore;
@@ -76,19 +109,107 @@ enum ExamTrack {
   /// Maximum score ceiling.
   final double maxScore;
 
+  /// Official scoring increment (`0.5`, `1`, or `5`).
+  final double scoreStep;
+
   /// Default learner target score.
   final double targetScoreDefault;
 
-  /// Resolves [ExamTrack] by string [id].
+  /// Whether this track uses the IELTS Academic or General scale.
+  bool get isIelts => this == ieltsAcademic || this == ieltsGeneral;
+
+  /// Whether scores display as whole integers rather than `.5` bands.
+  bool get usesIntegerDisplay => scoreStep >= 1.0;
+
+  /// Resolves the target score when switching from [previous] to `this` track.
+  ///
+  /// Preserves the learner's target only when both tracks share the IELTS 0–9
+  /// band scale; otherwise resets to [targetScoreDefault].
+  double nextTargetWhenSwitchingFrom(
+    ExamTrack previous,
+    double previousTarget,
+  ) {
+    if (previous.isIelts && isIelts) {
+      return quantizeScore(previousTarget.clamp(minScore, maxScore));
+    }
+    return targetScoreDefault;
+  }
+
+  /// Quantizes a raw score to `[minScore, maxScore]` at `scoreStep` increments.
+  double quantizeScore(double raw) {
+    if (!raw.isFinite) return minScore;
+    final clamped = raw.clamp(minScore, maxScore);
+    final steps = ((clamped - minScore) / scoreStep).round();
+    final snapped = (minScore + (steps * scoreStep)).clamp(minScore, maxScore);
+    if (usesIntegerDisplay) {
+      return snapped.roundToDouble();
+    }
+    return double.parse(snapped.toStringAsFixed(1));
+  }
+
+  /// Formats [score] according to this track's decimal granularity.
+  String formatScore(double score) {
+    final normalized = quantizeScore(score);
+    return usesIntegerDisplay
+        ? normalized.round().toString()
+        : normalized.toStringAsFixed(1);
+  }
+
+  /// Formats [score] prefixed with this track's unit (e.g., `Band 5.0`, `Score 68`).
+  String formatScoreWithUnit(double score) =>
+      '$unitLabel ${formatScore(score)}';
+
+  /// Normalizes [score] to `[0.0, 1.0]` within this track's range.
+  double normalizeScoreRatio(double score) {
+    final span = maxScore - minScore;
+    if (span <= 0 || !score.isFinite) return 0;
+    return ((score - minScore) / span).clamp(0.0, 1.0);
+  }
+
+  /// Maps a normalized quality ratio `[0.0, 1.0]` into a quantized score on this track.
+  double scoreFromRatio(double ratio) {
+    final r = ratio.clamp(0.0, 1.0);
+    return quantizeScore(minScore + (r * (maxScore - minScore)));
+  }
+
+  /// Resolves [ExamTrack] by canonical ID or common alias.
   static ExamTrack fromId(String id) {
+    final normalized = id.trim().toLowerCase();
     for (final track in values) {
-      if (track.id == id) return track;
+      if (track.id == normalized) return track;
+    }
+    if (normalized == 'general' || normalized == 'ielts-general') {
+      return ieltsGeneral;
+    }
+    if (normalized == 'toefl' || normalized == 'toefl-ibt') {
+      return toeflIbt;
+    }
+    if (normalized == 'pte' || normalized == 'pte-academic') {
+      return pteAcademic;
+    }
+    if (normalized == 'duolingo' || normalized == 'duolingo_english_test') {
+      return det;
     }
     return ieltsAcademic;
   }
+
+  /// Resolves effective [ExamTrack] from an explicit [packId] prefix when present,
+  /// otherwise falling back to [profileExamId].
+  static ExamTrack resolveForPackOrProfile({
+    required String packId,
+    required String profileExamId,
+  }) {
+    final lower = packId.trim().toLowerCase();
+    if (lower.startsWith('toefl')) return toeflIbt;
+    if (lower.startsWith('pte')) return pteAcademic;
+    if (lower.startsWith('det')) return det;
+    if (lower.contains('-gt-')) return ieltsGeneral;
+    if (lower.contains('-acad-')) return ieltsAcademic;
+    return fromId(profileExamId);
+  }
 }
 
-/// Question types supported in objective Reading and Listening tests.
+/// Question types supported in objective Reading and Listening tests across all tracks.
 enum ObjectiveQuestionType {
   /// True / False / Not Given.
   tfng,
@@ -110,6 +231,46 @@ enum ObjectiveQuestionType {
 
   /// Short answer question.
   shortAnswer,
+
+  /// Binary vocabulary/item choice (e.g., DET Read & Select Real vs Not Real).
+  binaryChoice,
+
+  /// Stem/letter completion in context (TOEFL Complete the Words, DET Read & Complete).
+  wordCompletion,
+
+  /// Paragraph or sentence sequencing (PTE Re-order Paragraphs).
+  reorderSequence,
+
+  /// Listen & Type / Write from Dictation transcription item.
+  dictation;
+
+  /// Parses backend wire questionType into canonical [ObjectiveQuestionType].
+  static ObjectiveQuestionType fromWire(String raw) {
+    return switch (raw.trim().toLowerCase()) {
+      'tfng' || 'true_false_not_given' => ObjectiveQuestionType.tfng,
+      'ynng' || 'yes_no_not_given' => ObjectiveQuestionType.ynng,
+      'mcq_single' ||
+      'mcqsingle' ||
+      'mcq' ||
+      'multiple_choice' => ObjectiveQuestionType.mcqSingle,
+      'mcq_multi' ||
+      'mcqmulti' ||
+      'multiple_choice_multi' => ObjectiveQuestionType.mcqMulti,
+      'matching_headings' ||
+      'matchingheadings' ||
+      'matching' => ObjectiveQuestionType.matchingHeadings,
+      'summary_gap_fill' ||
+      'summarygapfill' ||
+      'gap_fill' ||
+      'form_completion' ||
+      'sentence_completion' => ObjectiveQuestionType.summaryGapFill,
+      'binary_choice' => ObjectiveQuestionType.binaryChoice,
+      'word_completion' => ObjectiveQuestionType.wordCompletion,
+      'reorder_sequence' => ObjectiveQuestionType.reorderSequence,
+      'dictation' => ObjectiveQuestionType.dictation,
+      _ => ObjectiveQuestionType.shortAnswer,
+    };
+  }
 }
 
 /// Evidence span reference anchoring an objective question to a passage excerpt.
@@ -358,6 +519,7 @@ class SpeakingPromptSpec {
     this.bulletPoints = const <String>[],
     this.prepSeconds = 0,
     this.speakSeconds = 60,
+    this.chartSvg,
   });
 
   /// Unique turn identifier.
@@ -377,6 +539,9 @@ class SpeakingPromptSpec {
 
   /// Speaking recording window in seconds (120s for Part 2).
   final int speakSeconds;
+
+  /// Optional chart/diagram SVG string or media URL for visual prompts.
+  final String? chartSvg;
 }
 
 /// Complete Speaking session specification.
@@ -543,6 +708,34 @@ abstract final class ExamSpec {
   }) {
     final weighted = (task1Band + (2 * task2Band)) / 3.0;
     return roundIeltsBand(weighted);
+  }
+
+  static const List<(double, int)> _toeflLegacyAnchors = <(double, int)>[
+    (1.0, 5),
+    (1.5, 14),
+    (2.0, 25),
+    (2.5, 38),
+    (3.0, 51),
+    (3.5, 64),
+    (4.0, 78),
+    (4.5, 90),
+    (5.0, 100),
+    (5.5, 110),
+    (6.0, 117),
+  ];
+
+  /// Concordance mapping from 2026 TOEFL iBT 1.0–6.0 band to comparable 0–120 score.
+  static int estimateToeflLegacy120(double band) {
+    final clamped = band.isFinite ? band.clamp(1.0, 6.0) : 1.0;
+    for (var i = 0; i < _toeflLegacyAnchors.length - 1; i++) {
+      final (b0, s0) = _toeflLegacyAnchors[i];
+      final (b1, s1) = _toeflLegacyAnchors[i + 1];
+      if (clamped >= b0 && clamped <= b1) {
+        final t = (clamped - b0) / (b1 - b0);
+        return (s0 + t * (s1 - s0)).round();
+      }
+    }
+    return 117;
   }
 }
 

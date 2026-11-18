@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockza/core/exams/exam_descriptor.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/features/onboarding/presentation/onboarding_notifier.dart';
 import 'package:mockza/features/onboarding/presentation/onboarding_providers.dart';
@@ -69,7 +70,6 @@ class _ExamSelectionStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final typography = AppTypography.of(context);
     final colors = AppColors.of(context);
-    final shapes = AppShapes.of(context);
     final l10n = AppLocalizations.of(context);
     final gutter = MzResponsive.horizontalGutterOf(context);
     final isTight = MzResponsive.isTightPhoneOf(context);
@@ -102,7 +102,7 @@ class _ExamSelectionStep extends StatelessWidget {
                     ),
                     const SizedBox(height: SpacingTokens.xs),
                     Text(
-                      'Offline-first IELTS prep with AI rubric feedback and real Reading & Listening packs.',
+                      'Offline-first exam prep with AI rubric feedback across IELTS, TOEFL iBT, PTE, and Duolingo.',
                       textAlign: TextAlign.center,
                       style: typography.secondary.copyWith(
                         color: colors.textSecondary,
@@ -114,55 +114,18 @@ class _ExamSelectionStep extends StatelessWidget {
                       style: typography.cardTitle,
                     ),
                     const SizedBox(height: SpacingTokens.sm),
-                    _ExamCard(
-                      title: 'IELTS Academic',
-                      description: 'University admissions and professional registration.',
-                      isSelected:
-                          state.selectedTrack == ExamTrack.ieltsAcademic,
-                      onTap: () =>
-                          notifier.selectTrack(ExamTrack.ieltsAcademic),
-                    ),
-                    const SizedBox(height: SpacingTokens.sm),
-                    _ExamCard(
-                      title: 'IELTS General Training',
-                      description:
-                          'Letters, everyday passages, and work/migration.',
-                      isSelected: state.selectedTrack == ExamTrack.ieltsGeneral,
-                      onTap: () => notifier.selectTrack(ExamTrack.ieltsGeneral),
-                    ),
-                    const SizedBox(height: SpacingTokens.md),
-                    Container(
-                      padding: const EdgeInsetsDirectional.symmetric(
-                        horizontal: SpacingTokens.md,
-                        vertical: SpacingTokens.sm,
+                    for (final track in ExamTrack.values) ...<Widget>[
+                      _ExamCard(
+                        title: track.displayName,
+                        description: ExamDescriptor.forTrack(track).subtitle,
+                        isSelected: state.selectedTrack == track,
+                        onTap: () => notifier.selectTrack(track),
                       ),
-                      decoration: BoxDecoration(
-                        color: colors.surfaceAlt,
-                        borderRadius: shapes.controlRadius,
-                        border: Border.all(color: colors.borderSubtle),
-                      ),
-                      child: Row(
-                        children: <Widget>[
-                          AppIcon(
-                            LucideGlyph.sparkles,
-                            size: 16,
-                            color: colors.textSecondary,
-                          ),
-                          const SizedBox(width: SpacingTokens.sm),
-                          Expanded(
-                            child: Text(
-                              'More exams coming soon: PTE Academic · TOEFL iBT',
-                              style: typography.caption.copyWith(
-                                color: colors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: SpacingTokens.md),
+                      const SizedBox(height: SpacingTokens.sm),
+                    ],
+                    const SizedBox(height: SpacingTokens.xs),
                     Text(
-                      'Mockza is independent and not affiliated with IELTS, Cambridge, IDP, or British Council.',
+                      'Mockza is independent and not affiliated with IELTS, Cambridge, IDP, British Council, PTE, Duolingo, or ETS.',
                       textAlign: TextAlign.center,
                       style: typography.caption.copyWith(
                         color: colors.textTertiary,
@@ -274,11 +237,18 @@ class _GoalSetupStep extends ConsumerWidget {
   final OnboardingState state;
   final OnboardingNotifier notifier;
 
-  String _bandMeaningLabel(double band) {
-    if (band >= 8.0) return 'Very Good / Expert (C1–C2)';
-    if (band >= 7.0) return 'Good User · Top Universities (C1)';
-    if (band >= 6.0) return 'Competent · Study & Work (B2)';
-    return 'Foundation Builder (B1+)';
+  String _bandMeaningLabel(ExamTrack track, double score) {
+    final ratio = track.normalizeScoreRatio(score);
+    final cefr = switch (ratio) {
+      >= 0.82 => 'Expert / Very Advanced (C1–C2)',
+      >= 0.65 => 'Strong · Top Universities (C1)',
+      >= 0.45 => 'Competent · Study & Work (B2)',
+      _ => 'Foundation Builder (B1+)',
+    };
+    if (track == ExamTrack.toeflIbt) {
+      return '$cefr · ~${ExamSpec.estimateToeflLegacy120(score)}/120';
+    }
+    return cefr;
   }
 
   @override
@@ -335,7 +305,10 @@ class _GoalSetupStep extends ConsumerWidget {
                           ),
                           const SizedBox(height: SpacingTokens.xs),
                           MzChip(
-                            label: _bandMeaningLabel(state.targetBand),
+                            label: _bandMeaningLabel(
+                              state.selectedTrack,
+                              state.targetBand,
+                            ),
                             variant: MzChipVariant.target,
                           ),
                         ],
@@ -352,17 +325,13 @@ class _GoalSetupStep extends ConsumerWidget {
                         ),
                         min: state.selectedTrack.minScore,
                         max: state.selectedTrack.maxScore,
-                        divisions: state.isIeltsScale
-                            ? ((state.selectedTrack.maxScore -
-                                          state.selectedTrack.minScore) *
-                                      2)
-                                  .toInt()
-                            : (state.selectedTrack.maxScore -
-                                      state.selectedTrack.minScore)
-                                  .toInt(),
-                        semanticFormatterCallback: (val) => state.isIeltsScale
-                            ? 'Band ${val.toStringAsFixed(1)}'
-                            : '${val.round()} pts',
+                        divisions:
+                            ((state.selectedTrack.maxScore -
+                                        state.selectedTrack.minScore) /
+                                    state.selectedTrack.scoreStep)
+                                .round(),
+                        semanticFormatterCallback:
+                            state.selectedTrack.formatScoreWithUnit,
                         activeColor: colors.primary,
                         onChanged: notifier.selectTargetBand,
                       ),

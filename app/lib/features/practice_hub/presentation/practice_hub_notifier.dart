@@ -21,7 +21,7 @@ class PracticeHubState {
   /// Optional active skill filter (`null` shows all four IELTS modules + drills).
   final SkillKind? selectedSkill;
 
-  /// Active track filter (`'all'`, `'academic'`, or `'general'`).
+  /// Active track filter (`'all'`, `'academic'`, `'general'`, `'toefl'`, `'pte'`, `'det'`).
   final String selectedTrack;
 
   /// Set of pack IDs currently downloading offline payloads.

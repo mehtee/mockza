@@ -371,11 +371,7 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
     }
   }
 
-  WritingTaskType _parseTaskType(String raw) => switch (raw) {
-    'task1Academic' || 'task1_academic' => WritingTaskType.task1Academic,
-    'task1General' || 'task1_general' => WritingTaskType.task1General,
-    _ => WritingTaskType.task2Essay,
-  };
+  WritingTaskType _parseTaskType(String raw) => WritingTaskType.fromWire(raw);
 
   void _startCountdown() {
     _countdownTimer?.cancel();
@@ -551,9 +547,7 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
     final catalog = ref.read(examCatalogRepositoryProvider);
     final mockStageKey = _mockSessionId == null
         ? _mockStageKey
-        : state.taskType == WritingTaskType.task2Essay
-        ? 'writing_task2'
-        : 'writing_task1';
+        : 'writing_task${state.activeTaskIndex + 1}';
 
     final pending = _pendingSave;
     if (pending != null) {
@@ -571,9 +565,11 @@ class WritingSimNotifier extends Notifier<WritingSimState> {
 
     try {
       final profile = await profileRepo.loadOrInitializePrimary();
-      final examId = profile.examId == 'ielts_general'
-          ? 'ielts_general'
-          : 'ielts_academic';
+      final effectiveTrack = ExamTrack.resolveForPackOrProfile(
+        packId: state.packId,
+        profileExamId: profile.examId,
+      );
+      final examId = effectiveTrack.id;
 
       final submissionJson = jsonEncode({
         'packId': state.packId,

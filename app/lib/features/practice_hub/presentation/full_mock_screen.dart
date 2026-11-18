@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockza/core/exams/exam_descriptor.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/data/repositories/attempt_repository.dart';
@@ -36,7 +37,17 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
   int? _sessionStartedAtUtcMs;
   bool _examMode = true;
 
-  bool get _isGeneral => widget.mockId.contains('gt');
+  ExamTrack get _track {
+    final lower = widget.mockId.toLowerCase();
+    if (lower.contains('toefl')) return ExamTrack.toeflIbt;
+    if (lower.contains('pte')) return ExamTrack.pteAcademic;
+    if (lower.contains('det')) return ExamTrack.det;
+    if (lower.contains('gt')) return ExamTrack.ieltsGeneral;
+    final profile = ref.read(practiceProfileProvider).asData?.value;
+    return profile != null
+        ? ExamTrack.fromId(profile.examId)
+        : ExamTrack.ieltsAcademic;
+  }
 
   @override
   void initState() {
@@ -49,7 +60,7 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
     try {
       final session = await repo.getOrCreateMockSession(
         mockId: widget.mockId,
-        track: _isGeneral ? 'general' : 'academic',
+        track: _track.catalogTrack,
         defaultExamMode: _examMode,
       );
       if (mounted) {
@@ -99,7 +110,7 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
           .read(attemptRepositoryProvider)
           .saveMockSession(
             mockId: widget.mockId,
-            track: _isGeneral ? 'general' : 'academic',
+            track: _track.catalogTrack,
             startedAtUtcMs: startedAtUtcMs,
             examMode: examMode,
             stageAttemptIds: nextStages,
@@ -124,22 +135,45 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
     })
   >
   get _stages {
-    final readingPackId = _isGeneral
-        ? 'ielts-gt-reading-seed-01'
-        : 'ielts-acad-reading-seed-01';
-    final writingPackId = _isGeneral
-        ? 'ielts-writing-gt-01'
-        : 'ielts-writing-seed-01';
+    final track = _track;
+    final descriptor = ExamDescriptor.forTrack(track);
+    final isGeneral = track == ExamTrack.ieltsGeneral;
+    final writingStages = descriptor.writingTasks.asMap().entries.map((entry) {
+      final idx = entry.key;
+      final task = entry.value;
+      final stageNum = idx + 3;
+      final mins = (task.defaultDurationSeconds / 60).ceil();
+      return (
+        key: 'writing_task${idx + 1}',
+        skill: SkillKind.writing,
+        packId: descriptor.writingPackId,
+        title:
+            '$stageNum. ${track.isIelts ? 'Writing ${task.shortTabLabel}' : task.fullTitle}',
+        subtitle: task.requiresSingleSentence
+            ? 'Single complete sentence (5–75 words)'
+            : 'Target ${task.defaultMinWords}+ words',
+        duration: '$mins min',
+        route: AppRoutes.buildWritingSim(
+          descriptor.writingPackId,
+          _examMode,
+          widget.mockId,
+          'writing_task${idx + 1}',
+          idx,
+        ),
+      );
+    });
+
+    final speakStageNum = 3 + descriptor.writingTasks.length;
     return [
       (
         key: 'listening',
         skill: SkillKind.listening,
-        packId: 'ielts-listening-seed-01',
+        packId: descriptor.listeningPackId,
         title: '1. Listening Test',
-        subtitle: '4 sections • Audio comprehension',
+        subtitle: '${track.shortName} audio comprehension',
         duration: '30 min',
         route: AppRoutes.buildListeningSim(
-          'ielts-listening-seed-01',
+          descriptor.listeningPackId,
           _examMode,
           widget.mockId,
           'listening',
@@ -148,60 +182,30 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
       (
         key: 'reading',
         skill: SkillKind.reading,
-        packId: readingPackId,
+        packId: descriptor.readingPackId,
         title: '2. Reading Test',
-        subtitle: _isGeneral
+        subtitle: isGeneral
             ? 'General Training workplace & societal texts'
-            : 'Academic passages & evidence questions',
+            : '${track.shortName} passages & objective tasks',
         duration: '60 min',
         route: AppRoutes.buildReadingSim(
-          readingPackId,
+          descriptor.readingPackId,
           _examMode,
           widget.mockId,
           'reading',
         ),
       ),
-      (
-        key: 'writing_task1',
-        skill: SkillKind.writing,
-        packId: writingPackId,
-        title: '3. Writing Task 1',
-        subtitle: _isGeneral
-            ? 'Formal / semi-formal / informal letter'
-            : 'Academic visual data report (150+ words)',
-        duration: '20 min',
-        route: AppRoutes.buildWritingSim(
-          writingPackId,
-          _examMode,
-          widget.mockId,
-          'writing_task1',
-          0,
-        ),
-      ),
-      (
-        key: 'writing_task2',
-        skill: SkillKind.writing,
-        packId: writingPackId,
-        title: '4. Writing Task 2',
-        subtitle: 'Discursive essay — 2x Writing weight (250+ words)',
-        duration: '40 min',
-        route: AppRoutes.buildWritingSim(
-          writingPackId,
-          _examMode,
-          widget.mockId,
-          'writing_task2',
-          1,
-        ),
-      ),
+      ...writingStages,
       (
         key: 'speaking',
         skill: SkillKind.speaking,
-        packId: 'ielts-speaking-seed-01',
-        title: '5. Speaking Interview',
-        subtitle: 'Parts 1, 2 & 3 live microphone recording',
-        duration: '14 min',
+        packId: descriptor.speakingPackId,
+        title:
+            '$speakStageNum. ${track.isIelts ? 'Speaking Interview' : 'Speaking Test'}',
+        subtitle: '${track.shortName} live microphone recording',
+        duration: track == ExamTrack.toeflIbt ? '8 min' : '14 min',
         route: AppRoutes.buildSpeakingSim(
-          'ielts-speaking-seed-01',
+          descriptor.speakingPackId,
           _examMode,
           widget.mockId,
           'speaking',
@@ -277,25 +281,42 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
       }
     }
 
+    final track = _track;
+    final stages = _stages;
     final completedCount = scoredByStageKey.length;
     final listeningBand = scoredByStageKey['listening']?.overallBand;
     final readingBand = scoredByStageKey['reading']?.overallBand;
-    final writingTask1Band = scoredByStageKey['writing_task1']?.overallBand;
-    final writingTask2Band = scoredByStageKey['writing_task2']?.overallBand;
+    final writingScores = stages
+        .where((s) => s.skill == SkillKind.writing)
+        .map((s) => scoredByStageKey[s.key]?.overallBand)
+        .whereType<double>()
+        .toList(growable: false);
+    final writingTaskCount = stages
+        .where((s) => s.skill == SkillKind.writing)
+        .length;
     final speakingBand = scoredByStageKey['speaking']?.overallBand;
 
     final double? combinedBand;
     if (listeningBand != null &&
         readingBand != null &&
-        writingTask1Band != null &&
-        writingTask2Band != null &&
+        writingScores.length == writingTaskCount &&
+        writingScores.isNotEmpty &&
         speakingBand != null) {
-      final writingWeighted = ExamSpec.roundIeltsBand(
-        (writingTask1Band + 2.0 * writingTask2Band) / 3.0,
-      );
-      combinedBand = ExamSpec.roundIeltsBand(
-        (listeningBand + readingBand + writingWeighted + speakingBand) / 4.0,
-      );
+      final double writingComposite;
+      if (track.isIelts && writingScores.length >= 2) {
+        writingComposite = ExamSpec.calculateWritingOverallBand(
+          task1Band: writingScores[0],
+          task2Band: writingScores[1],
+        );
+      } else {
+        writingComposite =
+            writingScores.reduce((a, b) => a + b) / writingScores.length;
+      }
+      final rawMean =
+          (listeningBand + readingBand + writingComposite + speakingBand) / 4.0;
+      combinedBand = track.isIelts
+          ? ExamSpec.roundIeltsBand(rawMean)
+          : track.quantizeScore(rawMean);
     } else {
       combinedBand = null;
     }
@@ -306,9 +327,7 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
           icon: const AppIcon(LucideGlyph.arrowLeft, size: 20),
           onPressed: () => context.safePopOrGo(AppRoutes.practice),
         ),
-        title: Text(
-          _isGeneral ? 'Full General Training Mock' : 'Full Academic Mock',
-        ),
+        title: Text('Full ${track.shortName} Mock'),
         actions: <Widget>[
           if (attemptByStageKey.isNotEmpty)
             MzIconButton(
@@ -340,13 +359,13 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
               children: <Widget>[
                 Text(
                   combinedBand != null
-                      ? 'Full Mock Band ${combinedBand.toStringAsFixed(1)} (5/5 Scored)'
-                      : '$completedCount of 5 Stages Scored',
+                      ? 'Full Mock ${track.formatScoreWithUnit(combinedBand)} (${stages.length}/${stages.length} Scored)'
+                      : '$completedCount of ${stages.length} Stages Scored',
                   style: typography.cardTitle,
                 ),
                 const SizedBox(height: SpacingTokens.xs),
                 Text(
-                  'Complete Listening, Reading, Writing Task 1, Writing Task 2, and Speaking in Exam Mode. Stages mark completed only after final scoring.',
+                  'Complete all ${track.shortName} Listening, Reading, Writing, and Speaking stages in Exam Mode. Stages mark completed only after final scoring.',
                   style: typography.secondary.copyWith(
                     color: colors.textSecondary,
                   ),
@@ -410,7 +429,7 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
             final statusText = submitted == null
                 ? stage.duration
                 : isScored
-                ? 'Band ${submitted.overallBand!.toStringAsFixed(1)}'
+                ? track.formatScoreWithUnit(submitted.overallBand!)
                 : isFailed
                 ? 'Failed — Tap to Retry'
                 : 'Grading in Progress...';

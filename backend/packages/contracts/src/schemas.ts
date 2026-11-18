@@ -1,5 +1,50 @@
 import { z } from '@hono/zod-openapi';
 
+export const SupportedExamIdSchema = z
+  .enum(['ielts_academic', 'ielts_general', 'toefl_ibt', 'pte_academic', 'det'])
+  .openapi('SupportedExamId');
+
+export type SupportedExamIdDto = z.infer<typeof SupportedExamIdSchema>;
+
+export const WritingTaskTypeSchema = z
+  .enum([
+    'task1Academic',
+    'task1General',
+    'task2Essay',
+    'toeflSentenceBuild',
+    'toeflEmail',
+    'toeflAcademicDiscussion',
+    'pteSummarizeWrittenText',
+    'pteEssay',
+    'detWriteAboutPhoto',
+    'detInteractiveWriting',
+    'detWritingSample',
+  ])
+  .openapi('WritingTaskType');
+
+export const CriterionCodeSchema = z
+  .enum([
+    'FC',
+    'LR',
+    'GRA',
+    'PR',
+    'TA',
+    'TR',
+    'CC',
+    'CONTENT',
+    'ORG',
+    'VOCAB',
+    'GRAM',
+    'MECH',
+    'DELIVERY',
+    'COH',
+  ])
+  .openapi('CriterionCode');
+
+export const CatalogTrackSchema = z
+  .enum(['academic', 'general', 'toefl', 'pte', 'det'])
+  .openapi('CatalogTrack');
+
 export const ApiErrorCodeSchema = z.enum([
   'validation_error',
   'unauthorized',
@@ -246,7 +291,7 @@ export const LinkAccountResponseSchema = z
 export const PresignUploadRequestSchema = z
   .object({
     attemptId: z.string().uuid(),
-    partIndex: z.number().int().min(1).max(3),
+    partIndex: z.number().int().min(1).max(6),
     turnId: z.string().min(1).max(64).optional(),
     byteLength: z
       .number()
@@ -270,8 +315,8 @@ export const EvaluateWritingRequestSchema = z
   .object({
     attemptId: z.string().uuid(),
     packId: z.string().min(1).max(120),
-    examId: z.enum(['ielts_academic', 'ielts_general']).default('ielts_academic'),
-    taskType: z.enum(['task1Academic', 'task1General', 'task2Essay']),
+    examId: SupportedExamIdSchema.default('ielts_academic'),
+    taskType: WritingTaskTypeSchema,
     promptTitle: z.string().default(''),
     promptBody: z.string().default(''),
     essayText: z.string().min(20).max(12000),
@@ -282,7 +327,7 @@ export const EvaluateWritingRequestSchema = z
 
 export const SpeakingTurnSchema = z
   .object({
-    partIndex: z.number().int().min(1).max(3),
+    partIndex: z.number().int().min(1).max(6),
     turnId: z.string().min(1).max(64).optional(),
     promptText: z.string().default(''),
     objectKey: z.string().min(1),
@@ -296,8 +341,10 @@ export const EvaluateSpeakingRequestSchema = z
   .object({
     attemptId: z.string().uuid(),
     packId: z.string().min(1).max(120),
-    examId: z.enum(['ielts_academic', 'ielts_general']).default('ielts_academic'),
-    partSequence: z.enum(['part1', 'part2', 'part3', 'full', 'diagnostic']).default('full'),
+    examId: SupportedExamIdSchema.default('ielts_academic'),
+    partSequence: z
+      .enum(['part1', 'part2', 'part3', 'part4', 'full', 'diagnostic'])
+      .default('full'),
     turns: z.array(SpeakingTurnSchema).min(1).max(12),
     audioObjectKeys: z.array(z.string().min(1)).min(1).max(12).optional(),
   })
@@ -312,9 +359,9 @@ export const JobEnqueueResponseSchema = z
 
 export const CriterionEvaluationSchema = z
   .object({
-    code: z.enum(['FC', 'LR', 'GRA', 'PR', 'TA', 'TR', 'CC']),
+    code: CriterionCodeSchema,
     label: z.string(),
-    band: z.number().min(0).max(9),
+    band: z.number().min(0).max(160),
     evidenceExcerpt: z.string(),
     feedbackNote: z.string(),
   })
@@ -331,7 +378,7 @@ export const TranscriptAnnotationSchema = z
 export const TranscriptSegmentSchema = z
   .object({
     segmentId: z.string(),
-    partIndex: z.number().int().min(1).max(3),
+    partIndex: z.number().int().min(1).max(6),
     startMs: z.number().nonnegative(),
     endMs: z.number().nonnegative(),
     text: z.string(),
@@ -346,7 +393,7 @@ export const InlineEditSchema = z
     endOffset: z.number().int().nonnegative(),
     originalText: z.string(),
     suggestedText: z.string(),
-    criterionCode: z.enum(['FC', 'LR', 'GRA', 'PR', 'TA', 'TR', 'CC']),
+    criterionCode: CriterionCodeSchema,
     rationale: z.string(),
   })
   .openapi('InlineEdit');
@@ -375,7 +422,7 @@ export const VocabUpgradeSchema = z
 export const RecommendedDrillSchema = z
   .object({
     drillType: z.string(),
-    weakestCriterionCode: z.enum(['FC', 'LR', 'GRA', 'PR', 'TA', 'TR', 'CC']),
+    weakestCriterionCode: CriterionCodeSchema,
     title: z.string(),
     durationMinutes: z.number().default(3),
   })
@@ -384,7 +431,7 @@ export const RecommendedDrillSchema = z
 export const EvaluationOutputSchema = z
   .object({
     attemptId: z.string().uuid(),
-    overallBand: z.number().min(0).max(9),
+    overallBand: z.number().min(0).max(160),
     isEstimated: z.literal(true).default(true),
     criteria: z.array(CriterionEvaluationSchema).length(4),
     transcriptSegments: z.array(TranscriptSegmentSchema).optional(),
@@ -468,7 +515,7 @@ export const CatalogPackSummarySchema = z
     edition: z.enum(['glb', 'irn']),
     examId: z.string(),
     skill: z.string(),
-    track: z.enum(['academic', 'general']).default('academic'),
+    track: CatalogTrackSchema.default('academic'),
     title: z.string().default(''),
     description: z.string().default(''),
     durationSeconds: z.number().int().nonnegative().default(0),

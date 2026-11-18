@@ -264,11 +264,28 @@ export function registerEvaluateRoutes(
           .where(eq(examSections.packId, payload.packId))
           .orderBy(asc(examSections.sectionIndex));
 
-        const targetIndex = payload.taskType === 'task2Essay' ? 2 : 1;
-        const targetType = payload.taskType === 'task2Essay' ? 'task2' : 'task1';
+        const taskSectionFallback: Record<string, { index: number; sectionType: string }> = {
+          task1Academic: { index: 1, sectionType: 'task1' },
+          task1General: { index: 1, sectionType: 'task1' },
+          task2Essay: { index: 2, sectionType: 'task2' },
+          toeflSentenceBuild: { index: 1, sectionType: 'toeflSentenceBuild' },
+          toeflEmail: { index: 2, sectionType: 'toeflEmail' },
+          toeflAcademicDiscussion: { index: 3, sectionType: 'toeflAcademicDiscussion' },
+          pteSummarizeWrittenText: { index: 1, sectionType: 'pteSummarizeWrittenText' },
+          pteEssay: { index: 2, sectionType: 'pteEssay' },
+          detWriteAboutPhoto: { index: 1, sectionType: 'detWriteAboutPhoto' },
+          detInteractiveWriting: { index: 2, sectionType: 'detInteractiveWriting' },
+          detWritingSample: { index: 3, sectionType: 'detWritingSample' },
+        };
+        const fallback = taskSectionFallback[payload.taskType] ?? {
+          index: 1,
+          sectionType: payload.taskType,
+        };
         const matchedSection =
-          sections.find((s) => s.sectionType === targetType) ??
-          sections.find((s) => s.sectionIndex === targetIndex) ??
+          sections.find(
+            (s) => s.sectionType === payload.taskType || s.sectionType === fallback.sectionType,
+          ) ??
+          sections.find((s) => s.sectionIndex === fallback.index) ??
           sections[0];
 
         if (matchedSection && matchedSection.contentText.trim().length > 0) {

@@ -44,9 +44,9 @@ export const ReadingPassageSchema = z.object({
 });
 
 export const ReadingPackContentSchema = z.object({
-  examId: z.enum(['ielts_academic', 'ielts_general']),
-  passages: z.array(ReadingPassageSchema).length(3),
-  totalQuestions: z.literal(40),
+  examId: z.enum(['ielts_academic', 'ielts_general', 'toefl_ibt', 'pte_academic', 'det']),
+  passages: z.array(ReadingPassageSchema).min(1).max(4),
+  totalQuestions: z.number().int().positive(),
 });
 
 export const ListeningDistractorMarkerSchema = z.object({
@@ -88,14 +88,26 @@ export const ListeningSectionSchema = z.object({
 });
 
 export const ListeningPackContentSchema = z.object({
-  examId: z.literal('ielts_listening'),
-  sections: z.array(ListeningSectionSchema).length(4),
-  totalQuestions: z.literal(40),
+  examId: z.enum(['ielts_listening', 'toefl_ibt', 'pte_academic', 'det']),
+  sections: z.array(ListeningSectionSchema).min(1).max(5),
+  totalQuestions: z.number().int().positive(),
 });
 
 export const WritingPromptSchema = z.object({
   taskId: z.string().min(1),
-  taskType: z.enum(['task1Academic', 'task1General', 'task2Essay']),
+  taskType: z.enum([
+    'task1Academic',
+    'task1General',
+    'task2Essay',
+    'toeflSentenceBuild',
+    'toeflEmail',
+    'toeflAcademicDiscussion',
+    'pteSummarizeWrittenText',
+    'pteEssay',
+    'detWriteAboutPhoto',
+    'detInteractiveWriting',
+    'detWritingSample',
+  ]),
   title: z.string().min(1),
   promptBody: z.string().min(20),
   diagramSvg: z.string().optional(),

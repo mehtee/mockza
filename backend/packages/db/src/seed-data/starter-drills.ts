@@ -223,4 +223,89 @@ export const STARTER_MICRO_DRILLS: SeedMicroDrill[] = [
     ],
     isPublished: true,
   },
+  {
+    drillId: 'toefl-micro-drill-01',
+    edition: 'all',
+    title: 'TOEFL Complete-the-Words & Campus Register Drill',
+    drillType: 'toefl_complete_words',
+    skill: 'reading',
+    durationSeconds: 180,
+    itemsJson: [
+      {
+        id: 'toefl-md-01',
+        prompt:
+          'Complete the word stem: "Rooftop greenhouses recirc____ mineral nutrients continuously."',
+        options: [],
+        answer: 'recirculate',
+        explanation: 'Recirculate matches the plural verb slot in the closed-loop greenhouse text.',
+      },
+      {
+        id: 'toefl-md-02',
+        prompt: 'Choose the most polite academic email request line for an extension:',
+        options: [
+          'Extend the deadline right now because my device stopped.',
+          'Would you consider granting a brief 48-hour extension while I verify backup data?',
+          'I probably will not hand this in on Tuesday anyway.',
+        ],
+        answer: 'Would you consider granting a brief 48-hour extension while I verify backup data?',
+        explanation: 'Uses respectful academic register while offering concrete mitigation.',
+      },
+    ],
+    isPublished: true,
+  },
+  {
+    drillId: 'pte-micro-drill-01',
+    edition: 'all',
+    title: 'PTE Re-order Logic & Single-Sentence Check',
+    drillType: 'pte_reorder_swt',
+    skill: 'writing',
+    durationSeconds: 180,
+    itemsJson: [
+      {
+        id: 'pte-md-01',
+        prompt:
+          'Which opening clause correctly links Cause -> Validation -> Impact for a coherent summary?',
+        options: [
+          'Barnacles fouled turbine blades, prompting engineers to develop smooth silicone coatings that extended continuous operation.',
+          'Barnacles fouled turbine blades. Therefore engineers coded silicone. Also operation lasted longer.',
+        ],
+        answer:
+          'Barnacles fouled turbine blades, prompting engineers to develop smooth silicone coatings that extended continuous operation.',
+        explanation: 'Follows PTE single-sentence synthesis rules cleanly within 5–75 words.',
+      },
+      {
+        id: 'pte-md-02',
+        prompt: 'Which discourse marker most reliably signals the final outcome paragraph?',
+        options: ['Consequently / As a result', 'Initially', 'For instance'],
+        answer: 'Consequently / As a result',
+        explanation: 'Outcome connectives close causal sequences cleanly.',
+      },
+    ],
+    isPublished: true,
+  },
+  {
+    drillId: 'det-micro-drill-01',
+    edition: 'all',
+    title: 'DET Lexical Decision & Stem Builder',
+    drillType: 'det_read_select',
+    skill: 'reading',
+    durationSeconds: 150,
+    itemsJson: [
+      {
+        id: 'det-md-01',
+        prompt: 'Read and Select: Is "sustainable" a genuine standard English word?',
+        options: ['REAL', 'NOT REAL'],
+        answer: 'REAL',
+        explanation: 'Standard academic adjective used in environmental and policy writing.',
+      },
+      {
+        id: 'det-md-02',
+        prompt: 'Read and Select: Is "plausicate" a genuine standard English word?',
+        options: ['REAL', 'NOT REAL'],
+        answer: 'NOT REAL',
+        explanation: 'Fabricated blend resembling plausible and implicate.',
+      },
+    ],
+    isPublished: true,
+  },
 ];

@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { STARTER_EXAM_BUNDLES, STARTER_MICRO_DRILLS } from '../index.js';
 
 describe('Phase 4 Seed Content Contracts & Parity (TD-27, TD-28, TD-29, TD-30, TD-31)', () => {
-  it('TD-27 & TD-28: normalizes all 24 seed bundles to canonical question types and deterministic digests', () => {
+  it('TD-27 & TD-28: normalizes all 36 seed bundles to canonical question types and deterministic digests', () => {
     const allowedCanonical = new Set([
       'tfng',
       'ynng',
@@ -16,10 +16,15 @@ describe('Phase 4 Seed Content Contracts & Parity (TD-27, TD-28, TD-29, TD-30, T
       'matching_headings',
       'summary_gap_fill',
       'short_answer',
+      'binary_choice',
+      'word_completion',
+      'reorder_sequence',
+      'dictation',
       'writing_prompt',
       'speaking_part1',
       'speaking_part2',
       'speaking_part3',
+      'speaking_part4',
     ]);
 
     for (const bundle of STARTER_EXAM_BUNDLES) {
@@ -32,6 +37,7 @@ describe('Phase 4 Seed Content Contracts & Parity (TD-27, TD-28, TD-29, TD-30, T
         options: q.optionsJson ?? null,
         acceptedAnswers: q.acceptedAnswersJson,
         maxWords: extractQuestionMaxWords({
+          questionType: q.questionType,
           evidence: q.evidenceJson ?? null,
           prompt: q.prompt,
           acceptedAnswers: q.acceptedAnswersJson,
@@ -80,7 +86,8 @@ describe('Phase 4 Seed Content Contracts & Parity (TD-27, TD-28, TD-29, TD-30, T
     const speakingBundles = STARTER_EXAM_BUNDLES.filter((b) => b.pack.skill === 'speaking');
     expect(speakingBundles.length).toBeGreaterThanOrEqual(5);
     for (const sp of speakingBundles) {
-      expect(sp.sections.length).toBe(3);
+      expect(sp.sections.length).toBeGreaterThanOrEqual(2);
+      expect(sp.sections.length).toBeLessThanOrEqual(4);
       expect(sp.questions.length).toBeGreaterThanOrEqual(5);
     }
   });

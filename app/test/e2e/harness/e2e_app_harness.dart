@@ -20,6 +20,7 @@ import 'package:mockza/core/preferences/appearance_settings.dart';
 import 'package:mockza/core/result/failure.dart';
 import 'package:mockza/core/result/result.dart';
 import 'package:mockza/data/db/app_database.dart';
+import 'package:mockza/data/repositories/exam_catalog_repository.dart';
 import 'package:mockza/providers.dart';
 import 'package:mockza/services/audio_recorder_gateway.dart';
 import 'package:mockza/services/auth_session_service.dart';
@@ -106,8 +107,8 @@ final class E2eGradingGateway implements GradingGateway {
   /// Underlying fake gateway recording calls and failures.
   final FakeGradingGateway inner;
 
-  final Map<String, ({String attemptId, bool isSpeaking})> _jobs =
-      <String, ({String attemptId, bool isSpeaking})>{};
+  final Map<String, ({String attemptId, bool isSpeaking, String examId})>
+  _jobs = <String, ({String attemptId, bool isSpeaking, String examId})>{};
 
   @override
   Future<Result<String, Failure>> enqueueWritingEvaluation({
@@ -134,7 +135,11 @@ final class E2eGradingGateway implements GradingGateway {
     );
     final jobId = res.valueOrNull;
     if (jobId != null) {
-      _jobs[jobId] = (attemptId: attemptId, isSpeaking: false);
+      _jobs[jobId] = (
+        attemptId: attemptId,
+        isSpeaking: false,
+        examId: examId,
+      );
     }
     return res;
   }
@@ -168,7 +173,11 @@ final class E2eGradingGateway implements GradingGateway {
     );
     final jobId = res.valueOrNull;
     if (jobId != null) {
-      _jobs[jobId] = (attemptId: attemptId, isSpeaking: true);
+      _jobs[jobId] = (
+        attemptId: attemptId,
+        isSpeaking: true,
+        examId: examId,
+      );
     }
     return res;
   }
@@ -183,6 +192,7 @@ final class E2eGradingGateway implements GradingGateway {
     final meta = _jobs[jobId];
     final isSpeaking = meta?.isSpeaking ?? jobId.contains('speaking');
     final attemptId = meta?.attemptId ?? '';
+    final examId = meta?.examId ?? 'ielts_academic';
     return Ok(
       JobPollSnapshot(
         jobId: jobId,
@@ -190,109 +200,145 @@ final class E2eGradingGateway implements GradingGateway {
         status: 'completed',
         stage: 'Completed',
         rawResultJson: isSpeaking
-            ? _sampleSpeakingJson(attemptId)
-            : _sampleWritingJson(attemptId),
+            ? _sampleSpeakingJson(attemptId, examId: examId)
+            : _sampleWritingJson(attemptId, examId: examId),
       ),
     );
   }
 
-  Map<String, Object?> _sampleWritingJson(String attemptId) =>
-      <String, Object?>{
-        'attemptId': attemptId,
-        'taskType': 'task2Essay',
-        'overallBand': 7.0,
-        'wordCount': 32,
-        'upgradedExcerpt':
-            'Public transit investment measurably curtails congestion.',
-        'actionableNextStep': 'Expand body paragraph concrete examples.',
-        'modelId': 'e2e-rubric-writer',
-        'rubricVersion': '2026-11.v1',
-        'criteria': <Map<String, Object?>>[
-          <String, Object?>{
-            'code': 'TR',
-            'label': 'Task Response',
-            'band': 7.0,
-            'evidenceExcerpt': 'Cities benefit from cleaner transit.',
-            'feedbackNote': 'Clear position sustained across paragraphs.',
-          },
-          <String, Object?>{
-            'code': 'CC',
-            'label': 'Coherence & Cohesion',
-            'band': 7.0,
-            'evidenceExcerpt': 'Cities benefit from cleaner transit.',
-            'feedbackNote': 'Logical progression with clear transitions.',
-          },
-          <String, Object?>{
-            'code': 'LR',
-            'label': 'Lexical Resource',
-            'band': 7.0,
-            'evidenceExcerpt': 'cleaner transit',
-            'feedbackNote': 'Natural academic collocations used accurately.',
-          },
-          <String, Object?>{
-            'code': 'GRA',
-            'label': 'Grammatical Range',
-            'band': 7.0,
-            'evidenceExcerpt': 'Cities benefit from cleaner transit.',
-            'feedbackNote': 'Accurate complex clause control.',
-          },
-        ],
-        'inlineEdits': const <Map<String, Object?>>[],
-        'vocabUpgrades': const <Map<String, Object?>>[
-          <String, Object?>{
-            'original': 'cleaner transit',
-            'upgraded': 'sustainable mobility',
-            'definition':
-                'Transport networks designed for low long-term emissions.',
-            'collocation': 'sustainable mobility infrastructure',
-          },
-        ],
-      };
+  static ({
+    double overallScore,
+    List<({String code, String label})> writingCriteria,
+    List<({String code, String label})> speakingCriteria,
+  })
+  _rubricProfileForExam(String examId) => switch (examId) {
+    'toefl_ibt' => (
+      overallScore: 5.0,
+      writingCriteria: const <({String code, String label})>[
+        (code: 'DEV', label: 'Task Development'),
+        (code: 'ORG', label: 'Organization & Coherence'),
+        (code: 'LANG', label: 'Language Use'),
+      ],
+      speakingCriteria: const <({String code, String label})>[
+        (code: 'DEL', label: 'Delivery & Pacing'),
+        (code: 'LANG', label: 'Language Use'),
+        (code: 'TOP', label: 'Topic Development'),
+      ],
+    ),
+    'pte_academic' => (
+      overallScore: 72.0,
+      writingCriteria: const <({String code, String label})>[
+        (code: 'CONT', label: 'Content & Relevance'),
+        (code: 'FORM', label: 'Formal Requirements'),
+        (code: 'GRAM', label: 'Grammar Accuracy'),
+        (code: 'VOC', label: 'Vocabulary Range'),
+      ],
+      speakingCriteria: const <({String code, String label})>[
+        (code: 'CONT', label: 'Content Coverage'),
+        (code: 'FLU', label: 'Oral Fluency'),
+        (code: 'PRON', label: 'Pronunciation'),
+      ],
+    ),
+    'det' => (
+      overallScore: 130.0,
+      writingCriteria: const <({String code, String label})>[
+        (code: 'LIT', label: 'Literacy'),
+        (code: 'COMP', label: 'Comprehension'),
+        (code: 'CONV', label: 'Conversation'),
+        (code: 'PROD', label: 'Production'),
+      ],
+      speakingCriteria: const <({String code, String label})>[
+        (code: 'LIT', label: 'Literacy'),
+        (code: 'COMP', label: 'Comprehension'),
+        (code: 'CONV', label: 'Conversation'),
+        (code: 'PROD', label: 'Production'),
+      ],
+    ),
+    _ => (
+      overallScore: 7.0,
+      writingCriteria: const <({String code, String label})>[
+        (code: 'TR', label: 'Task Response'),
+        (code: 'CC', label: 'Coherence & Cohesion'),
+        (code: 'LR', label: 'Lexical Resource'),
+        (code: 'GRA', label: 'Grammatical Range'),
+      ],
+      speakingCriteria: const <({String code, String label})>[
+        (code: 'FC', label: 'Fluency & Coherence'),
+        (code: 'LR', label: 'Lexical Resource'),
+        (code: 'GRA', label: 'Grammatical Range'),
+        (code: 'PR', label: 'Pronunciation'),
+      ],
+    ),
+  };
+
+  Map<String, Object?> _sampleWritingJson(
+    String attemptId, {
+    String examId = 'ielts_academic',
+  }) {
+    final profile = _rubricProfileForExam(examId);
+    return <String, Object?>{
+      'attemptId': attemptId,
+      'taskType': 'task2Essay',
+      'overallBand': profile.overallScore,
+      'wordCount': 32,
+      'upgradedExcerpt':
+          'Public transit investment measurably curtails congestion.',
+      'actionableNextStep': 'Expand body paragraph concrete examples.',
+      'modelId': 'e2e-rubric-writer',
+      'rubricVersion': '2026-11.v1',
+      'criteria': profile.writingCriteria
+          .map(
+            (c) => <String, Object?>{
+              'code': c.code,
+              'label': c.label,
+              'band': profile.overallScore,
+              'evidenceExcerpt': 'Cities benefit from cleaner transit.',
+              'feedbackNote': 'Strong task control across criteria.',
+            },
+          )
+          .toList(growable: false),
+      'inlineEdits': const <Map<String, Object?>>[],
+      'vocabUpgrades': const <Map<String, Object?>>[
+        <String, Object?>{
+          'original': 'cleaner transit',
+          'upgraded': 'sustainable mobility',
+          'definition':
+              'Transport networks designed for low long-term emissions.',
+          'collocation': 'sustainable mobility infrastructure',
+        },
+      ],
+    };
+  }
 
   Map<String, Object?> _sampleSpeakingJson(
-    String attemptId,
-  ) => <String, Object?>{
-    'attemptId': attemptId,
-    'overallBand': 7.0,
-    'transcript': 'I usually study at the quiet second-floor campus library.',
-    'actionableNextStep':
-        'Link personal examples with clearer discourse markers.',
-    'modelId': 'e2e-rubric-speaker',
-    'rubricVersion': '2026-11.v1',
-    'criteria': <Map<String, Object?>>[
-      <String, Object?>{
-        'code': 'FC',
-        'label': 'Fluency & Coherence',
-        'band': 7.0,
-        'evidenceExcerpt':
-            'I usually study at the quiet second-floor campus library.',
-        'feedbackNote': 'Steady pace without unnatural pauses.',
-      },
-      <String, Object?>{
-        'code': 'LR',
-        'label': 'Lexical Resource',
-        'band': 7.0,
-        'evidenceExcerpt': 'campus library',
-        'feedbackNote': 'Appropriate everyday and study vocabulary.',
-      },
-      <String, Object?>{
-        'code': 'GRA',
-        'label': 'Grammatical Range',
-        'band': 7.0,
-        'evidenceExcerpt': 'I usually study',
-        'feedbackNote': 'Clear habitual tense control.',
-      },
-      <String, Object?>{
-        'code': 'PR',
-        'label': 'Pronunciation',
-        'band': 7.0,
-        'evidenceExcerpt': 'second-floor campus library',
-        'feedbackNote': 'Clear intelligibility across phrases.',
-      },
-    ],
-    'transcriptSegments': const <Map<String, Object?>>[],
-    'vocabUpgrades': const <Map<String, Object?>>[],
-  };
+    String attemptId, {
+    String examId = 'ielts_academic',
+  }) {
+    final profile = _rubricProfileForExam(examId);
+    return <String, Object?>{
+      'attemptId': attemptId,
+      'overallBand': profile.overallScore,
+      'transcript': 'I usually study at the quiet second-floor campus library.',
+      'actionableNextStep':
+          'Link personal examples with clearer discourse markers.',
+      'modelId': 'e2e-rubric-speaker',
+      'rubricVersion': '2026-11.v1',
+      'criteria': profile.speakingCriteria
+          .map(
+            (c) => <String, Object?>{
+              'code': c.code,
+              'label': c.label,
+              'band': profile.overallScore,
+              'evidenceExcerpt':
+                  'I usually study at the quiet second-floor campus library.',
+              'feedbackNote': 'Steady pace with clear intelligibility.',
+            },
+          )
+          .toList(growable: false),
+      'transcriptSegments': const <Map<String, Object?>>[],
+      'vocabUpgrades': const <Map<String, Object?>>[],
+    };
+  }
 
   @override
   Future<Result<WritingEvaluationResult?, Failure>> pollWritingResult({
@@ -1244,6 +1290,8 @@ final class E2eAppHarness {
         },
       ]);
 
+      await _seedMultiExamStarterCatalog(catalog);
+
       await vocab.upsertSeedCard(
         cardId: 'seed-mitigate',
         headword: 'mitigate',
@@ -1386,4 +1434,521 @@ final class E2eAppHarness {
       }
     });
   }
+}
+
+const String _e2eChartSvg =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 120"><rect width="240" height="120" fill="#141827"/><rect x="30" y="60" width="32" height="40" fill="#38BDF8"/><rect x="90" y="35" width="32" height="65" fill="#818CF8"/><rect x="150" y="20" width="32" height="80" fill="#34D399"/></svg>';
+
+Future<void> _seedMultiExamStarterCatalog(
+  ExamCatalogRepository catalog,
+) async {
+  const bundles = <Map<String, dynamic>>[
+    <String, dynamic>{
+      'pack': <String, dynamic>{
+        'packId': 'toefl-reading-pack-01',
+        'title': 'TOEFL Reading: Complete Words & Daily Life',
+        'track': 'toefl',
+        'durationSeconds': 1080,
+      },
+      'sections': <dynamic>[
+        <String, dynamic>{
+          'sectionId': 'toefl-r-s1',
+          'sectionIndex': 1,
+          'title': 'Task 1: Complete the Words',
+          'contentText': 'Hydroponic greenhouses circulate nutrient water past plant roots so crops grow with minimal soil loss.',
+        },
+      ],
+      'questions': <dynamic>[
+        <String, dynamic>{
+          'questionId': 'toefl-rq-1',
+          'sectionId': 'toefl-r-s1',
+          'questionNumber': 1,
+          'questionType': 'word_completion',
+          'prompt': 'Complete the word: Hydroponic systems cir_____ water continuously.',
+          'acceptedAnswers': <String>['circulate'],
+          'maxWords': 1,
+        },
+        <String, dynamic>{
+          'questionId': 'toefl-rq-2',
+          'sectionId': 'toefl-r-s1',
+          'questionNumber': 2,
+          'questionType': 'multiple_choice',
+          'prompt': 'Why do hydroponic farms use less soil?',
+          'options': <String>[
+            'A. Roots grow directly in nutrient solution',
+            'B. Greenhouses operate only at night',
+          ],
+          'acceptedAnswers': <String>['A'],
+        },
+      ],
+    },
+    <String, dynamic>{
+      'pack': <String, dynamic>{
+        'packId': 'toefl-listening-pack-01',
+        'title': 'TOEFL Listening: Campus & Academic Talk',
+        'track': 'toefl',
+        'mediaUrl': '/v1/media/seed/listening_seed.m4a',
+        'durationSeconds': 960,
+      },
+      'sections': <dynamic>[
+        <String, dynamic>{
+          'sectionId': 'toefl-l-s1',
+          'sectionIndex': 1,
+          'title': 'Part 1: Listen & Choose Response',
+          'transcript': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'speaker': 'Advisor',
+              'text': 'Submit your research abstract before Friday afternoon.',
+              'startMs': 0,
+              'endMs': 12000,
+            },
+          ],
+        },
+      ],
+      'questions': <dynamic>[
+        <String, dynamic>{
+          'questionId': 'toefl-lq-1',
+          'sectionId': 'toefl-l-s1',
+          'questionNumber': 1,
+          'questionType': 'multiple_choice',
+          'prompt': 'When must the research abstract be submitted?',
+          'options': <String>[
+            'A. Before Friday afternoon',
+            'B. Next Monday morning',
+          ],
+          'acceptedAnswers': <String>['A'],
+        },
+      ],
+    },
+    <String, dynamic>{
+      'pack': <String, dynamic>{
+        'packId': 'toefl-writing-pack-01',
+        'title': 'TOEFL Writing: Sentence Build, Email & Discussion',
+        'track': 'toefl',
+        'durationSeconds': 1740,
+      },
+      'sections': <dynamic>[
+        <String, dynamic>{
+          'sectionId': 'toefl-w-t1',
+          'sectionIndex': 1,
+          'sectionType': 'toefl_sentence_build',
+          'title': 'Build a Sentence',
+          'contentText': 'Arrange the academic clause: researchers / clean energy / prioritized / have.',
+          'durationSeconds': 300,
+          'metadata': <String, dynamic>{'minWords': 6},
+        },
+        <String, dynamic>{
+          'sectionId': 'toefl-w-t2',
+          'sectionIndex': 2,
+          'sectionType': 'toefl_email',
+          'title': 'Write an Email',
+          'contentText':
+              'Write a concise email requesting extended campus lab hours.',
+          'durationSeconds': 420,
+          'metadata': <String, dynamic>{'minWords': 12},
+        },
+        <String, dynamic>{
+          'sectionId': 'toefl-w-t3',
+          'sectionIndex': 3,
+          'sectionType': 'toefl_academic_discussion',
+          'title': 'Academic Discussion',
+          'contentText': 'Contribute your perspective on hybrid seminars versus in-person workshops.',
+          'durationSeconds': 600,
+          'metadata': <String, dynamic>{'minWords': 15},
+        },
+      ],
+      'questions': <dynamic>[],
+    },
+    <String, dynamic>{
+      'pack': <String, dynamic>{
+        'packId': 'toefl-speaking-pack-01',
+        'title': 'TOEFL Speaking: Listen & Repeat + Interview',
+        'track': 'toefl',
+        'durationSeconds': 480,
+      },
+      'sections': <dynamic>[
+        <String, dynamic>{
+          'sectionId': 'toefl-sp-p1',
+          'sectionIndex': 1,
+          'title': 'Listen & Repeat',
+          'durationSeconds': 45,
+          'metadata': <String, dynamic>{'prepDurationSeconds': 0},
+        },
+      ],
+      'questions': <dynamic>[
+        <String, dynamic>{
+          'questionId': 'TOEFL-SP-1',
+          'sectionId': 'toefl-sp-p1',
+          'questionNumber': 1,
+          'questionType': 'speaking_part1',
+          'prompt': 'Repeat clearly: The library workshop begins promptly at ten o clock.',
+        },
+      ],
+    },
+    <String, dynamic>{
+      'pack': <String, dynamic>{
+        'packId': 'pte-reading-pack-01',
+        'title': 'PTE Reading: Re-order Paragraphs & Blanks',
+        'track': 'pte',
+        'durationSeconds': 1800,
+      },
+      'sections': <dynamic>[
+        <String, dynamic>{
+          'sectionId': 'pte-r-s1',
+          'sectionIndex': 1,
+          'title': 'Tidal Turbine Sequence',
+          'contentText':
+              'Tidal energy engineers coat underwater blades carefully.',
+        },
+      ],
+      'questions': <dynamic>[
+        <String, dynamic>{
+          'questionId': 'pte-rq-1',
+          'sectionId': 'pte-r-s1',
+          'questionNumber': 1,
+          'questionType': 'reorder_sequence',
+          'prompt': 'Order these three sentences chronologically.',
+          'options': <String>[
+            'A. Engineers test turbine coatings in seawater.',
+            'B. Clean blades sustain steady power output.',
+            'C. Biofouling slows unprotected rotors.',
+          ],
+          'acceptedAnswers': <String>['C, A, B'],
+        },
+      ],
+    },
+    <String, dynamic>{
+      'pack': <String, dynamic>{
+        'packId': 'pte-listening-pack-01',
+        'title': 'PTE Listening: Summary & Dictation',
+        'track': 'pte',
+        'mediaUrl': '/v1/media/seed/listening_seed.m4a',
+        'durationSeconds': 1500,
+      },
+      'sections': <dynamic>[
+        <String, dynamic>{
+          'sectionId': 'pte-l-s1',
+          'sectionIndex': 1,
+          'title': 'Write from Dictation',
+          'transcript': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'speaker': 'Lecturer',
+              'text': 'Solar arrays lower peak afternoon grid demand.',
+              'startMs': 0,
+              'endMs': 15000,
+            },
+          ],
+        },
+      ],
+      'questions': <dynamic>[
+        <String, dynamic>{
+          'questionId': 'pte-lq-1',
+          'sectionId': 'pte-l-s1',
+          'questionNumber': 1,
+          'questionType': 'dictation',
+          'prompt': 'Type the exact sentence you heard.',
+          'acceptedAnswers': <String>[
+            'Solar arrays lower peak afternoon grid demand.',
+          ],
+          'maxWords': 15,
+        },
+      ],
+    },
+    <String, dynamic>{
+      'pack': <String, dynamic>{
+        'packId': 'pte-writing-pack-01',
+        'title': 'PTE Writing: Summarize Written Text & Essay',
+        'track': 'pte',
+        'durationSeconds': 1800,
+      },
+      'sections': <dynamic>[
+        <String, dynamic>{
+          'sectionId': 'pte-w-t1',
+          'sectionIndex': 1,
+          'sectionType': 'pte_summarize_written_text',
+          'title': 'Summarize Written Text',
+          'contentText': 'Summarize the short passage in one clear sentence.',
+          'durationSeconds': 600,
+          'metadata': <String, dynamic>{'minWords': 5, 'maxWords': 75},
+        },
+        <String, dynamic>{
+          'sectionId': 'pte-w-t2',
+          'sectionIndex': 2,
+          'sectionType': 'pte_essay',
+          'title': 'PTE Persuasive Essay',
+          'contentText': 'Discuss whether cities should expand free bicycle sharing networks.',
+          'durationSeconds': 1200,
+          'metadata': <String, dynamic>{'minWords': 12, 'maxWords': 300},
+        },
+      ],
+      'questions': <dynamic>[],
+    },
+    <String, dynamic>{
+      'pack': <String, dynamic>{
+        'packId': 'pte-speaking-pack-01',
+        'title': 'PTE Speaking: Describe Image & Read Aloud',
+        'track': 'pte',
+        'durationSeconds': 600,
+      },
+      'sections': <dynamic>[
+        <String, dynamic>{
+          'sectionId': 'pte-sp-p1',
+          'sectionIndex': 1,
+          'title': 'Describe Image: Ridership Growth',
+          'durationSeconds': 40,
+          'metadata': <String, dynamic>{
+            'prepDurationSeconds': 25,
+            'chartSvg': _e2eChartSvg,
+          },
+        },
+      ],
+      'questions': <dynamic>[
+        <String, dynamic>{
+          'questionId': 'PTE-SP-1',
+          'sectionId': 'pte-sp-p1',
+          'questionNumber': 1,
+          'questionType': 'speaking_part2',
+          'prompt': 'Describe the ridership trend displayed in the chart.',
+        },
+      ],
+    },
+    <String, dynamic>{
+      'pack': <String, dynamic>{
+        'packId': 'det-reading-pack-01',
+        'title': 'DET Reading: Read and Select + Complete',
+        'track': 'det',
+        'durationSeconds': 900,
+      },
+      'sections': <dynamic>[
+        <String, dynamic>{
+          'sectionId': 'det-r-s1',
+          'sectionIndex': 1,
+          'title': 'Lexical Screening',
+          'contentText': 'Evaluate real English academic words versus invented distractors.',
+        },
+      ],
+      'questions': <dynamic>[
+        <String, dynamic>{
+          'questionId': 'det-rq-1',
+          'sectionId': 'det-r-s1',
+          'questionNumber': 1,
+          'questionType': 'binary_choice',
+          'prompt': 'Is "resilient" a real English word?',
+          'options': <String>['YES', 'NO'],
+          'acceptedAnswers': <String>['YES'],
+        },
+        <String, dynamic>{
+          'questionId': 'det-rq-2',
+          'sectionId': 'det-r-s1',
+          'questionNumber': 2,
+          'questionType': 'binary_choice',
+          'prompt': 'Is "coherent" a real English word?',
+          'options': <String>['YES', 'NO'],
+          'acceptedAnswers': <String>['YES'],
+        },
+        <String, dynamic>{
+          'questionId': 'det-rq-3',
+          'sectionId': 'det-r-s1',
+          'questionNumber': 3,
+          'questionType': 'binary_choice',
+          'prompt': 'Is "plinthorize" a real English word?',
+          'options': <String>['YES', 'NO'],
+          'acceptedAnswers': <String>['NO'],
+        },
+        <String, dynamic>{
+          'questionId': 'det-rq-4',
+          'sectionId': 'det-r-s1',
+          'questionNumber': 4,
+          'questionType': 'binary_choice',
+          'prompt': 'Is "empirical" a real English word?',
+          'options': <String>['YES', 'NO'],
+          'acceptedAnswers': <String>['YES'],
+        },
+        <String, dynamic>{
+          'questionId': 'det-rq-5',
+          'sectionId': 'det-r-s1',
+          'questionNumber': 5,
+          'questionType': 'binary_choice',
+          'prompt': 'Is "mitigate" a real English word?',
+          'options': <String>['YES', 'NO'],
+          'acceptedAnswers': <String>['YES'],
+        },
+      ],
+    },
+    <String, dynamic>{
+      'pack': <String, dynamic>{
+        'packId': 'det-listening-pack-01',
+        'title': 'DET Listening: Listen and Type',
+        'track': 'det',
+        'mediaUrl': '/v1/media/seed/listening_seed.m4a',
+        'durationSeconds': 600,
+      },
+      'sections': <dynamic>[
+        <String, dynamic>{
+          'sectionId': 'det-l-s1',
+          'sectionIndex': 1,
+          'title': 'Listen and Type',
+          'transcript': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'speaker': 'Speaker',
+              'text': 'Museums inspire curiosity across every generation.',
+              'startMs': 0,
+              'endMs': 10000,
+            },
+          ],
+        },
+      ],
+      'questions': <dynamic>[
+        <String, dynamic>{
+          'questionId': 'det-lq-1',
+          'sectionId': 'det-l-s1',
+          'questionNumber': 1,
+          'questionType': 'dictation',
+          'prompt': 'Type the exact statement you hear.',
+          'acceptedAnswers': <String>[
+            'Museums inspire curiosity across every generation.',
+          ],
+          'maxWords': 12,
+        },
+      ],
+    },
+    <String, dynamic>{
+      'pack': <String, dynamic>{
+        'packId': 'det-writing-pack-01',
+        'title': 'DET Writing: Write About the Photo & Sample',
+        'track': 'det',
+        'durationSeconds': 900,
+      },
+      'sections': <dynamic>[
+        <String, dynamic>{
+          'sectionId': 'det-w-t1',
+          'sectionIndex': 1,
+          'sectionType': 'det_write_about_photo',
+          'title': 'Write About the Photo',
+          'contentText':
+              'Write a detailed description of the scene shown below.',
+          'durationSeconds': 60,
+          'metadata': <String, dynamic>{
+            'minWords': 10,
+            'chartSvg': _e2eChartSvg,
+          },
+        },
+        <String, dynamic>{
+          'sectionId': 'det-w-t2',
+          'sectionIndex': 2,
+          'sectionType': 'det_writing_sample',
+          'title': 'Writing Sample',
+          'contentText':
+              'Explain how public libraries strengthen neighborhoods.',
+          'durationSeconds': 300,
+          'metadata': <String, dynamic>{'minWords': 15},
+        },
+      ],
+      'questions': <dynamic>[],
+    },
+    <String, dynamic>{
+      'pack': <String, dynamic>{
+        'packId': 'det-speaking-pack-01',
+        'title': 'DET Speaking: Interactive Speaking & Sample',
+        'track': 'det',
+        'durationSeconds': 480,
+      },
+      'sections': <dynamic>[
+        <String, dynamic>{
+          'sectionId': 'det-sp-p1',
+          'sectionIndex': 1,
+          'title': 'Interactive Speaking Prompt',
+          'durationSeconds': 90,
+          'metadata': <String, dynamic>{'prepDurationSeconds': 0},
+        },
+      ],
+      'questions': <dynamic>[
+        <String, dynamic>{
+          'questionId': 'DET-SP-1',
+          'sectionId': 'det-sp-p1',
+          'questionNumber': 1,
+          'questionType': 'speaking_part1',
+          'prompt':
+              'Describe a skill you recently practiced and why it mattered.',
+        },
+      ],
+    },
+  ];
+
+  final manifestSummaries = <Map<String, dynamic>>[];
+  for (final bundle in bundles) {
+    final pack = bundle['pack']! as Map<String, dynamic>;
+    final packId = pack['packId']! as String;
+    final questions = bundle['questions']! as List<dynamic>;
+    final skill = packId.contains('-listening-')
+        ? 'listening'
+        : (packId.contains('-writing-')
+              ? 'writing'
+              : (packId.contains('-speaking-') ? 'speaking' : 'reading'));
+    await catalog.saveExamPayload(packId: packId, bundle: bundle);
+    manifestSummaries.add(<String, dynamic>{
+      'packId': packId,
+      'track': pack['track'],
+      'skill': skill,
+      'title': pack['title'],
+      'description': 'Official-style $skill simulation pack ($packId)',
+      'durationSeconds': pack['durationSeconds'],
+      'questionCount': questions.length,
+      if (pack.containsKey('mediaUrl')) 'mediaUrl': pack['mediaUrl'],
+      'version': '1.0.0',
+      'sha256': 'e2e-$packId',
+    });
+  }
+  await catalog.saveCatalogManifestPacks(manifestSummaries);
+
+  await catalog.saveSyncedDrills(<Map<String, dynamic>>[
+    <String, dynamic>{
+      'drillId': 'toefl-micro-drill-01',
+      'drillType': 'ORG',
+      'skill': 'reading',
+      'title': 'TOEFL Coherence & Words Drill',
+      'durationSeconds': 120,
+      'items': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'id': 'td-1',
+          'prompt': 'Which transition shows contrast between studies?',
+          'options': <String>['Conversely', 'Furthermore', 'Similarly'],
+          'answer': 'Conversely',
+          'explanation': 'Conversely signals an opposing relationship.',
+        },
+      ],
+    },
+    <String, dynamic>{
+      'drillId': 'pte-micro-drill-01',
+      'drillType': 'FORM',
+      'skill': 'writing',
+      'title': 'PTE Summary & Collocation Drill',
+      'durationSeconds': 120,
+      'items': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'id': 'pd-1',
+          'prompt': 'Choose the strongest collocation with "evidence":',
+          'options': <String>['compelling evidence', 'tall evidence'],
+          'answer': 'compelling evidence',
+          'explanation': 'Compelling evidence is the natural academic pairing.',
+        },
+      ],
+    },
+    <String, dynamic>{
+      'drillId': 'det-micro-drill-01',
+      'drillType': 'LIT',
+      'skill': 'reading',
+      'title': 'DET Real-Word Precision Drill',
+      'durationSeconds': 90,
+      'items': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'id': 'dd-1',
+          'prompt': 'Identify the real English verb:',
+          'options': <String>['substantiate', 'blorptinate'],
+          'answer': 'substantiate',
+          'explanation': 'Substantiate means to support with proof.',
+        },
+      ],
+    },
+  ]);
 }

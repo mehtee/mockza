@@ -7,9 +7,9 @@ This suite drives the **entire `MockzaApp`** (`GoRouter`, Riverpod providers, SQ
   - In-memory SQLite (`createTestDatabase`) + deterministic clock & entropy
   - Real file-backed `E2eAudioRecorderGateway` for Speaking uploads
   - Offline `Dio` adapter (`_OfflineE2eHttpAdapter`) handling `/v1/auth/*` and `/v1/account` erasure
-  - `seedStarterCatalog` for Reading, Listening, Writing, Speaking, Micro-Drills, and Vocabulary SRS
-  - Responsive viewport helpers (`360×640`, `390×844`) + overflow assertions
-- `robots/*.dart` — Feature-owned Page-Object Robots separating UI selectors from test assertions.
+  - `seedStarterCatalog` for Reading, Listening, Writing, Speaking, Micro-Drills, and Vocabulary SRS across all 5 exam tracks (`IELTS Academic/General, TOEFL iBT 2026, PTE Academic, Duolingo English Test`)
+  - Responsive viewport helpers (`320×640`, `360×640`, `390×844`) + overflow assertions
+- `robots/*.dart` — Feature-owned Page-Object Robots (including `MultiExamTracksRobot`) separating UI selectors from test assertions.
 - `*_e2e_test.dart` — End-to-end user journeys covering every screen, timer, and theme preset.
 
 ## How to Add E2E Tests for a Future Feature

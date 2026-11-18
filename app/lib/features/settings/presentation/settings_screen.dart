@@ -5,7 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mockza/core/auth/auth_models.dart';
-import 'package:mockza/core/models/attempt_status.dart';
+import 'package:mockza/core/exams/exam_descriptor.dart';
+import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/features/settings/presentation/settings_notifier.dart';
 import 'package:mockza/features/settings/presentation/settings_providers.dart';
 import 'package:mockza/routing/routes.dart';
@@ -112,45 +113,33 @@ class SettingsScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      'IELTS Exam Track',
-                      style: typography.body.copyWith(
-                        color: colors.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      state.examModule == ExamModuleType.academic
-                          ? 'Academic (University / Professional)'
-                          : 'General Training (Migration / Work)',
-                      style: typography.caption.copyWith(
-                        color: colors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Semantics(
-                toggled: state.examModule == ExamModuleType.academic,
-                label: 'Toggle Academic vs General Training track',
-                child: Switch(
-                  value: state.examModule == ExamModuleType.academic,
-                  onChanged: (val) {
-                    notifier.setExamModule(
-                      val
-                          ? ExamModuleType.academic
-                          : ExamModuleType.generalTraining,
-                    );
-                  },
-                ),
-              ),
-            ],
+          Text(
+            'Exam Track',
+            style: typography.body.copyWith(
+              color: colors.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: SpacingTokens.xs),
+          Text(
+            ExamDescriptor.forTrack(state.track).subtitle,
+            style: typography.caption.copyWith(
+              color: colors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: SpacingTokens.sm),
+          Wrap(
+            spacing: SpacingTokens.sm,
+            runSpacing: SpacingTokens.sm,
+            children: ExamTrack.values
+                .map(
+                  (track) => MzChip(
+                    label: track.displayName,
+                    isSelected: state.track == track,
+                    onTap: () => notifier.setTrack(track),
+                  ),
+                )
+                .toList(growable: false),
           ),
           const Divider(height: SpacingTokens.xl),
           Row(
@@ -160,14 +149,16 @@ class SettingsScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      'Target Band Score',
+                      'Target ${state.track.unitLabel} Score',
                       style: typography.body.copyWith(
                         color: colors.textPrimary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     Text(
-                      'Personal goal used for progress tracking',
+                      state.track == ExamTrack.toeflIbt
+                          ? 'Comparable to ~${ExamSpec.estimateToeflLegacy120(state.targetBand)}/120'
+                          : 'Personal goal used for progress tracking',
                       style: typography.caption.copyWith(
                         color: colors.textSecondary,
                       ),
@@ -178,19 +169,23 @@ class SettingsScreen extends ConsumerWidget {
               IconButton(
                 tooltip: 'Decrease target band score',
                 icon: const AppIcon(LucideGlyph.minus, size: 20),
-                onPressed: state.targetBand > 5.0
-                    ? () => notifier.setTargetBand(state.targetBand - 0.5)
+                onPressed: state.targetBand > state.track.minScore
+                    ? () => notifier.setTargetBand(
+                        state.targetBand - state.track.scoreStep,
+                      )
                     : null,
               ),
               Text(
-                state.targetBand.toStringAsFixed(1),
+                state.track.formatScore(state.targetBand),
                 style: typography.cardTitle.copyWith(color: colors.primary),
               ),
               IconButton(
                 tooltip: 'Increase target band score',
                 icon: const AppIcon(LucideGlyph.plus, size: 20),
-                onPressed: state.targetBand < 9.0
-                    ? () => notifier.setTargetBand(state.targetBand + 0.5)
+                onPressed: state.targetBand < state.track.maxScore
+                    ? () => notifier.setTargetBand(
+                        state.targetBand + state.track.scoreStep,
+                      )
                     : null,
               ),
             ],
@@ -843,7 +838,7 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: SpacingTokens.xs),
           Text(
-            'Mockza is an independent prep simulator and is not affiliated with, approved, or endorsed by IELTS, Cambridge Assessment English, British Council, IDP, PTE, or ETS. IELTS is a registered trademark.',
+            'Mockza is an independent prep simulator and is not affiliated with, approved, or endorsed by IELTS, Cambridge Assessment English, British Council, IDP, PTE, Duolingo, or ETS.',
             style: typography.caption.copyWith(
               color: colors.textSecondary,
               height: 1.4,

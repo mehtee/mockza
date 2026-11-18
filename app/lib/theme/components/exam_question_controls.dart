@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/exams/question_progress_item.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
@@ -776,6 +777,282 @@ class _MzControlledAnswerFieldState extends State<MzControlledAnswerField> {
         ),
         onChanged: widget.onChanged,
       ),
+    );
+  }
+}
+
+/// Interactive tap-to-order sequence control for PTE Re-order Paragraphs & multi-item ordering.
+/// Stores selected option codes as pipe-delimited uppercase letters (e.g. `A|B|C|D`).
+class MzSequenceOrderControl extends StatelessWidget {
+  /// Creates an [MzSequenceOrderControl].
+  const new({
+    required this.options,
+    required this.currentValue,
+    required this.onChanged,
+    super.key,
+  });
+
+  /// Ordered source option strings (e.g. `["A. ...", "B. ..."]`).
+  final List<String> options;
+
+  /// Current pipe/comma separated sequence string.
+  final String currentValue;
+
+  /// Called with updated `'A|B|...'` string whenever learner taps an option or clears.
+  final ValueChanged<String> onChanged;
+
+  List<String> _parseSequenceTokens() {
+    final trimmed = currentValue.trim().toUpperCase();
+    if (trimmed.isEmpty) return const <String>[];
+    return trimmed
+        .split(RegExp(r'[\s|,;]+'))
+        .map((t) => t.replaceAll(RegExp('[^A-Z0-9]'), ''))
+        .where((t) => t.isNotEmpty)
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final typography = AppTypography.of(context);
+    final shapes = AppShapes.of(context);
+    final selectedOrder = _parseSequenceTokens();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                selectedOrder.isEmpty
+                    ? 'Tap paragraphs below in logical order:'
+                    : 'Your order: ${selectedOrder.join(' → ')}',
+                style: typography.caption.copyWith(
+                  color: selectedOrder.isEmpty
+                      ? colors.textSecondary
+                      : colors.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            if (selectedOrder.isNotEmpty)
+              TextButton(
+                onPressed: () => onChanged(''),
+                child: Text(
+                  'Reset order',
+                  style: typography.caption.copyWith(
+                    color: colors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: SpacingTokens.xs),
+        ...options.asMap().entries.map((entry) {
+          final parsed = parseObjectiveChoiceOption(
+            ObjectiveQuestionType.mcqSingle,
+            entry.value,
+            entry.key,
+            const <String>[],
+          );
+          final rankIndex = selectedOrder.indexOf(parsed.label.toUpperCase());
+          final isPicked = rankIndex >= 0;
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: SpacingTokens.xs),
+            child: Semantics(
+              button: true,
+              selected: isPicked,
+              label:
+                  '${parsed.label}: ${parsed.displayText}${isPicked ? ", position ${rankIndex + 1}" : ""}',
+              child: InkWell(
+                borderRadius: shapes.controlRadius,
+                onTap: () {
+                  final next = List<String>.from(selectedOrder);
+                  final code = parsed.label.toUpperCase();
+                  if (next.contains(code)) {
+                    next.remove(code);
+                  } else {
+                    next.add(code);
+                  }
+                  onChanged(next.join('|'));
+                },
+                child: Container(
+                  padding: const EdgeInsetsDirectional.all(SpacingTokens.sm),
+                  decoration: BoxDecoration(
+                    color: isPicked ? colors.blueBg : colors.surfaceAlt,
+                    borderRadius: shapes.controlRadius,
+                    border: Border.all(
+                      color: isPicked ? colors.primary : colors.borderSubtle,
+                      width: shapes.strokeWidth,
+                    ),
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      Container(
+                        width: 28,
+                        height: 28,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: isPicked ? colors.primary : colors.surface,
+                          borderRadius: shapes.pillRadius,
+                          border: Border.all(
+                            color: isPicked
+                                ? colors.primary
+                                : colors.borderStrong,
+                          ),
+                        ),
+                        child: Text(
+                          isPicked ? '${rankIndex + 1}' : parsed.label,
+                          style: typography.caption.copyWith(
+                            color: isPicked
+                                ? colors.onPrimary
+                                : colors.textSecondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: SpacingTokens.sm),
+                      Expanded(
+                        child: Text(
+                          '${parsed.label}. ${parsed.displayText}',
+                          style: typography.body.copyWith(
+                            color: colors.textPrimary,
+                            fontWeight: isPicked
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+}
+
+/// Shared polymorphic objective question answer control (reused by Reading & Listening simulators, DRY + OCP).
+class MzObjectiveAnswerInput extends StatelessWidget {
+  /// Creates an [MzObjectiveAnswerInput].
+  const new({
+    required this.question,
+    required this.currentAnswer,
+    required this.onAnswer,
+    required this.onToggleMulti,
+    super.key,
+  });
+
+  /// Objective question spec driving widget layout and validation hints.
+  final QuestionSpec question;
+
+  /// Current stored answer string (`null` if unanswered).
+  final String? currentAnswer;
+
+  /// Callback setting single-value answers (choice, text, or sequence).
+  final void Function(int questionNumber, String value) onAnswer;
+
+  /// Callback toggling multi-select MCQ option codes.
+  final void Function(int questionNumber, String optionValue) onToggleMulti;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final typography = AppTypography.of(context);
+    final q = question;
+
+    if (q.questionType == ObjectiveQuestionType.tfng ||
+        q.questionType == ObjectiveQuestionType.ynng ||
+        q.questionType == ObjectiveQuestionType.binaryChoice) {
+      final labels = q.questionType == ObjectiveQuestionType.ynng
+          ? const <String>['YES', 'NO', 'NOT GIVEN']
+          : q.questionType == ObjectiveQuestionType.binaryChoice
+          ? (q.options.isNotEmpty
+                ? q.options
+                : const <String>['REAL', 'NOT REAL'])
+          : const <String>['TRUE', 'FALSE', 'NOT GIVEN'];
+      return MzBinaryChoiceRow(
+        labels: labels,
+        selectedLabel: currentAnswer,
+        onSelect: (lbl) => onAnswer(q.number, lbl),
+      );
+    }
+
+    if (q.questionType == ObjectiveQuestionType.reorderSequence &&
+        q.options.isNotEmpty) {
+      return MzSequenceOrderControl(
+        options: q.options,
+        currentValue: currentAnswer ?? '',
+        onChanged: (seq) => onAnswer(q.number, seq),
+      );
+    }
+
+    if (q.options.isNotEmpty) {
+      final isMulti = q.questionType == ObjectiveQuestionType.mcqMulti;
+      final selectedMulti = (currentAnswer ?? '')
+          .split(',')
+          .map((s) => s.trim())
+          .toSet();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: List<Widget>.generate(q.options.length, (oIdx) {
+          final rawOpt = q.options[oIdx];
+          final parsed = parseObjectiveChoiceOption(
+            q.questionType,
+            rawOpt,
+            oIdx,
+            q.acceptedVariants,
+          );
+          final isSel = isMulti
+              ? (selectedMulti.contains(parsed.value) ||
+                    selectedMulti.contains(parsed.label) ||
+                    selectedMulti.contains(rawOpt))
+              : (currentAnswer == parsed.value ||
+                    currentAnswer == parsed.label ||
+                    currentAnswer == rawOpt);
+          return Padding(
+            padding: const EdgeInsetsDirectional.only(bottom: SpacingTokens.xs),
+            child: MzChoiceOptionTile(
+              badgeLabel: parsed.label,
+              text: parsed.displayText,
+              isSelected: isSel,
+              onTap: () => isMulti
+                  ? onToggleMulti(q.number, parsed.value)
+                  : onAnswer(q.number, parsed.value),
+            ),
+          );
+        }),
+      );
+    }
+
+    final hint = switch (q.questionType) {
+      ObjectiveQuestionType.wordCompletion => 'Type complete word...',
+      ObjectiveQuestionType.dictation => 'Type the exact spoken sentence...',
+      _ => 'Type answer...',
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          q.questionType == ObjectiveQuestionType.dictation
+              ? 'Transcribe exact words'
+              : 'Max ${q.maxWords} word${q.maxWords == 1 ? '' : 's'}',
+          style: typography.caption.copyWith(color: colors.textTertiary),
+        ),
+        const SizedBox(height: SpacingTokens.xs),
+        MzControlledAnswerField(
+          value: currentAnswer ?? '',
+          hint: hint,
+          onChanged: (val) => onAnswer(q.number, val),
+        ),
+      ],
     );
   }
 }

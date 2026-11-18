@@ -23,6 +23,7 @@ class MicroDrillsState {
     required this.remainingSeconds,
     required this.score,
     required this.isFinished,
+    this.examTrack = ExamTrack.ieltsAcademic,
     this.isLoading = false,
     this.hasSelectedDrill = false,
     this.errorMessage,
@@ -33,6 +34,15 @@ class MicroDrillsState {
 
   /// Active micro-drill specification when running/completed.
   final MicroDrillSpec? drillSpec;
+
+  /// Active exam track for scale normalization.
+  final ExamTrack examTrack;
+
+  /// Effective exam track for the active drill and target profile.
+  ExamTrack get effectiveExamTrack => ExamTrack.resolveForPackOrProfile(
+    packId: drillSpec?.drillId ?? '',
+    profileExamId: examTrack.id,
+  );
 
   /// Current exercise index (`0..items.length - 1`).
   final int currentIndex;
@@ -91,6 +101,7 @@ class MicroDrillsState {
     List<MicroDrillSpec>? availableDrills,
     MicroDrillSpec? drillSpec,
     bool clearDrillSpec = false,
+    ExamTrack? examTrack,
     int? currentIndex,
     String? selectedOption,
     bool clearSelected = false,
@@ -106,6 +117,7 @@ class MicroDrillsState {
   }) => MicroDrillsState(
     availableDrills: availableDrills ?? this.availableDrills,
     drillSpec: clearDrillSpec ? null : (drillSpec ?? this.drillSpec),
+    examTrack: examTrack ?? this.examTrack,
     currentIndex: currentIndex ?? this.currentIndex,
     selectedOption: clearSelected
         ? null
@@ -164,6 +176,10 @@ class MicroDrillsNotifier extends Notifier<MicroDrillsState> {
     );
 
     final catalogRepo = ref.read(examCatalogRepositoryProvider);
+    final profile = await ref
+        .read(profileRepositoryProvider)
+        .loadOrInitializePrimary();
+    final profileTrack = ExamTrack.fromId(profile.examId);
     var drills = await catalogRepo.watchDrills().first;
 
     if (drills.isEmpty || forceSync) {
@@ -180,6 +196,7 @@ class MicroDrillsNotifier extends Notifier<MicroDrillsState> {
       state = state.copyWith(
         availableDrills: const <MicroDrillSpec>[],
         clearDrillSpec: true,
+        examTrack: profileTrack,
         isLoading: false,
         hasSelectedDrill: false,
         errorMessage: 'No micro-drills cached yet. Connect to internet and tap Sync Drills.',
@@ -193,6 +210,7 @@ class MicroDrillsNotifier extends Notifier<MicroDrillsState> {
       state = state.copyWith(
         availableDrills: drills,
         clearDrillSpec: true,
+        examTrack: profileTrack,
         isLoading: false,
         hasSelectedDrill: false,
         clearSelected: true,
@@ -255,6 +273,7 @@ class MicroDrillsNotifier extends Notifier<MicroDrillsState> {
     state = MicroDrillsState(
       availableDrills: list,
       drillSpec: spec,
+      examTrack: state.examTrack,
       currentIndex: 0,
       selectedOption: null,
       isSubmitted: false,
@@ -359,12 +378,11 @@ class MicroDrillsNotifier extends Notifier<MicroDrillsState> {
         .clamp(5, 1800);
     final attemptId = entropy.nextUuidV4();
 
-    final normalizedBand = ((state.score / spec.items.length) * 9.0).clamp(
-      0.0,
-      9.0,
-    );
+    final track = state.effectiveExamTrack;
+    final scaledScore = track.scoreFromRatio(state.score / spec.items.length);
 
     await attemptRepo.saveLocalSubmission(
+      examId: track.id,
       attemptId: attemptId,
       packId: spec.drillId,
       skill: SkillKind.vocabulary,
@@ -374,7 +392,7 @@ class MicroDrillsNotifier extends Notifier<MicroDrillsState> {
         'score': state.score,
         'total': spec.items.length,
       }),
-      overallBand: double.parse(normalizedBand.toStringAsFixed(1)),
+      overallBand: scaledScore,
       status: AttemptStatus.scored,
       startedAtUtcMs: now.millisecondsSinceEpoch - (elapsedSeconds * 1000),
       completedAtUtcMs: now.millisecondsSinceEpoch,

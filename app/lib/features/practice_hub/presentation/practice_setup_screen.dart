@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockza/core/exams/exam_descriptor.dart';
+import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/data/repositories/exam_catalog_repository.dart';
 import 'package:mockza/features/practice_hub/presentation/practice_hub_providers.dart';
@@ -46,10 +48,16 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
     final hubState = ref.watch(practiceHubNotifierProvider);
     final hubNotifier = ref.read(practiceHubNotifierProvider.notifier);
     final packsAsync = ref.watch(installedExamPacksProvider);
+    final profile = ref.watch(practiceProfileProvider).asData?.value;
+    final activeTrack = ExamTrack.fromId(profile?.examId ?? 'ielts_academic');
 
-    final matching = (packsAsync.asData?.value ?? const <InstalledExamPack>[])
+    final skillPacks = (packsAsync.asData?.value ?? const <InstalledExamPack>[])
         .where((p) => p.skill == _skillKind)
         .toList(growable: false);
+    final trackPacks = skillPacks
+        .where((p) => p.track == activeTrack.catalogTrack)
+        .toList(growable: false);
+    final matching = trackPacks.isNotEmpty ? trackPacks : skillPacks;
 
     return MzScaffold(
       appBar: AppBar(
@@ -176,7 +184,7 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
                   PrimaryButton(
                     label: 'Start Default Module',
                     onPressed: () =>
-                        _launchPack(context, _defaultPackForSkill()),
+                        _launchPack(context, _defaultPackForSkill(activeTrack)),
                   ),
                 ],
               ),
@@ -210,13 +218,8 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
     );
   }
 
-  String _defaultPackForSkill() => switch (_skillKind) {
-    SkillKind.speaking => 'ielts-speaking-seed-01',
-    SkillKind.writing => 'ielts-writing-seed-01',
-    SkillKind.reading => 'ielts-acad-reading-seed-01',
-    SkillKind.listening => 'ielts-listening-seed-01',
-    SkillKind.vocabulary => 'ielts-speaking-seed-01',
-  };
+  String _defaultPackForSkill(ExamTrack track) =>
+      ExamDescriptor.forTrack(track).defaultPackIdForSkill(_skillKind);
 
   void _launchPack(BuildContext context, String packId) {
     final route = switch (_skillKind) {

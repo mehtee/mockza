@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/models/evaluation_models.dart';
 import 'package:mockza/core/models/speaking_evaluation.dart';
 import 'package:mockza/core/models/user_profile.dart';
@@ -488,13 +489,13 @@ final class HttpGradingGateway implements GradingGateway {
     }
   }
 
-  static String _normalizeBackendExamId(String raw) =>
-      raw.contains('general') ? 'ielts_general' : 'ielts_academic';
+  static String _normalizeBackendExamId(String raw) => ExamTrack.fromId(raw).id;
 
   static String _normalizePartSequence(String raw) => switch (raw.trim()) {
     'part_1' || 'part1' => 'part1',
     'part_2' || 'part2' => 'part2',
     'part_3' || 'part3' => 'part3',
+    'part_4' || 'part4' => 'part4',
     'diagnostic' => 'diagnostic',
     _ => 'full',
   };

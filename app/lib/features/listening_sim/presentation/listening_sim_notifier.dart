@@ -585,9 +585,11 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
       final clock = ref.read(clockProvider);
 
       final profile = await profileRepo.loadOrInitializePrimary();
-      final examId = profile.examId == 'ielts_general'
-          ? 'ielts_general'
-          : 'ielts_academic';
+      final effectiveTrack = ExamTrack.resolveForPackOrProfile(
+        packId: state.packId,
+        profileExamId: profile.examId,
+      );
+      final examId = effectiveTrack.id;
 
       final allQuestions = pack.sections.expand((s) => s.questions).toList();
       final inputs = allQuestions
@@ -599,6 +601,7 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
               acceptedAnswers: q.acceptedVariants,
               userAnswer: state.answers[q.number],
               maxWords: q.maxWords,
+              questionType: q.questionType,
             ),
           )
           .toList(growable: false);
@@ -606,6 +609,7 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
       final report = LocalObjectiveScorer.score(
         answers: inputs,
         skill: SkillKind.listening,
+        track: effectiveTrack,
       );
 
       final attemptId = entropy.nextUuidV4();

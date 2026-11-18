@@ -453,8 +453,13 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
         children: <Widget>[
           Center(
             child: ScoreMeter(
-              score: (state.score / total) * 9.0,
-              label: 'Drill Band Impact',
+              score: state.effectiveExamTrack.scoreFromRatio(
+                state.score / total,
+              ),
+              minScore: state.effectiveExamTrack.minScore,
+              maxScore: state.effectiveExamTrack.maxScore,
+              targetScore: state.effectiveExamTrack.targetScoreDefault,
+              label: 'Drill ${state.effectiveExamTrack.unitLabel} Impact',
             ),
           ),
           const SizedBox(height: SpacingTokens.lg),

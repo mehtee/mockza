@@ -1,3 +1,5 @@
+import { MULTI_EXAM_BUNDLES } from './multi-exam-bundles.js';
+
 export interface SeedExamBundle {
   pack: {
     packId: string;
@@ -3556,4 +3558,5 @@ export const STARTER_EXAM_BUNDLES: SeedExamBundle[] = [
       },
     ],
   },
+  ...MULTI_EXAM_BUNDLES,
 ];

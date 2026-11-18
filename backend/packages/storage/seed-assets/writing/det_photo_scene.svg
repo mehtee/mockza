@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 480" role="img" aria-label="Community urban rooftop botanical workshop">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1E3A5F"/>
+      <stop offset="100%" stop-color="#4A7C9B"/>
+    </linearGradient>
+    <linearGradient id="terrace" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#D7C8B2"/>
+      <stop offset="100%" stop-color="#B8A48C"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="480" fill="url(#sky)"/>
+  <circle cx="670" cy="88" r="38" fill="#FDE68A" opacity="0.92"/>
+  <rect x="35" y="150" width="95" height="175" rx="4" fill="#2A4468"/>
+  <rect x="145" y="110" width="120" height="215" rx="4" fill="#324F77"/>
+  <rect x="520" y="135" width="110" height="190" rx="4" fill="#284266"/>
+  <rect x="645" y="95" width="120" height="230" rx="4" fill="#355682"/>
+  <g fill="#FDE68A" opacity="0.65">
+    <rect x="165" y="135" width="16" height="22" rx="2"/>
+    <rect x="195" y="135" width="16" height="22" rx="2"/>
+    <rect x="225" y="135" width="16" height="22" rx="2"/>
+    <rect x="165" y="172" width="16" height="22" rx="2"/>
+    <rect x="225" y="172" width="16" height="22" rx="2"/>
+    <rect x="665" y="120" width="18" height="24" rx="2"/>
+    <rect x="700" y="120" width="18" height="24" rx="2"/>
+    <rect x="665" y="160" width="18" height="24" rx="2"/>
+  </g>
+  <rect x="0" y="320" width="800" height="160" fill="url(#terrace)"/>
+  <line x1="0" y1="320" x2="800" y2="320" stroke="#7A6B5D" stroke-width="6"/>
+  <rect x="70" y="290" width="190" height="75" rx="8" fill="#6D4C3D"/>
+  <rect x="82" y="298" width="166" height="26" rx="4" fill="#3F2B21"/>
+  <path d="M110 298 C100 262, 125 245, 130 278 C142 248, 166 258, 152 298 Z" fill="#2E8B57"/>
+  <path d="M180 298 C172 256, 200 242, 205 276 C216 250, 238 265, 224 298 Z" fill="#3CB371"/>
+  <circle cx="195" cy="256" r="6" fill="#F59E0B"/>
+  <circle cx="128" cy="262" r="5" fill="#FB7185"/>
+  <rect x="330" y="255" width="220" height="18" rx="4" fill="#8B5A2B"/>
+  <rect x="350" y="273" width="14" height="90" fill="#6D4C3D"/>
+  <rect x="515" y="273" width="14" height="90" fill="#6D4C3D"/>
+  <path d="M360 255 L354 228 L384 228 L378 255 Z" fill="#C26A4A"/>
+  <path d="M369 228 C362 206, 380 198, 375 220 C385 204, 396 214, 382 228 Z" fill="#2E8B57"/>
+  <rect x="410" y="220" width="44" height="35" rx="4" fill="#38BDF8"/>
+  <path d="M454 230 L482 212 L488 220 L454 242 Z" fill="#38BDF8"/>
+  <rect x="490" y="232" width="38" height="23" rx="3" fill="#475569"/>
+  <circle cx="300" cy="222" r="18" fill="#F1C27D"/>
+  <rect x="282" y="242" width="36" height="58" rx="10" fill="#2563EB"/>
+  <rect x="286" y="300" width="12" height="58" rx="4" fill="#1E293B"/>
+  <rect x="302" y="300" width="12" height="58" rx="4" fill="#1E293B"/>
+  <circle cx="578" cy="218" r="18" fill="#C68642"/>
+  <rect x="560" y="238" width="36" height="58" rx="10" fill="#059669"/>
+  <rect x="564" y="296" width="12" height="58" rx="4" fill="#334155"/>
+  <rect x="580" y="296" width="12" height="58" rx="4" fill="#334155"/>
+  <rect x="315" y="162" width="180" height="40" rx="8" fill="#0F172A" opacity="0.82"/>
+  <text x="405" y="187" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="bold" fill="#F8FAFC">ROOFTOP GARDEN WORKSHOP</text>
+</svg>

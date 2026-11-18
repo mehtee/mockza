@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockza/core/exams/exam_descriptor.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/features/home/presentation/home_providers.dart';
@@ -38,7 +39,10 @@ class HomeScreen extends ConsumerWidget {
     if (state.estimatedSummary.changeThisMonth != null) {
       final delta = state.estimatedSummary.changeThisMonth!;
       final prefix = delta >= 0 ? '+' : '';
-      deltaText = '$prefix${delta.toStringAsFixed(1)} this month';
+      final formattedDelta = state.track.usesIntegerDisplay
+          ? delta.round().toString()
+          : delta.toStringAsFixed(1);
+      deltaText = '$prefix$formattedDelta this month';
     }
 
     // Extract four individual skill score readouts
@@ -83,11 +87,18 @@ class HomeScreen extends ConsumerWidget {
         })
         .toList(growable: false);
 
-    final isGeneral = state.track == ExamTrack.ieltsGeneral;
-    final isIelts = state.track == ExamTrack.ieltsAcademic || isGeneral;
-    final targetChipText = isIelts
-        ? 'Target ${state.targetBand.toStringAsFixed(1)}'
-        : 'Target ${state.targetBand.round()}';
+    final descriptor = ExamDescriptor.forTrack(state.track);
+    final targetChipText =
+        'Target ${state.track.formatScore(state.targetBand)}';
+    final insights = state.estimatedSummary.overallBand != null
+        ? descriptor.buildScoreInsights(
+            overallScore: state.estimatedSummary.overallBand!,
+            reading: readingScore,
+            listening: listeningScore,
+            writing: writingScore,
+            speaking: speakingScore,
+          )
+        : const <({String label, String detail})>[];
 
     return MzScaffold(
       body: Column(
@@ -190,6 +201,8 @@ class HomeScreen extends ConsumerWidget {
                 MetricHero(
                   estimatedScore: state.estimatedSummary.overallBand,
                   targetScore: state.targetBand,
+                  minScore: state.track.minScore,
+                  maxScore: state.track.maxScore,
                   scoreDeltaText: deltaText,
                   scaleLabel: state.track.scaleLabel,
                   onTapDiagnostic: () {
@@ -212,6 +225,21 @@ class HomeScreen extends ConsumerWidget {
                   },
                   onTapCard: () => context.go(AppRoutes.progress),
                 ),
+                if (insights.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: SpacingTokens.sm),
+                  Wrap(
+                    spacing: SpacingTokens.xs,
+                    runSpacing: SpacingTokens.xs,
+                    children: insights
+                        .map(
+                          (item) => MzChip(
+                            label: '${item.label}: ${item.detail}',
+                            isSelected: true,
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                ],
                 const SizedBox(height: SpacingTokens.lg),
 
                 // Skill Metric 2-column Grid
@@ -223,9 +251,10 @@ class HomeScreen extends ConsumerWidget {
                         glyph: LucideGlyph.mic,
                         tint: IconWellTint.blue,
                         score: speakingScore,
+                        minScore: state.track.minScore,
                         maxScore: state.track.maxScore,
                         onTap: () => context.push(
-                          AppRoutes.buildSpeakingSim(),
+                          AppRoutes.buildSpeakingSim(descriptor.speakingPackId),
                         ),
                       ),
                     ),
@@ -236,13 +265,10 @@ class HomeScreen extends ConsumerWidget {
                         glyph: LucideGlyph.pencil,
                         tint: IconWellTint.violet,
                         score: writingScore,
+                        minScore: state.track.minScore,
                         maxScore: state.track.maxScore,
                         onTap: () => context.push(
-                          AppRoutes.buildWritingSim(
-                            isGeneral
-                                ? 'ielts-writing-gt-01'
-                                : 'ielts-writing-seed-01',
-                          ),
+                          AppRoutes.buildWritingSim(descriptor.writingPackId),
                         ),
                       ),
                     ),
@@ -257,13 +283,10 @@ class HomeScreen extends ConsumerWidget {
                         glyph: LucideGlyph.bookOpen,
                         tint: IconWellTint.mint,
                         score: readingScore,
+                        minScore: state.track.minScore,
                         maxScore: state.track.maxScore,
                         onTap: () => context.push(
-                          AppRoutes.buildReadingSim(
-                            isGeneral
-                                ? 'ielts-gt-reading-seed-01'
-                                : 'ielts-acad-reading-seed-01',
-                          ),
+                          AppRoutes.buildReadingSim(descriptor.readingPackId),
                         ),
                       ),
                     ),
@@ -274,9 +297,12 @@ class HomeScreen extends ConsumerWidget {
                         glyph: LucideGlyph.headphones,
                         tint: IconWellTint.blue,
                         score: listeningScore,
+                        minScore: state.track.minScore,
                         maxScore: state.track.maxScore,
                         onTap: () => context.push(
-                          AppRoutes.buildListeningSim(),
+                          AppRoutes.buildListeningSim(
+                            descriptor.listeningPackId,
+                          ),
                         ),
                       ),
                     ),
@@ -319,44 +345,56 @@ class HomeScreen extends ConsumerWidget {
         context: context,
         title: 'Switch Exam Track',
         child: Builder(
-          builder: (sheetCtx) => Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              for (final track in <ExamTrack>[
-                ExamTrack.ieltsAcademic,
-                ExamTrack.ieltsGeneral,
-              ]) ...<Widget>[
-                GestureDetector(
-                  onTap: () {
-                    ref.read(homeNotifierProvider.notifier).setTrack(track);
-                    Navigator.of(sheetCtx).pop();
-                  },
-                  child: MzCard(
-                    child: Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            track.displayName,
-                            style: typography.cardTitle,
+          builder: (sheetCtx) => SingleChildScrollView(
+            padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                for (final track in ExamTrack.values) ...<Widget>[
+                  GestureDetector(
+                    onTap: () {
+                      ref.read(homeNotifierProvider.notifier).setTrack(track);
+                      Navigator.of(sheetCtx).pop();
+                    },
+                    child: MzCard(
+                      child: Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                Text(
+                                  track.displayName,
+                                  style: typography.cardTitle,
+                                ),
+                                Text(
+                                  ExamDescriptor.forTrack(track).subtitle,
+                                  style: typography.caption.copyWith(
+                                    color: colors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        AppIcon(
-                          track == activeTrack
-                              ? LucideGlyph.checkCircle2
-                              : LucideGlyph.chevronRight,
-                          color: track == activeTrack
-                              ? colors.primary
-                              : colors.textTertiary,
-                          size: 20,
-                        ),
-                      ],
+                          AppIcon(
+                            track == activeTrack
+                                ? LucideGlyph.checkCircle2
+                                : LucideGlyph.chevronRight,
+                            color: track == activeTrack
+                                ? colors.primary
+                                : colors.textTertiary,
+                            size: 20,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: SpacingTokens.sm),
+                  const SizedBox(height: SpacingTokens.sm),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

@@ -121,7 +121,9 @@ class AttemptListRow extends StatelessWidget {
           ),
         ),
         child: Text(
-          overallBand!.toStringAsFixed(1),
+          overallBand! > 9.5
+              ? overallBand!.round().toString()
+              : overallBand!.toStringAsFixed(1),
           style: typography.cardTitle.copyWith(
             fontWeight: FontWeight.w700,
             color: colors.textPrimary,

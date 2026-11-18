@@ -1,5 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:meta/meta.dart';
-import 'package:mockza/core/exams/band_conversion_table.dart';
+import 'package:mockza/core/exams/exam_descriptor.dart';
+import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 
 /// Common UK to US spelling normalization map for IELTS answers.
@@ -61,6 +64,7 @@ class ObjectiveQuestionAnswer {
     required this.acceptedAnswers,
     required this.userAnswer,
     this.maxWords = 3,
+    this.questionType = ObjectiveQuestionType.shortAnswer,
   });
 
   /// Stable question identifier inside the test pack.
@@ -74,6 +78,9 @@ class ObjectiveQuestionAnswer {
 
   /// Maximum words permitted (strict limit in IELTS instructions).
   final int maxWords;
+
+  /// Objective question type used for sequence/dictation normalization.
+  final ObjectiveQuestionType questionType;
 }
 
 /// Result of deterministic offline objective scoring.
@@ -155,11 +162,28 @@ abstract final class LocalObjectiveScorer {
     return trimmed.split(RegExp(r'\s+')).length;
   }
 
-  /// Scores [answers] locally and computes the corresponding IELTS band.
+  /// Normalizes ordered sequence answers (`A|B|C|D`, `A, B, C, D`, `ABCD`)
+  /// into a canonical pipe-delimited uppercase token string.
+  static String normalizeSequence(String raw) {
+    final trimmed = raw.trim().toUpperCase();
+    if (trimmed.isEmpty) return '';
+    if (RegExp(r'^[A-Z]{2,8}$').hasMatch(trimmed)) {
+      return trimmed.split('').join('|');
+    }
+    final tokens = trimmed
+        .split(RegExp(r'[\s|,;]+'))
+        .map((t) => t.replaceAll(RegExp('[^A-Z0-9]'), ''))
+        .where((t) => t.isNotEmpty)
+        .toList();
+    return tokens.join('|');
+  }
+
+  /// Scores [answers] locally and computes the corresponding exam-scaled score.
   static ObjectiveScoreReport score({
     required List<ObjectiveQuestionAnswer> answers,
     required SkillKind skill,
     ExamModuleType moduleType = ExamModuleType.academic,
+    ExamTrack? track,
   }) {
     var correct = 0;
     final perQuestion = <String, bool>{};
@@ -169,21 +193,31 @@ abstract final class LocalObjectiveScorer {
       var isMatch = false;
 
       if (candidate != null && candidate.trim().isNotEmpty) {
-        // Strict word count limit enforcement (IELTS standard rule)
-        final wordCount = countWords(candidate);
-        if (wordCount <= item.maxWords) {
-          final normalizedCandidate = normalize(candidate);
+        if (item.questionType == ObjectiveQuestionType.reorderSequence) {
+          final normalizedSeq = normalizeSequence(candidate);
+          isMatch = item.acceptedAnswers.any(
+            (key) => normalizeSequence(key) == normalizedSeq,
+          );
+        } else {
+          final effectiveMaxWords =
+              (item.questionType == ObjectiveQuestionType.dictation ||
+                  item.questionType == ObjectiveQuestionType.binaryChoice)
+              ? math.max(item.maxWords, 25)
+              : item.maxWords;
+          final wordCount = countWords(candidate);
+          if (wordCount <= effectiveMaxWords) {
+            final normalizedCandidate = normalize(candidate);
 
-          isMatch = item.acceptedAnswers.any((key) {
-            final normalizedKey = normalize(key);
-            if (normalizedKey == normalizedCandidate) return true;
+            isMatch = item.acceptedAnswers.any((key) {
+              final normalizedKey = normalize(key);
+              if (normalizedKey == normalizedCandidate) return true;
 
-            // Direct match without tokenization if identical after trim/lower
-            if (key.trim().toLowerCase() == candidate.trim().toLowerCase()) {
-              return true;
-            }
-            return false;
-          });
+              if (key.trim().toLowerCase() == candidate.trim().toLowerCase()) {
+                return true;
+              }
+              return false;
+            });
+          }
         }
       }
 
@@ -191,28 +225,27 @@ abstract final class LocalObjectiveScorer {
       if (isMatch) correct += 1;
     }
 
-    // Scale short practice packs (<40 items) proportionally to 40-item IELTS table.
-    final scaledCorrect = (answers.isNotEmpty && answers.length != 40)
-        ? ((correct / answers.length) * 40).round().clamp(0, 40)
-        : correct;
-
-    final band = switch (skill) {
-      SkillKind.listening => BandConversionTable.listeningBandFor(
-        scaledCorrect,
-      ),
-      SkillKind.reading => BandConversionTable.readingBandFor(
-        scaledCorrect,
-        moduleType: moduleType,
-      ),
-      SkillKind.speaking || SkillKind.writing || SkillKind.vocabulary => 0.0,
-    };
+    final resolvedTrack =
+        track ??
+        (moduleType == ExamModuleType.generalTraining
+            ? ExamTrack.ieltsGeneral
+            : ExamTrack.ieltsAcademic);
+    final descriptor = ExamDescriptor.forTrack(resolvedTrack);
+    final isFullLength =
+        answers.length >= descriptor.minCalibratedObjectiveCount;
+    final scoreValue = descriptor.scoreObjective(
+      skill: skill,
+      correctCount: correct,
+      totalCount: answers.length,
+      isFullLength: isFullLength,
+    );
 
     return ObjectiveScoreReport(
       correctCount: correct,
       totalCount: answers.length,
-      bandScore: band,
+      bandScore: scoreValue,
       questionCorrectness: perQuestion,
-      isCalibratedFullPack: answers.length == 40,
+      isCalibratedFullPack: isFullLength,
     );
   }
 }

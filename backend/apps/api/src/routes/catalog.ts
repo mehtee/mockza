@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { createRoute, type OpenAPIHono, z } from '@hono/zod-openapi';
 import type { AppEnv } from '@mockza/config';
-import { CatalogManifestResponseSchema } from '@mockza/contracts';
+import { CatalogManifestResponseSchema, CatalogTrackSchema } from '@mockza/contracts';
 import { catalogPacks, type MockzaDb } from '@mockza/db';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { RequestVariables } from '../middleware/request-id.js';
@@ -17,7 +17,7 @@ export function registerCatalogRoutes(
     request: {
       query: z.object({
         skill: z.string().optional(),
-        track: z.enum(['academic', 'general']).optional(),
+        track: CatalogTrackSchema.optional(),
       }),
     },
     responses: {
@@ -38,7 +38,7 @@ export function registerCatalogRoutes(
       edition: 'glb' | 'irn';
       examId: string;
       skill: string;
-      track: 'academic' | 'general';
+      track: z.infer<typeof CatalogTrackSchema>;
       title: string;
       description: string;
       durationSeconds: number;
@@ -77,7 +77,7 @@ export function registerCatalogRoutes(
         edition,
         examId: r.examId,
         skill: r.skill,
-        track: r.track === 'general' ? 'general' : 'academic',
+        track: CatalogTrackSchema.catch('academic').parse(r.track),
         title: r.title,
         description: r.description,
         durationSeconds: r.durationSeconds,

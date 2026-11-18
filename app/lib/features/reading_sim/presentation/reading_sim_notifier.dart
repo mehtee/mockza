@@ -511,12 +511,14 @@ class ReadingSimNotifier extends Notifier<ReadingSimState> {
       final clock = ref.read(clockProvider);
 
       final profile = await profileRepo.loadOrInitializePrimary();
-      final isGeneral =
-          profile.examId == 'ielts_general' || state.packId.contains('-gt-');
-      final moduleType = isGeneral
+      final effectiveTrack = ExamTrack.resolveForPackOrProfile(
+        packId: state.packId,
+        profileExamId: profile.examId,
+      );
+      final moduleType = effectiveTrack == ExamTrack.ieltsGeneral
           ? ExamModuleType.generalTraining
           : ExamModuleType.academic;
-      final examId = isGeneral ? 'ielts_general' : 'ielts_academic';
+      final examId = effectiveTrack.id;
 
       final allQuestions = pack.passages.expand((p) => p.questions).toList();
       final inputs = allQuestions
@@ -528,6 +530,7 @@ class ReadingSimNotifier extends Notifier<ReadingSimState> {
               acceptedAnswers: q.acceptedVariants,
               userAnswer: state.answers[q.number],
               maxWords: q.maxWords,
+              questionType: q.questionType,
             ),
           )
           .toList(growable: false);
@@ -536,6 +539,7 @@ class ReadingSimNotifier extends Notifier<ReadingSimState> {
         answers: inputs,
         skill: SkillKind.reading,
         moduleType: moduleType,
+        track: effectiveTrack,
       );
 
       final attemptId = entropy.nextUuidV4();

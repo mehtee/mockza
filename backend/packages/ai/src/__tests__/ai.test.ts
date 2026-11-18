@@ -649,4 +649,181 @@ describe('@mockza/ai model registry, fail-closed guarantees, and audio processor
     expect(result.vocabUpgrades[0]?.ipa).toBeUndefined();
     expect(result.recommendedDrill?.weakestCriterionCode).toBe('GRA');
   });
+
+  it('evaluates TOEFL iBT 2026 (1-6 scale), PTE Academic (10-90), and DET (10-160) writing tracks cleanly', async () => {
+    const sampleEssay =
+      'University laboratories should expand shared open-data repositories because collaborative datasets accelerate reproducible research across disciplines and reduce duplicated experiment costs significantly.';
+
+    const toeflDemo = await gradeWritingGraph.invoke(
+      {
+        attemptId: '11111111-1111-4111-8111-111111111101',
+        packId: 'toefl_w_email_01',
+        examId: 'toefl_ibt',
+        taskType: 'toeflEmail',
+        promptTitle: 'Lab Equipment Request',
+        promptBody: 'Write an email explaining the deadline extension.',
+        essayText: sampleEssay,
+      },
+      { allowDemoEvaluator: true },
+    );
+    expect(toeflDemo.overallBand).toBeGreaterThanOrEqual(1);
+    expect(toeflDemo.overallBand).toBeLessThanOrEqual(6);
+    expect((toeflDemo.overallBand * 2) % 1).toBe(0);
+    expect(toeflDemo.criteria.map((c) => c.code)).toEqual(['TR', 'ORG', 'VOCAB', 'GRAM']);
+
+    const pteSwtDemo = await gradeWritingGraph.invoke(
+      {
+        attemptId: '11111111-1111-4111-8111-111111111102',
+        packId: 'pte_w_swt_01',
+        examId: 'pte_academic',
+        taskType: 'pteSummarizeWrittenText',
+        promptTitle: 'Urban Heat Islands',
+        promptBody: 'Summarize the passage in one sentence.',
+        essayText: sampleEssay,
+      },
+      { allowDemoEvaluator: true },
+    );
+    expect(pteSwtDemo.overallBand).toBeGreaterThanOrEqual(10);
+    expect(pteSwtDemo.overallBand).toBeLessThanOrEqual(90);
+    expect(pteSwtDemo.criteria.map((c) => c.code)).toEqual(['CONTENT', 'MECH', 'VOCAB', 'GRAM']);
+
+    const detDemo = await gradeWritingGraph.invoke(
+      {
+        attemptId: '11111111-1111-4111-8111-111111111103',
+        packId: 'det_w_photo_01',
+        examId: 'det',
+        taskType: 'detWriteAboutPhoto',
+        promptTitle: 'Street Market Scene',
+        promptBody: 'Write a detailed description.',
+        essayText: sampleEssay,
+      },
+      { allowDemoEvaluator: true },
+    );
+    expect(detDemo.overallBand).toBeGreaterThanOrEqual(10);
+    expect(detDemo.overallBand).toBeLessThanOrEqual(160);
+    expect(detDemo.overallBand % 5).toBe(0);
+    expect(detDemo.criteria.map((c) => c.code)).toEqual(['CONTENT', 'COH', 'VOCAB', 'GRAM']);
+  });
+
+  it('evaluates TOEFL, PTE, and DET speaking tracks cleanly with exam-specific criteria and mock LLM response', async () => {
+    const pteDemo = await gradeSpeakingGraph.invoke(
+      {
+        attemptId: '22222222-2222-4222-8222-222222222201',
+        packId: 'pte_s_describe_01',
+        examId: 'pte_academic',
+        partSequence: 'full',
+        turns: [
+          {
+            partIndex: 1,
+            promptText: 'Describe the chart.',
+            objectKey: 'uploads/pte/turn1.m4a',
+          },
+        ],
+      },
+      { allowDemoEvaluator: true },
+    );
+    expect(pteDemo.overallBand).toBeGreaterThanOrEqual(10);
+    expect(pteDemo.overallBand).toBeLessThanOrEqual(90);
+    expect(pteDemo.criteria.map((c) => c.code)).toEqual(['DELIVERY', 'PR', 'CONTENT', 'GRAM']);
+
+    let capturedToeflPrompt = '';
+    const toeflResult = await gradeSpeakingGraph.invoke(
+      {
+        attemptId: '22222222-2222-4222-8222-222222222202',
+        packId: 'toefl_s_interview_01',
+        examId: 'toefl_ibt',
+        partSequence: 'full',
+        turns: [
+          {
+            partIndex: 1,
+            promptText: 'Listen and repeat: Please submit forms before noon.',
+            objectKey: 'uploads/toefl/turn1.m4a',
+          },
+        ],
+        turnAudios: [
+          {
+            partIndex: 1,
+            promptText: 'Listen and repeat: Please submit forms before noon.',
+            base64AudioData: Buffer.from('fake-audio').toString('base64'),
+            format: 'm4a',
+          },
+        ],
+      },
+      {
+        client: {
+          async createChatCompletion(req) {
+            const parts = req.messages[0]?.content;
+            capturedToeflPrompt = Array.isArray(parts)
+              ? (parts.find((p): p is { type: 'text'; text: string } => p.type === 'text')?.text ??
+                '')
+              : '';
+            return {
+              id: 'mock-toefl-s-1',
+              choices: [
+                {
+                  finish_reason: 'stop',
+                  message: {
+                    role: 'assistant',
+                    content: JSON.stringify({
+                      assessment: { status: 'complete', overallBand: 5.0 },
+                      criteria: [
+                        {
+                          code: 'DELIVERY',
+                          label: 'Delivery & Fluency',
+                          band: 5.0,
+                          evidenceExcerpt: 'Please submit forms before noon',
+                          feedbackNote: 'Natural stress and steady pace.',
+                        },
+                        {
+                          code: 'VOCAB',
+                          label: 'Language Use — Vocabulary',
+                          band: 5.5,
+                          evidenceExcerpt: 'before noon',
+                          feedbackNote: 'Accurate phrasing.',
+                        },
+                        {
+                          code: 'GRAM',
+                          label: 'Language Use — Grammar',
+                          band: 4.5,
+                          evidenceExcerpt: 'submit forms',
+                          feedbackNote: 'Minor article drop.',
+                        },
+                        {
+                          code: 'CONTENT',
+                          label: 'Topic Development',
+                          band: 5.0,
+                          evidenceExcerpt: 'Please submit forms',
+                          feedbackNote: 'Full recall.',
+                        },
+                      ],
+                      transcriptSegments: [
+                        {
+                          segmentId: 's1',
+                          partIndex: 1,
+                          startMs: 0,
+                          endMs: 2500,
+                          text: 'Please submit forms before noon.',
+                          annotations: [],
+                        },
+                      ],
+                      recommendedDrill: {
+                        drillType: 'shadowing',
+                        weakestCriterionCode: 'GRAM',
+                        title: 'Article Precision Drill',
+                        durationMinutes: 3,
+                      },
+                    }),
+                  },
+                },
+              ],
+            };
+          },
+        },
+      },
+    );
+
+    expect(capturedToeflPrompt).toContain('TOEFL iBT Speaking (2026 format');
+    expect(toeflResult.overallBand).toBe(5.0);
+    expect(toeflResult.recommendedDrill?.weakestCriterionCode).toBe('GRAM');
+  });
 });

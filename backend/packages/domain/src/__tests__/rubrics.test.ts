@@ -1,10 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
   API_ERROR_CODES,
+  computeExamOverallFromCriteria,
   computeOverallBandFromCriteria,
   computeOverallWritingBand,
+  EXAM_SCALES,
+  estimateToeflLegacy120,
   evaluateQuotaEligibility,
+  extractQuestionMaxWords,
+  getExamRubricSpec,
+  normalizeQuestionType,
+  normalizeSupportedExamId,
+  quantizeExamScore,
   roundIeltsBand,
+  scoreFromNormalizedQuality,
 } from '../index.js';
 
 describe('@mockza/domain rubrics & quota', () => {
@@ -105,5 +114,63 @@ describe('@mockza/domain rubrics & quota', () => {
     expect(API_ERROR_CODES.QUOTA_EXCEEDED).toBe('quota_exceeded');
     expect(API_ERROR_CODES.ENTITLEMENT_REQUIRED).toBe('entitlement_required');
     expect(API_ERROR_CODES.ATTEMPT_CONFLICT).toBe('attempt_conflict');
+  });
+
+  it('normalizes supported exam IDs and quantizes scores per official scale', () => {
+    expect(normalizeSupportedExamId('toefl')).toBe('toefl_ibt');
+    expect(normalizeSupportedExamId('pte-academic')).toBe('pte_academic');
+    expect(normalizeSupportedExamId('duolingo')).toBe('det');
+    expect(normalizeSupportedExamId('general')).toBe('ielts_general');
+    expect(normalizeSupportedExamId(undefined)).toBe('ielts_academic');
+
+    expect(EXAM_SCALES.toefl_ibt.min).toBe(1);
+    expect(EXAM_SCALES.toefl_ibt.max).toBe(6);
+    expect(EXAM_SCALES.toefl_ibt.step).toBe(0.5);
+
+    expect(quantizeExamScore(4.74, 'toefl_ibt')).toBe(4.5);
+    expect(quantizeExamScore(4.76, 'toefl_ibt')).toBe(5);
+    expect(quantizeExamScore(0, 'toefl_ibt')).toBe(1);
+    expect(quantizeExamScore(7.2, 'toefl_ibt')).toBe(6);
+
+    expect(quantizeExamScore(66.6, 'pte_academic')).toBe(67);
+    expect(quantizeExamScore(4, 'pte_academic')).toBe(10);
+
+    expect(quantizeExamScore(127.4, 'det')).toBe(125);
+    expect(quantizeExamScore(128, 'det')).toBe(130);
+    expect(quantizeExamScore(165, 'det')).toBe(160);
+
+    expect(estimateToeflLegacy120(5.0)).toBe(100);
+    expect(estimateToeflLegacy120(6.0)).toBe(117);
+    expect(scoreFromNormalizedQuality(0.5, 'toefl_ibt')).toBe(3.5);
+    expect(computeExamOverallFromCriteria([5, 5.5, 5, 4.5], 'toefl_ibt')).toBe(5);
+    expect(computeExamOverallFromCriteria([71, 69, 73, 72], 'pte_academic')).toBe(71);
+    expect(computeExamOverallFromCriteria([120, 125, 130, 120], 'det')).toBe(125);
+  });
+
+  it('builds exam-aware writing & speaking rubric specs and canonical question types', () => {
+    const pteSwt = getExamRubricSpec('pte_academic', 'writing', 'pteSummarizeWrittenText');
+    expect(pteSwt.criteria.map((c) => c.code)).toEqual(['CONTENT', 'MECH', 'VOCAB', 'GRAM']);
+    expect(pteSwt.minRecommendedWords).toBe(5);
+    expect(pteSwt.maxRecommendedWords).toBe(75);
+
+    const toeflSpeak = getExamRubricSpec('toefl_ibt', 'speaking');
+    expect(toeflSpeak.scale.max).toBe(6);
+    expect(toeflSpeak.criteria.map((c) => c.code)).toEqual([
+      'DELIVERY',
+      'VOCAB',
+      'GRAM',
+      'CONTENT',
+    ]);
+
+    const detWrite = getExamRubricSpec('det', 'writing', 'detWriteAboutPhoto');
+    expect(detWrite.scale.max).toBe(160);
+    expect(detWrite.scale.step).toBe(5);
+
+    expect(normalizeQuestionType('binary_choice')).toBe('binary_choice');
+    expect(normalizeQuestionType('word_completion')).toBe('word_completion');
+    expect(normalizeQuestionType('reorder_sequence')).toBe('reorder_sequence');
+    expect(normalizeQuestionType('dictation')).toBe('dictation');
+    expect(normalizeQuestionType('speaking_part4')).toBe('speaking_part4');
+    expect(extractQuestionMaxWords({ questionType: 'dictation' })).toBe(25);
   });
 });

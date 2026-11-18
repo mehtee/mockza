@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/core/models/evaluation_models.dart';
 import 'package:mockza/core/models/speaking_evaluation.dart';
@@ -422,7 +423,7 @@ class _OverviewTab extends StatelessWidget {
                   textBaseline: TextBaseline.alphabetic,
                   children: <Widget>[
                     Text(
-                      state.overallBand!.toStringAsFixed(1),
+                      state.examTrack.formatScore(state.overallBand!),
                       style: typography.heroScore.copyWith(
                         color: colors.textPrimary,
                       ),
@@ -434,7 +435,7 @@ class _OverviewTab extends StatelessWidget {
                         children: <Widget>[
                           Text(
                             (state.isCalibratedFullPack && !state.usedStudyMode)
-                                ? 'Estimated IELTS Band'
+                                ? 'Estimated ${state.examTrack.shortName} ${state.examTrack.unitLabel}'
                                 : 'Uncalibrated Practice Estimate',
                             style: typography.cardTitle.copyWith(
                               fontWeight: FontWeight.w700,
@@ -442,19 +443,27 @@ class _OverviewTab extends StatelessWidget {
                           ),
                           Text(
                             state.objectiveTotalCount > 0
-                                ? '${state.objectiveCorrectCount}/${state.objectiveTotalCount} correct · Target ${state.targetBandScore.toStringAsFixed(1)}'
-                                : 'Target ${state.targetBandScore.toStringAsFixed(1)}',
+                                ? '${state.objectiveCorrectCount}/${state.objectiveTotalCount} correct · Target ${state.examTrack.formatScore(state.targetBandScore)}'
+                                : 'Target ${state.examTrack.formatScore(state.targetBandScore)}',
                             style: typography.secondary.copyWith(
                               color: colors.textSecondary,
                             ),
                           ),
+                          if (state.examTrack ==
+                              ExamTrack.toeflIbt) ...<Widget>[
+                            const SizedBox(height: SpacingTokens.xs),
+                            MzChip(
+                              label:
+                                  '≈ ${ExamSpec.estimateToeflLegacy120(state.overallBand!)} / 120 Legacy Scale',
+                            ),
+                          ],
                           if (!state.isCalibratedFullPack ||
                               state.usedStudyMode) ...<Widget>[
                             const SizedBox(height: SpacingTokens.xs),
                             Text(
                               state.usedStudyMode
-                                  ? 'Study Mode attempts are excluded from calibrated dashboard band estimates.'
-                                  : 'Scaled from a ${state.objectiveTotalCount}-item practice passage; excluded from calibrated 40-item IELTS averages.',
+                                  ? 'Study Mode attempts are excluded from calibrated dashboard estimates.'
+                                  : 'Scaled from a ${state.objectiveTotalCount}-item practice passage; excluded from calibrated full-test averages.',
                               style: typography.caption.copyWith(
                                 color: colors.textSecondary,
                               ),
@@ -469,7 +478,9 @@ class _OverviewTab extends StatelessWidget {
                 ScoreMeter(
                   bandScore: state.overallBand,
                   targetScore: state.targetBandScore,
-                  label: 'Band Progress',
+                  minScore: state.examTrack.minScore,
+                  maxScore: state.examTrack.maxScore,
+                  label: '${state.examTrack.unitLabel} Progress',
                 ),
               ] else ...<Widget>[
                 Text(
@@ -542,7 +553,7 @@ class _OverviewTab extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            c.band.toStringAsFixed(1),
+                            state.examTrack.formatScore(c.band),
                             style: typography.cardTitle.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
@@ -837,7 +848,8 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
     if (criteria.isEmpty) {
       return const EmptyState(
         title: 'Rubric scores pending',
-        description: 'Individual IELTS criterion breakdowns appear once evaluation completes.',
+        description:
+            'Individual criterion breakdowns appear once evaluation completes.',
       );
     }
 
@@ -863,7 +875,7 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
                     ),
                   ),
                   MzChip(
-                    label: 'Band ${c.band.toStringAsFixed(1)}',
+                    label: state.examTrack.formatScoreWithUnit(c.band),
                     variant: MzChipVariant.target,
                   ),
                 ],
@@ -872,6 +884,8 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
               ScoreMeter(
                 bandScore: c.band,
                 targetScore: state.targetBandScore,
+                minScore: state.examTrack.minScore,
+                maxScore: state.examTrack.maxScore,
                 showLabels: false,
               ),
               if (c.evidenceExcerpt.isNotEmpty) ...<Widget>[
@@ -1006,7 +1020,7 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
             ),
           ],
           if ((res.modelRewrite ?? res.upgradedExcerpt).isNotEmpty) ...<Widget>[
-            const SectionHeader(title: 'Band 8.5+ Model Rewrite'),
+            SectionHeader(title: _modelRewriteHeading(state.examTrack)),
             MzCard(
               child: SelectableText(
                 res.modelRewrite ?? res.upgradedExcerpt,
@@ -1286,7 +1300,7 @@ class _CompareTab extends StatelessWidget {
         glyph: LucideGlyph.gitCompare,
         title: 'No baseline attempt yet',
         description:
-            'Complete another ${_skillTitle(state.skill)} attempt to compare band progression side-by-side.',
+            'Complete another ${_skillTitle(state.skill)} attempt in ${state.examTrack.shortName} to compare ${state.examTrack.unitLabel.toLowerCase()} progression side-by-side.',
         actionLabel: 'Browse Practice Tests',
         onTapAction: () => context.go(AppRoutes.practice),
       );
@@ -1306,6 +1320,14 @@ class _CompareTab extends StatelessWidget {
     );
   }
 }
+
+String _modelRewriteHeading(ExamTrack track) => switch (track) {
+  ExamTrack.ieltsAcademic ||
+  ExamTrack.ieltsGeneral => 'Band 8.5+ Model Rewrite',
+  ExamTrack.toeflIbt => 'Band 5.5–6.0 Model Rewrite',
+  ExamTrack.pteAcademic => '85+ Model Rewrite',
+  ExamTrack.det => '145+ Model Rewrite',
+};
 
 String _skillTitle(SkillKind skill) {
   switch (skill) {
