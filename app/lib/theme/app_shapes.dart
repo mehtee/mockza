@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:mockza/theme/generated_tokens.dart';
 
 /// Semantic shape, border radius, and elevation geometry tokens.
 /// Aligned strictly with design.md Sec. 2.3.
@@ -18,12 +19,22 @@ class AppShapes extends ThemeExtension<AppShapes> {
 
   /// Canonical shape system aligned with Mockza design.md Sec. 2.3.
   static const standard = AppShapes(
-    cardRadius: BorderRadius.all(Radius.circular(22)),
-    controlRadius: BorderRadius.all(Radius.circular(14)),
-    compactRadius: BorderRadius.all(Radius.circular(10)),
-    pillRadius: BorderRadius.all(Radius.circular(999)),
-    sheetRadius: BorderRadius.all(Radius.circular(26)),
-    strokeWidth: 1,
+    cardRadius: BorderRadius.all(
+      Radius.circular(GeneratedShapeTokens.cardRadius),
+    ),
+    controlRadius: BorderRadius.all(
+      Radius.circular(GeneratedShapeTokens.controlRadius),
+    ),
+    compactRadius: BorderRadius.all(
+      Radius.circular(GeneratedShapeTokens.compactRadius),
+    ),
+    pillRadius: BorderRadius.all(
+      Radius.circular(GeneratedShapeTokens.pillRadius),
+    ),
+    sheetRadius: BorderRadius.all(
+      Radius.circular(GeneratedShapeTokens.sheetRadius),
+    ),
+    strokeWidth: GeneratedShapeTokens.strokeWidth,
   );
 
   /// Standard card corner radius (`22dp`).

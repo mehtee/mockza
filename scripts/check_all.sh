@@ -143,14 +143,27 @@ check_backend_gates() {
   echo "Backend static gates checked."
 }
 
+check_token_sync_gate() {
+  if [[ ! -f "$ROOT_DIR/scripts/sync_design_tokens.mjs" ]]; then
+    fail "Missing $ROOT_DIR/scripts/sync_design_tokens.mjs"
+    return
+  fi
+  if ! node "$ROOT_DIR/scripts/sync_design_tokens.mjs" --check; then
+    fail "Design tokens out of sync (run: pnpm tokens:sync)"
+  fi
+  echo "Design token sync gate checked."
+}
+
 case "$MODE" in
   --app-only)
+    check_token_sync_gate
     check_app_gates
     ;;
   --backend-only)
     check_backend_gates
     ;;
   all)
+    check_token_sync_gate
     check_app_gates
     check_backend_gates
     ;;
