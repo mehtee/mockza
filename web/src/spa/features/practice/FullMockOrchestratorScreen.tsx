@@ -14,6 +14,7 @@ import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import type { MockSessionRecord } from '@/gateways/storage.gateway';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
+import { useCountdownClock } from '@/spa/useCountdownClock';
 import { ListeningSimulatorScreen } from './ListeningSimulatorScreen';
 import { ReadingSimulatorScreen } from './ReadingSimulatorScreen';
 import { SpeakingSimulatorScreen } from './SpeakingSimulatorScreen';
@@ -79,7 +80,11 @@ export function FullMockOrchestratorScreen({
   const [examMode, setExamMode] = useState<'exam' | 'study'>('exam');
   const [activeStageKey, setActiveStageKey] = useState<string | null>(null);
   const [isOnBreak, setIsOnBreak] = useState(false);
-  const [breakRemainingSec, setBreakRemainingSec] = useState(300);
+  const { remainingSeconds: breakRemainingSec, resetClock: resetBreakClock } = useCountdownClock({
+    enabled: isOnBreak,
+    isPaused: false,
+    initialSeconds: 300,
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -127,14 +132,6 @@ export function FullMockOrchestratorScreen({
     };
   }, [deps.attemptStore, deps.clock, mockId]);
 
-  useEffect(() => {
-    if (!isOnBreak) return;
-    const timer = window.setInterval(() => {
-      setBreakRemainingSec((prev) => (prev <= 1 ? 0 : prev - 1));
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [isOnBreak]);
-
   const stages = useMemo(
     () => resolveStageOrderForTrack(session?.track ?? 'ielts_academic'),
     [session?.track],
@@ -170,10 +167,10 @@ export function FullMockOrchestratorScreen({
       const hasMore = stages.some((s) => !updated.stageAttemptIds[s.stageKey]);
       if (hasMore) {
         setIsOnBreak(true);
-        setBreakRemainingSec(300);
+        resetBreakClock(300, 300);
       }
     },
-    [deps.attemptStore, deps.clock, examMode, session, stages],
+    [deps.attemptStore, deps.clock, examMode, resetBreakClock, session, stages],
   );
 
   const handleResetMock = async () => {
@@ -282,7 +279,7 @@ export function FullMockOrchestratorScreen({
           <div className="mt-4 flex flex-wrap gap-3">
             <Link
               to="/progress"
-              className="inline-flex h-9 items-center rounded-[var(--mz-radius-control)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-strong"
+              className="inline-flex h-9 items-center rounded-[var(--mz-radius-control)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
             >
               {t('navProgress')}
             </Link>

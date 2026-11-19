@@ -51,7 +51,7 @@ const title = isIrn
         </a>
         <a
           href="/app/diagnostic/intro"
-          class="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-strong"
+          class="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
         >
           {copy.ctaDiagnostic}
         </a>
@@ -63,12 +63,14 @@ const title = isIrn
     <!-- Static crawlable concordance matrices (zero-JS fallback & GEO grounding) -->
     <section class="grid gap-6 md:grid-cols-2">
       <div class="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-5">
-        <h2 class="text-sm font-bold text-primary">TOEFL iBT 2026 Concordance</h2>
+        <h2 class="text-sm font-bold text-primary">
+          {isIrn ? 'جدول هم‌ارز تافل iBT ۲۰۲۶' : 'TOEFL iBT 2026 Concordance'}
+        </h2>
         <table class="mt-3 w-full text-xs">
           <thead>
             <tr class="border-b border-border-subtle text-text-tertiary">
-              <th class="py-1.5 text-start">2026 Band (1–6)</th>
-              <th class="py-1.5 text-end">Est. 0–120</th>
+              <th class="py-1.5 text-start">{isIrn ? 'نمره جدید (۱ تا ۶)' : '2026 Band (1–6)'}</th>
+              <th class="py-1.5 text-end">{isIrn ? 'تخمین از ۱۲۰' : 'Est. 0–120'}</th>
             </tr>
           </thead>
           <tbody>
@@ -85,13 +87,15 @@ const title = isIrn
       </div>
 
       <div class="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-5">
-        <h2 class="text-sm font-bold text-primary">IELTS Reading Raw Score Reference</h2>
+        <h2 class="text-sm font-bold text-primary">
+          {isIrn ? 'جدول نمره خام ریدینگ آیلتس' : 'IELTS Reading Raw Score Reference'}
+        </h2>
         <table class="mt-3 w-full text-xs">
           <thead>
             <tr class="border-b border-border-subtle text-text-tertiary">
-              <th class="py-1.5 text-start">Raw (/40)</th>
-              <th class="py-1.5 text-end">Academic Band</th>
-              <th class="py-1.5 text-end">General Training</th>
+              <th class="py-1.5 text-start">{isIrn ? 'پاسخ صحیح (از ۴۰)' : 'Raw (/40)'}</th>
+              <th class="py-1.5 text-end">{isIrn ? 'نمره آکادمیک' : 'Academic Band'}</th>
+              <th class="py-1.5 text-end">{isIrn ? 'نمره جنرال' : 'General Training'}</th>
             </tr>
           </thead>
           <tbody>

@@ -1,4 +1,4 @@
-import type { DiagnosticMode } from '@mockza/domain';
+import { normalizeSupportedExamId, type DiagnosticMode, type SupportedExamId } from '@mockza/domain';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { ArrowLeft, ArrowRight, BookOpen, Headphones, MicOff, Play } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -13,14 +13,18 @@ import {
   serializeDiagnosticRecord,
 } from './diagnostic-state';
 
-export function DiagnosticIntroScreen() {
+export interface DiagnosticIntroScreenProps {
+  readonly initialTrack?: SupportedExamId;
+}
+
+export function DiagnosticIntroScreen({ initialTrack }: DiagnosticIntroScreenProps) {
   const deps = useDeps();
   const t = createTranslator(deps.edition);
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<DiagnosticMode>('standard');
   const [bank, setBank] = useState<DiagnosticBankDto | null>(null);
-  const [examId, setExamId] = useState('ielts_academic');
+  const [examId, setExamId] = useState<SupportedExamId>(initialTrack ?? 'ielts_academic');
   const [isLaunching, setIsLaunching] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -33,8 +37,19 @@ export function DiagnosticIntroScreen() {
       deps.diagnostic.fetchDiagnosticBank(),
     ]).then(([profileRes, bankRes]) => {
       if (!mounted) return;
-      if (profileRes.ok && profileRes.value?.examId) {
-        setExamId(profileRes.value.examId);
+      if (initialTrack) {
+        const resolved = normalizeSupportedExamId(initialTrack);
+        setExamId(resolved);
+        if (profileRes.ok && profileRes.value && profileRes.value.examId !== resolved) {
+          void deps.attemptStore.saveUserProfile({
+            ...profileRes.value,
+            examId: resolved,
+            examModule: resolved === 'ielts_general' ? 'general_training' : 'academic',
+            updatedAtMs: deps.clock.nowMs(),
+          });
+        }
+      } else if (profileRes.ok && profileRes.value?.examId) {
+        setExamId(normalizeSupportedExamId(profileRes.value.examId));
       }
       if (bankRes.ok) {
         setBank(bankRes.value);
@@ -45,7 +60,7 @@ export function DiagnosticIntroScreen() {
     return () => {
       mounted = false;
     };
-  }, [deps.attemptStore, deps.diagnostic]);
+  }, [deps.attemptStore, deps.clock, deps.diagnostic, initialTrack]);
 
   const handleLaunch = async (skipSpeaking: boolean) => {
     setErrorMsg(null);

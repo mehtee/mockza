@@ -239,4 +239,27 @@ describe('W1.1 TanStack Router 24-route skeleton & blocker', () => {
     });
     expect(useClockStore.getState().activeExamLock).toBe(false);
   });
+
+  it('renders Top Command Bar with Pro Plans nav link, track switcher, theme toggle, and clean 404', async () => {
+    const deps = createTestDependencies({ edition: 'glb' });
+    const history = createMemoryHistory({ initialEntries: ['/app/does-not-exist'] });
+    const router = createAppRouter(history);
+
+    render(<DesktopSimulatorApp router={router} dependencies={deps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('route-not-found')).toBeTruthy();
+      expect(screen.getByTestId('top-command-bar')).toBeTruthy();
+    });
+    expect(screen.queryByText(/W1\.1 Scaffold/)).toBeNull();
+    expect(screen.getByTestId('nav-paywall-link')).toBeTruthy();
+
+    fireEvent.change(screen.getByTestId('topbar-track-switcher'), {
+      target: { value: 'toefl_ibt' },
+    });
+    await waitFor(async () => {
+      const profile = await deps.attemptStore.getUserProfile();
+      expect(profile.ok && profile.value?.examId).toBe('toefl_ibt');
+    });
+  });
 });

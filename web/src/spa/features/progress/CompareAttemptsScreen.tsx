@@ -1,6 +1,6 @@
 import { formatExamScoreWithUnit } from '@mockza/domain';
 import { Link } from '@tanstack/react-router';
-import { ArrowLeft, GitCompare } from 'lucide-react';
+import { ArrowLeft, ArrowRight, GitCompare } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { MzBanner, MzCard } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
@@ -25,6 +25,7 @@ export function CompareAttemptsScreen() {
   const deps = useDeps();
   const t = createTranslator(deps.edition);
 
+  const BackIcon = deps.edition === 'irn' ? ArrowRight : ArrowLeft;
   const [attempts, setAttempts] = useState<readonly CompletedAttemptRecord[]>([]);
   const [attemptAId, setAttemptAId] = useState<string>('');
   const [attemptBId, setAttemptBId] = useState<string>('');
@@ -73,7 +74,7 @@ export function CompareAttemptsScreen() {
           to="/progress"
           className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-control)] border border-border-subtle bg-bg-raised px-3 text-xs font-semibold text-text-primary hover:bg-surface-hover"
         >
-          <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+          <BackIcon className="h-3.5 w-3.5" aria-hidden="true" />
           <span>{t('navProgress')}</span>
         </Link>
       </div>

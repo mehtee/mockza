@@ -105,7 +105,7 @@ export function VocabHubScreen() {
           <Link
             to="/vocabulary/review"
             data-testid="vocab-start-review-cta"
-            className="inline-flex h-10 items-center gap-2 rounded-[var(--mz-radius-control)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-strong"
+            className="inline-flex h-10 items-center gap-2 rounded-[var(--mz-radius-control)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
           >
             <Play className="h-3.5 w-3.5" aria-hidden="true" />
             <span>

@@ -333,7 +333,7 @@ export function ProgressScreen() {
             </div>
             <Link
               to="/practice/drills"
-              className="inline-flex h-9 items-center rounded-[var(--mz-radius-control)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-strong"
+              className="inline-flex h-9 items-center rounded-[var(--mz-radius-control)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
             >
               {t('homeQuickDrillsCta')}
             </Link>
@@ -358,7 +358,7 @@ export function ProgressScreen() {
               target="_blank"
               rel="noopener noreferrer"
               data-testid="ecosystem-handoff-link"
-              className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-control)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-strong"
+              className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-control)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
             >
               <span>{t('ecosystemEligibilityCta')}</span>
               <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />

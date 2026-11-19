@@ -19,6 +19,7 @@ import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
 import { generateUuid } from '@/spa/objective-sim-helpers';
 import { useClockStore } from '@/spa/stores/clock.store';
+import { useCountdownClock } from '@/spa/useCountdownClock';
 
 export interface SpeakingSimulatorScreenProps {
   readonly packId: string;
@@ -85,8 +86,14 @@ export function SpeakingSimulatorScreen({
   const [isPaused, setIsPaused] = useState(false);
   const [activeTurnIndex, setActiveTurnIndex] = useState(0);
   const [phase, setPhase] = useState<TurnPhase>('recording');
-  const [prepRemainingSec, setPrepRemainingSec] = useState(0);
   const [cueNotesBySectionId, setCueNotesBySectionId] = useState<Record<string, string>>({});
+
+  const { remainingSeconds: prepRemainingSec, resetClock: resetPrepClock } = useCountdownClock({
+    enabled: Boolean(bundle) && phase === 'prep',
+    isPaused,
+    initialSeconds: 0,
+    onExpire: () => setPhase('recording'),
+  });
   const [recordedBySectionId, setRecordedBySectionId] = useState<
     Record<string, RecordedTurnEntry>
   >({});
@@ -151,37 +158,22 @@ export function SpeakingSimulatorScreen({
     const existing = recordedBySectionId[activeSection.sectionId];
     if (existing) {
       setPhase('recorded');
-      setPrepRemainingSec(0);
+      resetPrepClock(0, 0);
       return;
     }
     if (activeTiming.prepSeconds > 0) {
       setPhase('prep');
-      setPrepRemainingSec(activeTiming.prepSeconds);
+      resetPrepClock(activeTiming.prepSeconds, activeTiming.prepSeconds);
     } else {
       setPhase('recording');
-      setPrepRemainingSec(0);
+      resetPrepClock(0, 0);
     }
-  }, [activeSection, activeTiming.prepSeconds, recordedBySectionId]);
-
-  // Prep countdown timer (auto-transitions to recording at 0)
-  useEffect(() => {
-    if (!bundle || phase !== 'prep' || isPaused) return;
-    const timer = window.setInterval(() => {
-      setPrepRemainingSec((prev) => {
-        if (prev <= 1) {
-          setPhase('recording');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [bundle, isPaused, phase]);
+  }, [activeSection, activeTiming.prepSeconds, recordedBySectionId, resetPrepClock]);
 
   const handleSkipPrep = useCallback(() => {
-    setPrepRemainingSec(0);
+    resetPrepClock(0, 0);
     setPhase('recording');
-  }, []);
+  }, [resetPrepClock]);
 
   const handleRecordingComplete = useCallback(
     async (clip: RecordedClip) => {
@@ -494,7 +486,7 @@ export function SpeakingSimulatorScreen({
               <Link
                 to="/paywall"
                 data-testid="speaking-upgrade-cta"
-                className="inline-flex h-8 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-on-primary hover:bg-primary-strong"
+                className="inline-flex h-8 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
               >
                 {t('writingUpgradeCta')}
               </Link>

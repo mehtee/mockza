@@ -1,4 +1,5 @@
 import { HttpAuthAdapter, type HttpAuthAdapterOptions } from '@/adapters/http/http-auth.adapter';
+import { toAsciiDigits } from '@/edition/bidi/numerals';
 import type {
   AuthGatewayError,
   AuthSession,
@@ -11,7 +12,7 @@ import { err, ok, type Result } from '@/gateways/result';
 const IRAN_E164_REGEX = /^\+989\d{9}$/;
 
 export function normalizeIranPhoneE164(raw: string): string | null {
-  const digitsAndPlus = raw.replace(/[\s\-()]/g, '').trim();
+  const digitsAndPlus = toAsciiDigits(raw).replace(/[\s\-()]/g, '').trim();
   let normalized = digitsAndPlus;
   if (/^09\d{9}$/.test(normalized)) {
     normalized = `+98${normalized.slice(1)}`;
@@ -69,7 +70,7 @@ export class IrnOtpAuthAdapter extends HttpAuthAdapter {
       });
     }
 
-    const code = input.otpCode.trim();
+    const code = toAsciiDigits(input.otpCode).trim();
     if (!/^\d{4,8}$/.test(code)) {
       return err({
         kind: 'validation',

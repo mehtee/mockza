@@ -9,6 +9,7 @@ import {
   registerSpaUrgentDraftListeners,
 } from '@/spa/objective-sim-helpers';
 import { useClockStore } from '@/spa/stores/clock.store';
+import { useCountdownClock } from '@/spa/useCountdownClock';
 
 export interface UseObjectiveSimulatorSessionOptions {
   readonly packId: string;
@@ -40,12 +41,24 @@ export function useObjectiveSimulatorSession({
   const [examMode, setExamMode] = useState<'exam' | 'study'>(initialExamMode);
   const [viewMode, setViewMode] = useState<'focused' | 'all'>('focused');
   const [isPaused, setIsPaused] = useState(false);
-  const [remainingSeconds, setRemainingSeconds] = useState<number>(3600);
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [answersByQuestionId, setAnswersByQuestionId] = useState<Record<string, string>>({});
   const [flaggedQuestionIds, setFlaggedQuestionIds] = useState<Record<string, boolean>>({});
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmitRef = useRef<() => Promise<void>>(async () => {});
+  const { remainingSeconds, resetClock } = useCountdownClock({
+    enabled: Boolean(bundle),
+    isPaused,
+    initialSeconds: 3600,
+    onExpire: () => {
+      if (examMode === 'exam' && !autoSubmittedRef.current) {
+        autoSubmittedRef.current = true;
+        void handleSubmitRef.current();
+      }
+    },
+  });
 
   const remainingSecondsRef = useRef(remainingSeconds);
   remainingSecondsRef.current = remainingSeconds;
@@ -71,14 +84,14 @@ export function useObjectiveSimulatorSession({
       }
       setBundle(bundleRes.value);
       const durationSec = bundleRes.value.pack.durationSeconds || 3600;
-      setRemainingSeconds(durationSec);
+      resetClock(durationSec, durationSec);
 
       if (profileRes.ok && profileRes.value?.examId) {
         setProfileExamId(profileRes.value.examId);
       }
       if (draftRes.ok && draftRes.value) {
         attemptIdRef.current = draftRes.value.attemptId;
-        setRemainingSeconds(draftRes.value.timerRemainingSec || durationSec);
+        resetClock(draftRes.value.timerRemainingSec ?? durationSec, durationSec);
         const restoredAnswers: Record<string, string> = {};
         for (const [k, v] of Object.entries(draftRes.value.answersJson)) {
           if (typeof v === 'string') {
@@ -98,7 +111,7 @@ export function useObjectiveSimulatorSession({
     return () => {
       mounted = false;
     };
-  }, [deps.attemptStore, deps.catalog, packId, skill]);
+  }, [deps.attemptStore, deps.catalog, packId, resetClock, skill]);
 
   useEffect(() => {
     if (!bundle) return;
@@ -281,22 +294,7 @@ export function useObjectiveSimulatorSession({
     skill,
   ]);
 
-  useEffect(() => {
-    if (!bundle || isPaused) return;
-    const timer = window.setInterval(() => {
-      setRemainingSeconds((prev) => {
-        if (prev <= 1) {
-          if (examMode === 'exam' && !autoSubmittedRef.current) {
-            autoSubmittedRef.current = true;
-            void handleSubmit();
-          }
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [bundle, examMode, handleSubmit, isPaused]);
+  handleSubmitRef.current = handleSubmit;
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {

@@ -44,7 +44,7 @@ const jsonLd = {
         <a
           href="/app/diagnostic/intro"
           data-testid="landing-cta-diagnostic"
-          class="inline-flex h-11 items-center justify-center rounded-[var(--mz-radius-control)] bg-primary px-6 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-strong"
+          class="inline-flex h-11 items-center justify-center rounded-[var(--mz-radius-control)] bg-primary px-6 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-pressed"
         >
           {copy.ctaDiagnostic}
         </a>
@@ -65,20 +65,28 @@ const jsonLd = {
       <h2 class="text-sm font-bold text-primary">{copy.keyFactsHeading}</h2>
       <dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 text-xs">
         <div>
-          <dt class="text-text-tertiary">Exam Tracks</dt>
-          <dd class="mt-1 font-semibold text-text-primary">IELTS (Acad & GT), TOEFL 2026, PTE, DET</dd>
+          <dt class="text-text-tertiary">{isIrn ? 'رشته‌های آزمون' : 'Exam Tracks'}</dt>
+          <dd class="mt-1 font-semibold text-text-primary">
+            {isIrn ? 'آیلتس (آکادمیک و جنرال)، تافل ۲۰۲۶، PTE و دولینگو' : 'IELTS (Acad & GT), TOEFL 2026, PTE, DET'}
+          </dd>
         </div>
         <div>
-          <dt class="text-text-tertiary">Desktop Workspace</dt>
-          <dd class="mt-1 font-semibold text-text-primary">Split-Pane Reading, Writing & Studio Audio</dd>
+          <dt class="text-text-tertiary">{isIrn ? 'فضای کار دسکتاپ' : 'Desktop Workspace'}</dt>
+          <dd class="mt-1 font-semibold text-text-primary">
+            {isIrn ? 'ریدینگ دوستونه، ویرایشگر متمرکز رایتینگ و پخش استودیویی' : 'Split-Pane Reading, Writing & Studio Audio'}
+          </dd>
         </div>
         <div>
-          <dt class="text-text-tertiary">Offline Engine</dt>
-          <dd class="mt-1 font-semibold text-text-primary">IndexedDB (14 tables) + SHA-256 OPFS Media</dd>
+          <dt class="text-text-tertiary">{isIrn ? 'موتور آفلاین' : 'Offline Engine'}</dt>
+          <dd class="mt-1 font-semibold text-text-primary">
+            {isIrn ? 'ذخیره‌سازی محلی IndexedDB + کش صوتی و متنی تاییدشده OPFS' : 'IndexedDB (14 tables) + SHA-256 OPFS Media'}
+          </dd>
         </div>
         <div>
-          <dt class="text-text-tertiary">Spaced Repetition</dt>
-          <dd class="mt-1 font-semibold text-text-primary">SM-2 Flashcards + Mistake-to-Deck</dd>
+          <dt class="text-text-tertiary">{isIrn ? 'مرور هوشمند واژگان' : 'Spaced Repetition'}</dt>
+          <dd class="mt-1 font-semibold text-text-primary">
+            {isIrn ? 'جعبه لایتنر SM-2 با ترجمه فارسی + تبدیل خطا به کارت' : 'SM-2 Flashcards + Mistake-to-Deck'}
+          </dd>
         </div>
       </dl>
     </aside>
@@ -98,7 +106,9 @@ const jsonLd = {
               <h3 class="mt-1.5 text-lg font-bold text-text-primary">{pillar.name}</h3>
               <p class="mt-2 text-xs leading-relaxed text-text-secondary">{pillar.summary}</p>
             </div>
-            <p class="text-xs font-semibold text-focus">{pillar.durationLabel} →</p>
+            <p class="text-xs font-semibold text-focus">
+              {pillar.durationLabel} {isIrn ? '←' : '→'}
+            </p>
           </a>
         ))}
       </div>

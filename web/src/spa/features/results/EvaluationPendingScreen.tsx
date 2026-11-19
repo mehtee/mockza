@@ -165,7 +165,7 @@ export function EvaluationPendingScreen({ jobId }: EvaluationPendingScreenProps)
           <Link
             to="/practice"
             data-testid="evaluation-pending-continue-link"
-            className="inline-flex h-8 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-on-primary hover:bg-primary-strong"
+            className="inline-flex h-8 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
           >
             {t('evalPendingContinueAction')}
           </Link>

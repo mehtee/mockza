@@ -1,3 +1,4 @@
+import { toAsciiDigits } from '@/edition/bidi/numerals';
 import type {
   AccountDeletionReceipt,
   ActiveDeviceSlot,
@@ -50,7 +51,7 @@ export interface FakeAuthAdapterOptions {
 const IRAN_E164_REGEX = /^\+989\d{9}$/;
 
 function normalizeIranPhoneE164(raw: string): string | null {
-  const digitsAndPlus = raw.replace(/[\s\-()]/g, '').trim();
+  const digitsAndPlus = toAsciiDigits(raw).replace(/[\s\-()]/g, '').trim();
   let normalized = digitsAndPlus;
   if (/^09\d{9}$/.test(normalized)) {
     normalized = `+98${normalized.slice(1)}`;
@@ -443,7 +444,7 @@ export class FakeAuthAdapter implements IAuthGateway, IDeviceSlotGateway {
       });
     }
     const expected = this.otpByPhone.get(phone);
-    if (!expected || expected !== input.otpCode.trim()) {
+    if (!expected || expected !== toAsciiDigits(input.otpCode).trim()) {
       return err({
         kind: 'unauthorized',
         reasonCode: 'INVALID_CREDENTIALS',

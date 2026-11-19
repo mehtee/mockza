@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { MzBanner, MzCard } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
@@ -16,6 +16,7 @@ export function VocabWordDetailScreen({ wordId }: VocabWordDetailScreenProps) {
   const deps = useDeps();
   const t = createTranslator(deps.edition);
 
+  const BackIcon = deps.edition === 'irn' ? ArrowRight : ArrowLeft;
   const [entry, setEntry] = useState<VocabCardWithSrs | null>(null);
   const [notFound, setNotFound] = useState(false);
 
@@ -57,7 +58,7 @@ export function VocabWordDetailScreen({ wordId }: VocabWordDetailScreenProps) {
           to="/vocabulary"
           className="inline-flex h-8 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 text-xs font-semibold text-text-primary hover:bg-surface-hover"
         >
-          <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+          <BackIcon className="h-3.5 w-3.5" aria-hidden="true" />
           <span>{t('vocabBackToHubAction')}</span>
         </Link>
       </div>

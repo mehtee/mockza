@@ -242,7 +242,7 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
             </Link>
             <Link
               to="/home"
-              className="inline-flex h-8 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-on-primary hover:bg-primary-strong"
+              className="inline-flex h-8 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
             >
               {t('objResultBackHomeAction')}
             </Link>
@@ -464,7 +464,7 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
                     </div>
                     <Link
                       to="/practice/drills"
-                      className="inline-flex h-8 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-on-primary hover:bg-primary-strong"
+                      className="inline-flex h-8 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
                     >
                       {t('drillsStartAction')}
                     </Link>

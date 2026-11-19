@@ -1,4 +1,11 @@
 import {
+  EXAM_TRACK_SPECS,
+  SUPPORTED_EXAM_IDS,
+  normalizeSupportedExamId,
+  type DiagnosticSkill,
+  type SupportedExamId,
+} from '@mockza/domain';
+import {
   Link,
   Navigate,
   Outlet,
@@ -10,12 +17,37 @@ import {
   useBlocker,
   useRouterState,
 } from '@tanstack/react-router';
-import { Suspense, lazy } from 'react';
-import { getActiveEditionCode, getActiveEditionDir } from '@/edition/edition-config';
+import {
+  BookOpen,
+  Calendar,
+  Home,
+  Layers,
+  LogIn,
+  Menu,
+  Moon,
+  RefreshCw,
+  Settings,
+  Sparkles,
+  Sun,
+  TrendingUp,
+  WifiOff,
+  X,
+} from 'lucide-react';
+import { Suspense, lazy, useEffect, useState } from 'react';
+import {
+  getActiveEditionCode,
+  getEditionConfig,
+} from '@/edition/edition-config';
+import { formatChromeNumber } from '@/edition/bidi/numerals';
 import { createTranslator } from '@/i18n';
-import type { DiagnosticSkill } from '@mockza/domain';
+import { useOptionalDeps } from '@/spa/deps';
 import { useClockStore } from '@/spa/stores/clock.store';
 import { useLayoutStore } from '@/spa/stores/layout.store';
+import {
+  applyAndPersistAppearance,
+  readStoredAppearance,
+  type ThemeMode,
+} from '@/theme/theme-controller';
 
 const AuthScreen = lazy(() =>
   import('@/spa/features/auth/AuthScreen').then((m) => ({ default: m.AuthScreen })),
@@ -311,58 +343,126 @@ export const MAPPED_ROUTE_CATALOG: readonly MappedRouteDescriptor[] = [
   },
 ] as const;
 
-interface RouteSkeletonProps {
-  readonly routeId: string;
-  readonly title: string;
-  readonly description: string;
-  readonly params?: Readonly<Record<string, string>>;
-}
-
-function RouteSkeletonView({
-  routeId,
-  title,
-  description,
-  params,
-}: RouteSkeletonProps) {
-  const t = createTranslator();
-  const paramEntries = params ? Object.entries(params) : [];
+function NotFoundView() {
+  const deps = useOptionalDeps();
+  const edition = deps?.edition ?? getActiveEditionCode();
+  const t = createTranslator(edition);
   return (
     <section
-      data-testid={`route-skeleton-${routeId}`}
-      className="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-6 text-start"
+      data-testid="route-not-found"
+      className="mx-auto my-8 max-w-xl rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-6 text-start"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle pb-4">
-        <div>
-          <p className="text-xs font-medium text-text-tertiary">{routeId}</p>
-          <h1 className="mt-1 text-2xl font-bold text-text-primary">{title}</h1>
-        </div>
-        <span className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-surface-alt px-3 py-1 text-xs font-medium text-text-secondary">
-          {t('scaffoldBadgeLabel')}
-        </span>
-      </div>
-      <p className="mt-4 text-sm text-text-secondary">{description}</p>
-      {paramEntries.length > 0 && (
-        <dl className="mt-4 grid grid-cols-1 gap-2 rounded-[var(--mz-radius-control)] border border-border-subtle bg-surface-alt p-4 sm:grid-cols-2">
-          {paramEntries.map(([key, value]) => (
-            <div key={key} className="flex items-center gap-2 text-xs">
-              <dt className="font-semibold text-text-secondary">{key}:</dt>
-              <dd className="font-mono-exam text-text-primary">{value}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
+      <h1 className="text-2xl font-bold text-text-primary">{t('notFoundTitle')}</h1>
+      <p className="mt-2 text-sm text-text-secondary">{t('notFoundDescription')}</p>
+      <Link
+        to="/home"
+        className="mt-5 inline-flex h-9 items-center rounded-[var(--mz-radius-control)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
+      >
+        {t('notFoundBackHomeAction')}
+      </Link>
     </section>
   );
 }
 
+const ACTIVE_SIMULATOR_RE =
+  /^(\/app)?\/(diagnostic\/session|practice\/(reading|listening|writing|speaking)\/)/;
+
+function parseTrackSearchParam(search: Record<string, unknown>): { track?: SupportedExamId } {
+  const raw = search['track'];
+  if (typeof raw !== 'string') return {};
+  const trimmed = raw.trim();
+  if ((SUPPORTED_EXAM_IDS as readonly string[]).includes(trimmed)) {
+    return { track: normalizeSupportedExamId(trimmed) };
+  }
+  return {};
+}
+
 function AppRootLayout() {
-  const edition = getActiveEditionCode();
-  const dir = getActiveEditionDir();
+  const deps = useOptionalDeps();
+  const edition = deps?.edition ?? getActiveEditionCode();
+  const dir = getEditionConfig(edition).dir;
   const t = createTranslator(edition);
   const activeSessionLabel = useClockStore((state) => state.activeSessionLabel);
   const setActiveExamLock = useClockStore((state) => state.setActiveExamLock);
   const sidebarCollapsed = useLayoutStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useLayoutStore((state) => state.toggleSidebar);
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isActiveSimulator = ACTIVE_SIMULATOR_RE.test(pathname);
+
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeTrack, setActiveTrack] = useState<SupportedExamId>('ielts_academic');
+  const [targetDateSerial, setTargetDateSerial] = useState<number | null>(null);
+  const [pendingOutboxCount, setPendingOutboxCount] = useState(0);
+  const [isOnline, setIsOnline] = useState<boolean>(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : true,
+  );
+  const [resolvedMode, setResolvedMode] = useState<ThemeMode>(
+    () => readStoredAppearance().resolvedMode,
+  );
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!deps) return;
+    let mounted = true;
+    void deps.attemptStore.getUserProfile().then((res) => {
+      if (!mounted || !res.ok || !res.value) return;
+      if (res.value.examId) {
+        setActiveTrack(normalizeSupportedExamId(res.value.examId));
+      }
+      setTargetDateSerial(res.value.targetDateSerial ?? null);
+    });
+    const unsubOutbox = deps.syncOutbox.observePendingCount((count) => {
+      setPendingOutboxCount(count);
+    });
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      mounted = false;
+      unsubOutbox();
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, [deps, pathname]);
+
+  const handleTrackSwitch = async (nextTrack: SupportedExamId) => {
+    setActiveTrack(nextTrack);
+    if (!deps) return;
+    const [profileRes, idRes] = await Promise.all([
+      deps.attemptStore.getUserProfile(),
+      deps.auth.getDeviceIdentity(),
+    ]);
+    const existing = profileRes.ok ? profileRes.value : null;
+    await deps.attemptStore.saveUserProfile({
+      deviceId: existing?.deviceId ?? (idRes.ok ? idRes.value.deviceInstallId : 'web-device'),
+      examId: nextTrack,
+      examModule: nextTrack === 'ielts_general' ? 'general_training' : 'academic',
+      targetBand: existing?.targetBand ?? EXAM_TRACK_SPECS[nextTrack].targetScoreDefault,
+      targetDateSerial: existing?.targetDateSerial ?? null,
+      onboardingCompleted: existing?.onboardingCompleted ?? true,
+      freeDiagnosticUsed: existing?.freeDiagnosticUsed ?? false,
+      linkedEmail: existing?.linkedEmail ?? null,
+      appUserId: existing?.appUserId ?? null,
+      isPro: existing?.isPro ?? false,
+      updatedAtMs: deps.clock.nowMs(),
+    });
+  };
+
+  const handleToggleTheme = () => {
+    const nextMode: ThemeMode = resolvedMode === 'dark' ? 'light' : 'dark';
+    const nextState = applyAndPersistAppearance({ modePreference: nextMode });
+    setResolvedMode(nextState.resolvedMode);
+  };
+
+  const todaySerial = deps?.clock.todaySerialDay() ?? null;
+  const daysUntilExam =
+    todaySerial !== null && targetDateSerial !== null
+      ? Math.max(0, targetDateSerial - todaySerial)
+      : null;
 
   const blocker = useBlocker({
     shouldBlockFn: () => useClockStore.getState().activeExamLock,
@@ -370,98 +470,229 @@ function AppRootLayout() {
     withResolver: true,
   });
 
-  return (
-    <div dir={dir} className="flex min-h-dvh bg-canvas text-text-primary">
-      <aside
-        aria-label={t('navAriaLabel')}
-        className={`flex shrink-0 flex-col border-e border-border-subtle bg-bg-raised p-4 transition-all ${
-          sidebarCollapsed ? 'w-20' : 'w-60'
-        }`}
-      >
-        <div className="flex items-center justify-between gap-2 border-b border-border-subtle pb-3">
-          <a href="/" className="text-sm font-bold text-text-primary">
-            {sidebarCollapsed ? t('brandShort') : t('appTitle')}
-          </a>
-          <button
-            type="button"
-            onClick={toggleSidebar}
-            aria-label={sidebarCollapsed ? t('navExpandLabel') : t('navCollapseLabel')}
-            aria-expanded={!sidebarCollapsed}
-            className="inline-flex items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle p-1.5 text-text-secondary hover:bg-surface-hover"
-          >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              className={`h-4 w-4 transition-transform ${
-                sidebarCollapsed ? 'rotate-0 rtl:rotate-180' : 'rotate-180 rtl:rotate-0'
-              }`}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 4.5 13 10l-5.5 5.5" />
-            </svg>
-          </button>
-        </div>
+  const navItems = [
+    { to: '/home' as const, label: t('navHome'), Icon: Home, testId: 'nav-home-link' },
+    { to: '/practice' as const, label: t('navPractice'), Icon: BookOpen, testId: 'nav-practice-link' },
+    { to: '/vocabulary' as const, label: t('navVocabulary'), Icon: Layers, testId: 'nav-vocab-link' },
+    { to: '/progress' as const, label: t('navProgress'), Icon: TrendingUp, testId: 'nav-progress-link' },
+    { to: '/paywall' as const, label: t('navProPlans'), Icon: Sparkles, testId: 'nav-paywall-link' },
+    { to: '/settings' as const, label: t('navSettings'), Icon: Settings, testId: 'nav-settings-link' },
+  ];
 
-        <nav className="mt-4 flex flex-col gap-1 text-sm text-start">
-          <Link
-            to="/home"
-            aria-label={t('navHome')}
-            className="rounded-[var(--mz-radius-compact)] px-3 py-2 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
-          >
-            {sidebarCollapsed ? t('navHome').slice(0, 1) : t('navHome')}
-          </Link>
-          <Link
-            to="/practice"
-            aria-label={t('navPractice')}
-            className="rounded-[var(--mz-radius-compact)] px-3 py-2 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
-          >
-            {sidebarCollapsed ? t('navPractice').slice(0, 1) : t('navPractice')}
-          </Link>
-          <Link
-            to="/vocabulary"
-            aria-label={t('navVocabulary')}
-            className="rounded-[var(--mz-radius-compact)] px-3 py-2 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
-          >
-            {sidebarCollapsed ? t('navVocabulary').slice(0, 1) : t('navVocabulary')}
-          </Link>
-          <Link
-            to="/progress"
-            aria-label={t('navProgress')}
-            className="rounded-[var(--mz-radius-compact)] px-3 py-2 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
-          >
-            {sidebarCollapsed ? t('navProgress').slice(0, 1) : t('navProgress')}
-          </Link>
-          <Link
-            to="/settings"
-            aria-label={t('navSettings')}
-            className="rounded-[var(--mz-radius-compact)] px-3 py-2 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
-          >
-            {sidebarCollapsed ? t('navSettings').slice(0, 1) : t('navSettings')}
-          </Link>
-          <Link
-            to="/auth/login"
-            aria-label={t('authSignInAction')}
-            data-testid="nav-auth-link"
-            className="mt-2 rounded-[var(--mz-radius-compact)] border border-border-subtle px-3 py-2 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
-          >
-            {sidebarCollapsed ? t('authSignInAction').slice(0, 1) : t('authSignInAction')}
+  return (
+    <div
+      dir={dir}
+      className={
+        isActiveSimulator
+          ? 'flex h-dvh w-screen overflow-hidden bg-canvas text-text-primary'
+          : 'flex min-h-dvh bg-canvas text-text-primary'
+      }
+    >
+      {isActiveSimulator ? (
+        <nav aria-label={t('navAriaLabel')} className="sr-only">
+          <Link to="/home" aria-label={t('navHome')}>
+            {t('navHome')}
           </Link>
         </nav>
-      </aside>
+      ) : (
+        <>
+          {mobileMenuOpen ? (
+            <button
+              type="button"
+              aria-label={t('navCloseMenuLabel')}
+              onClick={() => setMobileMenuOpen(false)}
+              className="fixed inset-0 z-30 bg-[var(--mz-scrim-barrier)] lg:hidden"
+            />
+          ) : null}
 
-      <main className="mx-auto w-full max-w-6xl flex-1 p-6">
-        <Suspense
-          fallback={
-            <div className="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-6 text-sm text-text-secondary">
-              Loading workspace...
+          <aside
+            aria-label={t('navAriaLabel')}
+            className={`fixed inset-y-0 start-0 z-40 flex shrink-0 flex-col border-e border-border-subtle bg-bg-raised p-4 transition-all lg:static ${
+              mobileMenuOpen ? 'flex' : 'hidden lg:flex'
+            } ${sidebarCollapsed ? 'w-16 items-center px-2' : 'w-60'}`}
+          >
+            <div className="flex w-full items-center justify-between gap-2 border-b border-border-subtle pb-3">
+              {sidebarCollapsed ? (
+                <a href="/" className="mx-auto text-sm font-bold text-primary" title={t('appTitle')}>
+                  {t('brandShort')}
+                </a>
+              ) : (
+                <a href="/" className="text-sm font-bold text-text-primary">
+                  {t('appTitle')}
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                aria-label={sidebarCollapsed ? t('navExpandLabel') : t('navCollapseLabel')}
+                aria-expanded={!sidebarCollapsed}
+                className="hidden lg:inline-flex items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle p-1.5 text-text-secondary hover:bg-surface-hover"
+              >
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  className={`h-4 w-4 transition-transform ${
+                    sidebarCollapsed ? 'rotate-0 rtl:rotate-180' : 'rotate-180 rtl:rotate-0'
+                  }`}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 4.5 13 10l-5.5 5.5" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                aria-label={t('navCloseMenuLabel')}
+                className="inline-flex items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle p-1.5 text-text-secondary hover:bg-surface-hover lg:hidden"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
             </div>
+
+            <nav className="mt-4 flex w-full flex-col gap-1 text-sm text-start">
+              {navItems.map(({ to, label, Icon, testId }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  aria-label={label}
+                  data-testid={testId}
+                  className={`flex items-center gap-2.5 rounded-[var(--mz-radius-compact)] px-3 py-2 text-text-secondary hover:bg-surface-hover hover:text-text-primary ${
+                    sidebarCollapsed ? 'justify-center px-2' : ''
+                  }`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {!sidebarCollapsed ? <span>{label}</span> : null}
+                </Link>
+              ))}
+              <Link
+                to="/auth/login"
+                aria-label={t('authSignInAction')}
+                data-testid="nav-auth-link"
+                className={`mt-2 flex items-center gap-2.5 rounded-[var(--mz-radius-compact)] border border-border-subtle px-3 py-2 text-text-secondary hover:bg-surface-hover hover:text-text-primary ${
+                  sidebarCollapsed ? 'justify-center px-2' : ''
+                }`}
+              >
+                <LogIn className="h-4 w-4 shrink-0" aria-hidden="true" />
+                {!sidebarCollapsed ? <span>{t('authSignInAction')}</span> : null}
+              </Link>
+            </nav>
+          </aside>
+        </>
+      )}
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        {!isActiveSimulator ? (
+          <header
+            data-testid="top-command-bar"
+            className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-bg-raised px-4 py-2.5 sm:px-6"
+          >
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                data-testid="topbar-mobile-nav-btn"
+                onClick={() => setMobileMenuOpen((prev) => !prev)}
+                aria-label={t('navOpenMenuLabel')}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle text-text-secondary hover:bg-surface-hover lg:hidden"
+              >
+                <Menu className="h-4 w-4" aria-hidden="true" />
+              </button>
+
+              <select
+                aria-label={t('settingsExamTrackSection')}
+                data-testid="topbar-track-switcher"
+                value={activeTrack}
+                onChange={(e) => void handleTrackSwitch(normalizeSupportedExamId(e.target.value))}
+                className="h-8 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-surface px-2.5 text-xs font-semibold text-text-primary"
+              >
+                {SUPPORTED_EXAM_IDS.map((trackId) => (
+                  <option key={trackId} value={trackId}>
+                    {EXAM_TRACK_SPECS[trackId].displayName}
+                  </option>
+                ))}
+              </select>
+
+              {daysUntilExam !== null ? (
+                <span className="hidden sm:inline-flex items-center gap-1 rounded-[var(--mz-radius-pill)] border border-border-subtle bg-surface px-2.5 py-1 text-xs font-medium text-text-secondary">
+                  <Calendar className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                  <span>
+                    {t('topBarDaysLeftLabel', {
+                      days: formatChromeNumber(daysUntilExam, edition),
+                    })}
+                  </span>
+                </span>
+              ) : null}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span
+                data-testid="topbar-sync-status"
+                className={`inline-flex items-center gap-1.5 rounded-[var(--mz-radius-pill)] border px-2.5 py-1 text-xs font-medium ${
+                  !isOnline
+                    ? 'border-amber-500/40 bg-amber-500/10 text-amber-400'
+                    : pendingOutboxCount > 0
+                      ? 'border-primary/40 bg-primary/10 text-primary'
+                      : 'border-border-subtle bg-surface text-text-secondary'
+                }`}
+              >
+                {!isOnline ? (
+                  <>
+                    <WifiOff className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>{t('topBarOfflineBadge')}</span>
+                  </>
+                ) : pendingOutboxCount > 0 ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>
+                      {t('topBarPendingOutboxBadge', {
+                        count: formatChromeNumber(pendingOutboxCount, edition),
+                      })}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 text-success" aria-hidden="true" />
+                    <span>{t('topBarOnlineBadge')}</span>
+                  </>
+                )}
+              </span>
+
+              <button
+                type="button"
+                data-testid="topbar-theme-toggle"
+                onClick={handleToggleTheme}
+                aria-label={t('topBarThemeToggleLabel')}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-surface text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+              >
+                {resolvedMode === 'dark' ? (
+                  <Sun className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <Moon className="h-4 w-4" aria-hidden="true" />
+                )}
+              </button>
+            </div>
+          </header>
+        ) : null}
+
+        <main
+          className={
+            isActiveSimulator
+              ? 'h-full w-full flex-1 overflow-hidden'
+              : 'mx-auto w-full max-w-[1440px] flex-1 p-6'
           }
         >
-          <Outlet />
-        </Suspense>
-      </main>
+          <Suspense
+            fallback={
+              <div className="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-6 text-sm text-text-secondary">
+                {t('workspaceLoadingLabel')}
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
+        </main>
+      </div>
 
       {blocker.status === 'blocked' && (
         <div
@@ -510,13 +741,7 @@ function AppRootLayout() {
 
 const rootRoute = createRootRoute({
   component: AppRootLayout,
-  notFoundComponent: () => (
-    <RouteSkeletonView
-      routeId="not-found"
-      title="Route Not Found"
-      description="The requested simulator route does not exist."
-    />
-  ),
+  notFoundComponent: NotFoundView,
 });
 
 const appIndexRoute = createRoute({
@@ -540,7 +765,11 @@ const goalSetupRoute = createRoute({
 const diagnosticIntroRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/diagnostic/intro',
-  component: () => <DiagnosticIntroScreen />,
+  validateSearch: parseTrackSearchParam,
+  component: () => {
+    const search = diagnosticIntroRoute.useSearch();
+    return <DiagnosticIntroScreen initialTrack={search.track} />;
+  },
 });
 
 const parseRetakeSkill = (search: Record<string, unknown>): { retakeSkill?: DiagnosticSkill } => {
@@ -625,7 +854,11 @@ const homeRoute = createRoute({
 const practiceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/practice',
-  component: PracticeCatalogScreen,
+  validateSearch: parseTrackSearchParam,
+  component: () => {
+    const search = practiceRoute.useSearch();
+    return <PracticeCatalogScreen initialTrack={search.track} />;
+  },
 });
 
 const readingSessionRoute = createRoute({

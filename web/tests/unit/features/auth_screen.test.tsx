@@ -127,7 +127,7 @@ describe('W2.2 Desktop AuthScreen & 409 Slot Takeover', () => {
 
     const otpInput = screen.getByTestId('auth-otp-input') as HTMLInputElement;
     expect(otpInput.getAttribute('dir')).toBe('ltr');
-    fireEvent.change(otpInput, { target: { value: '123456' } });
+    fireEvent.change(otpInput, { target: { value: '۱۲۳۴۵۶' } });
     fireEvent.click(screen.getByTestId('auth-otp-submit'));
 
     await waitFor(() => {
@@ -135,6 +135,36 @@ describe('W2.2 Desktop AuthScreen & 409 Slot Takeover', () => {
     });
     const session = await deps.auth.getSession();
     expect(session.ok && session.value?.user?.linkedProviders).toContain('sms_otp');
+  });
+
+  it('normalizes Persian digits in Iranian mobile input ۰۹۱۲... to +989... before OTP challenge', async () => {
+    const deps = createTestDependencies({ edition: 'irn', allowDevAuth: true });
+    const history = createMemoryHistory({ initialEntries: ['/app/auth/login'] });
+    const router = createAppRouter(history);
+
+    render(<DesktopSimulatorApp router={router} dependencies={deps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-phone-input')).toBeTruthy();
+    });
+
+    fireEvent.change(screen.getByTestId('auth-phone-input'), {
+      target: { value: '۰۹۱۲۳۴۵۶۷۸۹' },
+    });
+    fireEvent.click(screen.getByTestId('auth-otp-submit'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-otp-input')).toBeTruthy();
+    });
+
+    fireEvent.change(screen.getByTestId('auth-otp-input'), { target: { value: '۱۲۳۴۵۶' } });
+    fireEvent.click(screen.getByTestId('auth-otp-submit'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('home-screen')).toBeTruthy();
+    });
+    const session = await deps.auth.getSession();
+    expect(session.ok && session.value?.user?.phoneE164).toBe('+989123456789');
   });
 
   it('normalizes returnTo=/app/settings after login and redirects on session revocation', async () => {

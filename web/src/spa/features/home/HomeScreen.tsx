@@ -233,7 +233,7 @@ export function HomeScreen() {
               <Link
                 to="/diagnostic/intro"
                 data-testid="home-diagnostic-cta"
-                className="inline-flex h-10 items-center gap-2 rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary transition-colors hover:bg-primary-strong"
+                className="inline-flex h-10 items-center gap-2 rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary transition-colors hover:bg-primary-pressed"
               >
                 <Rocket className="h-4 w-4" aria-hidden="true" />
                 <span>{t('homeTakeDiagnosticCta')}</span>
@@ -390,7 +390,7 @@ export function HomeScreen() {
             <Link
               to="/vocabulary/review"
               data-testid="home-vocab-review-cta"
-              className="inline-flex h-9 items-center justify-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary transition-colors hover:bg-primary-strong"
+              className="inline-flex h-9 items-center justify-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary transition-colors hover:bg-primary-pressed"
             >
               {t('homeStartReviewCta')}
             </Link>

@@ -45,8 +45,8 @@ const rows = [6.0, 5.5, 5.0, 4.5, 4.0, 3.5, 3.0, 2.5, 2.0, 1.5, 1.0].map((band) 
       <table class="mt-4 w-full text-xs">
         <thead>
           <tr class="border-b border-border-subtle text-text-tertiary">
-            <th class="py-2 text-start">2026 Band Scale</th>
-            <th class="py-2 text-end">Equivalent / 120</th>
+            <th class="py-2 text-start">{isIrn ? 'مقیاس ۲۰۲۶ (۱ تا ۶)' : '2026 Band Scale'}</th>
+            <th class="py-2 text-end">{isIrn ? 'معادل از ۱۲۰' : 'Equivalent / 120'}</th>
           </tr>
         </thead>
         <tbody>

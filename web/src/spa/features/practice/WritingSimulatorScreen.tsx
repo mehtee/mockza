@@ -27,6 +27,7 @@ import {
   registerSpaUrgentDraftListeners,
 } from '@/spa/objective-sim-helpers';
 import { useClockStore } from '@/spa/stores/clock.store';
+import { useCountdownClock } from '@/spa/useCountdownClock';
 
 export interface WritingSimulatorScreenProps {
   readonly packId: string;
@@ -89,7 +90,6 @@ export function WritingSimulatorScreen({
   const [profileExamId, setProfileExamId] = useState<string>('ielts_academic');
   const [examMode, setExamMode] = useState<'exam' | 'study'>(initialExamMode);
   const [isPaused, setIsPaused] = useState(false);
-  const [remainingSeconds, setRemainingSeconds] = useState<number>(2400);
   const [activeTaskIndex, setActiveTaskIndex] = useState(0);
   const [draftsBySectionId, setDraftsBySectionId] = useState<Record<string, string>>({});
   const [sequenceByQuestionId, setSequenceByQuestionId] = useState<Record<string, string>>({});
@@ -98,6 +98,21 @@ export function WritingSimulatorScreen({
   const [quotaBlocked, setQuotaBlocked] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmitRef = useRef<() => Promise<void>>(async () => {});
+  const activeEssayRef = useRef('');
+
+  const { remainingSeconds, resetClock } = useCountdownClock({
+    enabled: Boolean(bundle),
+    isPaused,
+    initialSeconds: 2400,
+    onExpire: () => {
+      if (examMode === 'exam' && !autoSubmittedRef.current && activeEssayRef.current.trim().length >= 20) {
+        autoSubmittedRef.current = true;
+        void handleSubmitRef.current();
+      }
+    },
+  });
 
   const remainingSecondsRef = useRef(remainingSeconds);
   remainingSecondsRef.current = remainingSeconds;
@@ -118,7 +133,7 @@ export function WritingSimulatorScreen({
       }
       setBundle(bundleRes.value);
       const durationSec = bundleRes.value.pack.durationSeconds || 2400;
-      setRemainingSeconds(durationSec);
+      resetClock(durationSec, durationSec);
 
       if (profileRes.ok && profileRes.value?.examId) {
         setProfileExamId(profileRes.value.examId);
@@ -128,7 +143,7 @@ export function WritingSimulatorScreen({
       }
       if (draftRes.ok && draftRes.value) {
         attemptIdRef.current = draftRes.value.attemptId;
-        setRemainingSeconds(draftRes.value.timerRemainingSec || durationSec);
+        resetClock(draftRes.value.timerRemainingSec ?? durationSec, durationSec);
         setActiveTaskIndex(draftRes.value.currentQuestionIndex || 0);
         const restoredMap: Record<string, string> = {};
         for (const [key, val] of Object.entries(draftRes.value.answersJson)) {
@@ -148,7 +163,7 @@ export function WritingSimulatorScreen({
     return () => {
       mounted = false;
     };
-  }, [deps.attemptStore, deps.catalog, deps.evaluation, packId]);
+  }, [deps.attemptStore, deps.catalog, deps.evaluation, packId, resetClock]);
 
   useEffect(() => {
     if (!bundle) return;
@@ -174,6 +189,7 @@ export function WritingSimulatorScreen({
   );
   const taskMeta = getWritingTaskSpec(activeTaskType);
   const activeEssayText = draftsBySectionId[activeSectionId] ?? '';
+  activeEssayRef.current = activeEssayText;
 
   const sectionQuestions = useMemo(
     () =>
@@ -452,22 +468,7 @@ export function WritingSimulatorScreen({
     taskMeta.fullTitle,
   ]);
 
-  useEffect(() => {
-    if (!bundle || isPaused) return;
-    const timer = window.setInterval(() => {
-      setRemainingSeconds((prev) => {
-        if (prev <= 1) {
-          if (examMode === 'exam' && !autoSubmittedRef.current && activeEssayText.trim().length >= 20) {
-            autoSubmittedRef.current = true;
-            void handleSubmit();
-          }
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [activeEssayText, bundle, examMode, handleSubmit, isPaused]);
+  handleSubmitRef.current = handleSubmit;
 
   const shortcuts: readonly KeyboardShortcutHint[] = useMemo(
     () => [{ keys: 'Tab / Enter', description: 'Navigate prompt & editor' }],
@@ -515,7 +516,7 @@ export function WritingSimulatorScreen({
               <Link
                 to="/paywall"
                 data-testid="writing-upgrade-cta"
-                className="inline-flex h-8 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-on-primary hover:bg-primary-strong"
+                className="inline-flex h-8 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
               >
                 {t('writingUpgradeCta')}
               </Link>

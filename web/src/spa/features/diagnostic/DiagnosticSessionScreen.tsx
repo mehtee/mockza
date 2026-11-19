@@ -17,6 +17,7 @@ import type { DiagnosticBankDto, DiagnosticBlockDto } from '@/gateways/diagnosti
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
 import { useClockStore } from '@/spa/stores/clock.store';
+import { useCountdownClock } from '@/spa/useCountdownClock';
 import {
   createInitialPersistedState,
   type DiagnosticPersistedState,
@@ -44,13 +45,15 @@ export function DiagnosticSessionScreen({
   const [bank, setBank] = useState<DiagnosticBankDto | null>(null);
   const [diagState, setDiagState] = useState<DiagnosticPersistedState | null>(null);
   const [blockChoices, setBlockChoices] = useState<[number | null, number | null]>([null, null]);
-  const [remainingSeconds, setRemainingSeconds] = useState<number>(
-    DIAGNOSTIC_BUDGET_SECONDS.collectionTotalSeconds,
-  );
   const [isPaused, setIsPaused] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingAudio, setIsUploadingAudio] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const { remainingSeconds, resetClock } = useCountdownClock({
+    enabled: Boolean(diagState),
+    isPaused,
+    initialSeconds: DIAGNOSTIC_BUDGET_SECONDS.collectionTotalSeconds,
+  });
   const remainingSecondsRef = useRef(remainingSeconds);
   remainingSecondsRef.current = remainingSeconds;
 
@@ -91,7 +94,8 @@ export function DiagnosticSessionScreen({
           : parsed;
         setDiagState(effectiveState);
         const mult = effectiveState.mode === 'extended' ? 3 : 1;
-        setRemainingSeconds(bankRes.value.budgetSeconds.collectionTotal * mult);
+        const totalBudget = bankRes.value.budgetSeconds.collectionTotal * mult;
+        resetClock(totalBudget, totalBudget);
         return;
       }
 
@@ -125,7 +129,7 @@ export function DiagnosticSessionScreen({
     return () => {
       mounted = false;
     };
-  }, [deps.attemptStore, deps.clock, deps.diagnostic, retakeSkill, routeDiagId]);
+  }, [deps.attemptStore, deps.clock, deps.diagnostic, resetClock, retakeSkill, routeDiagId]);
 
   const hasDiagState = Boolean(diagState);
   useEffect(() => {
@@ -135,14 +139,6 @@ export function DiagnosticSessionScreen({
       setActiveExamLock(false);
     };
   }, [hasDiagState, setActiveExamLock, t]);
-
-  useEffect(() => {
-    if (!diagState || isPaused) return;
-    const timer = window.setInterval(() => {
-      setRemainingSeconds((prev) => Math.max(0, prev - 1));
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [diagState, isPaused]);
 
   const persistProgress = useCallback(
     async (next: DiagnosticPersistedState) => {

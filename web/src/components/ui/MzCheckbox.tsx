@@ -50,7 +50,7 @@ export function MzCheckbox({
             'flex h-5 w-5 items-center justify-center rounded-[var(--mz-radius-compact)] border transition-colors',
             'peer-focus-visible:ring-2 peer-focus-visible:ring-primary/50',
             checked
-              ? 'border-primary bg-primary text-white'
+              ? 'border-primary bg-primary text-on-primary'
               : 'border-border-strong bg-canvas text-transparent',
           ].join(' ')}
         >

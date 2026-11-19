@@ -178,7 +178,7 @@ export function SettingsScreen({ onExternalRedirect }: SettingsScreenProps = {})
                   to="/auth/login"
                   search={{ returnTo: '/settings' }}
                   data-testid="settings-signin-link"
-                  className="inline-flex h-8 items-center justify-center rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-white transition-colors hover:bg-primary-strong"
+                  className="inline-flex h-8 items-center justify-center rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-on-primary transition-colors hover:bg-primary-pressed"
                 >
                   {t('authSignInAction')}
                 </Link>
@@ -293,7 +293,7 @@ export function SettingsScreen({ onExternalRedirect }: SettingsScreenProps = {})
                     className={[
                       'rounded-[var(--mz-radius-pill)] border px-3.5 py-1.5 text-xs font-semibold transition-colors',
                       selected
-                        ? 'border-primary bg-primary text-white'
+                        ? 'border-primary bg-primary text-on-primary'
                         : 'border-border-subtle bg-bg-raised text-text-secondary hover:bg-surface-hover hover:text-text-primary',
                     ].join(' ')}
                   >
@@ -460,7 +460,7 @@ export function SettingsScreen({ onExternalRedirect }: SettingsScreenProps = {})
                 to="/paywall"
                 search={{}}
                 data-testid="settings-open-paywall-link"
-                className="inline-flex h-9 items-center justify-center rounded-[var(--mz-radius-compact)] bg-primary px-3.5 text-sm font-semibold text-white transition-colors hover:bg-primary-strong"
+                className="inline-flex h-9 items-center justify-center rounded-[var(--mz-radius-compact)] bg-primary px-3.5 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-pressed"
               >
                 {t('paywallSubscribeAction')}
               </Link>

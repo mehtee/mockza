@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type EditionCode, getEditionConfig } from '@/edition/edition-config';
+import { toAsciiDigits } from '@/edition/bidi/numerals';
 import type {
   AuthGatewayError,
   AuthProvidersSnapshot,
@@ -103,7 +104,7 @@ function defaultProvidersForEdition(edition: EditionCode): AuthProvidersSnapshot
 }
 
 function normalizePhoneInput(raw: string): string {
-  const cleaned = raw.replace(/[\s\-()]/g, '').trim();
+  const cleaned = toAsciiDigits(raw).replace(/[\s\-()]/g, '').trim();
   if (/^09\d{9}$/.test(cleaned)) {
     return `+98${cleaned.slice(1)}`;
   }
@@ -331,7 +332,7 @@ export function useAuthController(options: {
       const retryPayload: PendingRetryAction = {
         kind: 'sms_otp',
         phoneE164: normalized,
-        otpCode: input.otpCode.trim(),
+        otpCode: toAsciiDigits(input.otpCode).trim(),
         displayName: input.displayName?.trim() || undefined,
       };
       setIsSubmitting(true);

@@ -43,14 +43,18 @@ function resolveSimulatorPath(
   }
 }
 
-export function PracticeCatalogScreen() {
+export interface PracticeCatalogScreenProps {
+  readonly initialTrack?: SupportedExamId;
+}
+
+export function PracticeCatalogScreen({ initialTrack }: PracticeCatalogScreenProps = {}) {
   const deps = useDeps();
   const t = createTranslator(deps.edition);
   const navigate = useNavigate();
 
   const [packs, setPacks] = useState<readonly CatalogPackRecord[]>([]);
   const [cacheSummary, setCacheSummary] = useState<CacheUsageSummary | null>(null);
-  const [selectedExam, setSelectedExam] = useState<SupportedExamId | 'all'>('all');
+  const [selectedExam, setSelectedExam] = useState<SupportedExamId | 'all'>(initialTrack ?? 'all');
   const [selectedSkill, setSelectedSkill] = useState<SkillKind | 'fullMock' | 'all'>('all');
   const [cachedOnly, setCachedOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');

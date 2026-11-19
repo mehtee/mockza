@@ -140,7 +140,7 @@ export function DiagnosticResultScreen({ diagId: routeDiagId }: DiagnosticResult
             <Link
               to="/practice/drills"
               data-testid="diag-recommended-cta"
-              className="inline-flex h-9 items-center justify-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-strong"
+              className="inline-flex h-9 items-center justify-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
             >
               {t('diagStartRecommendedAction')}
             </Link>

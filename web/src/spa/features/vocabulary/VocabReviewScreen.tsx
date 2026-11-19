@@ -1,6 +1,6 @@
 import { scheduleSm2Review, type ReviewQuality } from '@mockza/domain';
 import { Link } from '@tanstack/react-router';
-import { ArrowLeft, CheckCircle2, Eye } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Eye } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MzButton, MzCard } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
@@ -65,6 +65,7 @@ export function VocabReviewScreen() {
     };
   }, [deps.catalog, deps.clock, deps.vocabStore]);
 
+  const BackIcon = deps.edition === 'irn' ? ArrowRight : ArrowLeft;
   const currentEntry = queue[currentIndex] ?? null;
 
   const ratingLabelFor = (quality: ReviewQuality) => {
@@ -169,9 +170,9 @@ export function VocabReviewScreen() {
             <Link
               to="/vocabulary"
               data-testid="vocab-back-hub-link"
-              className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-control)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-strong"
+              className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-control)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
             >
-              <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+              <BackIcon className="h-3.5 w-3.5" aria-hidden="true" />
               <span>{t('vocabBackToHubAction')}</span>
             </Link>
           </div>

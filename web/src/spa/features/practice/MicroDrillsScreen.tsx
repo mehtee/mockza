@@ -7,13 +7,14 @@ import {
 } from '@mockza/domain';
 import { useNavigate } from '@tanstack/react-router';
 import { BookmarkPlus, CheckCircle2, Flame, Play, XCircle } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MzBanner, MzButton, MzCard } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import type { CachedDrillRecord, MicroDrillDto } from '@/gateways/storage.gateway';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
 import { generateUuid } from '@/spa/objective-sim-helpers';
+import { useCountdownClock } from '@/spa/useCountdownClock';
 import { formatMmSs } from '@/components/exam-kit';
 
 export interface MicroDrillsScreenProps {
@@ -57,10 +58,19 @@ export function MicroDrillsScreen({ initialDrillId = null }: MicroDrillsScreenPr
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answersById, setAnswersById] = useState<Record<string, string>>({});
   const [submittedItem, setSubmittedItem] = useState(false);
-  const [remainingSeconds, setRemainingSeconds] = useState(180);
   const [isFinished, setIsFinished] = useState(false);
   const [savedToast, setSavedToast] = useState<string | null>(null);
   const [startedAtMs, setStartedAtMs] = useState<number>(deps.clock.nowMs());
+
+  const finishDrillRef = useRef<() => Promise<void>>(async () => {});
+  const { remainingSeconds, resetClock } = useCountdownClock({
+    enabled: Boolean(activeDrillId) && !isFinished,
+    isPaused: false,
+    initialSeconds: 180,
+    onExpire: () => {
+      void finishDrillRef.current();
+    },
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -85,7 +95,7 @@ export function MicroDrillsScreen({ initialDrillId = null }: MicroDrillsScreenPr
       if (initialDrillId) {
         const matched = parsed.find((d) => d.drillId === initialDrillId);
         if (matched) {
-          setRemainingSeconds(matched.durationSeconds);
+          resetClock(matched.durationSeconds || 180, matched.durationSeconds || 180);
           setStartedAtMs(deps.clock.nowMs());
         }
       }
@@ -94,7 +104,7 @@ export function MicroDrillsScreen({ initialDrillId = null }: MicroDrillsScreenPr
     return () => {
       mounted = false;
     };
-  }, [deps.attemptStore, deps.catalog, deps.clock, initialDrillId]);
+  }, [deps.attemptStore, deps.catalog, deps.clock, initialDrillId, resetClock]);
 
   const activeDrill = useMemo(
     () => drills.find((d) => d.drillId === activeDrillId) ?? null,
@@ -109,7 +119,8 @@ export function MicroDrillsScreen({ initialDrillId = null }: MicroDrillsScreenPr
     setSubmittedItem(false);
     setIsFinished(false);
     setSavedToast(null);
-    setRemainingSeconds(drill.durationSeconds || 180);
+    const dur = drill.durationSeconds || 180;
+    resetClock(dur, dur);
     setStartedAtMs(deps.clock.nowMs());
   };
 
@@ -148,19 +159,7 @@ export function MicroDrillsScreen({ initialDrillId = null }: MicroDrillsScreenPr
     });
   }, [activeDrill, answersById, deps.attemptStore, deps.clock, isFinished, profileExamId, startedAtMs]);
 
-  useEffect(() => {
-    if (!activeDrill || isFinished) return;
-    const timer = window.setInterval(() => {
-      setRemainingSeconds((prev) => {
-        if (prev <= 1) {
-          void finishDrill();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [activeDrill, finishDrill, isFinished]);
+  finishDrillRef.current = finishDrill;
 
   const activeAnswer = activeItem ? (answersById[activeItem.id] ?? '') : '';
   const isItemCorrect = activeItem

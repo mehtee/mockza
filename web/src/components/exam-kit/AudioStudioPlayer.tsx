@@ -170,7 +170,7 @@ export function AudioStudioPlayer({
               }
               aria-label={isPlaying ? t('audioPauseAction') : t('audioPlayAction')}
               onClick={() => void handlePlayPause()}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary transition-colors hover:bg-primary-strong disabled:opacity-45"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary transition-colors hover:bg-primary-pressed disabled:opacity-45"
             >
               {isPlaying ? (
                 <Pause className="h-4 w-4" aria-hidden="true" />
