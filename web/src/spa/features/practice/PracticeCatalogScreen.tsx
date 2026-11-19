@@ -117,6 +117,9 @@ export function PracticeCatalogScreen({ initialTrack }: PracticeCatalogScreenPro
     if (!res.ok) {
       setErrorMsg(res.error.message);
     } else {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('mockza:prefetch-offline-chunks'));
+      }
       const [packsRes, cacheRes] = await Promise.all([
         deps.catalog.listPacks(),
         deps.catalog.getCacheUsageSummary(),

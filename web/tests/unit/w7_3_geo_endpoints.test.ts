@@ -28,6 +28,7 @@ describe('W7.3 GEO, robots.txt, llms.txt, Markdown Twins & OG SVG', () => {
     const glbLlms = buildLlmsTxt('glb');
     expect(glbLlms).toContain('# Mockza');
     expect(glbLlms).toContain('https://mockza.com/toefl-ibt.md');
+    expect(glbLlms).toContain('https://mockza.com/calculators/ielts-band-calculator');
     expect(glbLlms.toLowerCase()).not.toContain('sanjia');
 
     const glbFull = buildLlmsFullTxt('glb');

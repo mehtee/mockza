@@ -1,0 +1,108 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { getActiveEditionConfig } from '@/edition/edition-config';
+import { getPublicSiteCopyForBuild } from '@/seo/public-catalog';
+import { SPEAKING_TOPICS_CATALOG, type SpeakingTopicEntry } from '@/seo/programmatic-catalog';
+
+export function getStaticPaths() {
+  return SPEAKING_TOPICS_CATALOG.map((topic) => ({
+    params: { track: topic.trackSlug, slug: topic.slug },
+    props: { topic },
+  }));
+}
+
+interface Props {
+  topic: SpeakingTopicEntry;
+}
+
+const { topic } = Astro.props;
+const editionConfig = getActiveEditionConfig();
+const isIrn = editionConfig.edition === 'irn';
+const copy = getPublicSiteCopyForBuild();
+
+const title = isIrn
+  ? `${topic.titleFa} | ${copy.brandTitle}`
+  : `${topic.title} — ${topic.partLabel} | ${copy.brandTitle}`;
+const canonicalPath = `/speaking-topics/${topic.trackSlug}/${topic.slug}`;
+
+const quizJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Quiz',
+  name: isIrn ? topic.titleFa : topic.title,
+  about: topic.partLabel,
+};
+
+const breadcrumbJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: copy.navHome, item: `https://${editionConfig.domain}/` },
+    { '@type': 'ListItem', position: 2, name: topic.partLabel, item: `https://${editionConfig.domain}/${topic.trackSlug}` },
+    { '@type': 'ListItem', position: 3, name: isIrn ? topic.titleFa : topic.title, item: `https://${editionConfig.domain}${canonicalPath}` },
+  ],
+};
+---
+
+<BaseLayout
+  title={title}
+  description={topic.prompt}
+  canonicalPath={canonicalPath}
+  ogImagePath={`/og/${topic.trackSlug}.png`}
+  jsonLd={[quizJsonLd, breadcrumbJsonLd]}
+  showPublicNav
+>
+  <main class="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-12 text-start">
+    <header class="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-6">
+      <div class="flex flex-wrap items-center justify-between gap-2 text-xs font-bold">
+        <span class="text-primary">{topic.partLabel}</span>
+        <span dir="ltr" class="font-mono-exam text-text-secondary">
+          Prep: {topic.prepSec}s · Speak: {topic.responseSec}s
+        </span>
+      </div>
+      <h1 class="mt-2 text-2xl font-bold text-text-primary">
+        {isIrn ? topic.titleFa : topic.title}
+      </h1>
+      <p dir="ltr" lang="en" class="mt-3 rounded-[var(--mz-radius-compact)] bg-bg-raised p-4 text-sm text-text-primary text-start">
+        {topic.prompt}
+      </p>
+    </header>
+
+    <section class="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-6">
+      <h2 class="text-sm font-bold text-primary">
+        {isIrn ? 'ساختار پیشنهادی پاسخ' : 'High-Band Structure Outline'}
+      </h2>
+      <ul dir="ltr" lang="en" class="mt-3 flex flex-col gap-2 text-xs text-text-secondary text-start">
+        {topic.outlineBullets.map((item) => (
+          <li class="rounded-[var(--mz-radius-compact)] bg-canvas px-3 py-2 text-text-primary">
+            • {item}
+          </li>
+        ))}
+      </ul>
+      {isIrn ? (
+        <p class="mt-4 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised p-3 text-xs text-text-secondary">
+          {topic.tipFa}
+        </p>
+      ) : null}
+      <div class="mt-4 flex flex-wrap gap-2">
+        {topic.highBandPhrases.map((phrase) => (
+          <span
+            dir="ltr"
+            lang="en"
+            class="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-2.5 py-0.5 font-mono-exam text-xs text-primary"
+          >
+            {phrase}
+          </span>
+        ))}
+      </div>
+    </section>
+
+    <div class="flex flex-wrap gap-3">
+      <a
+        href={`/app/practice?track=${topic.examId}`}
+        class="inline-flex h-10 items-center rounded-[var(--mz-radius-control)] bg-primary px-5 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
+      >
+        {copy.ctaCatalog}
+      </a>
+    </div>
+  </main>
+</BaseLayout>

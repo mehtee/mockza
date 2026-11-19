@@ -1,0 +1,79 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { getActiveEditionConfig } from '@/edition/edition-config';
+import ScoreCalculatorsSection from '@/seo/ScoreCalculatorsSection.astro';
+import { getPublicSiteCopyForBuild } from '@/seo/public-catalog';
+
+const editionConfig = getActiveEditionConfig();
+const isIrn = editionConfig.edition === 'irn';
+const copy = getPublicSiteCopyForBuild();
+
+const concordance = [
+  { pte: '85–90', ielts: '8.5–9.0', cefr: 'C2' },
+  { pte: '76–84', ielts: '8.0', cefr: 'C1–C2' },
+  { pte: '66–75', ielts: '7.5', cefr: 'C1' },
+  { pte: '59–65', ielts: '7.0', cefr: 'C1' },
+  { pte: '52–58', ielts: '6.5', cefr: 'B2' },
+  { pte: '43–51', ielts: '6.0', cefr: 'B2' },
+  { pte: '36–42', ielts: '5.5', cefr: 'B2' },
+];
+
+const breadcrumbJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: copy.navHome, item: `https://${editionConfig.domain}/` },
+    { '@type': 'ListItem', position: 2, name: copy.navCalculators, item: `https://${editionConfig.domain}/calculators` },
+    { '@type': 'ListItem', position: 3, name: 'PTE to IELTS', item: `https://${editionConfig.domain}/calculators/pte-to-ielts-concordance` },
+  ],
+};
+---
+
+<BaseLayout
+  title={
+    isIrn
+      ? `جدول هم‌ارز نمره PTE Academic به آیلتس و CEFR | ${copy.brandTitle}`
+      : `PTE Academic (10–90) to IELTS Band & CEFR Concordance | ${copy.brandTitle}`
+  }
+  description={
+    isIrn
+      ? 'جدول تبدیل نمرات ۱۰ تا ۹۰ آزمون PTE Academic به نمره آیلتس و سطح CEFR برای مهاجرت و پذیرش.'
+      : 'Compare Pearson PTE Academic 10–90 GSE scores directly with IELTS 5.5–9.0 bands and CEFR levels.'
+  }
+  canonicalPath="/calculators/pte-to-ielts-concordance"
+  jsonLd={breadcrumbJsonLd}
+  showPublicNav
+>
+  <main class="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-12 text-start">
+    <section class="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-6">
+      <h1 class="text-2xl font-bold text-text-primary">
+        {isIrn ? 'جدول هم‌ترازی نمره PTE Academic و IELTS' : 'PTE Academic to IELTS Band Concordance'}
+      </h1>
+      <p class="mt-2 text-sm text-text-secondary">
+        {isIrn
+          ? 'بررسی نمره معادل PTE برای اهداف مهاجرتی استرالیا، کانادا و پذیرش دانشگاه‌ها.'
+          : 'Reference published PTE Academic 10–90 score ranges alongside IELTS Academic bands and CEFR proficiency.'}
+      </p>
+      <table class="mt-4 w-full text-xs">
+        <thead>
+          <tr class="border-b border-border-subtle text-text-tertiary">
+            <th class="py-2 text-start">PTE Academic (10–90)</th>
+            <th class="py-2 text-end">IELTS Band</th>
+            <th class="py-2 text-end">CEFR</th>
+          </tr>
+        </thead>
+        <tbody>
+          {concordance.map((row) => (
+            <tr class="border-b border-border-subtle/50">
+              <td class="py-2 font-mono-exam">{row.pte}</td>
+              <td class="py-2 text-end font-mono-exam font-bold text-primary">{row.ielts}</td>
+              <td class="py-2 text-end font-mono-exam text-text-secondary">{row.cefr}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+
+    <ScoreCalculatorsSection isIrn={isIrn} />
+  </main>
+</BaseLayout>

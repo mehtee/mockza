@@ -52,6 +52,22 @@ import {
 const AuthScreen = lazy(() =>
   import('@/spa/features/auth/AuthScreen').then((m) => ({ default: m.AuthScreen })),
 );
+
+export function prefetchOfflineSimulatorChunks(): Promise<void> {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return Promise.resolve();
+  }
+  return Promise.allSettled([
+    import('@/spa/features/home/HomeScreen'),
+    import('@/spa/features/practice/PracticeCatalogScreen'),
+    import('@/spa/features/practice/ReadingSimulatorScreen'),
+    import('@/spa/features/practice/ListeningSimulatorScreen'),
+    import('@/spa/features/practice/WritingSimulatorScreen'),
+    import('@/spa/features/practice/SpeakingSimulatorScreen'),
+    import('@/spa/features/results/ObjectiveResultScreen'),
+    import('@/spa/features/progress/ProgressScreen'),
+  ]).then(() => undefined);
+}
 const DiagnosticIntroScreen = lazy(() =>
   import('@/spa/features/diagnostic/DiagnosticIntroScreen').then((m) => ({
     default: m.DiagnosticIntroScreen,

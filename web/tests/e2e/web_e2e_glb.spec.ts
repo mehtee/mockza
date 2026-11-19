@@ -96,20 +96,24 @@ test.describe('Mockza Desktop Web (GLB) E2E Robot Journeys (Web-E2E 1..7)', () =
     await page.getByTestId('annotator-note-input').fill('Key heatwave feeder detail');
     await page.getByTestId('annotator-save-note-btn').click();
 
-    // Answer Q1 (TRUE), advance to Q2 in Focused View, answer wrong to verify evidence + AI why
+    // Answer Q1 (TRUE), advance to Q2 in Focused View, flag Q2 and answer wrong to verify Flagged tab + evidence + AI why
     await page.getByTestId('choice-1-TRUE').click();
     await page.getByTestId('reading-next-btn').click();
+    await page.getByTestId('flag-question-2').click();
     await page.getByTestId('text-answer-2').fill('outages');
     await page.getByTestId('reading-submit-btn').click();
 
     await expect(page.getByTestId('objective-result-screen')).toBeVisible();
+    await page.getByRole('tab', { name: /Flagged/i }).click();
+    await expect(page.getByTestId('jump-evidence-2')).toBeVisible();
+    await page.getByRole('tab', { name: /^All/i }).click();
     await page.getByTestId('jump-evidence-2').click();
     await expect(page.getByTestId('evidence-span-highlight')).toBeVisible();
 
     await page.getByTestId('ask-ai-why-2').click();
     await expect(page.getByTestId('ai-explanation-2')).toContainText('credited key');
 
-    // Listening Simulator: Exam Mode lock vs Study Mode transcript reveal
+    // Listening Simulator: Exam Mode lock vs Study Mode transcript reveal & 0.75x-1.5x speed cycle
     await page.goto('/app/practice/listening/ielts-listening-seed-01');
     await expect(page.getByTestId('listening-simulator-screen')).toBeVisible();
     await expect(page.getByTestId('audio-exam-locked-badge')).toBeVisible();
@@ -118,6 +122,11 @@ test.describe('Mockza Desktop Web (GLB) E2E Robot Journeys (Web-E2E 1..7)', () =
     await page.getByRole('tab', { name: /Study Mode/i }).click();
     await expect(page.getByTestId('audio-seek-slider')).toBeVisible();
     await expect(page.getByTestId('audio-transcript-panel')).toBeVisible();
+    await expect(page.getByTestId('audio-speed-btn')).toBeEnabled();
+    await page.getByTestId('audio-speed-btn').click();
+    await expect(page.getByTestId('audio-speed-btn')).toContainText('1.25x');
+    await page.getByTestId('audio-speed-btn').click();
+    await expect(page.getByTestId('audio-speed-btn')).toContainText('1.5x');
   });
 
   test('Web-E2E 3: Writing 500ms Dexie Draft Autosave Across Reload + Exam Spellcheck Lock -> Pending -> Master-Detail Inline Edit + SM-2 Upgrade', async ({
@@ -152,7 +161,7 @@ test.describe('Mockza Desktop Web (GLB) E2E Robot Journeys (Web-E2E 1..7)', () =
     await page.goto('/app/vocabulary');
     await expect(page.getByTestId('vocab-hub-screen')).toBeVisible();
     await page.getByTestId('vocab-search-input').fill('mitigate');
-    await expect(page.getByText('mitigate')).toBeVisible();
+    await expect(page.getByText('mitigate').first()).toBeVisible();
   });
 
   test('Web-E2E 4: Full Mock Inter-Section Break + SM-2 Keyboard Review + Progress Compare', async ({
@@ -211,8 +220,11 @@ test.describe('Mockza Desktop Web (GLB) E2E Robot Journeys (Web-E2E 1..7)', () =
     await expect(page.getByTestId('practice-catalog-screen')).toBeVisible();
     await page.getByTestId('download-pack-ielts-acad-reading-seed-01').click();
     await expect(page.getByTestId('pack-offline-badge-ielts-acad-reading-seed-01')).toBeVisible();
+    await page.getByTestId('download-pack-ielts-writing-seed-01').click();
+    await expect(page.getByTestId('pack-offline-badge-ielts-writing-seed-01')).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('data-offline-ready', 'true');
 
-    // Go offline and verify Reading simulator loads entirely from IndexedDB/OPFS cache
+    // Go offline and verify Reading + Writing simulators run via client-side navigation & Dexie/OPFS cache
     await context.setOffline(true);
     await page.getByTestId('launch-pack-ielts-acad-reading-seed-01').click();
     await expect(page.getByTestId('reading-simulator-screen')).toBeVisible();
@@ -223,7 +235,24 @@ test.describe('Mockza Desktop Web (GLB) E2E Robot Journeys (Web-E2E 1..7)', () =
     await expect(page.getByTestId('objective-result-screen')).toBeVisible();
     await expect(page.getByTestId('objective-result-band')).toContainText('9.0');
 
+    await page.getByRole('link', { name: 'Practice' }).click();
+    await expect(page.getByTestId('practice-catalog-screen')).toBeVisible();
+    await page.getByTestId('launch-pack-ielts-writing-seed-01').click();
+    await expect(page.getByTestId('writing-simulator-screen')).toBeVisible();
+    await page
+      .getByTestId('essay-editor-textarea')
+      .fill('Offline municipal solar storage sustains clinic operations reliably during severe regional storms.');
+    await page.getByTestId('writing-submit-btn').click();
+    await expect(page.getByTestId('progress-screen')).toBeVisible({ timeout: 10000 });
+
+    // Reconnect and confirm automatic outbox flush dispatches evaluation POST
+    const evalDispatched = page.waitForRequest(
+      (req) => req.url().includes('/v1/evaluate/writing') && req.method() === 'POST',
+      { timeout: 10000 },
+    );
     await context.setOffline(false);
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await evalDispatched;
   });
 
   test('Web-E2E 6: 409 Desktop Slot Takeover -> Settings Device List -> Paywall 1+1 ToS Consent & Stripe Checkout', async ({

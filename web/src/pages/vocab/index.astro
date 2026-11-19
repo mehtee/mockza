@@ -2,11 +2,13 @@
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { getActiveEditionConfig } from '@/edition/edition-config';
 import { getPublicSiteCopyForBuild, getPublicVocabForBuild } from '@/seo/public-catalog';
+import { getVocabCategoriesForBuild } from '@/seo/programmatic-catalog';
 
 const editionConfig = getActiveEditionConfig();
 const isIrn = editionConfig.edition === 'irn';
 const copy = getPublicSiteCopyForBuild();
 const entries = getPublicVocabForBuild();
+const categoryPages = getVocabCategoriesForBuild();
 ---
 
 <BaseLayout
@@ -61,5 +63,22 @@ const entries = getPublicVocabForBuild();
         </article>
       ))}
     </div>
+
+    <section class="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-6">
+      <h2 class="text-base font-bold text-primary">
+        {isIrn ? 'دسته‌بندی‌های تخصصی واژگان (۳۲۰+ واژه استاندارد)' : 'Full 320+ Clean-Room Vocabulary by Exam & Topic'}
+      </h2>
+      <div class="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 text-xs">
+        {categoryPages.map((cat) => (
+          <a
+            href={`/vocabulary/${cat.trackSlug}/${cat.category}`}
+            class="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 py-2 text-text-primary hover:border-primary"
+          >
+            <span class="font-bold uppercase text-primary">{cat.trackSlug}</span> ·{' '}
+            {isIrn ? cat.categoryLabelFa : cat.categoryLabelEn} ({cat.cards.length})
+          </a>
+        ))}
+      </div>
+    </section>
   </main>
 </BaseLayout>

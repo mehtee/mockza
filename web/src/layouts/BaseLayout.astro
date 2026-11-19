@@ -41,7 +41,7 @@ const {
 } = Astro.props;
 
 const canonicalUrl = canonicalPath ? `${siteOrigin}${canonicalPath}` : undefined;
-const ogImageUrl = ogImagePath ? `${siteOrigin}${ogImagePath}` : `${siteOrigin}/og/home.svg`;
+const ogImageUrl = ogImagePath ? `${siteOrigin}${ogImagePath}` : `${siteOrigin}/og/home.png`;
 ---
 
 <!doctype html>
@@ -56,6 +56,8 @@ const ogImageUrl = ogImagePath ? `${siteOrigin}${ogImagePath}` : `${siteOrigin}/
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <title>{title}</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     {canonicalUrl ? <link rel="canonical" href={canonicalUrl} /> : null}
     {markdownTwinPath ? (
       <link rel="alternate" type="text/markdown" href={markdownTwinPath} />

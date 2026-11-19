@@ -39,15 +39,46 @@ const courseJsonLd = {
     url: `https://${editionConfig.domain}`,
   },
 };
+
+const quizJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Quiz',
+  name: `${guide.name} Diagnostic Practice`,
+  about: guide.name,
+  educationalAlignment: {
+    '@type': 'AlignmentObject',
+    alignmentType: 'educationalSubject',
+    targetName: guide.scoreScaleLabel,
+  },
+};
+
+const breadcrumbJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    {
+      '@type': 'ListItem',
+      position: 1,
+      name: copy.navHome,
+      item: `https://${editionConfig.domain}/`,
+    },
+    {
+      '@type': 'ListItem',
+      position: 2,
+      name: guide.name,
+      item: `https://${editionConfig.domain}/${guide.slug}`,
+    },
+  ],
+};
 ---
 
 <BaseLayout
   title={`${guide.name} | ${copy.brandTitle}`}
   description={guide.summary}
   canonicalPath={`/${guide.slug}`}
-  ogImagePath={`/og/${guide.slug}.svg`}
+  ogImagePath={`/og/${guide.slug}.png`}
   markdownTwinPath={`/${guide.slug}.md`}
-  jsonLd={[courseJsonLd, faqJsonLd]}
+  jsonLd={[courseJsonLd, faqJsonLd, quizJsonLd, breadcrumbJsonLd]}
   showPublicNav
 >
   <main class="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-12 text-start">

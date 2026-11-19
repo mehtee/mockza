@@ -1,0 +1,15 @@
+{
+  "name": "Exam Simulator Studio",
+  "short_name": "Exam Studio",
+  "start_url": "/app/home",
+  "display": "standalone",
+  "background_color": "#0C0F19",
+  "theme_color": "#9580FF",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

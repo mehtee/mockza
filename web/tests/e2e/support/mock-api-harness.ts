@@ -211,7 +211,7 @@ function makePackBundle(
         durationSeconds: 600,
         wordCount: 12,
         contentText: '',
-        mediaUrl: null,
+        mediaUrl: '/v1/media/e2e-listening.wav',
         transcript: [
           {
             startMs: 0,
@@ -362,7 +362,21 @@ export async function attachE2eApiHarness(
     const req = route.request();
     const url = new URL(req.url());
     const pathname = url.pathname;
+    const browserOffline = await page.evaluate(() => navigator.onLine === false).catch(() => false);
+    if (browserOffline) {
+      await route.abort('internetdisconnected');
+      return;
+    }
     state.requests.push({ method: req.method(), path: pathname });
+
+    if (pathname.startsWith('/v1/media/')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'audio/wav',
+        body: Buffer.from('UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA', 'base64'),
+      });
+      return;
+    }
 
     if (pathname === '/v1/auth/providers') {
       await route.fulfill(

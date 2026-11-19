@@ -7,7 +7,11 @@ import {
   type ReadyBackgroundEvaluation,
   subscribeBackgroundEvaluationReady,
 } from '@/spa/eval-job-watcher';
-import { type AppRouter, createAppRouter } from '@/spa/router';
+import {
+  type AppRouter,
+  createAppRouter,
+  prefetchOfflineSimulatorChunks,
+} from '@/spa/router';
 import { useClockStore } from '@/spa/stores/clock.store';
 import {
   subscribeSystemThemeChange,
@@ -101,12 +105,25 @@ export function DesktopSimulatorApp({
   useEffect(() => {
     if (!dependencies) return;
     void dependencies.syncOutbox.purgeExpiredAudio().then(() => dependencies.syncOutbox.flushPending());
+    const runPrefetch = () => {
+      void prefetchOfflineSimulatorChunks().then(() => {
+        document.documentElement.dataset['offlineReady'] = 'true';
+      });
+    };
     const handleOnline = () => {
       void dependencies.syncOutbox.flushPending();
+      runPrefetch();
+    };
+    const handlePrefetchRequest = () => {
+      runPrefetch();
     };
     window.addEventListener('online', handleOnline);
+    window.addEventListener('mockza:prefetch-offline-chunks', handlePrefetchRequest);
+    const idleTimer = window.setTimeout(runPrefetch, 200);
     return () => {
+      window.clearTimeout(idleTimer);
       window.removeEventListener('online', handleOnline);
+      window.removeEventListener('mockza:prefetch-offline-chunks', handlePrefetchRequest);
     };
   }, [dependencies]);
 

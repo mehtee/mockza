@@ -1,0 +1,89 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { getActiveEditionConfig } from '@/edition/edition-config';
+import { getPublicSiteCopyForBuild } from '@/seo/public-catalog';
+import { getVocabCategoriesForBuild, type VocabCategoryPageData } from '@/seo/programmatic-catalog';
+
+export function getStaticPaths() {
+  return getVocabCategoriesForBuild().map((item) => ({
+    params: { track: item.trackSlug, category: item.category },
+    props: { item },
+  }));
+}
+
+interface Props {
+  item: VocabCategoryPageData;
+}
+
+const { item } = Astro.props;
+const editionConfig = getActiveEditionConfig();
+const isIrn = editionConfig.edition === 'irn';
+const copy = getPublicSiteCopyForBuild();
+
+const label = isIrn ? item.categoryLabelFa : item.categoryLabelEn;
+const canonicalPath = `/vocabulary/${item.trackSlug}/${item.category}`;
+
+const breadcrumbJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: copy.navHome, item: `https://${editionConfig.domain}/` },
+    { '@type': 'ListItem', position: 2, name: copy.navVocab, item: `https://${editionConfig.domain}/vocab` },
+    { '@type': 'ListItem', position: 3, name: label, item: `https://${editionConfig.domain}${canonicalPath}` },
+  ],
+};
+---
+
+<BaseLayout
+  title={`${label} — ${item.trackSlug.toUpperCase()} | ${copy.brandTitle}`}
+  description={
+    isIrn
+      ? `${item.cards.length} واژه آکادمیک دسته‌بندی ${label} با تلفظ و کلوکیشن برای شبیه‌ساز دسکتاپ.`
+      : `${item.cards.length} high-frequency ${label} academic words with IPA, context sentences, and collocations.`
+  }
+  canonicalPath={canonicalPath}
+  ogImagePath={`/og/${item.trackSlug}.png`}
+  jsonLd={breadcrumbJsonLd}
+  showPublicNav
+>
+  <main class="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-12 text-start">
+    <header class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <p class="text-xs font-bold uppercase text-primary">{item.trackSlug}</p>
+        <h1 class="mt-1 text-2xl font-bold text-text-primary">{label}</h1>
+        <p class="mt-1 text-xs text-text-secondary">
+          {isIrn
+            ? `${item.cards.length} واژه استاندارد آماده تمرین با الگوریتم SM-2`
+            : `${item.cards.length} clean-room entries ready for SM-2 flashcard review`}
+        </p>
+      </div>
+      <a
+        href="/app/vocabulary/review"
+        class="inline-flex h-10 items-center rounded-[var(--mz-radius-control)] bg-primary px-5 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
+      >
+        {isIrn ? 'شروع مرور فلش‌کارت SM-2' : 'Practice in SM-2 Studio'}
+      </a>
+    </header>
+
+    <div class="grid gap-4 md:grid-cols-2">
+      {item.cards.map((word) => (
+        <article class="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-5">
+          <div class="flex items-baseline justify-between gap-2">
+            <h2 dir="ltr" lang="en" class="text-lg font-bold text-text-primary">
+              {word.headword}
+            </h2>
+            <span dir="ltr" lang="en" class="font-mono-exam text-xs text-text-tertiary">
+              {word.ipa}
+            </span>
+          </div>
+          <p dir="ltr" lang="en" class="mt-2 text-xs text-text-secondary text-start">
+            {word.definition}
+          </p>
+          <p dir="ltr" lang="en" class="mt-2 text-xs italic text-text-tertiary text-start">
+            {word.contextSentence}
+          </p>
+        </article>
+      ))}
+    </div>
+  </main>
+</BaseLayout>

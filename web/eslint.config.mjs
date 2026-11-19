@@ -339,6 +339,7 @@ export default tseslint.config(
                   },
                 },
                 { to: { module: { origin: 'external' } } },
+                { to: { module: { origin: 'core' } } },
               ],
             },
             // Tests: allowed to test any layer

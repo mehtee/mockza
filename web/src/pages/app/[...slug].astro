@@ -1,6 +1,5 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import { DesktopSimulatorApp } from '@/spa/DesktopSimulatorApp';
 
 export function getStaticPaths() {
   const slugs: Array<string | undefined> = [
@@ -30,5 +29,8 @@ export function getStaticPaths() {
 ---
 
 <BaseLayout>
-  <DesktopSimulatorApp client:only="react" />
+  <div id="mockza-spa-root"></div>
+  <script>
+    import '@/spa/mount-app';
+  </script>
 </BaseLayout>

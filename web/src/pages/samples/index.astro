@@ -2,6 +2,10 @@
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { getActiveEditionConfig } from '@/edition/edition-config';
 import { getPublicSiteCopyForBuild, getSampleEssaysForBuild } from '@/seo/public-catalog';
+import {
+  SPEAKING_TOPICS_CATALOG,
+  WRITING_SAMPLES_CATALOG,
+} from '@/seo/programmatic-catalog';
 
 const editionConfig = getActiveEditionConfig();
 const isIrn = editionConfig.edition === 'irn';
@@ -59,6 +63,42 @@ const samples = getSampleEssaysForBuild();
         </article>
       ))}
     </div>
+
+    <section class="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-6">
+      <h2 class="text-base font-bold text-primary">
+        {isIrn ? 'بانک موضوعات و نمونه‌های کامل تمام آزمون‌ها' : 'Programmatic Writing Samples & Speaking Topics by Exam'}
+      </h2>
+      <div class="mt-4 grid gap-4 md:grid-cols-2 text-xs">
+        <div class="flex flex-col gap-2">
+          <p class="font-bold text-text-secondary">
+            {isIrn ? 'نمونه رایتینگ‌های تخصصی' : 'Writing Samples'}
+          </p>
+          {WRITING_SAMPLES_CATALOG.map((ws) => (
+            <a
+              href={`/writing-samples/${ws.trackSlug}/${ws.slug}`}
+              class="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 py-2 text-text-primary hover:border-primary"
+            >
+              <span class="font-semibold text-primary">{ws.taskLabel}</span> ·{' '}
+              {isIrn ? ws.titleFa : ws.title}
+            </a>
+          ))}
+        </div>
+        <div class="flex flex-col gap-2">
+          <p class="font-bold text-text-secondary">
+            {isIrn ? 'موضوعات اسپیکینگ با ساختار پاسخ' : 'Speaking Topics'}
+          </p>
+          {SPEAKING_TOPICS_CATALOG.map((sp) => (
+            <a
+              href={`/speaking-topics/${sp.trackSlug}/${sp.slug}`}
+              class="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 py-2 text-text-primary hover:border-primary"
+            >
+              <span class="font-semibold text-primary">{sp.partLabel}</span> ·{' '}
+              {isIrn ? sp.titleFa : sp.title}
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
 
     <div>
       <a

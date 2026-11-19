@@ -45,6 +45,7 @@ export function AudioStudioPlayer({
   const t = createTranslator(edition);
 
   const handleRef = useRef<AudioTrackHandle | null>(null);
+  const [handleReady, setHandleReady] = useState(false);
   const onEndedRef = useRef(onEnded);
   const onPlaybackStateChangeRef = useRef(onPlaybackStateChange);
   onEndedRef.current = onEnded;
@@ -69,6 +70,7 @@ export function AudioStudioPlayer({
     let unsubscribe: (() => void) | null = null;
 
     player.setPlaybackMode(playbackMode);
+    setHandleReady(false);
     setErrorMessage(null);
 
     const stableSource: AudioSourceSpec = {
@@ -83,12 +85,14 @@ export function AudioStudioPlayer({
         return;
       }
       if (!res.ok) {
+        setHandleReady(false);
         setErrorMessage(res.error.message);
         setPlayback((prev) => ({ ...prev, status: 'error' }));
         return;
       }
       const handle = res.value;
       handleRef.current = handle;
+      setHandleReady(true);
       unsubscribe = handle.subscribe((nextState) => {
         if (!mounted) return;
         setPlayback(nextState);
@@ -104,6 +108,7 @@ export function AudioStudioPlayer({
       unsubscribe?.();
       handleRef.current?.dispose();
       handleRef.current = null;
+      setHandleReady(false);
     };
   }, [deps?.audioPlayer, expectedSha256, fallbackUrl, mediaKey, playbackMode]);
 
@@ -229,8 +234,9 @@ export function AudioStudioPlayer({
                   type="button"
                   data-testid="audio-rewind-5s"
                   aria-label="Rewind 5 seconds"
+                  disabled={!handleReady}
                   onClick={() => handleSeek(playback.currentTimeSec - 5)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded border border-border-subtle bg-canvas text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded border border-border-subtle bg-canvas text-text-secondary hover:bg-surface-hover hover:text-text-primary disabled:opacity-45"
                 >
                   <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
@@ -238,8 +244,9 @@ export function AudioStudioPlayer({
                   type="button"
                   data-testid="audio-forward-5s"
                   aria-label="Forward 5 seconds"
+                  disabled={!handleReady}
                   onClick={() => handleSeek(playback.currentTimeSec + 5)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded border border-border-subtle bg-canvas text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded border border-border-subtle bg-canvas text-text-secondary hover:bg-surface-hover hover:text-text-primary disabled:opacity-45"
                 >
                   <RotateCw className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
@@ -260,8 +267,9 @@ export function AudioStudioPlayer({
               <button
                 type="button"
                 data-testid="audio-speed-btn"
+                disabled={!handleReady}
                 onClick={handleCycleSpeed}
-                className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-canvas px-3 py-1 font-mono-exam text-xs font-semibold text-text-primary hover:bg-surface-hover"
+                className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-canvas px-3 py-1 font-mono-exam text-xs font-semibold text-text-primary hover:bg-surface-hover disabled:opacity-45"
               >
                 {playback.playbackRate}x
               </button>

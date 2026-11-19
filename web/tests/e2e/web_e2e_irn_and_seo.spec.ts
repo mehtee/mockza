@@ -22,13 +22,13 @@ test.describe('Sanjia IRN Edition + Static SEO & GEO Emitters E2E (Web-E2E 8)', 
     await page.getByTestId('goal-jalali-day').fill('27');
     await expect(page.getByTestId('goal-formatted-date')).toContainText(/1405|۱۴۰۵/);
 
-    // Phone SMS OTP auth
+    // Phone SMS OTP auth (with Persian digits normalization!)
     await page.goto(`${irnBase}/app/auth/login`);
     await expect(page.getByTestId('auth-phone-input')).toBeVisible();
-    await page.getByTestId('auth-phone-input').fill('+989121234567');
+    await page.getByTestId('auth-phone-input').fill('+۹۸۹۱۲۱۲۳۴۵۶۷');
     await page.getByTestId('auth-otp-submit').click();
     await expect(page.getByTestId('auth-otp-input')).toBeVisible();
-    await page.getByTestId('auth-otp-input').fill('123456');
+    await page.getByTestId('auth-otp-input').fill('۱۲۳۴۵۶');
     await page.getByTestId('auth-otp-submit').click();
     await expect(page.getByTestId('home-screen')).toBeVisible();
 
@@ -105,6 +105,32 @@ test.describe('Sanjia IRN Edition + Static SEO & GEO Emitters E2E (Web-E2E 8)', 
     const ogSvg = await request.get(`${glbBase}/og/home.svg`);
     expect(ogSvg.status()).toBe(200);
     expect(await ogSvg.text()).toContain('width="1200"');
+
+    const ogPng = await request.get(`${glbBase}/og/home.png`);
+    expect(ogPng.status()).toBe(200);
+    expect(ogPng.headers()['content-type']).toContain('image/png');
+    const pngBytes = await ogPng.body();
+    expect(pngBytes.subarray(0, 4).toString('hex')).toBe('89504e47');
+
+    const favicon = await request.get(`${glbBase}/favicon.svg`);
+    expect(favicon.status()).toBe(200);
+    const manifest = await request.get(`${glbBase}/manifest.webmanifest`);
+    expect(manifest.status()).toBe(200);
+
+    // Programmatic calculators, writing samples, speaking topics & 320+ vocab categories
+    for (const staticRoute of [
+      '/calculators/ielts-band-calculator',
+      '/calculators/pte-to-ielts-concordance',
+      '/calculators/det-subscore-estimator',
+      '/writing-samples/ielts-academic/urban-light-rail-subsidies',
+      '/speaking-topics/toefl-ibt/zero-prep-campus-interview',
+      '/vocabulary/ielts-academic/environment',
+    ]) {
+      const res = await request.get(`${glbBase}${staticRoute}`);
+      expect(res.status(), `route ${staticRoute}`).toBe(200);
+      const html = await res.text();
+      expect(html).toContain('BreadcrumbList');
+    }
 
     const sitemap = await request.get(`${glbBase}/sitemap-index.xml`);
     expect(sitemap.status()).toBe(200);
