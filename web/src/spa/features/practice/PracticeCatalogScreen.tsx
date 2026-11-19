@@ -13,6 +13,14 @@ import type { CacheUsageSummary } from '@/gateways/catalog.gateway';
 import type { CatalogPackRecord } from '@/gateways/storage.gateway';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
+import {
+  ensureCatalogSynced,
+  readSwrCatalogPacks,
+  readSwrTrack,
+  subscribeTrackChanged,
+  writeSwrCatalogPacks,
+  writeSwrTrack,
+} from '@/spa/swr-cache';
 
 const SKILL_FILTERS: readonly (SkillKind | 'fullMock' | 'all')[] = [
   'all',
@@ -52,9 +60,16 @@ export function PracticeCatalogScreen({ initialTrack }: PracticeCatalogScreenPro
   const t = createTranslator(deps.edition);
   const navigate = useNavigate();
 
-  const [packs, setPacks] = useState<readonly CatalogPackRecord[]>([]);
+  const [packs, setPacks] = useState<readonly CatalogPackRecord[]>(() =>
+    readSwrCatalogPacks(deps.catalog, deps.edition),
+  );
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState<boolean>(
+    () => readSwrCatalogPacks(deps.catalog, deps.edition).length === 0,
+  );
   const [cacheSummary, setCacheSummary] = useState<CacheUsageSummary | null>(null);
-  const [selectedExam, setSelectedExam] = useState<SupportedExamId | 'all'>(initialTrack ?? 'all');
+  const [selectedExam, setSelectedExam] = useState<SupportedExamId | 'all'>(
+    () => initialTrack ?? readSwrTrack(deps.edition) ?? 'all',
+  );
   const [selectedSkill, setSelectedSkill] = useState<SkillKind | 'fullMock' | 'all'>('all');
   const [cachedOnly, setCachedOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -65,36 +80,53 @@ export function PracticeCatalogScreen({ initialTrack }: PracticeCatalogScreenPro
   const hydratedRef = useRef(false);
 
   useEffect(() => {
+    return subscribeTrackChanged((nextTrack) => {
+      setSelectedExam(nextTrack);
+    });
+  }, []);
+
+  useEffect(() => {
     if (hydratedRef.current) return;
     hydratedRef.current = true;
     let mounted = true;
     async function loadLocalCatalog() {
+      const hadSwr = readSwrCatalogPacks(deps.catalog, deps.edition).length > 0;
+      const syncPromise = !hadSwr ? ensureCatalogSynced(deps.catalog, deps.edition) : null;
+
       const [packsRes, cacheRes, profileRes] = await Promise.all([
         deps.catalog.listPacks(),
         deps.catalog.getCacheUsageSummary(),
         deps.attemptStore.getUserProfile(),
       ]);
       if (!mounted) return;
-      if (packsRes.ok) {
-        let rows = packsRes.value;
-        if (rows.length === 0) {
-          const synced = await deps.catalog.syncCatalogManifest();
-          if (synced.ok) rows = synced.value;
-        }
-        if (mounted) setPacks(rows);
-      }
+
       if (cacheRes.ok) {
         setCacheSummary(cacheRes.value);
       }
       if (profileRes.ok && profileRes.value?.examId) {
         setSelectedExam(profileRes.value.examId);
+        writeSwrTrack(deps.edition, profileRes.value.examId);
       }
+
+      if (packsRes.ok && packsRes.value.length > 0) {
+        setPacks(packsRes.value);
+        writeSwrCatalogPacks(deps.catalog, deps.edition, packsRes.value);
+        setIsLoadingCatalog(false);
+        return;
+      }
+
+      const syncedRows = await (syncPromise ?? ensureCatalogSynced(deps.catalog, deps.edition));
+      if (!mounted) return;
+      if (syncedRows && syncedRows.length > 0) {
+        setPacks(syncedRows);
+      }
+      setIsLoadingCatalog(false);
     }
     void loadLocalCatalog();
     return () => {
       mounted = false;
     };
-  }, [deps.attemptStore, deps.catalog]);
+  }, [deps.attemptStore, deps.catalog, deps.edition]);
 
   const handleSyncCatalog = async () => {
     setSyncing(true);
@@ -104,6 +136,7 @@ export function PracticeCatalogScreen({ initialTrack }: PracticeCatalogScreenPro
       setErrorMsg(res.error.message);
     } else {
       setPacks(res.value);
+      writeSwrCatalogPacks(deps.catalog, deps.edition, res.value);
     }
     const cacheRes = await deps.catalog.getCacheUsageSummary();
     if (cacheRes.ok) setCacheSummary(cacheRes.value);
@@ -124,7 +157,10 @@ export function PracticeCatalogScreen({ initialTrack }: PracticeCatalogScreenPro
         deps.catalog.listPacks(),
         deps.catalog.getCacheUsageSummary(),
       ]);
-      if (packsRes.ok) setPacks(packsRes.value);
+      if (packsRes.ok) {
+        setPacks(packsRes.value);
+        writeSwrCatalogPacks(deps.catalog, deps.edition, packsRes.value);
+      }
       if (cacheRes.ok) setCacheSummary(cacheRes.value);
     }
     setDownloadingPackId(null);
@@ -286,7 +322,19 @@ export function PracticeCatalogScreen({ initialTrack }: PracticeCatalogScreenPro
       </MzCard>
 
       {/* Pack Grid */}
-      {filteredPacks.length === 0 ? (
+      {isLoadingCatalog && packs.length === 0 ? (
+        <div
+          aria-busy="true"
+          className="grid animate-pulse gap-4 md:grid-cols-2 xl:grid-cols-3"
+        >
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <div
+              key={idx}
+              className="h-44 rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface"
+            />
+          ))}
+        </div>
+      ) : filteredPacks.length === 0 ? (
         <MzCard variant="alt">
           <p className="py-6 text-center text-sm text-text-secondary">
             {t('practiceEmptyCatalog')}

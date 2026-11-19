@@ -119,9 +119,13 @@ export function DesktopSimulatorApp({
     };
     window.addEventListener('online', handleOnline);
     window.addEventListener('mockza:prefetch-offline-chunks', handlePrefetchRequest);
-    const idleTimer = window.setTimeout(runPrefetch, 200);
+
+    // Defer background simulator chunk warming until well after initial hydration so it
+    // never competes with page render or /v1/catalog/manifest; offline pack downloads
+    // still trigger immediate prefetch via 'mockza:prefetch-offline-chunks'.
+    const deferredTimer = window.setTimeout(runPrefetch, 8000);
     return () => {
-      window.clearTimeout(idleTimer);
+      window.clearTimeout(deferredTimer);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('mockza:prefetch-offline-chunks', handlePrefetchRequest);
     };

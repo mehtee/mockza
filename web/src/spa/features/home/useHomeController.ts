@@ -22,6 +22,15 @@ import type {
   VocabCardWithSrs,
 } from '@/gateways/storage.gateway';
 import { useDeps } from '@/spa/deps';
+import {
+  ensureCatalogSynced,
+  notifyTrackChanged,
+  readSwrCatalogPacks,
+  readSwrHomeSnapshot,
+  subscribeTrackChanged,
+  writeSwrHomeSnapshot,
+  writeSwrTrack,
+} from '@/spa/swr-cache';
 import { syncSeededVocabDeck } from '@/spa/vocab-sync';
 import { useAuthSession } from '@/spa/stores/auth-session';
 
@@ -33,14 +42,25 @@ function resolveIsoWeekday(nowMs: number): number {
 export function useHomeController() {
   const deps = useDeps();
   const { session } = useAuthSession(deps.auth);
+  const initialSnapshot = readSwrHomeSnapshot(deps.attemptStore);
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => initialSnapshot === null);
   const [deviceId, setDeviceId] = useState('local-desktop-device');
-  const [profile, setProfile] = useState<UserProfileRecord | null>(null);
-  const [attempts, setAttempts] = useState<readonly CompletedAttemptRecord[]>([]);
-  const [studyDays, setStudyDays] = useState<readonly SerialDay[]>([]);
-  const [dueCards, setDueCards] = useState<readonly VocabCardWithSrs[]>([]);
-  const [latestDiagnostic, setLatestDiagnostic] = useState<DiagnosticSessionDto | null>(null);
+  const [profile, setProfile] = useState<UserProfileRecord | null>(
+    () => initialSnapshot?.profile ?? null,
+  );
+  const [attempts, setAttempts] = useState<readonly CompletedAttemptRecord[]>(
+    () => initialSnapshot?.attempts ?? [],
+  );
+  const [studyDays, setStudyDays] = useState<readonly SerialDay[]>(
+    () => initialSnapshot?.studyDays ?? [],
+  );
+  const [dueCards, setDueCards] = useState<readonly VocabCardWithSrs[]>(
+    () => initialSnapshot?.dueCards ?? [],
+  );
+  const [latestDiagnostic, setLatestDiagnostic] = useState<DiagnosticSessionDto | null>(
+    () => initialSnapshot?.latestDiagnostic ?? null,
+  );
 
   const hydrate = useCallback(async () => {
     const today = deps.clock.todaySerialDay();
@@ -53,23 +73,32 @@ export function useHomeController() {
       deps.attemptStore.getLatestDiagnosticSession(),
     ]);
 
+    let nextProfile: UserProfileRecord | null = null;
+    let nextAttempts: readonly CompletedAttemptRecord[] = [];
+    let nextStudyDays: readonly SerialDay[] = [];
+    let nextDueCards: readonly VocabCardWithSrs[] = [];
+    let nextDiagnostic: DiagnosticSessionDto | null = null;
+
     if (idRes.ok) {
       setDeviceId(idRes.value.deviceInstallId);
     }
     if (profileRes.ok && profileRes.value) {
+      nextProfile = profileRes.value;
       setProfile(profileRes.value);
+      writeSwrTrack(deps.edition, profileRes.value.examId);
     }
     if (attemptsRes.ok) {
+      nextAttempts = attemptsRes.value;
       setAttempts(attemptsRes.value);
     }
     if (studyRes.ok) {
-      setStudyDays(
-        studyRes.value
-          .filter((log) => log.completedItems > 0 || log.studySeconds > 0)
-          .map((log) => log.serialDay),
-      );
+      nextStudyDays = studyRes.value
+        .filter((log) => log.completedItems > 0 || log.studySeconds > 0)
+        .map((log) => log.serialDay);
+      setStudyDays(nextStudyDays);
     }
     if (dueRes.ok) {
+      nextDueCards = dueRes.value;
       setDueCards(dueRes.value);
     }
     if (diagRes.ok && diagRes.value?.stateJson) {
@@ -78,13 +107,25 @@ export function useHomeController() {
           readonly remoteSession?: DiagnosticSessionDto | null;
         };
         if (parsed.remoteSession) {
+          nextDiagnostic = parsed.remoteSession;
           setLatestDiagnostic(parsed.remoteSession);
         }
       } catch {
         // Ignore malformed diagnostic JSON snapshot.
       }
     }
+    writeSwrHomeSnapshot(deps.attemptStore, {
+      profile: nextProfile,
+      attempts: nextAttempts,
+      studyDays: nextStudyDays,
+      dueCards: nextDueCards,
+      latestDiagnostic: nextDiagnostic,
+    });
     setIsLoading(false);
+
+    if (readSwrCatalogPacks(deps.catalog, deps.edition).length === 0) {
+      void ensureCatalogSynced(deps.catalog, deps.edition);
+    }
 
     const activeExam =
       profileRes.ok && profileRes.value?.examId ? profileRes.value.examId : 'ielts_academic';
@@ -93,13 +134,47 @@ export function useHomeController() {
       const refreshedDue = await deps.vocabStore.getDueCards(today, 200);
       if (refreshedDue.ok) {
         setDueCards(refreshedDue.value);
+        writeSwrHomeSnapshot(deps.attemptStore, {
+          profile: nextProfile,
+          attempts: nextAttempts,
+          studyDays: nextStudyDays,
+          dueCards: refreshedDue.value,
+          latestDiagnostic: nextDiagnostic,
+        });
       }
     }
-  }, [deps.attemptStore, deps.auth, deps.catalog, deps.clock, deps.vocabStore]);
+  }, [deps.attemptStore, deps.auth, deps.catalog, deps.clock, deps.edition, deps.vocabStore]);
 
   useEffect(() => {
     void hydrate();
   }, [hydrate]);
+
+  useEffect(() => {
+    return subscribeTrackChanged((nextTrack) => {
+      setProfile((prev) => {
+        if (prev?.examId === nextTrack) return prev;
+        return prev
+          ? {
+              ...prev,
+              examId: nextTrack,
+              examModule: nextTrack === 'ielts_general' ? 'general_training' : 'academic',
+            }
+          : {
+              deviceId,
+              examId: nextTrack,
+              examModule: nextTrack === 'ielts_general' ? 'general_training' : 'academic',
+              targetBand: EXAM_TRACK_SPECS[nextTrack].targetScoreDefault,
+              targetDateSerial: null,
+              onboardingCompleted: true,
+              freeDiagnosticUsed: false,
+              linkedEmail: null,
+              appUserId: null,
+              isPro: false,
+              updatedAtMs: deps.clock.nowMs(),
+            };
+      });
+    });
+  }, [deps.clock, deviceId]);
 
   const activeTrack: SupportedExamId = profile?.examId ?? 'ielts_academic';
   const trackSpec = EXAM_TRACK_SPECS[activeTrack];
@@ -127,12 +202,14 @@ export function useHomeController() {
         updatedAtMs: deps.clock.nowMs(),
       };
       setProfile(updated);
+      notifyTrackChanged(deps.edition, nextTrack);
       await deps.attemptStore.saveUserProfile(updated);
     },
     [
       activeTrack,
       deps.attemptStore,
       deps.clock,
+      deps.edition,
       deviceId,
       profile,
       session?.user?.email,

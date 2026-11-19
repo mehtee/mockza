@@ -33,7 +33,15 @@ import {
   WifiOff,
   X,
 } from 'lucide-react';
-import { Suspense, lazy, useEffect, useState } from 'react';
+import {
+  type ComponentType,
+  type ReactNode,
+  Suspense,
+  createElement,
+  lazy,
+  useEffect,
+  useState,
+} from 'react';
 import {
   getActiveEditionCode,
   getEditionConfig,
@@ -41,6 +49,12 @@ import {
 import { formatChromeNumber } from '@/edition/bidi/numerals';
 import { createTranslator } from '@/i18n';
 import { useOptionalDeps } from '@/spa/deps';
+import {
+  notifyTrackChanged,
+  readSwrTrack,
+  subscribeTrackChanged,
+  writeSwrTrack,
+} from '@/spa/swr-cache';
 import { useClockStore } from '@/spa/stores/clock.store';
 import { useLayoutStore } from '@/spa/stores/layout.store';
 import {
@@ -49,136 +63,236 @@ import {
   type ThemeMode,
 } from '@/theme/theme-controller';
 
-const AuthScreen = lazy(() =>
+type AnyScreenFn = (props: never) => ReactNode;
+
+type InferScreenProps<T extends AnyScreenFn> =
+  Parameters<T> extends []
+    ? Record<string, never>
+    : NonNullable<Parameters<T>[0]> & object;
+
+interface PreloadableScreenHandle<T extends AnyScreenFn> {
+  readonly Component: (props: InferScreenProps<T>) => ReactNode;
+  readonly preload: () => Promise<void>;
+}
+
+/**
+ * Wraps a dynamically imported screen so that once preloaded (at boot or link hover),
+ * it renders synchronously without suspending and avoids React 19's 300ms Suspense
+ * fallback throttle.
+ */
+function createPreloadableScreen<T extends AnyScreenFn>(
+  loader: () => Promise<{ readonly default: T }>,
+): PreloadableScreenHandle<T> {
+  let Resolved: ComponentType<InferScreenProps<T>> | null = null;
+  let pending: Promise<{ readonly default: ComponentType<InferScreenProps<T>> }> | null = null;
+
+  const load = (): Promise<{ readonly default: ComponentType<InferScreenProps<T>> }> => {
+    if (!pending) {
+      pending = loader()
+        .then((mod) => {
+          const comp = mod.default as unknown as ComponentType<InferScreenProps<T>>;
+          Resolved = comp;
+          return { default: comp };
+        })
+        .catch((err: unknown) => {
+          pending = null;
+          throw err;
+        });
+    }
+    return pending;
+  };
+
+  const LazyScreen = lazy(load);
+
+  function PreloadableScreen(props: InferScreenProps<T>): ReactNode {
+    if (Resolved) {
+      return createElement(Resolved, props);
+    }
+    return createElement(LazyScreen, props);
+  }
+
+  return {
+    Component: PreloadableScreen,
+    preload: () => load().then(() => undefined).catch(() => undefined),
+  };
+}
+
+const authScreen = createPreloadableScreen(() =>
   import('@/spa/features/auth/AuthScreen').then((m) => ({ default: m.AuthScreen })),
 );
+const diagnosticIntroScreen = createPreloadableScreen(() =>
+  import('@/spa/features/diagnostic/DiagnosticIntroScreen').then((m) => ({
+    default: m.DiagnosticIntroScreen,
+  })),
+);
+const diagnosticResultScreen = createPreloadableScreen(() =>
+  import('@/spa/features/diagnostic/DiagnosticResultScreen').then((m) => ({
+    default: m.DiagnosticResultScreen,
+  })),
+);
+const diagnosticSessionScreen = createPreloadableScreen(() =>
+  import('@/spa/features/diagnostic/DiagnosticSessionScreen').then((m) => ({
+    default: m.DiagnosticSessionScreen,
+  })),
+);
+const homeScreen = createPreloadableScreen(() =>
+  import('@/spa/features/home/HomeScreen').then((m) => ({ default: m.HomeScreen })),
+);
+const goalSetupScreen = createPreloadableScreen(() =>
+  import('@/spa/features/onboarding/GoalSetupScreen').then((m) => ({
+    default: m.GoalSetupScreen,
+  })),
+);
+const welcomeScreen = createPreloadableScreen(() =>
+  import('@/spa/features/onboarding/WelcomeScreen').then((m) => ({ default: m.WelcomeScreen })),
+);
+const paywallScreen = createPreloadableScreen(() =>
+  import('@/spa/features/paywall/PaywallScreen').then((m) => ({ default: m.PaywallScreen })),
+);
+const fullMockOrchestratorScreen = createPreloadableScreen(() =>
+  import('@/spa/features/practice/FullMockOrchestratorScreen').then((m) => ({
+    default: m.FullMockOrchestratorScreen,
+  })),
+);
+const listeningSimulatorScreen = createPreloadableScreen(() =>
+  import('@/spa/features/practice/ListeningSimulatorScreen').then((m) => ({
+    default: m.ListeningSimulatorScreen,
+  })),
+);
+const microDrillsScreen = createPreloadableScreen(() =>
+  import('@/spa/features/practice/MicroDrillsScreen').then((m) => ({
+    default: m.MicroDrillsScreen,
+  })),
+);
+const practiceCatalogScreen = createPreloadableScreen(() =>
+  import('@/spa/features/practice/PracticeCatalogScreen').then((m) => ({
+    default: m.PracticeCatalogScreen,
+  })),
+);
+const readingSimulatorScreen = createPreloadableScreen(() =>
+  import('@/spa/features/practice/ReadingSimulatorScreen').then((m) => ({
+    default: m.ReadingSimulatorScreen,
+  })),
+);
+const speakingSimulatorScreen = createPreloadableScreen(() =>
+  import('@/spa/features/practice/SpeakingSimulatorScreen').then((m) => ({
+    default: m.SpeakingSimulatorScreen,
+  })),
+);
+const writingSimulatorScreen = createPreloadableScreen(() =>
+  import('@/spa/features/practice/WritingSimulatorScreen').then((m) => ({
+    default: m.WritingSimulatorScreen,
+  })),
+);
+const compareAttemptsScreen = createPreloadableScreen(() =>
+  import('@/spa/features/progress/CompareAttemptsScreen').then((m) => ({
+    default: m.CompareAttemptsScreen,
+  })),
+);
+const progressScreen = createPreloadableScreen(() =>
+  import('@/spa/features/progress/ProgressScreen').then((m) => ({ default: m.ProgressScreen })),
+);
+const evaluationPendingScreen = createPreloadableScreen(() =>
+  import('@/spa/features/results/EvaluationPendingScreen').then((m) => ({
+    default: m.EvaluationPendingScreen,
+  })),
+);
+const evaluationResultScreen = createPreloadableScreen(() =>
+  import('@/spa/features/results/EvaluationResultScreen').then((m) => ({
+    default: m.EvaluationResultScreen,
+  })),
+);
+const objectiveResultScreen = createPreloadableScreen(() =>
+  import('@/spa/features/results/ObjectiveResultScreen').then((m) => ({
+    default: m.ObjectiveResultScreen,
+  })),
+);
+const settingsScreen = createPreloadableScreen(() =>
+  import('@/spa/features/settings/SettingsScreen').then((m) => ({ default: m.SettingsScreen })),
+);
+const vocabHubScreen = createPreloadableScreen(() =>
+  import('@/spa/features/vocabulary/VocabHubScreen').then((m) => ({ default: m.VocabHubScreen })),
+);
+const vocabReviewScreen = createPreloadableScreen(() =>
+  import('@/spa/features/vocabulary/VocabReviewScreen').then((m) => ({
+    default: m.VocabReviewScreen,
+  })),
+);
+const vocabWordDetailScreen = createPreloadableScreen(() =>
+  import('@/spa/features/vocabulary/VocabWordDetailScreen').then((m) => ({
+    default: m.VocabWordDetailScreen,
+  })),
+);
+
+const AuthScreen = authScreen.Component;
+const DiagnosticIntroScreen = diagnosticIntroScreen.Component;
+const DiagnosticResultScreen = diagnosticResultScreen.Component;
+const DiagnosticSessionScreen = diagnosticSessionScreen.Component;
+const HomeScreen = homeScreen.Component;
+const GoalSetupScreen = goalSetupScreen.Component;
+const WelcomeScreen = welcomeScreen.Component;
+const PaywallScreen = paywallScreen.Component;
+const FullMockOrchestratorScreen = fullMockOrchestratorScreen.Component;
+const ListeningSimulatorScreen = listeningSimulatorScreen.Component;
+const MicroDrillsScreen = microDrillsScreen.Component;
+const PracticeCatalogScreen = practiceCatalogScreen.Component;
+const ReadingSimulatorScreen = readingSimulatorScreen.Component;
+const SpeakingSimulatorScreen = speakingSimulatorScreen.Component;
+const WritingSimulatorScreen = writingSimulatorScreen.Component;
+const CompareAttemptsScreen = compareAttemptsScreen.Component;
+const ProgressScreen = progressScreen.Component;
+const EvaluationPendingScreen = evaluationPendingScreen.Component;
+const EvaluationResultScreen = evaluationResultScreen.Component;
+const ObjectiveResultScreen = objectiveResultScreen.Component;
+const SettingsScreen = settingsScreen.Component;
+const VocabHubScreen = vocabHubScreen.Component;
+const VocabReviewScreen = vocabReviewScreen.Component;
+const VocabWordDetailScreen = vocabWordDetailScreen.Component;
+
+export function preloadRouteForPathname(pathname: string): Promise<void> {
+  const normalized = pathname.replace(/^\/app(?=\/|$)/, '').replace(/\/+$/, '') || '/home';
+  if (normalized === '/' || normalized === '/home') return homeScreen.preload();
+  if (normalized === '/practice') return practiceCatalogScreen.preload();
+  if (normalized === '/practice/drills') return microDrillsScreen.preload();
+  if (normalized.startsWith('/practice/full-mock')) return fullMockOrchestratorScreen.preload();
+  if (normalized.startsWith('/practice/reading/')) return readingSimulatorScreen.preload();
+  if (normalized.startsWith('/practice/listening/')) return listeningSimulatorScreen.preload();
+  if (normalized.startsWith('/practice/writing/')) return writingSimulatorScreen.preload();
+  if (normalized.startsWith('/practice/speaking/')) return speakingSimulatorScreen.preload();
+  if (normalized.startsWith('/practice/objective-result/')) return objectiveResultScreen.preload();
+  if (normalized.startsWith('/evaluation/pending/')) return evaluationPendingScreen.preload();
+  if (normalized.startsWith('/evaluation/result/')) return evaluationResultScreen.preload();
+  if (normalized === '/vocabulary') return vocabHubScreen.preload();
+  if (normalized === '/vocabulary/review') return vocabReviewScreen.preload();
+  if (normalized.startsWith('/vocabulary/word/')) return vocabWordDetailScreen.preload();
+  if (normalized === '/progress') return progressScreen.preload();
+  if (normalized === '/progress/compare') return compareAttemptsScreen.preload();
+  if (normalized === '/settings') return settingsScreen.preload();
+  if (normalized === '/paywall') return paywallScreen.preload();
+  if (normalized === '/welcome') return welcomeScreen.preload();
+  if (normalized === '/onboarding/goal') return goalSetupScreen.preload();
+  if (normalized === '/auth/login') return authScreen.preload();
+  if (normalized === '/diagnostic/intro') return diagnosticIntroScreen.preload();
+  if (normalized === '/diagnostic/session') return diagnosticSessionScreen.preload();
+  if (normalized === '/diagnostic/result') return diagnosticResultScreen.preload();
+  return Promise.resolve();
+}
 
 export function prefetchOfflineSimulatorChunks(): Promise<void> {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     return Promise.resolve();
   }
   return Promise.allSettled([
-    import('@/spa/features/home/HomeScreen'),
-    import('@/spa/features/practice/PracticeCatalogScreen'),
-    import('@/spa/features/practice/ReadingSimulatorScreen'),
-    import('@/spa/features/practice/ListeningSimulatorScreen'),
-    import('@/spa/features/practice/WritingSimulatorScreen'),
-    import('@/spa/features/practice/SpeakingSimulatorScreen'),
-    import('@/spa/features/results/ObjectiveResultScreen'),
-    import('@/spa/features/progress/ProgressScreen'),
+    homeScreen.preload(),
+    practiceCatalogScreen.preload(),
+    readingSimulatorScreen.preload(),
+    listeningSimulatorScreen.preload(),
+    writingSimulatorScreen.preload(),
+    speakingSimulatorScreen.preload(),
+    objectiveResultScreen.preload(),
+    progressScreen.preload(),
   ]).then(() => undefined);
 }
-const DiagnosticIntroScreen = lazy(() =>
-  import('@/spa/features/diagnostic/DiagnosticIntroScreen').then((m) => ({
-    default: m.DiagnosticIntroScreen,
-  })),
-);
-const DiagnosticResultScreen = lazy(() =>
-  import('@/spa/features/diagnostic/DiagnosticResultScreen').then((m) => ({
-    default: m.DiagnosticResultScreen,
-  })),
-);
-const DiagnosticSessionScreen = lazy(() =>
-  import('@/spa/features/diagnostic/DiagnosticSessionScreen').then((m) => ({
-    default: m.DiagnosticSessionScreen,
-  })),
-);
-const HomeScreen = lazy(() =>
-  import('@/spa/features/home/HomeScreen').then((m) => ({ default: m.HomeScreen })),
-);
-const GoalSetupScreen = lazy(() =>
-  import('@/spa/features/onboarding/GoalSetupScreen').then((m) => ({
-    default: m.GoalSetupScreen,
-  })),
-);
-const WelcomeScreen = lazy(() =>
-  import('@/spa/features/onboarding/WelcomeScreen').then((m) => ({
-    default: m.WelcomeScreen,
-  })),
-);
-const PaywallScreen = lazy(() =>
-  import('@/spa/features/paywall/PaywallScreen').then((m) => ({ default: m.PaywallScreen })),
-);
-const FullMockOrchestratorScreen = lazy(() =>
-  import('@/spa/features/practice/FullMockOrchestratorScreen').then((m) => ({
-    default: m.FullMockOrchestratorScreen,
-  })),
-);
-const ListeningSimulatorScreen = lazy(() =>
-  import('@/spa/features/practice/ListeningSimulatorScreen').then((m) => ({
-    default: m.ListeningSimulatorScreen,
-  })),
-);
-const MicroDrillsScreen = lazy(() =>
-  import('@/spa/features/practice/MicroDrillsScreen').then((m) => ({
-    default: m.MicroDrillsScreen,
-  })),
-);
-const PracticeCatalogScreen = lazy(() =>
-  import('@/spa/features/practice/PracticeCatalogScreen').then((m) => ({
-    default: m.PracticeCatalogScreen,
-  })),
-);
-const ReadingSimulatorScreen = lazy(() =>
-  import('@/spa/features/practice/ReadingSimulatorScreen').then((m) => ({
-    default: m.ReadingSimulatorScreen,
-  })),
-);
-const SpeakingSimulatorScreen = lazy(() =>
-  import('@/spa/features/practice/SpeakingSimulatorScreen').then((m) => ({
-    default: m.SpeakingSimulatorScreen,
-  })),
-);
-const WritingSimulatorScreen = lazy(() =>
-  import('@/spa/features/practice/WritingSimulatorScreen').then((m) => ({
-    default: m.WritingSimulatorScreen,
-  })),
-);
-const CompareAttemptsScreen = lazy(() =>
-  import('@/spa/features/progress/CompareAttemptsScreen').then((m) => ({
-    default: m.CompareAttemptsScreen,
-  })),
-);
-const ProgressScreen = lazy(() =>
-  import('@/spa/features/progress/ProgressScreen').then((m) => ({
-    default: m.ProgressScreen,
-  })),
-);
-const EvaluationPendingScreen = lazy(() =>
-  import('@/spa/features/results/EvaluationPendingScreen').then((m) => ({
-    default: m.EvaluationPendingScreen,
-  })),
-);
-const EvaluationResultScreen = lazy(() =>
-  import('@/spa/features/results/EvaluationResultScreen').then((m) => ({
-    default: m.EvaluationResultScreen,
-  })),
-);
-const ObjectiveResultScreen = lazy(() =>
-  import('@/spa/features/results/ObjectiveResultScreen').then((m) => ({
-    default: m.ObjectiveResultScreen,
-  })),
-);
-const SettingsScreen = lazy(() =>
-  import('@/spa/features/settings/SettingsScreen').then((m) => ({
-    default: m.SettingsScreen,
-  })),
-);
-const VocabHubScreen = lazy(() =>
-  import('@/spa/features/vocabulary/VocabHubScreen').then((m) => ({
-    default: m.VocabHubScreen,
-  })),
-);
-const VocabReviewScreen = lazy(() =>
-  import('@/spa/features/vocabulary/VocabReviewScreen').then((m) => ({
-    default: m.VocabReviewScreen,
-  })),
-);
-const VocabWordDetailScreen = lazy(() =>
-  import('@/spa/features/vocabulary/VocabWordDetailScreen').then((m) => ({
-    default: m.VocabWordDetailScreen,
-  })),
-);
 
 export interface MappedRouteDescriptor {
   readonly id: number;
@@ -406,7 +520,9 @@ function AppRootLayout() {
   const isActiveSimulator = ACTIVE_SIMULATOR_RE.test(pathname);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeTrack, setActiveTrack] = useState<SupportedExamId>('ielts_academic');
+  const [activeTrack, setActiveTrack] = useState<SupportedExamId>(
+    () => readSwrTrack(edition) ?? 'ielts_academic',
+  );
   const [targetDateSerial, setTargetDateSerial] = useState<number | null>(null);
   const [pendingOutboxCount, setPendingOutboxCount] = useState(0);
   const [isOnline, setIsOnline] = useState<boolean>(() =>
@@ -421,12 +537,20 @@ function AppRootLayout() {
   }, [pathname]);
 
   useEffect(() => {
+    return subscribeTrackChanged((nextTrack) => {
+      setActiveTrack(nextTrack);
+    });
+  }, []);
+
+  useEffect(() => {
     if (!deps) return;
     let mounted = true;
     void deps.attemptStore.getUserProfile().then((res) => {
       if (!mounted || !res.ok || !res.value) return;
       if (res.value.examId) {
-        setActiveTrack(normalizeSupportedExamId(res.value.examId));
+        const normalized = normalizeSupportedExamId(res.value.examId);
+        setActiveTrack(normalized);
+        writeSwrTrack(edition, normalized);
       }
       setTargetDateSerial(res.value.targetDateSerial ?? null);
     });
@@ -443,10 +567,11 @@ function AppRootLayout() {
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
     };
-  }, [deps, pathname]);
+  }, [deps, edition, pathname]);
 
   const handleTrackSwitch = async (nextTrack: SupportedExamId) => {
     setActiveTrack(nextTrack);
+    notifyTrackChanged(edition, nextTrack);
     if (!deps) return;
     const [profileRes, idRes] = await Promise.all([
       deps.attemptStore.getUserProfile(),
@@ -574,6 +699,8 @@ function AppRootLayout() {
                   to={to}
                   aria-label={label}
                   data-testid={testId}
+                  onMouseEnter={() => void preloadRouteForPathname(to)}
+                  onFocus={() => void preloadRouteForPathname(to)}
                   className={`flex items-center gap-2.5 rounded-[var(--mz-radius-compact)] px-3 py-2 text-text-secondary hover:bg-surface-hover hover:text-text-primary ${
                     sidebarCollapsed ? 'justify-center px-2' : ''
                   }`}
@@ -586,6 +713,8 @@ function AppRootLayout() {
                 to="/auth/login"
                 aria-label={t('authSignInAction')}
                 data-testid="nav-auth-link"
+                onMouseEnter={() => void preloadRouteForPathname('/auth/login')}
+                onFocus={() => void preloadRouteForPathname('/auth/login')}
                 className={`mt-2 flex items-center gap-2.5 rounded-[var(--mz-radius-compact)] border border-border-subtle px-3 py-2 text-text-secondary hover:bg-surface-hover hover:text-text-primary ${
                   sidebarCollapsed ? 'justify-center px-2' : ''
                 }`}
@@ -700,8 +829,17 @@ function AppRootLayout() {
         >
           <Suspense
             fallback={
-              <div className="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-6 text-sm text-text-secondary">
-                {t('workspaceLoadingLabel')}
+              <div
+                aria-busy="true"
+                className="mx-auto flex max-w-6xl animate-pulse flex-col gap-5 pb-10"
+              >
+                <span className="sr-only">{t('workspaceLoadingLabel')}</span>
+                <div className="h-16 rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface" />
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <div className="h-40 rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface" />
+                  <div className="h-40 rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface" />
+                  <div className="h-40 rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface" />
+                </div>
               </div>
             }
           >

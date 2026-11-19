@@ -21,6 +21,13 @@ export default defineConfig({
   ],
   vite: {
     plugins: [tailwindcss()],
+    build: {
+      rollupOptions: {
+        output: {
+          experimentalMinChunkSize: 10_000,
+        },
+      },
+    },
     define: {
       'import.meta.env.PUBLIC_EDITION': JSON.stringify(edition),
     },

@@ -7,6 +7,7 @@ import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import type { VocabCardWithSrs } from '@/gateways/storage.gateway';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
+import { readSwrVocabCards, writeSwrVocabCards } from '@/spa/swr-cache';
 import { syncSeededVocabDeck } from '@/spa/vocab-sync';
 
 export function VocabHubScreen() {
@@ -14,7 +15,9 @@ export function VocabHubScreen() {
   const t = createTranslator(deps.edition);
   const scrollParentRef = useRef<HTMLDivElement | null>(null);
 
-  const [cards, setCards] = useState<readonly VocabCardWithSrs[]>([]);
+  const [cards, setCards] = useState<readonly VocabCardWithSrs[]>(() =>
+    readSwrVocabCards(deps.vocabStore),
+  );
   const [dueCount, setDueCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState<'all' | 'mistake_to_deck' | 'seeded'>('all');
@@ -29,7 +32,10 @@ export function VocabHubScreen() {
         deps.vocabStore.getDueCards(todaySerial, 500),
       ]);
       if (!mounted) return;
-      if (allRes.ok) setCards(allRes.value);
+      if (allRes.ok) {
+        setCards(allRes.value);
+        writeSwrVocabCards(deps.vocabStore, allRes.value);
+      }
       if (dueRes.ok) setDueCount(dueRes.value.length);
 
       const summary = await syncSeededVocabDeck(deps.catalog, deps.vocabStore);
@@ -40,7 +46,10 @@ export function VocabHubScreen() {
           deps.vocabStore.getDueCards(todaySerial, 500),
         ]);
         if (!mounted) return;
-        if (refreshedAll.ok) setCards(refreshedAll.value);
+        if (refreshedAll.ok) {
+          setCards(refreshedAll.value);
+          writeSwrVocabCards(deps.vocabStore, refreshedAll.value);
+        }
         if (refreshedDue.ok) setDueCount(refreshedDue.value.length);
       }
     }
