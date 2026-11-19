@@ -295,7 +295,20 @@ export function WritingSimulatorScreen({
 
   const handleSubmit = useCallback(async () => {
     if (!bundle || isSubmitting) return;
-    const trimmed = activeEssayText.trim();
+    const sectionEntries = sortedSections
+      .map((sec, idx) => ({
+        section: sec,
+        idx,
+        text: (draftsBySectionId[sec.sectionId] ?? '').trim(),
+      }))
+      .filter((entry) => entry.text.length > 0);
+    const combinedEssayText =
+      sectionEntries.length > 1
+        ? sectionEntries
+            .map((entry) => `[Task ${entry.idx + 1}: ${entry.section.title}]\n${entry.text}`)
+            .join('\n\n')
+        : (sectionEntries[0]?.text ?? activeEssayText.trim());
+    const trimmed = combinedEssayText;
     if (trimmed.length < 20) {
       setErrorMsg(t('writingMinLengthWarning'));
       return;
@@ -455,6 +468,7 @@ export function WritingSimulatorScreen({
     deps.edition,
     deps.evaluation,
     deps.syncOutbox,
+    draftsBySectionId,
     examMode,
     isSubmitting,
     mockSessionId,
@@ -463,7 +477,7 @@ export function WritingSimulatorScreen({
     onMockStageComplete,
     profileExamId,
     setActiveExamLock,
-    sortedSections.length,
+    sortedSections,
     t,
     taskMeta.fullTitle,
   ]);
@@ -661,6 +675,16 @@ export function WritingSimulatorScreen({
                       : null
                   }
                 />
+              ) : null}
+
+              {activeTaskType === 'detInteractiveWriting' ? (
+                <div data-testid="det-interactive-writing-steps">
+                  <MzBanner tone="info">
+                    {sortedSections.length >= 2
+                      ? `DET Interactive Writing — Step ${activeTaskIndex + 1} of ${sortedSections.length}`
+                      : 'DET Interactive Writing — Step 1 (5 min Prompt) → Step 2 (3 min Follow-Up)'}
+                  </MzBanner>
+                </div>
               ) : null}
 
               {activeTaskType === 'toeflSentenceBuild' && sectionQuestions.length > 0 ? (

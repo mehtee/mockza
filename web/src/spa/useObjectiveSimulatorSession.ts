@@ -245,12 +245,14 @@ export function useObjectiveSimulatorSession({
     setIsSubmitting(true);
 
     const nowMs = deps.clock.nowMs();
+    const flaggedIds = Object.keys(flaggedQuestionIds).filter((id) => flaggedQuestionIds[id]);
     const { record } = buildScoredObjectiveAttempt({
       attemptId: attemptIdRef.current,
       bundle,
       skill,
       profileExamId,
       answersByQuestionId,
+      flaggedQuestionIds: flaggedIds,
       startedAtUtcMs: startedAtRef.current,
       nowMs,
       usedStudyMode: examMode === 'study',
@@ -284,6 +286,7 @@ export function useObjectiveSimulatorSession({
     deps.attemptStore,
     deps.clock,
     examMode,
+    flaggedQuestionIds,
     isSubmitting,
     mockSessionId,
     mockStageKey,
@@ -301,9 +304,23 @@ export function useObjectiveSimulatorSession({
       const target = event.target as HTMLElement | null;
       const tag = target?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) return;
-      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.ctrlKey || event.metaKey) return;
 
       const lower = event.key.toLowerCase();
+      if (event.altKey) {
+        if (event.key === 'ArrowRight' || lower === 'n') {
+          event.preventDefault();
+          setActiveQuestionIndex((idx) => Math.min(sortedQuestions.length - 1, idx + 1));
+        } else if (event.key === 'ArrowLeft' || lower === 'p') {
+          event.preventDefault();
+          setActiveQuestionIndex((idx) => Math.max(0, idx - 1));
+        } else if (lower === 'f' && activeQuestion) {
+          event.preventDefault();
+          toggleFlag(activeQuestion.questionId);
+        }
+        return;
+      }
+
       if (lower === 'j') {
         event.preventDefault();
         setActiveQuestionIndex((idx) => Math.min(sortedQuestions.length - 1, idx + 1));

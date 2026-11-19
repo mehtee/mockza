@@ -5,6 +5,10 @@ import { MzBanner, MzButton, MzCard } from '@/components/ui';
 import type { JobStatusResponse } from '@/gateways/evaluation.gateway';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
+import {
+  persistEvaluationJobCompletion,
+  watchEvaluationJobInBackground,
+} from '@/spa/eval-job-watcher';
 
 export interface EvaluationPendingScreenProps {
   readonly jobId: string;
@@ -17,12 +21,16 @@ const ORDERED_STAGES = [
   { key: 'completed', label: 'Report ready' },
 ] as const;
 
+const MAX_ACTIVE_POLL_MS = 45_000;
+const POLL_BACKOFF_SCHEDULE_MS = [1500, 3000, 6000] as const;
+
 export function EvaluationPendingScreen({ jobId }: EvaluationPendingScreenProps) {
   const deps = useDeps();
   const t = createTranslator(deps.edition);
   const navigate = useNavigate();
 
   const [job, setJob] = useState<JobStatusResponse | null>(null);
+  const [pollTimedOut, setPollTimedOut] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const pollOnce = useCallback(async () => {
@@ -45,31 +53,7 @@ export function EvaluationPendingScreen({ jobId }: EvaluationPendingScreenProps)
 
     if (res.value.status === 'completed' && res.value.result) {
       const output = res.value.result;
-      const nowMs = deps.clock.nowMs();
-      const attemptRes = await deps.attemptStore.getAttemptById(output.attemptId);
-      const existingAttempt = attemptRes.ok ? attemptRes.value : null;
-
-      await deps.attemptStore.saveEvaluationResult({
-        id: jobId,
-        attemptId: output.attemptId,
-        submissionId: jobId,
-        examId: existingAttempt?.examId ?? 'ielts_academic',
-        skill: existingAttempt?.skill ?? (output.transcriptSegments ? 'speaking' : 'writing'),
-        overallBand: output.overallBand,
-        resultJson: output,
-        createdAtMs: nowMs,
-      });
-
-      if (existingAttempt) {
-        await deps.attemptStore.saveAttemptRecord({
-          ...existingAttempt,
-          status: 'completed',
-          syncStatus: 'synced',
-          overallBand: output.overallBand,
-          evaluationJson: JSON.stringify(output),
-          updatedAtMs: nowMs,
-        });
-      }
+      await persistEvaluationJobCompletion(deps, jobId, output);
 
       await navigate({
         to: '/evaluation/result/$id',
@@ -79,31 +63,41 @@ export function EvaluationPendingScreen({ jobId }: EvaluationPendingScreenProps)
     }
 
     return false;
-  }, [deps.attemptStore, deps.clock, deps.evaluation, jobId, navigate, t]);
+  }, [deps, jobId, navigate, t]);
 
   useEffect(() => {
     let active = true;
     let timerId: number | null = null;
+    const startedAt = Date.now();
+    let attemptCount = 0;
 
     async function runLoop() {
       const done = await pollOnce();
       if (!active || done) return;
-      timerId = window.setInterval(() => {
-        void pollOnce().then((finished) => {
-          if (finished && timerId !== null) {
-            window.clearInterval(timerId);
-            timerId = null;
-          }
-        });
-      }, 1500);
+
+      if (Date.now() - startedAt >= MAX_ACTIVE_POLL_MS) {
+        setPollTimedOut(true);
+        watchEvaluationJobInBackground(deps, jobId);
+        return;
+      }
+
+      const delayMs =
+        POLL_BACKOFF_SCHEDULE_MS[
+          Math.min(attemptCount, POLL_BACKOFF_SCHEDULE_MS.length - 1)
+        ] ?? 6000;
+      attemptCount += 1;
+
+      timerId = window.setTimeout(() => {
+        void runLoop();
+      }, delayMs);
     }
 
     void runLoop();
     return () => {
       active = false;
-      if (timerId !== null) window.clearInterval(timerId);
+      if (timerId !== null) window.clearTimeout(timerId);
     };
-  }, [pollOnce]);
+  }, [deps, jobId, pollOnce]);
 
   const currentStatus = job?.status ?? 'queued';
   const activeStepIndex = ORDERED_STAGES.findIndex(
@@ -165,12 +159,19 @@ export function EvaluationPendingScreen({ jobId }: EvaluationPendingScreenProps)
           <Link
             to="/practice"
             data-testid="evaluation-pending-continue-link"
+            onClick={() => watchEvaluationJobInBackground(deps, jobId)}
             className="inline-flex h-8 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
           >
             {t('evalPendingContinueAction')}
           </Link>
         </div>
       </MzCard>
+
+      {pollTimedOut ? (
+        <MzBanner tone="warning" data-testid="evaluation-pending-timeout-banner">
+          {t('evalPendingTimeoutWarning')}
+        </MzBanner>
+      ) : null}
 
       {errorMsg ? <MzBanner tone="danger">{errorMsg}</MzBanner> : null}
     </div>

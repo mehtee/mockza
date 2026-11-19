@@ -1,5 +1,12 @@
 import { getExamRubricSpec, normalizeSupportedExamId, type SupportedExamId } from '@mockza/domain';
 
+export const PROMPT_MANIFEST = {
+  writingRubricVersion: 'writing-rubric@2026-11',
+  speakingRubricVersion: 'speaking-rubric@2026-11',
+  explainQuestionVersion: 'explain-question@2026-11',
+  irnOverlayVersion: 'irn-fa-overlay@2026-11',
+} as const;
+
 export const WRITING_RUBRIC_PROMPT = `
 You are an IELTS Academic & General Training Writing examiner.
 Score strictly using official 0.5-band descriptors:

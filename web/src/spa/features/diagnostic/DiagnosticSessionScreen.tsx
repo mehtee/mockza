@@ -132,13 +132,14 @@ export function DiagnosticSessionScreen({
   }, [deps.attemptStore, deps.clock, deps.diagnostic, resetClock, retakeSkill, routeDiagId]);
 
   const hasDiagState = Boolean(diagState);
+  const diagIntroTitle = useMemo(() => createTranslator(deps.edition)('diagIntroTitle'), [deps.edition]);
   useEffect(() => {
     if (!hasDiagState) return;
-    setActiveExamLock(true, t('diagIntroTitle'));
+    setActiveExamLock(true, diagIntroTitle);
     return () => {
       setActiveExamLock(false);
     };
-  }, [hasDiagState, setActiveExamLock, t]);
+  }, [diagIntroTitle, hasDiagState, setActiveExamLock]);
 
   const persistProgress = useCallback(
     async (next: DiagnosticPersistedState) => {

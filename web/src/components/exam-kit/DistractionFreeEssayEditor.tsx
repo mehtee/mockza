@@ -22,10 +22,18 @@ export function countEssayWords(raw: string): number {
   return trimmed.split(/\s+/).length;
 }
 
+const ABBREVIATION_PLACEHOLDER = '∯';
+const ABBREVIATION_PATTERN =
+  /\b(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St|vs|etc|e\.g|i\.e|[A-Z]\.[A-Z])\.|\b\d+\.\d+\b/gi;
+
 export function countEssaySentences(raw: string): number {
   const trimmed = raw.trim();
   if (trimmed.length === 0) return 0;
-  const parts = trimmed
+  // Mask dots inside common abbreviations, initialisms (U.S.), and decimals before splitting.
+  const masked = trimmed.replace(ABBREVIATION_PATTERN, (match) =>
+    match.replace(/\./g, ABBREVIATION_PLACEHOLDER),
+  );
+  const parts = masked
     .split(/[.!?]+(?:\s|$)/)
     .map((part) => part.trim())
     .filter((part) => part.length > 0);
@@ -48,6 +56,7 @@ export function DistractionFreeEssayEditor({
   const t = createTranslator(edition);
 
   const wordCount = countEssayWords(value);
+  const charCount = value.length;
   const sentenceCount = countEssaySentences(value);
   const isExamLocked = examMode === 'exam';
   const meetsMinWords = wordCount >= minWords;
@@ -72,6 +81,10 @@ export function DistractionFreeEssayEditor({
             ].join(' ')}
           >
             {t('essayWordsCountLabel', { count: wordCount })}
+          </span>
+
+          <span data-testid="essay-char-count" className="font-mono-exam text-text-secondary">
+            {t('essayCharsCountLabel', { count: charCount })}
           </span>
 
           {minWords > 0 ? (

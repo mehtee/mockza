@@ -46,11 +46,11 @@ export interface PassageAnnotatorPaneProps {
 }
 
 const HIGHLIGHT_CLASSES: Record<AnnotationColorCode, string> = {
-  yellow: 'bg-amber-300/35 text-text-primary border-b-2 border-amber-400',
-  mint: 'bg-emerald-300/30 text-text-primary border-b-2 border-emerald-400',
-  green: 'bg-emerald-300/30 text-text-primary border-b-2 border-emerald-400',
-  coral: 'bg-rose-400/30 text-text-primary border-b-2 border-rose-400',
-  pink: 'bg-rose-400/30 text-text-primary border-b-2 border-rose-400',
+  yellow: 'bg-amber-bg text-text-primary border-b-2 border-warning',
+  mint: 'bg-mint-bg text-text-primary border-b-2 border-success',
+  green: 'bg-mint-bg text-text-primary border-b-2 border-success',
+  coral: 'bg-danger-bg text-text-primary border-b-2 border-error',
+  pink: 'bg-danger-bg text-text-primary border-b-2 border-error',
 };
 
 export function validateSpanBounds(
@@ -145,6 +145,62 @@ export function slicePassageSegments(
   return segments;
 }
 
+function resolveBoundaryUtf16Offset(
+  container: HTMLElement,
+  boundaryNode: Node,
+  boundaryOffset: number,
+): number | null {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  let runningOffset = 0;
+
+  // If the Range boundary is an Element node (e.g., triple-click across spans), sum child text up to boundaryOffset.
+  if (boundaryNode.nodeType !== Node.TEXT_NODE) {
+    const referenceChild =
+      boundaryNode.childNodes[boundaryOffset] ?? null;
+    let node = walker.nextNode();
+    while (node) {
+      if (referenceChild && node.compareDocumentPosition(referenceChild) & Node.DOCUMENT_POSITION_PRECEDING) {
+        return runningOffset;
+      }
+      if (!referenceChild && boundaryNode.contains(node)) {
+        // Defer until after subtree nodes
+      } else if (
+        referenceChild &&
+        (boundaryNode.childNodes[boundaryOffset - 1]?.contains(node) || node === referenceChild)
+      ) {
+        // Compute exact boundary before referenceChild
+      }
+      if (boundaryNode.contains(node)) {
+        if (referenceChild && (node === referenceChild || referenceChild.contains(node))) {
+          return runningOffset;
+        }
+        if (referenceChild) {
+          const pos = referenceChild.compareDocumentPosition(node);
+          if (pos & Node.DOCUMENT_POSITION_FOLLOWING) {
+            return runningOffset;
+          }
+        }
+      } else if (runningOffset > 0 && !(boundaryNode.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_PRECEDING)) {
+        return runningOffset;
+      }
+      runningOffset += node.nodeValue?.length ?? 0;
+      node = walker.nextNode();
+    }
+    return runningOffset;
+  }
+
+  let node = walker.nextNode();
+  while (node) {
+    const length = node.nodeValue?.length ?? 0;
+    if (node === boundaryNode) {
+      return runningOffset + boundaryOffset;
+    }
+    runningOffset += length;
+    node = walker.nextNode();
+  }
+  return null;
+}
+
 export function getUtf16SelectionOffsets(
   container: HTMLElement,
   selection: Selection | null,
@@ -157,27 +213,8 @@ export function getUtf16SelectionOffsets(
     return null;
   }
 
-  let runningOffset = 0;
-  let startOffset: number | null = null;
-  let endOffset: number | null = null;
-
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-  let node = walker.nextNode();
-  while (node) {
-    const length = node.nodeValue?.length ?? 0;
-    if (node === range.startContainer) {
-      startOffset = runningOffset + range.startOffset;
-    }
-    if (node === range.endContainer) {
-      endOffset = runningOffset + range.endOffset;
-    }
-    runningOffset += length;
-    if (startOffset !== null && endOffset !== null) {
-      break;
-    }
-    node = walker.nextNode();
-  }
-
+  const startOffset = resolveBoundaryUtf16Offset(container, range.startContainer, range.startOffset);
+  const endOffset = resolveBoundaryUtf16Offset(container, range.endContainer, range.endOffset);
   if (startOffset === null || endOffset === null) return null;
   const minOffset = Math.min(startOffset, endOffset);
   const maxOffset = Math.max(startOffset, endOffset);
@@ -206,6 +243,14 @@ export function PassageAnnotatorPane({
   const [noteInputOpen, setNoteInputOpen] = useState(false);
   const [noteDraftText, setNoteDraftText] = useState('');
   const [inspectedAnnotationId, setInspectedAnnotationId] = useState<string | null>(null);
+  const [editingInspectorNoteId, setEditingInspectorNoteId] = useState<string | null>(null);
+  const [inspectorNoteDraft, setInspectorNoteDraft] = useState('');
+
+  useEffect(() => {
+    setSelectionDraft(null);
+    setInspectedAnnotationId(null);
+    setEditingInspectorNoteId(null);
+  }, [rawText]);
 
   const segments = useMemo(
     () => slicePassageSegments(rawText, annotations, evidenceSpan),
@@ -263,11 +308,11 @@ export function PassageAnnotatorPane({
     [onAddAnnotation, selectionDraft],
   );
 
-  // Desktop quick-highlight hotkey ('h') when a passage slice is selected
+  // Desktop quick-highlight hotkey ('Alt+H' or 'h') when a passage slice is selected
   useEffect(() => {
     if (!selectionDraft || noteInputOpen) return;
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key.toLowerCase() !== 'h' || event.ctrlKey || event.metaKey || event.altKey) {
+      if (event.key.toLowerCase() !== 'h' || event.ctrlKey || event.metaKey) {
         return;
       }
       const activeTag = (event.target as HTMLElement | null)?.tagName;
@@ -278,6 +323,8 @@ export function PassageAnnotatorPane({
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [commitHighlight, noteInputOpen, selectionDraft]);
+
+  evidenceRef.current = null;
 
   return (
     <div data-testid="passage-annotator-pane" className="flex flex-col gap-3">
@@ -299,7 +346,7 @@ export function PassageAnnotatorPane({
               type="button"
               data-testid="annotator-color-yellow"
               onClick={() => commitHighlight('yellow')}
-              className="rounded-[var(--mz-radius-pill)] border border-amber-400/60 bg-amber-300/25 px-2.5 py-0.5 text-xs font-semibold text-text-primary hover:bg-amber-300/40"
+              className="rounded-[var(--mz-radius-pill)] border border-warning/60 bg-amber-bg px-2.5 py-0.5 text-xs font-semibold text-text-primary hover:bg-amber-bg/80"
             >
               {t('annotatorHighlightYellow')}
             </button>
@@ -307,7 +354,7 @@ export function PassageAnnotatorPane({
               type="button"
               data-testid="annotator-color-mint"
               onClick={() => commitHighlight('mint')}
-              className="rounded-[var(--mz-radius-pill)] border border-emerald-400/60 bg-emerald-300/25 px-2.5 py-0.5 text-xs font-semibold text-text-primary hover:bg-emerald-300/40"
+              className="rounded-[var(--mz-radius-pill)] border border-success/60 bg-mint-bg px-2.5 py-0.5 text-xs font-semibold text-text-primary hover:bg-mint-bg/80"
             >
               {t('annotatorHighlightMint')}
             </button>
@@ -315,7 +362,7 @@ export function PassageAnnotatorPane({
               type="button"
               data-testid="annotator-color-coral"
               onClick={() => commitHighlight('coral')}
-              className="rounded-[var(--mz-radius-pill)] border border-rose-400/60 bg-rose-400/25 px-2.5 py-0.5 text-xs font-semibold text-text-primary hover:bg-rose-400/40"
+              className="rounded-[var(--mz-radius-pill)] border border-error/60 bg-danger-bg px-2.5 py-0.5 text-xs font-semibold text-text-primary hover:bg-danger-bg/80"
             >
               {t('annotatorHighlightCoral')}
             </button>
@@ -405,24 +452,52 @@ export function PassageAnnotatorPane({
             </MzButton>
           ) : null}
           {onUpdateAnnotationNote ? (
-            <MzButton
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                const nextNote = window.prompt(
-                  t('annotatorNotePlaceholder'),
-                  inspectedAnnotation.noteText ?? '',
-                );
-                if (nextNote !== null) {
-                  onUpdateAnnotationNote(
-                    inspectedAnnotation.annotationId,
-                    nextNote.trim() || null,
-                  );
-                }
-              }}
-            >
-              {t('annotatorAddNoteAction')}
-            </MzButton>
+            editingInspectorNoteId === inspectedAnnotation.annotationId ? (
+              <div className="mt-2 flex w-full items-center gap-2 pt-1">
+                <input
+                  type="text"
+                  data-testid="annotator-inspector-note-input"
+                  value={inspectorNoteDraft}
+                  onChange={(e) => setInspectorNoteDraft(e.target.value)}
+                  placeholder={t('annotatorNotePlaceholder')}
+                  className="h-8 flex-1 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-2.5 text-xs text-text-primary focus:border-primary focus:outline-none"
+                />
+                <MzButton
+                  variant="primary"
+                  size="sm"
+                  data-testid="annotator-inspector-note-save"
+                  onClick={() => {
+                    onUpdateAnnotationNote(
+                      inspectedAnnotation.annotationId,
+                      inspectorNoteDraft.trim() || null,
+                    );
+                    setEditingInspectorNoteId(null);
+                  }}
+                >
+                  {t('annotatorSaveNoteAction')}
+                </MzButton>
+                <MzButton
+                  variant="ghost"
+                  size="sm"
+                  data-testid="annotator-inspector-note-cancel"
+                  onClick={() => setEditingInspectorNoteId(null)}
+                >
+                  {t('workspaceShortcutsCloseAction')}
+                </MzButton>
+              </div>
+            ) : (
+              <MzButton
+                variant="secondary"
+                size="sm"
+                data-testid="annotator-inspector-note-edit"
+                onClick={() => {
+                  setEditingInspectorNoteId(inspectedAnnotation.annotationId);
+                  setInspectorNoteDraft(inspectedAnnotation.noteText ?? '');
+                }}
+              >
+                {t('annotatorAddNoteAction')}
+              </MzButton>
+            )
           ) : null}
         </div>
       ) : null}
@@ -450,7 +525,11 @@ export function PassageAnnotatorPane({
             return (
               <mark
                 key={`${seg.startOffset}-${seg.endOffset}`}
-                ref={seg.isEvidence && !evidenceRef.current ? evidenceRef : undefined}
+                ref={(el) => {
+                  if (el && seg.isEvidence && !evidenceRef.current) {
+                    evidenceRef.current = el;
+                  }
+                }}
                 data-testid={
                   ann ? `annotation-span-${ann.annotationId}` : 'evidence-span-highlight'
                 }

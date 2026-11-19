@@ -1,6 +1,7 @@
 import {
   EXAM_DESCRIPTORS,
   EXAM_TRACK_SPECS,
+  formatExamScoreWithUnit,
   normalizeSupportedExamId,
   type SkillKind,
   type SupportedExamId,
@@ -8,10 +9,10 @@ import {
 import { Link } from '@tanstack/react-router';
 import { CheckCircle2, Coffee, Play, RotateCcw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { formatMmSs } from '@/components/exam-kit';
+import { CompactPreflightHeader, formatMmSs } from '@/components/exam-kit';
 import { MzButton, MzCard, MzSegmentedControl } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
-import type { MockSessionRecord } from '@/gateways/storage.gateway';
+import type { CompletedAttemptRecord, MockSessionRecord } from '@/gateways/storage.gateway';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
 import { useCountdownClock } from '@/spa/useCountdownClock';
@@ -30,6 +31,14 @@ interface MockStageSpec {
   readonly title: string;
   readonly packId: string;
 }
+
+const STAGE_ORDER_BY_TRACK: Record<SupportedExamId, readonly Exclude<SkillKind, 'vocabulary'>[]> = {
+  ielts_academic: ['listening', 'reading', 'writing', 'speaking'],
+  ielts_general: ['listening', 'reading', 'writing', 'speaking'],
+  toefl_ibt: ['reading', 'listening', 'writing', 'speaking'],
+  pte_academic: ['speaking', 'writing', 'reading', 'listening'],
+  det: ['reading', 'listening', 'writing', 'speaking'],
+};
 
 function resolveStageOrderForTrack(track: SupportedExamId): readonly MockStageSpec[] {
   const desc = EXAM_DESCRIPTORS[track];
@@ -60,14 +69,7 @@ function resolveStageOrderForTrack(track: SupportedExamId): readonly MockStageSp
     },
   };
 
-  if (track === 'pte_academic') {
-    return [bySkill.speaking, bySkill.writing, bySkill.reading, bySkill.listening];
-  }
-  if (track === 'toefl_ibt' || track === 'det') {
-    return [bySkill.reading, bySkill.listening, bySkill.writing, bySkill.speaking];
-  }
-  // IELTS Academic & General Training standard order: Listening -> Reading -> Writing -> Speaking
-  return [bySkill.listening, bySkill.reading, bySkill.writing, bySkill.speaking];
+  return STAGE_ORDER_BY_TRACK[track].map((skill) => bySkill[skill]);
 }
 
 export function FullMockOrchestratorScreen({
@@ -77,6 +79,7 @@ export function FullMockOrchestratorScreen({
   const t = createTranslator(deps.edition);
 
   const [session, setSession] = useState<MockSessionRecord | null>(null);
+  const [stageAttempts, setStageAttempts] = useState<Record<string, CompletedAttemptRecord>>({});
   const [examMode, setExamMode] = useState<'exam' | 'study'>('exam');
   const [activeStageKey, setActiveStageKey] = useState<string | null>(null);
   const [isOnBreak, setIsOnBreak] = useState(false);
@@ -131,6 +134,32 @@ export function FullMockOrchestratorScreen({
       mounted = false;
     };
   }, [deps.attemptStore, deps.clock, mockId]);
+
+  useEffect(() => {
+    if (!session) return;
+    const entries = Object.entries(session.stageAttemptIds);
+    if (entries.length === 0) {
+      setStageAttempts({});
+      return;
+    }
+    let mounted = true;
+    void Promise.all(
+      entries.map(async ([stageKey, attemptId]) => {
+        const res = await deps.attemptStore.getAttemptById(attemptId);
+        return res.ok && res.value ? ([stageKey, res.value] as const) : null;
+      }),
+    ).then((rows) => {
+      if (!mounted) return;
+      const map: Record<string, CompletedAttemptRecord> = {};
+      for (const row of rows) {
+        if (row) map[row[0]] = row[1];
+      }
+      setStageAttempts(map);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [deps.attemptStore, session]);
 
   const stages = useMemo(
     () => resolveStageOrderForTrack(session?.track ?? 'ielts_academic'),
@@ -273,9 +302,48 @@ export function FullMockOrchestratorScreen({
         />
       </div>
 
+      <CompactPreflightHeader<'exam' | 'study'>
+        title={EXAM_TRACK_SPECS[session.track].displayName}
+        subtitle={t('fullMockSubtitle')}
+        modeOptions={[
+          { value: 'exam', label: t('workspaceExamModeBadge') },
+          { value: 'study', label: t('workspaceStudyModeBadge') },
+        ]}
+        selectedMode={examMode}
+        onModeChange={setExamMode}
+        rulesSummary={[
+          'Complete stages sequentially with optional 5-minute inter-section breaks.',
+          'Audio playback is locked in Exam Simulation Mode.',
+        ]}
+      />
+
       {allCompleted ? (
         <MzCard variant="hero" data-testid="full-mock-completed-card">
           <h2 className="text-xl font-bold text-success">{t('fullMockCompletedTitle')}</h2>
+          <p className="mt-1 text-xs font-semibold text-text-secondary">
+            {t('fullMockScorecardTitle')}
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {stages.map((st) => {
+              const att = stageAttempts[st.stageKey];
+              return (
+                <div
+                  key={st.stageKey}
+                  data-testid={`full-mock-scorecard-${st.stageKey}`}
+                  className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-3 py-2 text-xs"
+                >
+                  <p className="font-semibold text-text-secondary">{st.title}</p>
+                  <LtrExamBoundary>
+                    <p className="mt-0.5 font-mono-exam text-sm font-bold text-primary">
+                      {att && att.overallBand !== null
+                        ? formatExamScoreWithUnit(att.overallBand, session.track)
+                        : 'Pending'}
+                    </p>
+                  </LtrExamBoundary>
+                </div>
+              );
+            })}
+          </div>
           <div className="mt-4 flex flex-wrap gap-3">
             <Link
               to="/progress"

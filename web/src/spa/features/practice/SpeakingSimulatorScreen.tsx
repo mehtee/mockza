@@ -86,13 +86,17 @@ export function SpeakingSimulatorScreen({
   const [isPaused, setIsPaused] = useState(false);
   const [activeTurnIndex, setActiveTurnIndex] = useState(0);
   const [phase, setPhase] = useState<TurnPhase>('recording');
+  const [autoStartSeq, setAutoStartSeq] = useState(0);
   const [cueNotesBySectionId, setCueNotesBySectionId] = useState<Record<string, string>>({});
 
   const { remainingSeconds: prepRemainingSec, resetClock: resetPrepClock } = useCountdownClock({
     enabled: Boolean(bundle) && phase === 'prep',
     isPaused,
     initialSeconds: 0,
-    onExpire: () => setPhase('recording'),
+    onExpire: () => {
+      setPhase('recording');
+      setAutoStartSeq((s) => s + 1);
+    },
   });
   const [recordedBySectionId, setRecordedBySectionId] = useState<
     Record<string, RecordedTurnEntry>
@@ -722,6 +726,7 @@ export function SpeakingSimulatorScreen({
                   maxDurationSec={activeTiming.responseSeconds}
                   disabled={phase === 'prep'}
                   allowPreviewPlayback={examMode === 'study'}
+                  autoStartSignal={autoStartSeq}
                   onRecordingComplete={(clip) => void handleRecordingComplete(clip)}
                 />
               ) : null}

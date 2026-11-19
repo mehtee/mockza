@@ -51,7 +51,7 @@ const TRACK_I18N_KEYS: Record<SupportedExamId, TranslationKey> = {
   det: 'trackDet',
 };
 
-const PRESET_I18N_KEYS: Record<ThemePresetId, TranslationKey> = {
+const PRESET_I18N_KEYS: Partial<Record<ThemePresetId, TranslationKey>> = {
   midnight_indigo: 'presetMidnightIndigo',
   nordic_emerald: 'presetNordicEmerald',
   editorial_amber: 'presetEditorialAmber',
@@ -420,7 +420,9 @@ export function SettingsScreen({ onExternalRedirect }: SettingsScreenProps = {})
                         />
                       </span>
                       <span className="truncate text-xs font-semibold text-text-primary">
-                        {t(PRESET_I18N_KEYS[preset.id])}
+                        {PRESET_I18N_KEYS[preset.id]
+                          ? t(PRESET_I18N_KEYS[preset.id]!)
+                          : preset.displayName}
                       </span>
                     </div>
                     {selected ? (

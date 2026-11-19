@@ -3,7 +3,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { MzBanner, MzButton } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import { getActiveEditionCode } from '@/edition/edition-config';
-import type { ActiveRecordingHandle, RecordedClip } from '@/gateways/audio.gateway';
+import type {
+  ActiveRecordingHandle,
+  AudioInputDeviceInfo,
+  RecordedClip,
+} from '@/gateways/audio.gateway';
 import { createTranslator } from '@/i18n';
 import { useOptionalDeps } from '@/spa/deps';
 import { formatMmSs } from './SimulatorWorkspaceShell';
@@ -13,6 +17,7 @@ export interface WaveformMicRecorderProps {
   readonly deviceId?: string;
   readonly disabled?: boolean;
   readonly allowPreviewPlayback?: boolean;
+  readonly autoStartSignal?: number;
   readonly onRecordingComplete: (clip: RecordedClip) => void;
   readonly onRecordingStart?: () => void;
 }
@@ -24,6 +29,7 @@ export function WaveformMicRecorder({
   deviceId,
   disabled = false,
   allowPreviewPlayback = true,
+  autoStartSignal,
   onRecordingComplete,
   onRecordingStart,
 }: WaveformMicRecorderProps) {
@@ -35,13 +41,39 @@ export function WaveformMicRecorder({
   const handleRef = useRef<ActiveRecordingHandle | null>(null);
   const samplesRef = useRef<number[]>(new Array<number>(WAVEFORM_BAR_COUNT).fill(0.05));
   const rafRef = useRef<number | null>(null);
+  const isRecordingRef = useRef(false);
+  const rmsTextRef = useRef<HTMLSpanElement | null>(null);
+  const prevAutoStartRef = useRef<number | undefined>(autoStartSignal);
 
   const [isRecording, setIsRecording] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
-  const [currentRms, setCurrentRms] = useState(0);
+  const [availableDevices, setAvailableDevices] = useState<readonly AudioInputDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>(deviceId ?? '');
   const [lastClip, setLastClip] = useState<RecordedClip | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (deviceId !== undefined) {
+      setSelectedDeviceId(deviceId);
+    }
+  }, [deviceId]);
+
+  useEffect(() => {
+    const recorder = deps?.audioRecorder;
+    if (!recorder) return;
+    let mounted = true;
+    void recorder.checkMicPermissionAndDevices().then((res) => {
+      if (!mounted || !res.ok) return;
+      setAvailableDevices(res.value.devices);
+      if (!deviceId && res.value.devices.length > 0 && !selectedDeviceId) {
+        setSelectedDeviceId(res.value.devices[0]!.deviceId);
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [deps?.audioRecorder, deviceId, selectedDeviceId]);
 
   const drawWaveform = useCallback(() => {
     const canvas = canvasRef.current;
@@ -52,25 +84,30 @@ export function WaveformMicRecorder({
     const { width, height } = canvas;
     ctx.clearRect(0, 0, width, height);
 
+    const styles = typeof window !== 'undefined' ? window.getComputedStyle(canvas) : null;
+    const activeColor = styles?.getPropertyValue('--mz-primary').trim() || '#9580FF';
+    const idleColor = styles?.getPropertyValue('--mz-border-strong').trim() || '#4E5D78';
+
     const bars = samplesRef.current;
     const barGap = 2;
     const barWidth = Math.max(2, (width - barGap * (bars.length - 1)) / bars.length);
 
+    ctx.fillStyle = isRecordingRef.current ? activeColor : idleColor;
     for (let i = 0; i < bars.length; i += 1) {
       const level = Math.max(0.08, Math.min(1, bars[i] ?? 0.08));
       const barHeight = Math.max(4, level * (height - 8));
       const x = i * (barWidth + barGap);
       const y = (height - barHeight) / 2;
-      ctx.fillStyle = isRecording ? '#9580FF' : '#4E5D78';
       ctx.fillRect(x, y, barWidth, barHeight);
     }
 
-    if (isRecording) {
+    if (isRecordingRef.current) {
       rafRef.current = window.requestAnimationFrame(drawWaveform);
     }
-  }, [isRecording]);
+  }, []);
 
   useEffect(() => {
+    isRecordingRef.current = isRecording;
     drawWaveform();
     return () => {
       if (rafRef.current !== null && typeof window !== 'undefined') {
@@ -78,16 +115,23 @@ export function WaveformMicRecorder({
         rafRef.current = null;
       }
     };
-  }, [drawWaveform]);
+  }, [drawWaveform, isRecording]);
 
+  // Decoupled preview URL cleanup so changing preview URL never cancels active recording
   useEffect(() => {
     return () => {
-      handleRef.current?.cancel();
       if (previewUrl) {
         URL.revokeObjectURL?.(previewUrl);
       }
     };
   }, [previewUrl]);
+
+  // Unmount-only active recording cancellation
+  useEffect(() => {
+    return () => {
+      handleRef.current?.cancel();
+    };
+  }, []);
 
   const stopRecording = useCallback(async () => {
     const active = handleRef.current;
@@ -133,12 +177,14 @@ export function WaveformMicRecorder({
     samplesRef.current = new Array<number>(WAVEFORM_BAR_COUNT).fill(0.08);
 
     const res = await recorder.startRecording({
-      deviceId,
+      deviceId: selectedDeviceId || deviceId,
       maxDurationSec,
       onLevel: (rms) => {
         const clamped = Math.max(0, Math.min(1, rms));
-        setCurrentRms(clamped);
         samplesRef.current = [...samplesRef.current.slice(1), clamped];
+        if (rmsTextRef.current) {
+          rmsTextRef.current.textContent = `${Math.round(clamped * 100)}%`;
+        }
       },
     });
 
@@ -150,7 +196,30 @@ export function WaveformMicRecorder({
     handleRef.current = res.value;
     setIsRecording(true);
     onRecordingStart?.();
-  }, [deps?.audioRecorder, deviceId, disabled, isRecording, maxDurationSec, onRecordingStart]);
+  }, [
+    deps?.audioRecorder,
+    deviceId,
+    disabled,
+    isRecording,
+    maxDurationSec,
+    onRecordingStart,
+    selectedDeviceId,
+  ]);
+
+  useEffect(() => {
+    if (
+      autoStartSignal !== undefined &&
+      autoStartSignal > 0 &&
+      autoStartSignal !== prevAutoStartRef.current
+    ) {
+      prevAutoStartRef.current = autoStartSignal;
+      if (!disabled && !isRecording && !lastClip) {
+        void startRecording();
+      }
+    } else {
+      prevAutoStartRef.current = autoStartSignal;
+    }
+  }, [autoStartSignal, disabled, isRecording, lastClip, startRecording]);
 
   return (
     <div
@@ -173,6 +242,23 @@ export function WaveformMicRecorder({
           </span>
         </div>
 
+        {availableDevices.length > 0 ? (
+          <select
+            aria-label={t('recorderDeviceSelectLabel')}
+            data-testid="recorder-device-select"
+            disabled={isRecording || disabled}
+            value={selectedDeviceId}
+            onChange={(event) => setSelectedDeviceId(event.target.value)}
+            className="h-7 max-w-[200px] rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-2 text-[11px] text-text-primary disabled:opacity-60"
+          >
+            {availableDevices.map((dev) => (
+              <option key={dev.deviceId} value={dev.deviceId}>
+                {dev.label || dev.deviceId}
+              </option>
+            ))}
+          </select>
+        ) : null}
+
         <LtrExamBoundary>
           <span
             data-testid="recorder-timer"
@@ -192,8 +278,8 @@ export function WaveformMicRecorder({
           data-testid="recorder-waveform-canvas"
           className="h-16 w-full"
         />
-        <span className="sr-only" data-testid="recorder-rms-value">
-          {Math.round(currentRms * 100)}%
+        <span ref={rmsTextRef} className="sr-only" data-testid="recorder-rms-value">
+          0%
         </span>
       </div>
 

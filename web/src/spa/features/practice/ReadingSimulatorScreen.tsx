@@ -115,6 +115,18 @@ export function ReadingSimulatorScreen({
     [activeSectionIndex, annotations, deps.attemptStore, deps.clock, packId],
   );
 
+  const handleUpdateAnnotationNote = useCallback(
+    async (annotationId: string, noteText: string | null) => {
+      const nowMs = deps.clock.nowMs();
+      const updated = annotations.map((ann) =>
+        ann.annotationId === annotationId ? { ...ann, noteText, updatedAtMs: nowMs } : ann,
+      );
+      setAnnotations(updated);
+      await deps.attemptStore.savePassageAnnotations(packId, updated);
+    },
+    [annotations, deps.attemptStore, deps.clock, packId],
+  );
+
   const handleDeleteAnnotation = useCallback(
     async (annotationId: string) => {
       const nowMs = deps.clock.nowMs();
@@ -317,6 +329,7 @@ export function ReadingSimulatorScreen({
                 rawText={activeSection?.contentText ?? ''}
                 annotations={passageAnnotations}
                 onAddAnnotation={(ann) => void handleAddAnnotation(ann)}
+                onUpdateAnnotationNote={(id, note) => void handleUpdateAnnotationNote(id, note)}
                 onDeleteAnnotation={(id) => void handleDeleteAnnotation(id)}
                 onSaveToVocab={(draft) => void handleSaveToVocab(draft)}
               />

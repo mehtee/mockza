@@ -21,6 +21,7 @@ export function generateUuid(): string {
 export interface StoredObjectiveSubmission {
   readonly answersByQuestionId: Readonly<Record<string, string>>;
   readonly questionCorrectness: Readonly<Record<string, boolean>>;
+  readonly flaggedQuestionIds?: readonly string[];
   readonly correctCount: number;
   readonly totalCount: number;
   readonly accuracyPercent: number;
@@ -71,6 +72,7 @@ export function buildScoredObjectiveAttempt(params: {
   readonly skill: Extract<SkillKind, 'reading' | 'listening'>;
   readonly profileExamId: string;
   readonly answersByQuestionId: Readonly<Record<string, string>>;
+  readonly flaggedQuestionIds?: readonly string[];
   readonly startedAtUtcMs: number;
   readonly nowMs: number;
   readonly usedStudyMode: boolean;
@@ -106,6 +108,9 @@ export function buildScoredObjectiveAttempt(params: {
   const submissionPayload: StoredObjectiveSubmission = {
     answersByQuestionId: params.answersByQuestionId,
     questionCorrectness: scoreReport.questionCorrectness,
+    ...(params.flaggedQuestionIds && params.flaggedQuestionIds.length > 0
+      ? { flaggedQuestionIds: params.flaggedQuestionIds }
+      : {}),
     correctCount: scoreReport.correctCount,
     totalCount: scoreReport.totalCount,
     accuracyPercent: scoreReport.accuracyPercent,

@@ -1,6 +1,12 @@
 import { RouterProvider } from '@tanstack/react-router';
 import { Component, type ErrorInfo, type ReactNode, useEffect, useState } from 'react';
+import { createTranslator } from '@/i18n';
 import { type AppDependencies, AppDependenciesProvider } from '@/spa/deps';
+import {
+  clearBackgroundEvaluationReady,
+  type ReadyBackgroundEvaluation,
+  subscribeBackgroundEvaluationReady,
+} from '@/spa/eval-job-watcher';
 import { type AppRouter, createAppRouter } from '@/spa/router';
 import { useClockStore } from '@/spa/stores/clock.store';
 import {
@@ -71,6 +77,9 @@ export function DesktopSimulatorApp({
     () => providedDependencies ?? null,
   );
   const [router] = useState(() => providedRouter ?? createAppRouter());
+  const [bgReadyEval, setBgReadyEval] = useState<ReadyBackgroundEvaluation | null>(null);
+
+  useEffect(() => subscribeBackgroundEvaluationReady(setBgReadyEval), []);
 
   useEffect(() => {
     syncAppearanceFromStorage();
@@ -123,9 +132,42 @@ export function DesktopSimulatorApp({
     );
   }
 
+  const t = createTranslator(dependencies.edition);
+
   return (
     <SimulatorErrorBoundary>
       <AppDependenciesProvider dependencies={dependencies}>
+        {bgReadyEval ? (
+          <div
+            data-testid="bg-eval-ready-banner"
+            role="status"
+            className="fixed bottom-4 end-4 z-50 flex items-center gap-3 rounded-[var(--mz-radius-card)] border border-primary bg-surface-alt px-4 py-3 text-xs shadow-lg"
+          >
+            <span className="font-semibold text-text-primary">{t('evalPendingBgReadyToast')}</span>
+            <button
+              type="button"
+              onClick={() => {
+                const targetAttempt = bgReadyEval.attemptId;
+                clearBackgroundEvaluationReady();
+                void router.navigate({
+                  to: '/evaluation/result/$id',
+                  params: { id: targetAttempt },
+                });
+              }}
+              className="rounded-[var(--mz-radius-compact)] bg-primary px-2.5 py-1 font-semibold text-on-primary hover:bg-primary-pressed"
+            >
+              {t('evalResultTitle')}
+            </button>
+            <button
+              type="button"
+              aria-label={t('workspaceShortcutsCloseAction')}
+              onClick={() => clearBackgroundEvaluationReady()}
+              className="text-text-secondary hover:text-text-primary"
+            >
+              ×
+            </button>
+          </div>
+        ) : null}
         <RouterProvider router={router} />
       </AppDependenciesProvider>
     </SimulatorErrorBoundary>

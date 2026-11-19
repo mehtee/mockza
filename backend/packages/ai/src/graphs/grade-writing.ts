@@ -9,7 +9,11 @@ import type { z } from 'zod';
 import { EvaluationModelError } from '../errors.js';
 import { OpenRouterClient } from '../models/openrouter.js';
 import { MODEL_REGISTRY } from '../models/registry.js';
-import { buildEditionOverlayAppendix, buildWritingRubricPrompt } from '../prompts/rubrics.js';
+import {
+  buildEditionOverlayAppendix,
+  buildWritingRubricPrompt,
+  PROMPT_MANIFEST,
+} from '../prompts/rubrics.js';
 import {
   sanitizeWritingInlineEdits,
   validateAndExtractCriterionBands,

@@ -147,9 +147,16 @@ describe('W6.3 Progress Analytics & Attempt Compare', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('progress-trend-chart')).toBeTruthy();
+      expect(screen.getByTestId('progress-radar-chart')).toBeTruthy();
+      expect(screen.getByTestId('progress-export-btn')).toBeTruthy();
     });
     expect(screen.getByTestId('progress-weakest-card').textContent).toContain('Writing');
     expect(screen.queryByTestId('ecosystem-handoff-card')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('progress-export-btn'));
+    await waitFor(() => {
+      expect(screen.getByText(/Study history downloaded/)).toBeTruthy();
+    });
 
     // Navigate to Attempt Compare & select two Writing attempts for criterion diff
     fireEvent.click(screen.getByTestId('progress-compare-cta'));
@@ -166,6 +173,8 @@ describe('W6.3 Progress Analytics & Attempt Compare', () => {
     });
     expect(screen.getByTestId('compare-criteria-table').textContent).toContain('Lexical Resource');
     expect(screen.getByTestId('compare-criteria-table').textContent).toContain('5.5 → 7.5');
+    expect(screen.getByTestId('compare-lexical-metrics')).toBeTruthy();
+    expect(screen.getByTestId('compare-diff-panel')).toBeTruthy();
   });
 
   it('displays IRN verified Navia ecosystem handoff card and Jalali dates', async () => {

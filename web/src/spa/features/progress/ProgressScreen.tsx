@@ -2,15 +2,17 @@ import {
   calculateCurrentStreak,
   calculateEstimatedOverallBand,
   calculateSkillMetrics,
+  computeDetSubscores,
+  estimateToeflLegacy120,
   EXAM_TRACK_SPECS,
   formatExamScoreWithUnit,
   type SkillKind,
   type SupportedExamId,
 } from '@mockza/domain';
 import { Link } from '@tanstack/react-router';
-import { ArrowUpRight, Flame, GitCompare, Target, TrendingUp } from 'lucide-react';
+import { ArrowUpRight, Download, Flame, GitCompare, Target, TrendingUp } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { MzCard } from '@/components/ui';
+import { MzBanner, MzButton, MzCard } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import { formatDisplayDate } from '@/edition/calendar/jalali-edge';
 import type { CompletedAttemptRecord, DailyStudyLogRecord } from '@/gateways/storage.gateway';
@@ -32,6 +34,7 @@ export function ProgressScreen() {
   const [targetBand, setTargetBand] = useState<number>(7.5);
   const [attempts, setAttempts] = useState<readonly CompletedAttemptRecord[]>([]);
   const [studyLogs, setStudyLogs] = useState<readonly DailyStudyLogRecord[]>([]);
+  const [exportNotice, setExportNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -164,8 +167,60 @@ export function ProgressScreen() {
     }
   };
 
+  const handleExportStudyData = async () => {
+    const res = await deps.attemptStore.exportStudyDataJson();
+    if (!res.ok) return;
+    if (typeof Blob !== 'undefined' && typeof URL.createObjectURL === 'function') {
+      const blob = new Blob([JSON.stringify(res.value, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `mockza-study-history-${deps.clock.todaySerialDay()}.json`;
+      anchor.click();
+      URL.revokeObjectURL?.(url);
+    }
+    setExportNotice(t('progressExportSuccess'));
+  };
+
+  const detSubscores = useMemo(() => {
+    if (examId !== 'det') return null;
+    const bySkill = Object.fromEntries(skillMetrics.map((m) => [m.skill, m.score])) as Record<
+      string,
+      number | null
+    >;
+    const fallback = overallSummary.overallBand ?? 100;
+    return computeDetSubscores({
+      reading: bySkill['reading'] ?? fallback,
+      listening: bySkill['listening'] ?? fallback,
+      writing: bySkill['writing'] ?? fallback,
+      speaking: bySkill['speaking'] ?? fallback,
+    });
+  }, [examId, overallSummary.overallBand, skillMetrics]);
+
+  // Compute 4-skill diamond radar coordinates centered at (110, 110), radius 76
+  const radarPolygonPoints = useMemo(() => {
+    const order: readonly ('reading' | 'writing' | 'speaking' | 'listening')[] = [
+      'reading',
+      'writing',
+      'speaking',
+      'listening',
+    ];
+    const angles = [-Math.PI / 2, 0, Math.PI / 2, Math.PI];
+    return order
+      .map((skill, idx) => {
+        const metric = skillMetrics.find((m) => m.skill === skill);
+        const norm = metric && metric.score !== null ? Math.max(0.15, metric.normalizedPosition) : 0.15;
+        const r = norm * 72;
+        const angle = angles[idx] ?? 0;
+        return `${Math.round(110 + r * Math.cos(angle))},${Math.round(110 + r * Math.sin(angle))}`;
+      })
+      .join(' ');
+  }, [skillMetrics]);
+
   return (
     <div data-testid="progress-screen" className="mx-auto flex max-w-6xl flex-col gap-5 pb-12 text-start">
+      {exportNotice ? <MzBanner tone="success">{exportNotice}</MzBanner> : null}
+
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-xs font-semibold text-primary">{trackSpec.displayName}</p>
@@ -173,27 +228,50 @@ export function ProgressScreen() {
           <p className="mt-1 text-sm text-text-secondary">{t('progressPageSubtitle')}</p>
         </div>
 
-        <Link
-          to="/progress/compare"
-          data-testid="progress-compare-cta"
-          className="inline-flex h-10 items-center gap-2 rounded-[var(--mz-radius-control)] border border-border-subtle bg-bg-raised px-4 text-xs font-semibold text-text-primary hover:bg-surface-hover"
-        >
-          <GitCompare className="h-4 w-4 text-primary" aria-hidden="true" />
-          <span>{t('progressCompareCta')}</span>
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <MzButton
+            variant="secondary"
+            size="sm"
+            data-testid="progress-export-btn"
+            leadingIcon={<Download className="h-3.5 w-3.5 text-primary" aria-hidden="true" />}
+            onClick={() => void handleExportStudyData()}
+          >
+            {t('progressExportAction')}
+          </MzButton>
+          <Link
+            to="/progress/compare"
+            data-testid="progress-compare-cta"
+            className="inline-flex h-10 items-center gap-2 rounded-[var(--mz-radius-control)] border border-border-subtle bg-bg-raised px-4 text-xs font-semibold text-text-primary hover:bg-surface-hover"
+          >
+            <GitCompare className="h-4 w-4 text-primary" aria-hidden="true" />
+            <span>{t('progressCompareCta')}</span>
+          </Link>
+        </div>
       </div>
 
       {/* Hero KPI Row */}
       <div className="grid gap-4 md:grid-cols-3">
         <MzCard variant="hero">
           <p className="text-xs font-semibold text-text-secondary">{trackSpec.displayName}</p>
-          <LtrExamBoundary>
-            <p data-testid="progress-overall-score" className="mt-2 font-mono-exam text-3xl font-bold text-primary">
-              {overallSummary.overallBand !== null
-                ? formatExamScoreWithUnit(overallSummary.overallBand, examId)
-                : '—'}
-            </p>
-          </LtrExamBoundary>
+          <div className="mt-2 flex flex-wrap items-baseline gap-2.5">
+            <LtrExamBoundary>
+              <p data-testid="progress-overall-score" className="font-mono-exam text-3xl font-bold text-primary">
+                {overallSummary.overallBand !== null
+                  ? formatExamScoreWithUnit(overallSummary.overallBand, examId)
+                  : '—'}
+              </p>
+            </LtrExamBoundary>
+            {examId === 'toefl_ibt' && overallSummary.overallBand !== null ? (
+              <LtrExamBoundary>
+                <span
+                  data-testid="progress-toefl-concordance"
+                  className="font-mono-exam text-xs font-semibold text-focus"
+                >
+                  ~{estimateToeflLegacy120(overallSummary.overallBand)}/120
+                </span>
+              </LtrExamBoundary>
+            ) : null}
+          </div>
           <p className="mt-2 text-xs text-text-secondary">
             {readinessGap === null
               ? overallSummary.scaleLabel
@@ -236,63 +314,129 @@ export function ProgressScreen() {
         </MzCard>
       </div>
 
-      {/* SVG TrendChart */}
-      <MzCard variant="default" data-testid="progress-trend-chart-card">
-        <div className="mb-3 flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-primary" aria-hidden="true" />
-          <h2 className="text-sm font-bold text-text-primary">
-            {t('progressTrendChartTitle', { count: scoredAttempts.length })}
-          </h2>
-        </div>
+      {/* Trend & 4-Skill Radar Charts */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <MzCard variant="default" data-testid="progress-trend-chart-card" className="lg:col-span-2">
+          <div className="mb-3 flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-primary" aria-hidden="true" />
+            <h2 className="text-sm font-bold text-text-primary">
+              {t('progressTrendChartTitle', { count: scoredAttempts.length })}
+            </h2>
+          </div>
 
-        {scoredAttempts.length === 0 ? (
-          <p className="py-8 text-center text-xs text-text-secondary">
-            {t('progressNoAttemptsEmpty')}
-          </p>
-        ) : (
+          {scoredAttempts.length === 0 ? (
+            <p className="py-8 text-center text-xs text-text-secondary">
+              {t('progressNoAttemptsEmpty')}
+            </p>
+          ) : (
+            <LtrExamBoundary>
+              <svg
+                data-testid="progress-trend-chart"
+                viewBox="0 0 620 160"
+                role="img"
+                aria-label="Exam score trajectory"
+                className="h-44 w-full overflow-visible rounded-[var(--mz-radius-compact)] bg-canvas p-2"
+              >
+                {/* Target benchmark dashed line */}
+                <line
+                  x1="28"
+                  y1={targetLineY}
+                  x2="592"
+                  y2={targetLineY}
+                  stroke="currentColor"
+                  strokeDasharray="4 4"
+                  className="text-focus/60"
+                />
+                {chartPoints.length > 1 ? (
+                  <polyline
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    className="text-primary"
+                    points={chartPoints.map((p) => `${p.x},${p.y}`).join(' ')}
+                  />
+                ) : null}
+                {chartPoints.map((pt, idx) => (
+                  <circle
+                    key={`${pt.x}-${pt.y}-${idx}`}
+                    cx={pt.x}
+                    cy={pt.y}
+                    r="4.5"
+                    fill="currentColor"
+                    className="text-primary"
+                  >
+                    <title>{`${pt.skill}: ${pt.score}`}</title>
+                  </circle>
+                ))}
+              </svg>
+            </LtrExamBoundary>
+          )}
+        </MzCard>
+
+        <MzCard variant="default" data-testid="progress-radar-chart-card">
+          <h2 className="mb-2 text-sm font-bold text-text-primary">{t('progressRadarTitle')}</h2>
           <LtrExamBoundary>
             <svg
-              data-testid="progress-trend-chart"
-              viewBox="0 0 620 160"
+              data-testid="progress-radar-chart"
+              viewBox="0 0 220 220"
               role="img"
-              aria-label="Exam score trajectory"
-              className="h-44 w-full overflow-visible rounded-[var(--mz-radius-compact)] bg-canvas p-2"
+              aria-label={t('progressRadarTitle')}
+              className="mx-auto h-44 w-44"
             >
-              {/* Target benchmark dashed line */}
-              <line
-                x1="28"
-                y1={targetLineY}
-                x2="592"
-                y2={targetLineY}
+              <polygon
+                points="110,38 182,110 110,182 38,110"
+                fill="none"
                 stroke="currentColor"
-                strokeDasharray="4 4"
-                className="text-focus/60"
+                strokeWidth="1"
+                className="text-border-subtle"
               />
-              {chartPoints.length > 1 ? (
-                <polyline
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  className="text-primary"
-                  points={chartPoints.map((p) => `${p.x},${p.y}`).join(' ')}
-                />
-              ) : null}
-              {chartPoints.map((pt, idx) => (
-                <circle
-                  key={`${pt.x}-${pt.y}-${idx}`}
-                  cx={pt.x}
-                  cy={pt.y}
-                  r="4.5"
-                  fill="currentColor"
-                  className="text-primary"
-                >
-                  <title>{`${pt.skill}: ${pt.score}`}</title>
-                </circle>
-              ))}
+              <polygon
+                points="110,74 146,110 110,146 74,110"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1"
+                className="text-border-subtle/70"
+              />
+              <line x1="110" y1="38" x2="110" y2="182" stroke="currentColor" className="text-border-subtle/60" />
+              <line x1="38" y1="110" x2="182" y2="110" stroke="currentColor" className="text-border-subtle/60" />
+              <polygon
+                points={radarPolygonPoints}
+                fill="currentColor"
+                fillOpacity="0.22"
+                stroke="currentColor"
+                strokeWidth="2"
+                className="text-primary"
+              />
+              <text x="110" y="24" textAnchor="middle" className="fill-text-secondary text-[10px]">
+                R
+              </text>
+              <text x="196" y="114" textAnchor="middle" className="fill-text-secondary text-[10px]">
+                W
+              </text>
+              <text x="110" y="204" textAnchor="middle" className="fill-text-secondary text-[10px]">
+                S
+              </text>
+              <text x="24" y="114" textAnchor="middle" className="fill-text-secondary text-[10px]">
+                L
+              </text>
             </svg>
           </LtrExamBoundary>
-        )}
-      </MzCard>
+        </MzCard>
+      </div>
+
+      {detSubscores ? (
+        <MzCard variant="alt" data-testid="progress-det-subscores">
+          <p className="mb-2 text-xs font-bold text-text-secondary">{t('detSubscoresTitle')}</p>
+          <LtrExamBoundary>
+            <div className="grid grid-cols-2 gap-3 font-mono-exam text-xs sm:grid-cols-4">
+              <div>Literacy: <strong className="text-primary">{detSubscores.literacy}</strong></div>
+              <div>Comprehension: <strong className="text-primary">{detSubscores.comprehension}</strong></div>
+              <div>Conversation: <strong className="text-primary">{detSubscores.conversation}</strong></div>
+              <div>Production: <strong className="text-primary">{detSubscores.production}</strong></div>
+            </div>
+          </LtrExamBoundary>
+        </MzCard>
+      ) : null}
 
       {/* 4-Skill Breakdown & Weakness Priority */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

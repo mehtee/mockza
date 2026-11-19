@@ -5,7 +5,7 @@ import {
   Mic,
   Volume2,
 } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   MzBanner,
   MzButton,
@@ -121,6 +121,15 @@ export function CompactPreflightHeader<TMode extends string = string>({
     onMicStatusReady?.(!testRes.value.isMutedWarning);
   }, [deps, onMicStatusReady]);
 
+  useEffect(() => {
+    const url = loopback?.blobUrl;
+    return () => {
+      if (url && url.startsWith('blob:') && typeof URL.revokeObjectURL === 'function') {
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, [loopback?.blobUrl]);
+
   return (
     <MzCard variant="default" padding="sm" data-testid="compact-preflight-header">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -223,6 +232,22 @@ export function CompactPreflightHeader<TMode extends string = string>({
       {loopback?.isMutedWarning ? (
         <div className="mt-3">
           <MzBanner tone="warning">{t('settingsMicMutedWarning')}</MzBanner>
+        </div>
+      ) : null}
+
+      {loopback?.blobUrl ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 py-2">
+          <Volume2 className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+          <span className="text-xs font-medium text-text-secondary">
+            {t('preflightLoopbackPlaybackLabel')}
+          </span>
+          <audio
+            controls
+            data-testid="preflight-loopback-audio"
+            src={loopback.blobUrl}
+            aria-label={t('preflightLoopbackPlaybackLabel')}
+            className="h-8 max-w-xs flex-1"
+          />
         </div>
       ) : null}
 

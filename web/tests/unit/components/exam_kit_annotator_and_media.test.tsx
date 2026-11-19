@@ -59,6 +59,7 @@ describe('W3.3 PassageAnnotatorPane, EssayEditor, AudioStudioPlayer & WaveformMi
     expect(segs.some((s) => s.isEvidence && s.text === 'microgrids')).toBe(true);
 
     const onAdd = vi.fn();
+    const onUpdateNote = vi.fn();
     const onDelete = vi.fn();
     const onSaveVocab = vi.fn();
 
@@ -73,15 +74,22 @@ describe('W3.3 PassageAnnotatorPane, EssayEditor, AudioStudioPlayer & WaveformMi
           label: 'Q1 Evidence',
         }}
         onAddAnnotation={onAdd}
+        onUpdateAnnotationNote={onUpdateNote}
         onDeleteAnnotation={onDelete}
         onSaveToVocab={onSaveVocab}
       />,
     );
 
-    // Existing highlight inspector + delete action
+    // Existing highlight inspector + inline note update & delete action
     fireEvent.click(screen.getByTestId('annotation-span-ann-1'));
     expect(screen.getByTestId('annotator-inspector-popover')).toBeTruthy();
     expect(screen.getByText('Key causality verb')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('annotator-inspector-note-edit'));
+    fireEvent.change(screen.getByTestId('annotator-inspector-note-input'), {
+      target: { value: 'Updated margin note' },
+    });
+    fireEvent.click(screen.getByTestId('annotator-inspector-note-save'));
+    expect(onUpdateNote).toHaveBeenCalledWith('ann-1', 'Updated margin note');
     fireEvent.click(screen.getByTestId('annotator-delete-btn'));
     expect(onDelete).toHaveBeenCalledWith('ann-1');
 
@@ -156,7 +164,7 @@ describe('W3.3 PassageAnnotatorPane, EssayEditor, AudioStudioPlayer & WaveformMi
     // Study mode unlocks spellcheck and single sentence validates when merged into 1 sentence
     rerender(
       <DistractionFreeEssayEditor
-        value="Renewable grid storage reduces peak emissions across cities."
+        value="Renewable grid storage reduces peak emissions across U.S. cities, says Dr. Smith."
         onChange={onChange}
         examMode="study"
         minWords={5}
@@ -167,6 +175,7 @@ describe('W3.3 PassageAnnotatorPane, EssayEditor, AudioStudioPlayer & WaveformMi
 
     expect(screen.getByTestId('essay-editor-textarea').getAttribute('spellcheck')).toBe('true');
     expect(screen.getByTestId('essay-sentence-rule').textContent).toContain('Single-sentence rule met');
+    expect(screen.getByTestId('essay-char-count').textContent).toContain('chars');
   });
 
   it('enforces exam_linear_locked vs study_interactive playback, speed cycle & transcript seek in AudioStudioPlayer', async () => {
@@ -216,6 +225,10 @@ describe('W3.3 PassageAnnotatorPane, EssayEditor, AudioStudioPlayer & WaveformMi
     expect(speedBtn.textContent).toBe('1x');
     fireEvent.click(speedBtn);
     await waitFor(() => expect(speedBtn.textContent).toBe('1.25x'));
+    fireEvent.click(speedBtn);
+    await waitFor(() => expect(speedBtn.textContent).toBe('1.5x'));
+    fireEvent.click(speedBtn);
+    await waitFor(() => expect(speedBtn.textContent).toBe('0.75x'));
 
     fireEvent.click(screen.getByTestId('transcript-segment-seg1'));
     await waitFor(() => expect(screen.getByTestId('audio-current-time').textContent).toBe('00:12'));

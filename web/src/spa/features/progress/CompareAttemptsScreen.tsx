@@ -21,6 +21,69 @@ function parseCriteriaFromAttempt(
   }
 }
 
+interface TextMetricsSnapshot {
+  readonly text: string;
+  readonly wordCount: number;
+  readonly wpm: number;
+  readonly lexicalDiversityPercent: number;
+}
+
+function extractTextMetrics(attempt: CompletedAttemptRecord | undefined): TextMetricsSnapshot | null {
+  if (!attempt) return null;
+  let text = '';
+  try {
+    const parsed = JSON.parse(attempt.submissionJson) as {
+      essayText?: unknown;
+      turns?: readonly { promptText?: unknown }[];
+    };
+    if (typeof parsed.essayText === 'string') {
+      text = parsed.essayText.trim();
+    }
+  } catch {
+    // ignore malformed json
+  }
+  if (!text && attempt.evaluationJson) {
+    try {
+      const ev = JSON.parse(attempt.evaluationJson) as EvaluationOutputDto;
+      const transcriptText = ev.transcriptSegments?.map((s) => s.text).join(' ').trim();
+      if (transcriptText) text = transcriptText;
+    } catch {
+      // ignore
+    }
+  }
+  if (!text) return null;
+  const words = text
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w) => w.replace(/[^a-z0-9'-]/gi, ''))
+    .filter(Boolean);
+  if (words.length === 0) return null;
+  const uniqueCount = new Set(words).size;
+  const minutes = Math.max(1 / 6, attempt.durationSeconds / 60);
+  return {
+    text,
+    wordCount: words.length,
+    wpm: Math.round(words.length / minutes),
+    lexicalDiversityPercent: Math.round((uniqueCount / words.length) * 100),
+  };
+}
+
+function buildTokenDiff(baseText: string, nextText: string): readonly { readonly word: string; readonly kind: 'same' | 'added' }[] {
+  const baseWords = new Set(
+    baseText
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean),
+  );
+  return nextText
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => ({
+      word,
+      kind: baseWords.has(word.toLowerCase()) ? 'same' : 'added',
+    }));
+}
+
 export function CompareAttemptsScreen() {
   const deps = useDeps();
   const t = createTranslator(deps.edition);
@@ -61,6 +124,9 @@ export function CompareAttemptsScreen() {
 
   const criteriaA = parseCriteriaFromAttempt(attemptA);
   const criteriaB = parseCriteriaFromAttempt(attemptB);
+  const metricsA = extractTextMetrics(attemptA);
+  const metricsB = extractTextMetrics(attemptB);
+  const diffTokens = metricsA && metricsB ? buildTokenDiff(metricsA.text, metricsB.text) : [];
 
   return (
     <div data-testid="compare-attempts-screen" className="mx-auto flex max-w-5xl flex-col gap-5 pb-12 text-start">
@@ -203,6 +269,68 @@ export function CompareAttemptsScreen() {
                     </div>
                   );
                 })}
+              </div>
+            </MzCard>
+          ) : null}
+          {metricsA && metricsB ? (
+            <MzCard variant="default" data-testid="compare-lexical-metrics">
+              <h2 className="mb-3 text-sm font-bold text-text-primary">
+                {t('compareLexicalMetricsHeading')}
+              </h2>
+              <LtrExamBoundary>
+                <div className="grid gap-3 font-mono-exam text-xs sm:grid-cols-3">
+                  <div className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas p-3">
+                    <p className="text-text-secondary">Words</p>
+                    <p className="mt-1 font-bold text-text-primary">
+                      {metricsA.wordCount} → {metricsB.wordCount} (
+                      {metricsB.wordCount - metricsA.wordCount >= 0 ? '+' : ''}
+                      {metricsB.wordCount - metricsA.wordCount})
+                    </p>
+                  </div>
+                  <div className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas p-3">
+                    <p className="text-text-secondary">WPM</p>
+                    <p className="mt-1 font-bold text-text-primary">
+                      {metricsA.wpm} → {metricsB.wpm} (
+                      {metricsB.wpm - metricsA.wpm >= 0 ? '+' : ''}
+                      {metricsB.wpm - metricsA.wpm})
+                    </p>
+                  </div>
+                  <div className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas p-3">
+                    <p className="text-text-secondary">Lexical Diversity</p>
+                    <p className="mt-1 font-bold text-text-primary">
+                      {metricsA.lexicalDiversityPercent}% → {metricsB.lexicalDiversityPercent}%
+                    </p>
+                  </div>
+                </div>
+              </LtrExamBoundary>
+
+              <div className="mt-4" data-testid="compare-diff-panel">
+                <h3 className="mb-2 text-xs font-bold text-text-secondary">
+                  {t('compareDiffHeading')}
+                </h3>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <LtrExamBoundary>
+                    <p className="whitespace-pre-wrap rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised p-3 text-xs leading-relaxed text-text-secondary">
+                      {metricsA.text}
+                    </p>
+                  </LtrExamBoundary>
+                  <LtrExamBoundary>
+                    <p className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised p-3 text-xs leading-relaxed text-text-primary">
+                      {diffTokens.map((tok, idx) => (
+                        <span
+                          key={`${tok.word}-${idx}`}
+                          className={
+                            tok.kind === 'added'
+                              ? 'me-1 inline rounded bg-mint-bg px-1 font-semibold text-success'
+                              : 'me-1'
+                          }
+                        >
+                          {tok.word}
+                        </span>
+                      ))}
+                    </p>
+                  </LtrExamBoundary>
+                </div>
               </div>
             </MzCard>
           ) : null}

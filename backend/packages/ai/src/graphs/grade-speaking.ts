@@ -11,7 +11,11 @@ import { EvaluationModelError } from '../errors.js';
 import { OpenRouterClient } from '../models/openrouter.js';
 import { MODEL_REGISTRY } from '../models/registry.js';
 import { renderPromptFromYaml } from '../prompts/loader.js';
-import { buildEditionOverlayAppendix, buildSpeakingRubricAppendix } from '../prompts/rubrics.js';
+import {
+  buildEditionOverlayAppendix,
+  buildSpeakingRubricAppendix,
+  PROMPT_MANIFEST,
+} from '../prompts/rubrics.js';
 import { validateAndExtractCriterionBands } from './rubric-validation.js';
 
 export type SpeakingGraphInput = z.infer<typeof EvaluateSpeakingRequestSchema> & {

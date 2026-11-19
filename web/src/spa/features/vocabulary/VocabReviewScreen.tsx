@@ -131,7 +131,7 @@ export function VocabReviewScreen() {
       const target = event.target as HTMLElement | null;
       if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') return;
 
-      if (event.code === 'Space' || event.key === ' ') {
+      if (event.code === 'Space' || event.key === ' ' || event.key === 'Enter') {
         event.preventDefault();
         setIsFlipped((prev) => !prev);
         return;

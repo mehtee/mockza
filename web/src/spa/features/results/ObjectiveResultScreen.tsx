@@ -30,7 +30,7 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
 
   const [attempt, setAttempt] = useState<CompletedAttemptRecord | null>(null);
   const [bundle, setBundle] = useState<ExamBundlePayload | null>(null);
-  const [filterMode, setFilterMode] = useState<'all' | 'incorrect'>('all');
+  const [filterMode, setFilterMode] = useState<'all' | 'incorrect' | 'flagged'>('all');
   const [activeEvidence, setActiveEvidence] = useState<{
     readonly sectionId: string;
     readonly span: PassageEvidenceSpan | null;
@@ -118,10 +118,13 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
   }
 
   const sortedQuestions = [...bundle.questions].sort((a, b) => a.questionNumber - b.questionNumber);
+  const flaggedSet = new Set(submission.flaggedQuestionIds ?? []);
   const filteredQuestions =
     filterMode === 'incorrect'
       ? sortedQuestions.filter((q) => submission.questionCorrectness[q.questionId] !== true)
-      : sortedQuestions;
+      : filterMode === 'flagged'
+        ? sortedQuestions.filter((q) => flaggedSet.has(q.questionId))
+        : sortedQuestions;
 
   const handleAskAiWhy = async (question: ExamBundlePayload['questions'][number]) => {
     setLoadingQuestionId(question.questionId);
@@ -206,13 +209,14 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <MzSegmentedControl<'all' | 'incorrect'>
+            <MzSegmentedControl<'all' | 'incorrect' | 'flagged'>
               ariaLabel="Filter Questions"
               value={filterMode}
               onChange={setFilterMode}
               options={[
                 { value: 'all', label: t('objResultFilterAll') },
                 { value: 'incorrect', label: t('objResultFilterIncorrect') },
+                { value: 'flagged', label: t('objResultFilterFlagged') },
               ]}
             />
             <Link

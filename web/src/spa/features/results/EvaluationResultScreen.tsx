@@ -5,7 +5,7 @@ import {
   type SupportedExamId,
 } from '@mockza/domain';
 import { Link } from '@tanstack/react-router';
-import { BookmarkPlus, CheckCircle2, Flame, GitCompare, Sparkles } from 'lucide-react';
+import { BookmarkPlus, CheckCircle2, Flame, GitCompare, Sparkles, ArrowUpRight } from 'lucide-react';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { SplitPaneWorkspace } from '@/components/exam-kit';
 import { MzBanner, MzButton, MzCard } from '@/components/ui';
@@ -172,6 +172,30 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
     setStatusToast(t('simBookmarkSavedToast', { word: item.term }));
   };
 
+  const detSubscores = useMemo(() => {
+    if (examId !== 'det' || !evaluation) return null;
+    const findScore = (patterns: readonly string[], fallbackIdx: number): number => {
+      const matched = evaluation.criteria.find((c) =>
+        patterns.some((p) => c.code.toLowerCase().includes(p) || c.label.toLowerCase().includes(p)),
+      );
+      if (matched) return matched.band;
+      return evaluation.criteria[fallbackIdx]?.band ?? evaluation.overallBand;
+    };
+    const isSpeaking = attempt?.skill === 'speaking' || Boolean(evaluation.transcriptSegments);
+    const literacy = findScore(['lex', 'lr', 'gra', 'gramm', 'ta', 'tr'], 0);
+    const comprehension = findScore(['coh', 'cc', 'ta', 'tr'], 1);
+    const conversation = isSpeaking
+      ? findScore(['fc', 'fluen', 'pron', 'pr'], 0)
+      : findScore(['cc', 'coh'], 2);
+    const production = findScore(['prod', 'gra', 'lex', 'lr'], 3);
+    return computeDetSubscores({
+      reading: comprehension,
+      listening: conversation,
+      writing: isSpeaking ? literacy : production,
+      speaking: isSpeaking ? production : literacy,
+    });
+  }, [attempt?.skill, evaluation, examId]);
+
   if (!evaluation) {
     return (
       <div data-testid="evaluation-result-screen" className="p-6 text-sm text-text-secondary">
@@ -179,16 +203,6 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
       </div>
     );
   }
-
-  const detSubscores =
-    examId === 'det'
-      ? computeDetSubscores({
-          reading: evaluation.overallBand,
-          listening: evaluation.overallBand,
-          writing: evaluation.overallBand,
-          speaking: evaluation.overallBand,
-        })
-      : null;
 
   return (
     <div
@@ -389,8 +403,33 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
                     {evaluation.modelRewrite.preservedIdeasNote}
                   </p>
                   <LtrExamBoundary>
-                    <p className="mt-2.5 whitespace-pre-wrap rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas p-3 text-xs leading-relaxed text-text-primary">
-                      {evaluation.modelRewrite.rewrittenText}
+                    <p
+                      data-testid="eval-model-rewrite-diff"
+                      className="mt-2.5 whitespace-pre-wrap rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas p-3 text-xs leading-relaxed text-text-primary"
+                    >
+                      {(() => {
+                        const baseWords = new Set(
+                          submittedEssay
+                            .toLowerCase()
+                            .split(/\s+/)
+                            .filter(Boolean),
+                        );
+                        if (baseWords.size === 0) return evaluation.modelRewrite.rewrittenText;
+                        return evaluation.modelRewrite.rewrittenText.split(/(\s+)/).map((token, idx) => {
+                          const trimmed = token.trim().toLowerCase();
+                          if (!trimmed || baseWords.has(trimmed)) {
+                            return <Fragment key={idx}>{token}</Fragment>;
+                          }
+                          return (
+                            <mark
+                              key={idx}
+                              className="rounded bg-mint-bg px-0.5 font-semibold text-success"
+                            >
+                              {token}
+                            </mark>
+                          );
+                        });
+                      })()}
                     </p>
                   </LtrExamBoundary>
                 </MzCard>
@@ -468,6 +507,32 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
                     >
                       {t('drillsStartAction')}
                     </Link>
+                  </div>
+                </MzCard>
+              ) : null}
+
+              {/* Verified Partner Handoff Card (IRN edition only) */}
+              {deps.edition === 'irn' && import.meta.env.PUBLIC_EDITION !== 'glb' ? (
+                <MzCard variant="hero" data-testid="ecosystem-handoff-card">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-sm font-bold text-text-primary">
+                        {t('ecosystemHandoffTitle')}
+                      </h2>
+                      <p className="mt-1 text-xs text-text-secondary">
+                        {t('ecosystemHandoffSubtitle')}
+                      </p>
+                    </div>
+                    <a
+                      href={t('ecosystemHandoffUrl')}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      data-testid="ecosystem-handoff-link"
+                      className="inline-flex h-8 items-center gap-1.5 rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
+                    >
+                      <span>{t('ecosystemEligibilityCta')}</span>
+                      <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                    </a>
                   </div>
                 </MzCard>
               ) : null}

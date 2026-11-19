@@ -30,7 +30,7 @@ export interface AudioStudioPlayerProps {
   readonly onPlaybackStateChange?: (state: AudioPlaybackState) => void;
 }
 
-const SPEED_CYCLE = [0.85, 1.0, 1.25] as const;
+const SPEED_CYCLE = [0.75, 1.0, 1.25, 1.5] as const;
 
 export function AudioStudioPlayer({
   source,
@@ -152,6 +152,50 @@ export function AudioStudioPlayer({
       setErrorMessage(res.error.message);
     }
   }, [isExamLocked, playback.playbackRate]);
+
+  // Study Interactive keyboard shortcuts: Space (Play/Pause), ArrowLeft/Right (+/-5s), [ / ] (speed)
+  useEffect(() => {
+    if (isExamLocked) return;
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        tag === 'SELECT' ||
+        tag === 'BUTTON' ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+
+      if (event.code === 'Space' || event.key === ' ') {
+        event.preventDefault();
+        void handlePlayPause();
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        handleSeek(playback.currentTimeSec - 5);
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        handleSeek(playback.currentTimeSec + 5);
+      } else if (event.key === '[' || event.key === ']') {
+        event.preventDefault();
+        const handle = handleRef.current;
+        if (!handle) return;
+        const idx = SPEED_CYCLE.findIndex((r) => r === playback.playbackRate);
+        const cur = idx === -1 ? 1 : idx;
+        const nextIdx =
+          event.key === ']'
+            ? Math.min(SPEED_CYCLE.length - 1, cur + 1)
+            : Math.max(0, cur - 1);
+        const nextRate = SPEED_CYCLE[nextIdx] ?? 1.0;
+        handle.setSpeed(nextRate);
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handlePlayPause, handleSeek, isExamLocked, playback.currentTimeSec, playback.playbackRate]);
 
   return (
     <div data-testid="audio-studio-player" className="flex flex-col gap-3">
