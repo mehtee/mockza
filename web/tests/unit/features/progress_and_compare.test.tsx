@@ -155,6 +155,7 @@ describe('W6.3 Progress Analytics & Attempt Compare', () => {
     fireEvent.click(screen.getByTestId('progress-compare-cta'));
     await waitFor(() => {
       expect(screen.getByTestId('compare-attempts-screen')).toBeTruthy();
+      expect(screen.getByTestId('compare-select-a')).toBeTruthy();
     });
 
     fireEvent.change(screen.getByTestId('compare-select-a'), { target: { value: 'att-w-1' } });
