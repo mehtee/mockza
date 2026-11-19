@@ -174,4 +174,35 @@ describe('@mockza/api full route suite', () => {
     const vocabRes = await app.request('/v1/vocab/deck');
     expect(vocabRes.status).toBe(200);
   });
+
+  it('accepts bounded telemetry batches on POST /v1/telemetry/events and rejects invalid payloads', async () => {
+    const okRes = await app.request('/v1/telemetry/events', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        events: [
+          {
+            eventName: 'web_boot',
+            timestamp: '2026-11-19T00:00:00.000Z',
+            properties: { edition: 'GLB' },
+          },
+        ],
+      }),
+    });
+    expect(okRes.status).toBe(200);
+    const okBody = (await okRes.json()) as { acceptedCount: number };
+    expect(okBody.acceptedCount).toBe(1);
+
+    const badRes = await app.request('/v1/telemetry/events', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        events: Array.from({ length: 101 }, (_, idx) => ({
+          eventName: `ev_${idx}`,
+          timestamp: '2026-11-19T00:00:00.000Z',
+        })),
+      }),
+    });
+    expect(badRes.status).toBe(400);
+  });
 });

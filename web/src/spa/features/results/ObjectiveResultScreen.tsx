@@ -1,7 +1,7 @@
 import { estimateToeflLegacy120, formatExamScoreWithUnit } from '@mockza/domain';
 import { Link } from '@tanstack/react-router';
 import { CheckCircle2, Crosshair, HelpCircle, Sparkles, XCircle } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AudioStudioPlayer,
   PassageAnnotatorPane,
@@ -67,6 +67,34 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
     };
   }, [attemptId, deps.attemptStore, deps.catalog]);
 
+  const activeSection = useMemo(
+    () =>
+      bundle?.sections.find((s) => s.sectionId === activeEvidence?.sectionId) ??
+      bundle?.sections[0] ??
+      null,
+    [activeEvidence?.sectionId, bundle],
+  );
+
+  const reviewAudioSource = useMemo(
+    () => ({
+      mediaKey: `${bundle?.pack.packId ?? attempt?.packId ?? 'review'}:${activeSection?.sectionId ?? 'main'}`,
+      fallbackUrl: activeSection?.mediaUrl ?? bundle?.pack.mediaUrl ?? '',
+    }),
+    [activeSection?.mediaUrl, activeSection?.sectionId, attempt?.packId, bundle?.pack.mediaUrl, bundle?.pack.packId],
+  );
+
+  const reviewTranscriptSegments = useMemo(
+    () =>
+      activeSection?.transcript?.map((line, i) => ({
+        id: `tr-${i}`,
+        startSec: Math.round(line.startMs / 1000),
+        endSec: Math.round(line.endMs / 1000),
+        speaker: line.speaker,
+        text: line.text,
+      })) ?? [],
+    [activeSection],
+  );
+
   if (!attempt || !bundle) {
     return (
       <div data-testid="objective-result-screen" className="p-6 text-sm text-text-secondary">
@@ -94,11 +122,6 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
     filterMode === 'incorrect'
       ? sortedQuestions.filter((q) => submission.questionCorrectness[q.questionId] !== true)
       : sortedQuestions;
-
-  const activeSection =
-    bundle.sections.find((s) => s.sectionId === activeEvidence?.sectionId) ??
-    bundle.sections[0] ??
-    null;
 
   const handleAskAiWhy = async (question: ExamBundlePayload['questions'][number]) => {
     setLoadingQuestionId(question.questionId);
@@ -217,25 +240,14 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
               <div className="flex flex-col gap-4">
                 <h2 className="text-base font-bold text-text-primary">{activeSection?.title}</h2>
                 <AudioStudioPlayer
-                  source={{
-                    mediaKey: `${bundle.pack.packId}:${activeSection?.sectionId ?? 'main'}`,
-                    fallbackUrl: activeSection?.mediaUrl ?? bundle.pack.mediaUrl ?? '',
-                  }}
+                  source={reviewAudioSource}
                   playbackMode="study_interactive"
                   externalSeekRequest={
                     activeEvidence?.cueSec !== null && activeEvidence?.cueSec !== undefined
                       ? { sec: activeEvidence.cueSec, seq: activeEvidence.seq }
                       : null
                   }
-                  transcriptSegments={
-                    activeSection?.transcript?.map((line, i) => ({
-                      id: `tr-${i}`,
-                      startSec: Math.round(line.startMs / 1000),
-                      endSec: Math.round(line.endMs / 1000),
-                      speaker: line.speaker,
-                      text: line.text,
-                    })) ?? []
-                  }
+                  transcriptSegments={reviewTranscriptSegments}
                 />
               </div>
             ) : (

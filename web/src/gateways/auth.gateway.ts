@@ -151,6 +151,7 @@ export interface IAuthGateway {
   getSession(): Promise<Result<AuthSession | null, StorageError | UnexpectedError>>;
   ensureAuthenticated(forceRefresh?: boolean): Promise<Result<AuthSession, AuthGatewayError>>;
   onSessionChanged(listener: (session: AuthSession | null) => void): () => void;
+  onSessionRevoked?(listener: () => void): () => void;
   fetchAuthProviders(): Promise<Result<AuthProvidersSnapshot, NetworkError | UnexpectedError>>;
   signInWithEmail(input: EmailSignInInput): Promise<Result<AuthSession, AuthGatewayError>>;
   signUpWithEmail(input: EmailSignUpInput): Promise<Result<AuthSession, AuthGatewayError>>;

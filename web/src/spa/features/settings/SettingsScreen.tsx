@@ -176,7 +176,7 @@ export function SettingsScreen({ onExternalRedirect }: SettingsScreenProps = {})
               ) : (
                 <Link
                   to="/auth/login"
-                  search={{ returnTo: '/app/settings' }}
+                  search={{ returnTo: '/settings' }}
                   data-testid="settings-signin-link"
                   className="inline-flex h-8 items-center justify-center rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-white transition-colors hover:bg-primary-strong"
                 >

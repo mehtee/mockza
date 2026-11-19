@@ -45,6 +45,12 @@ export function AudioStudioPlayer({
   const t = createTranslator(edition);
 
   const handleRef = useRef<AudioTrackHandle | null>(null);
+  const onEndedRef = useRef(onEnded);
+  const onPlaybackStateChangeRef = useRef(onPlaybackStateChange);
+  onEndedRef.current = onEnded;
+  onPlaybackStateChangeRef.current = onPlaybackStateChange;
+
+  const { mediaKey, fallbackUrl, expectedSha256 } = source;
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [playback, setPlayback] = useState<AudioPlaybackState>({
     mode: playbackMode,
@@ -65,7 +71,13 @@ export function AudioStudioPlayer({
     player.setPlaybackMode(playbackMode);
     setErrorMessage(null);
 
-    void player.loadSource(source).then((res) => {
+    const stableSource: AudioSourceSpec = {
+      mediaKey,
+      fallbackUrl,
+      ...(expectedSha256 !== undefined ? { expectedSha256 } : {}),
+    };
+
+    void player.loadSource(stableSource).then((res) => {
       if (!mounted) {
         if (res.ok) res.value.dispose();
         return;
@@ -80,9 +92,9 @@ export function AudioStudioPlayer({
       unsubscribe = handle.subscribe((nextState) => {
         if (!mounted) return;
         setPlayback(nextState);
-        onPlaybackStateChange?.(nextState);
+        onPlaybackStateChangeRef.current?.(nextState);
         if (nextState.status === 'ended') {
-          onEnded?.();
+          onEndedRef.current?.();
         }
       });
     });
@@ -93,7 +105,7 @@ export function AudioStudioPlayer({
       handleRef.current?.dispose();
       handleRef.current = null;
     };
-  }, [deps?.audioPlayer, onEnded, onPlaybackStateChange, playbackMode, source]);
+  }, [deps?.audioPlayer, expectedSha256, fallbackUrl, mediaKey, playbackMode]);
 
   const isExamLocked = playbackMode === 'exam_linear_locked';
   const isPlaying = playback.status === 'playing';

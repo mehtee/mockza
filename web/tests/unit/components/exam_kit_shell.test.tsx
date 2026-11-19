@@ -101,14 +101,20 @@ describe('W3.1 Workspace Chrome, SplitPane, QuestionPaletteBar & CompactPrefligh
     await deps.attemptStore.saveSplitPaneRatio('reading:pack-1', 0.62);
 
     const onRatioSpy = vi.fn();
+    let mountCount = 0;
+    function ProbeChild() {
+      mountCount += 1;
+      return <p data-testid="split-probe-child">Passage Content</p>;
+    }
 
     render(
       <AppDependenciesProvider dependencies={deps}>
         <SplitPaneWorkspace
           viewKey="reading:pack-1"
+          initialRatio={0.5}
           leftLabel="Passage"
           rightLabel="Questions"
-          leftPane={<p>Passage Content</p>}
+          leftPane={<ProbeChild />}
           rightPane={<p>Question Items</p>}
           onRatioChange={onRatioSpy}
         />
@@ -121,6 +127,7 @@ describe('W3.1 Workspace Chrome, SplitPane, QuestionPaletteBar & CompactPrefligh
       );
     });
 
+    const initialMounts = mountCount;
     fireEvent.doubleClick(screen.getByTestId('split-pane-divider'));
 
     await waitFor(async () => {
@@ -131,6 +138,8 @@ describe('W3.1 Workspace Chrome, SplitPane, QuestionPaletteBar & CompactPrefligh
       const saved = await deps.attemptStore.getSplitPaneRatio('reading:pack-1');
       expect(saved.ok && saved.value).toBe(0.5);
     });
+    // Resetting split ratio must NOT unmount/remount child panes.
+    expect(mountCount).toBe(initialMounts);
   });
 
   it('keeps QuestionPaletteBar current, answered, current+answered, and flagged states distinct', () => {

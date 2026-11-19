@@ -75,6 +75,7 @@ export class FakeAuthAdapter implements IAuthGateway, IDeviceSlotGateway {
   private readonly deviceInstallId: string;
   private readonly allowDevAuth: boolean;
   private readonly listeners = new Set<(session: AuthSession | null) => void>();
+  private readonly revokedListeners = new Set<() => void>();
   private readonly usersByKey = new Map<string, FakeUserAccount>();
   private readonly otpByPhone = new Map<string, string>();
   private readonly activeSessionsByUserId = new Map<string, ActiveDeviceSlot[]>();
@@ -147,6 +148,9 @@ export class FakeAuthAdapter implements IAuthGateway, IDeviceSlotGateway {
   simulateRemoteSessionRevoked(): void {
     this.sessionRevokedPending = true;
     this.notifyListeners(null);
+    for (const listener of this.revokedListeners) {
+      listener();
+    }
   }
 
   private notifyListeners(session: AuthSession | null): void {
@@ -218,6 +222,13 @@ export class FakeAuthAdapter implements IAuthGateway, IDeviceSlotGateway {
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
+    };
+  }
+
+  onSessionRevoked(listener: () => void): () => void {
+    this.revokedListeners.add(listener);
+    return () => {
+      this.revokedListeners.delete(listener);
     };
   }
 

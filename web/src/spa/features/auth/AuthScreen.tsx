@@ -33,15 +33,23 @@ export function AuthScreen({
   const navigate = useNavigate();
 
   const handleSuccess = () => {
+    const normalizedReturnTo = returnTo?.startsWith('/app/')
+      ? returnTo.slice('/app'.length)
+      : returnTo === '/app'
+        ? '/home'
+        : returnTo;
     const safeTarget =
-      returnTo && returnTo.startsWith('/') && returnTo !== '/auth/login'
-        ? returnTo
+      normalizedReturnTo &&
+      normalizedReturnTo.startsWith('/') &&
+      normalizedReturnTo !== '/auth/login'
+        ? normalizedReturnTo
         : '/home';
     void navigate({ to: safeTarget as '/home' });
   };
 
   const ctrl = useAuthController({
     reason,
+    initialMode,
     onAuthenticated: handleSuccess,
   });
 
@@ -51,14 +59,6 @@ export function AuthScreen({
   const [password, setPassword] = useState('');
   const [phoneInput, setPhoneInput] = useState('');
   const [otpInput, setOtpInput] = useState('');
-
-  const [modeInitialized, setModeInitialized] = useState(false);
-  if (!modeInitialized && initialMode !== ctrl.mode) {
-    ctrl.setMode(initialMode);
-    setModeInitialized(true);
-  } else if (!modeInitialized) {
-    setModeInitialized(true);
-  }
 
   const showSmsOtp =
     ctrl.editionCfg.features.smsOtp && (ctrl.providers.smsOtpEnabled ?? true);

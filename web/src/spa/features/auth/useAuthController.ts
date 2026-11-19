@@ -115,13 +115,14 @@ function normalizePhoneInput(raw: string): string {
 
 export function useAuthController(options: {
   readonly reason?: string;
+  readonly initialMode?: AuthMode;
   readonly onAuthenticated?: () => void;
 } = {}) {
   const deps = useDeps();
   const edition = deps.edition;
   const editionCfg = useMemo(() => getEditionConfig(edition), [edition]);
 
-  const [mode, setMode] = useState<AuthMode>('sign_in');
+  const [mode, setMode] = useState<AuthMode>(options.initialMode ?? 'sign_in');
   const [channel, setChannel] = useState<AuthChannel>(
     editionCfg.features.smsOtp ? 'sms_otp' : 'email',
   );
@@ -399,14 +400,25 @@ export function useAuthController(options: {
     setPendingDevPersonaProvider(null);
   }, []);
 
+  const selectMode = useCallback(
+    (nextMode: AuthMode) => {
+      clearFeedback();
+      setMode(nextMode);
+    },
+    [clearFeedback],
+  );
+
+  useEffect(() => {
+    if (options.initialMode) {
+      setMode(options.initialMode);
+    }
+  }, [options.initialMode]);
+
   return {
     edition,
     editionCfg,
     mode,
-    setMode: (nextMode: AuthMode) => {
-      clearFeedback();
-      setMode(nextMode);
-    },
+    setMode: selectMode,
     channel,
     setChannel: (nextChannel: AuthChannel) => {
       clearFeedback();

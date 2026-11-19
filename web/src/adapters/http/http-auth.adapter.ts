@@ -163,6 +163,7 @@ export class HttpAuthAdapter implements IAuthGateway, IDeviceSlotGateway {
   protected readonly allowDevAuth: boolean;
   private readonly storageOverride: Storage | null | undefined;
   private readonly listeners = new Set<(session: AuthSession | null) => void>();
+  private readonly revokedListeners = new Set<() => void>();
   private currentSession: AuthSession | null = null;
   private inflightAuth: Promise<Result<AuthSession, AuthGatewayError>> | null = null;
 
@@ -188,12 +189,22 @@ export class HttpAuthAdapter implements IAuthGateway, IDeviceSlotGateway {
 
   handleRemoteSessionRevoked(): void {
     this.notifySessionListeners(null);
+    for (const listener of this.revokedListeners) {
+      listener();
+    }
   }
 
   onSessionChanged(listener: (session: AuthSession | null) => void): () => void {
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
+    };
+  }
+
+  onSessionRevoked(listener: () => void): () => void {
+    this.revokedListeners.add(listener);
+    return () => {
+      this.revokedListeners.delete(listener);
     };
   }
 
@@ -342,20 +353,52 @@ export class HttpAuthAdapter implements IAuthGateway, IDeviceSlotGateway {
         reasonCode: 'SESSION_REVOKED',
       });
     }
+    const resolvedDeviceId = res.value.deviceId || identity.deviceInstallId;
+    let resolvedUser: AuthenticatedUser | null = linkedUserId
+      ? {
+          userId: linkedUserId,
+          email: res.value.linkedEmail ?? this.currentSession?.user?.email ?? null,
+          phoneE164: this.currentSession?.user?.phoneE164 ?? null,
+          displayName: this.currentSession?.user?.displayName ?? null,
+          linkedProviders: this.currentSession?.user?.linkedProviders ?? ['email'],
+          isPro: this.currentSession?.user?.isPro ?? false,
+          acceptedDevicePolicyAt: this.currentSession?.user?.acceptedDevicePolicyAt ?? null,
+        }
+      : null;
+    let resolvedSessionId: string | null = linkedUserId
+      ? (this.currentSession?.currentSessionId ?? null)
+      : null;
+
+    if (linkedUserId) {
+      this.currentSession = {
+        accessToken: res.value.accessToken,
+        expiresAt: res.value.expiresAt,
+        deviceId: resolvedDeviceId,
+        isAuthenticated: true,
+        user: resolvedUser,
+        currentSessionId: resolvedSessionId,
+      };
+      const meRes = await this.apiClient.get<RawAccountSessionsResponse>('/v1/account/me', {
+        skipAuthRefresh: true,
+      });
+      if (meRes.ok && meRes.value.user) {
+        resolvedUser = meRes.value.user;
+        const activeSlot =
+          meRes.value.sessions.find((s) => s.isCurrentDevice) ??
+          meRes.value.sessions.find((s) => s.deviceId === resolvedDeviceId);
+        if (activeSlot) {
+          resolvedSessionId = activeSlot.sessionId;
+        }
+      }
+    }
+
     const session: AuthSession = {
       accessToken: res.value.accessToken,
       expiresAt: res.value.expiresAt,
-      deviceId: res.value.deviceId || identity.deviceInstallId,
+      deviceId: resolvedDeviceId,
       isAuthenticated: Boolean(linkedUserId),
-      user: linkedUserId
-        ? {
-            userId: linkedUserId,
-            email: res.value.linkedEmail ?? null,
-            displayName: null,
-            linkedProviders: ['email'],
-            isPro: this.currentSession?.user?.isPro ?? false,
-          }
-        : null,
+      user: resolvedUser,
+      ...(resolvedSessionId !== null ? { currentSessionId: resolvedSessionId } : {}),
     };
 
     this.notifySessionListeners(session);

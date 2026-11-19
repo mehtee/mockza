@@ -43,7 +43,7 @@ export class HttpEvaluationAdapter implements IEvaluationGateway {
   }
 
   async getQuotaStatus(): Promise<Result<QuotaStatusSnapshot, EvaluationGatewayError>> {
-    const res = await this.apiClient.get<QuotaStatusSnapshot>('/v1/quota');
+    const res = await this.apiClient.get<QuotaStatusSnapshot>('/v1/quota/me');
     return res.ok ? ok(res.value) : err(mapApiErrorToEvaluationError(res.error));
   }
 

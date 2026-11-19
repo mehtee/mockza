@@ -117,4 +117,56 @@ describe('W4.2 Rapid Starting-Level Check (/app/diagnostic/{intro,session,result
       expect(screen.getByTestId('diag-skill-card-speaking').textContent).toContain('Calibrated');
     });
   });
+
+  it('hides listening transcript in Standard Timed mode and does not reload audio on 1-second timer ticks', async () => {
+    const deps = createTestDependencies({ edition: 'glb' });
+    const loadSourceSpy = vi.spyOn(deps.audioPlayer, 'loadSource');
+    const history = createMemoryHistory({ initialEntries: ['/app/diagnostic/intro'] });
+    const router = createAppRouter(history);
+
+    render(<DesktopSimulatorApp router={router} dependencies={deps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('diagnostic-intro-screen')).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId('diag-skip-speaking-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('diagnostic-session-screen')).toBeTruthy();
+    });
+
+    for (let step = 0; step < 4; step += 1) {
+      if (screen.queryByTestId('audio-studio-player')) break;
+      const q1Buttons = document.querySelectorAll<HTMLButtonElement>('[data-testid^="choice-1-"]');
+      const q2Buttons = document.querySelectorAll<HTMLButtonElement>('[data-testid^="choice-2-"]');
+      fireEvent.click(q1Buttons[1]!);
+      fireEvent.click(q2Buttons[0]!);
+      fireEvent.click(screen.getByTestId('diag-next-block-btn'));
+      await new Promise((r) => setTimeout(r, 20));
+    }
+
+    await waitFor(() => {
+      expect(screen.getByTestId('audio-studio-player')).toBeTruthy();
+    });
+
+    // Transcript panel and raw scriptText must NOT leak in Standard Timed mode.
+    expect(screen.queryByTestId('audio-transcript-panel')).toBeNull();
+
+    const bankRes = await deps.diagnostic.fetchDiagnosticBank();
+    if (bankRes.ok) {
+      for (const block of bankRes.value.listeningBlocks) {
+        if (block.scriptText) {
+          expect(document.body.textContent ?? '').not.toContain(block.scriptText);
+        }
+      }
+    }
+
+    const callsAfterEnter = loadSourceSpy.mock.calls.length;
+    expect(callsAfterEnter).toBe(1);
+
+    // Wait >1.2s for timer ticks and verify loadSource was not re-triggered.
+    await new Promise((r) => setTimeout(r, 1250));
+    expect(loadSourceSpy.mock.calls.length).toBe(callsAfterEnter);
+  });
 });

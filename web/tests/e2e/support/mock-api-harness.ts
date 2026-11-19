@@ -400,19 +400,9 @@ export async function attachE2eApiHarness(
           expiresAt: new Date(Date.now() + 3600_000).toISOString(),
           deviceId: hasBoundDesktopSecret ? 'dev-desktop-current' : 'dev-anon-1',
           deviceSecret: hasBoundDesktopSecret ? 'sec-desktop-1' : 'sec-anon-1',
-          user: {
-            userId: hasBoundDesktopSecret ? 'user-e2e-1' : 'user-anon-1',
-            email: hasBoundDesktopSecret && state.edition === 'glb' ? 'learner@mockza.test' : null,
-            phoneE164: hasBoundDesktopSecret && state.edition === 'irn' ? '+989121234567' : null,
-            displayName: hasBoundDesktopSecret ? 'E2E Learner' : 'Guest Learner',
-            linkedProviders: hasBoundDesktopSecret
-              ? [state.edition === 'irn' ? 'sms_otp' : 'email']
-              : [],
-            isPro: state.isPro,
-          },
-          currentSession: {
-            sessionId: hasBoundDesktopSecret ? 'sess-desktop-current' : 'sess-anon-1',
-          },
+          linkedUserId: hasBoundDesktopSecret ? 'user-e2e-1' : null,
+          linkedEmail:
+            hasBoundDesktopSecret && state.edition === 'glb' ? 'learner@mockza.test' : null,
         }),
       );
       return;
@@ -489,9 +479,36 @@ export async function attachE2eApiHarness(
       return;
     }
 
+    if (pathname === '/v1/account/me') {
+      const currentSession = state.sessions.find((s) => s.isCurrentDevice) ?? state.sessions[0];
+      const hasDesktopAuth = Boolean(currentSession);
+      await route.fulfill(
+        jsonOk({
+          isAuthenticated: hasDesktopAuth,
+          user: hasDesktopAuth
+            ? {
+                userId: 'user-e2e-1',
+                email: state.edition === 'glb' ? 'learner@mockza.test' : null,
+                phoneE164: state.edition === 'irn' ? '+989121234567' : null,
+                displayName: 'E2E Learner',
+                linkedProviders: [state.edition === 'irn' ? 'sms_otp' : 'email'],
+                isPro: state.isPro,
+                acceptedDevicePolicyAt: nowIso,
+              }
+            : null,
+          currentDeviceId: currentSession?.deviceId ?? 'dev-anon-1',
+          sessions: state.sessions,
+        }),
+      );
+      return;
+    }
+
     if (pathname === '/v1/account/devices') {
       await route.fulfill(
         jsonOk({
+          isAuthenticated: state.sessions.length > 0,
+          user: null,
+          currentDeviceId: state.sessions[0]?.deviceId ?? 'dev-anon-1',
           sessions: state.sessions,
         }),
       );
@@ -499,9 +516,22 @@ export async function attachE2eApiHarness(
     }
 
     if (pathname.startsWith('/v1/account/devices/')) {
-      const targetId = pathname.split('/').pop() ?? '';
-      state.sessions = state.sessions.filter((s) => s.sessionId !== targetId);
-      await route.fulfill(jsonOk({ revoked: true, sessions: state.sessions }));
+      const targetId = decodeURIComponent(pathname.split('/').pop() ?? '');
+      const removed = state.sessions.filter(
+        (s) => s.deviceId === targetId || s.sessionId === targetId,
+      );
+      const signedOutCurrentDevice = removed.some((s) => s.isCurrentDevice);
+      state.sessions = state.sessions.filter(
+        (s) => s.deviceId !== targetId && s.sessionId !== targetId,
+      );
+      await route.fulfill(
+        jsonOk({
+          success: true,
+          revokedDeviceIds: removed.map((s) => s.deviceId),
+          signedOutCurrentDevice,
+          sessions: state.sessions,
+        }),
+      );
       return;
     }
 
@@ -515,7 +545,7 @@ export async function attachE2eApiHarness(
       return;
     }
 
-    if (pathname === '/v1/quota' || pathname === '/v1/quota/me') {
+    if (pathname === '/v1/quota/me') {
       await route.fulfill(
         jsonOk({
           isPro: state.isPro,
@@ -878,8 +908,15 @@ export async function attachE2eApiHarness(
       return;
     }
 
-    if (pathname === '/v1/telemetry/events' || pathname === '/v1/feedback/question-flag') {
-      await route.fulfill(jsonOk({ accepted: true }));
+    if (pathname === '/v1/telemetry/events') {
+      const parsed = (req.postDataJSON() as { events?: unknown[] } | null) ?? {};
+      const acceptedCount = Array.isArray(parsed.events) ? parsed.events.length : 0;
+      await route.fulfill(jsonOk({ acceptedCount }));
+      return;
+    }
+
+    if (pathname === '/v1/feedback/question-flag') {
+      await route.fulfill(jsonOk({ success: true, flagId: 'flag-mock-1' }));
       return;
     }
 

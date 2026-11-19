@@ -51,7 +51,6 @@ export function SplitPaneWorkspace({
   const [leftPercent, setLeftPercent] = useState<number>(() =>
     clampSplitRatioPercent(initialRatio ?? 0.55),
   );
-  const [layoutEpoch, setLayoutEpoch] = useState(0);
   const hydratedRef = useRef(false);
 
   const tryApplyLayout = useCallback((nextLeftPercent: number) => {
@@ -63,7 +62,7 @@ export function SplitPaneWorkspace({
   }, []);
 
   useEffect(() => {
-    if (initialRatio !== undefined || !deps) {
+    if (!deps) {
       hydratedRef.current = true;
       return;
     }
@@ -74,14 +73,13 @@ export function SplitPaneWorkspace({
       if (res.ok && res.value !== null) {
         const clamped = clampSplitRatioPercent(res.value);
         setLeftPercent(clamped);
-        setLayoutEpoch((prev) => prev + 1);
         tryApplyLayout(clamped);
       }
     });
     return () => {
       mounted = false;
     };
-  }, [deps, initialRatio, tryApplyLayout, viewKey]);
+  }, [deps, tryApplyLayout, viewKey]);
 
   const persistPercent = useCallback(
     (rawPercent: number) => {
@@ -107,7 +105,6 @@ export function SplitPaneWorkspace({
 
   const handleResetSplit = useCallback(() => {
     hydratedRef.current = true;
-    setLayoutEpoch((prev) => prev + 1);
     tryApplyLayout(SPLIT_DEFAULT_PERCENT);
     persistPercent(SPLIT_DEFAULT_PERCENT);
   }, [persistPercent, tryApplyLayout]);
@@ -119,7 +116,6 @@ export function SplitPaneWorkspace({
       className={['h-full w-full overflow-hidden', className].filter(Boolean).join(' ')}
     >
       <PanelGroup
-        key={layoutEpoch}
         ref={groupRef}
         direction="horizontal"
         onLayout={handleLayout}

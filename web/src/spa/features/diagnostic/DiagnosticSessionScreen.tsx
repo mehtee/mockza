@@ -1,6 +1,6 @@
 import { DIAGNOSTIC_BUDGET_SECONDS, type DiagnosticSkill } from '@mockza/domain';
 import { useNavigate } from '@tanstack/react-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AudioStudioPlayer,
   DistractionFreeEssayEditor,
@@ -51,6 +51,8 @@ export function DiagnosticSessionScreen({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingAudio, setIsUploadingAudio] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const remainingSecondsRef = useRef(remainingSeconds);
+  remainingSecondsRef.current = remainingSeconds;
 
   useEffect(() => {
     let mounted = true;
@@ -125,13 +127,14 @@ export function DiagnosticSessionScreen({
     };
   }, [deps.attemptStore, deps.clock, deps.diagnostic, retakeSkill, routeDiagId]);
 
+  const hasDiagState = Boolean(diagState);
   useEffect(() => {
-    if (!diagState) return;
+    if (!hasDiagState) return;
     setActiveExamLock(true, t('diagIntroTitle'));
     return () => {
       setActiveExamLock(false);
     };
-  }, [diagState, setActiveExamLock, t]);
+  }, [hasDiagState, setActiveExamLock, t]);
 
   useEffect(() => {
     if (!diagState || isPaused) return;
@@ -272,13 +275,34 @@ export function DiagnosticSessionScreen({
       blocks,
       history,
       selectionSeed: diagState.diagId,
-      remainingStageSeconds: remainingSeconds,
-      remainingGlobalSeconds: remainingSeconds,
+      remainingStageSeconds: remainingSecondsRef.current,
+      remainingGlobalSeconds: remainingSecondsRef.current,
       mode: diagState.mode,
     });
-  }, [bank, diagState, remainingSeconds]);
+  }, [bank, diagState]);
 
   const activeBlock: DiagnosticBlockDto | null = currentObjectiveSelection?.blockDto ?? null;
+
+  const diagnosticAudioSource = useMemo(
+    () =>
+      activeBlock
+        ? {
+            mediaKey: activeBlock.blockId,
+            fallbackUrl: activeBlock.mediaUrl ?? `/v1/media/diagnostic/${activeBlock.blockId}.m4a`,
+          }
+        : {
+            mediaKey: 'diag-empty',
+            fallbackUrl: '',
+          },
+    [activeBlock],
+  );
+
+  const diagnosticTranscriptSegments = useMemo(() => {
+    if (diagState?.mode !== 'accessible' || !activeBlock?.scriptText) {
+      return [];
+    }
+    return [{ id: 'diag-seg', startSec: 0, text: activeBlock.scriptText }];
+  }, [activeBlock, diagState?.mode]);
 
   const advanceObjectiveBlock = useCallback(
     async (dontKnow: boolean) => {
@@ -437,24 +461,12 @@ export function DiagnosticSessionScreen({
           <div className="flex flex-col gap-4">
             <h3 className="text-base font-bold text-text-primary">{activeBlock.title}</h3>
             <AudioStudioPlayer
-              source={{
-                mediaKey: activeBlock.blockId,
-                fallbackUrl: `/v1/media/diagnostic/${activeBlock.blockId}.m4a`,
-              }}
+              source={diagnosticAudioSource}
               playbackMode={
                 diagState.mode === 'accessible' ? 'study_interactive' : 'exam_linear_locked'
               }
-              transcriptSegments={
-                activeBlock.scriptText
-                  ? [{ id: 'diag-seg', startSec: 0, text: activeBlock.scriptText }]
-                  : []
-              }
+              transcriptSegments={diagnosticTranscriptSegments}
             />
-            {activeBlock.scriptText && diagState.mode !== 'accessible' ? (
-              <p className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised p-3 text-xs text-text-secondary">
-                {activeBlock.scriptText}
-              </p>
-            ) : null}
           </div>
         );
 

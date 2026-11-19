@@ -291,7 +291,7 @@ export function PaywallScreen({
                 <span className="text-text-secondary">{t('paywallSignInNotice')}</span>
                 <Link
                   to="/auth/login"
-                  search={{ returnTo: '/app/paywall' }}
+                  search={{ returnTo: '/paywall' }}
                   data-testid="paywall-signin-link"
                   className="font-semibold text-primary hover:underline"
                 >

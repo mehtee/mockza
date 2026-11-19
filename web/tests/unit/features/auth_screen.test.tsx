@@ -136,4 +136,39 @@ describe('W2.2 Desktop AuthScreen & 409 Slot Takeover', () => {
     const session = await deps.auth.getSession();
     expect(session.ok && session.value?.user?.linkedProviders).toContain('sms_otp');
   });
+
+  it('normalizes returnTo=/app/settings after login and redirects on session revocation', async () => {
+    const deps = createTestDependencies({ edition: 'glb', allowDevAuth: true });
+    const fakeAuth = deps.auth as FakeAuthAdapter;
+    const history = createMemoryHistory({
+      initialEntries: ['/app/auth/login?returnTo=%2Fapp%2Fsettings'],
+    });
+    const router = createAppRouter(history);
+
+    render(<DesktopSimulatorApp router={router} dependencies={deps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-google-btn')).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId('auth-google-btn'));
+    await waitFor(() => {
+      expect(screen.getByText('Aria Chen (band 7.5 learner)')).toBeTruthy();
+    });
+    fireEvent.click(screen.getByText('Aria Chen (band 7.5 learner)'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-screen')).toBeTruthy();
+    });
+
+    // Simulate remote session revocation while signed in on Settings -> auto-redirects to /app/auth/login?reason=session_revoked
+    fakeAuth.simulateRemoteSessionRevoked();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-screen')).toBeTruthy();
+      expect(
+        screen.getByText(/Your desktop session was signed out from another device/),
+      ).toBeTruthy();
+    });
+  });
 });

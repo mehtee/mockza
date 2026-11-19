@@ -4,6 +4,7 @@ import { Component, type ErrorInfo, type ReactNode, useEffect, useState } from '
 import { createAppDependencies } from '@/composition/bootstrap';
 import { type AppDependencies, AppDependenciesProvider } from '@/spa/deps';
 import { type AppRouter, createAppRouter } from '@/spa/router';
+import { useClockStore } from '@/spa/stores/clock.store';
 import {
   subscribeSystemThemeChange,
   syncAppearanceFromStorage,
@@ -94,6 +95,20 @@ export function DesktopSimulatorApp({
     syncAppearanceFromStorage();
     return subscribeSystemThemeChange(() => {});
   }, []);
+
+  useEffect(() => {
+    const unsubRevoked = dependencies.auth.onSessionRevoked?.(() => {
+      queryClient.clear();
+      useClockStore.getState().resetClock();
+      void router.navigate({
+        to: '/auth/login',
+        search: { reason: 'session_revoked' },
+      });
+    });
+    return () => {
+      unsubRevoked?.();
+    };
+  }, [dependencies.auth, queryClient, router]);
 
   return (
     <SimulatorErrorBoundary>
