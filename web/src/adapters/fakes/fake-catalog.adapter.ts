@@ -1,3 +1,4 @@
+import type { SupportedExamId } from '@mockza/domain';
 import {
   computeCanonicalBundleSha256,
   sha256Hex,
@@ -27,6 +28,7 @@ import type {
   CachedDrillRecord,
   CatalogPackRecord,
   MediaCacheIndexRecord,
+  VocabCardRecord,
 } from '@/gateways/storage.gateway';
 import type { IClock } from '@/gateways/telemetry.gateway';
 import { FakeClock } from './fake-clock';
@@ -37,6 +39,7 @@ export interface FakeCatalogAdapterOptions {
   readonly initialPacks?: readonly CatalogPackRecord[];
   readonly initialBundles?: Readonly<Record<string, ExamBundlePayload>>;
   readonly initialDrills?: readonly CachedDrillRecord[];
+  readonly initialVocabCards?: readonly VocabCardRecord[];
   readonly initialMediaBytes?: Readonly<Record<string, { readonly bytes: Uint8Array; readonly mimeType: string }>>;
 }
 
@@ -46,6 +49,7 @@ export class FakeCatalogAdapter implements ICatalogMediaGateway {
   private readonly packs = new Map<string, CatalogPackRecord>();
   private readonly bundles = new Map<string, ExamBundlePayload>();
   private readonly drills = new Map<string, CachedDrillRecord>();
+  private readonly vocabDeck = new Map<string, VocabCardRecord>();
   private readonly mediaIndex = new Map<string, MediaCacheIndexRecord>();
   private readonly mediaBytes = new Map<string, { readonly bytes: Uint8Array; readonly mimeType: string }>();
   private simulateOffline = false;
@@ -62,6 +66,9 @@ export class FakeCatalogAdapter implements ICatalogMediaGateway {
     }
     for (const drill of options.initialDrills ?? []) {
       this.drills.set(drill.drillId, drill);
+    }
+    for (const card of options.initialVocabCards ?? []) {
+      this.vocabDeck.set(card.cardId, card);
     }
     for (const [urlOrKey, asset] of Object.entries(options.initialMediaBytes ?? {})) {
       this.mediaBytes.set(urlOrKey, asset);
@@ -280,6 +287,30 @@ export class FakeCatalogAdapter implements ICatalogMediaGateway {
       });
     }
     return ok(Array.from(this.drills.values()));
+  }
+
+  seedVocabDeck(cards: readonly VocabCardRecord[]): void {
+    for (const card of cards) {
+      this.vocabDeck.set(card.cardId, card);
+    }
+  }
+
+  async syncVocabDeck(
+    defaultExamId: SupportedExamId = 'ielts_academic',
+  ): Promise<Result<readonly VocabCardRecord[], CatalogError>> {
+    if (this.simulateOffline) {
+      return err<NetworkError>({
+        kind: 'network',
+        message: 'FakeCatalogAdapter is offline',
+        retryable: true,
+      });
+    }
+    return ok(
+      Array.from(this.vocabDeck.values()).map((card) => ({
+        ...card,
+        examId: card.examId ?? defaultExamId,
+      })),
+    );
   }
 
   async listCachedDrills(filter?: {

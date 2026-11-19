@@ -22,7 +22,10 @@ import type { ExamBundlePayload } from '@/gateways/catalog.gateway';
 import type { QuotaStatusSnapshot } from '@/gateways/evaluation.gateway';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
-import { generateUuid } from '@/spa/objective-sim-helpers';
+import {
+  generateUuid,
+  registerSpaUrgentDraftListeners,
+} from '@/spa/objective-sim-helpers';
 import { useClockStore } from '@/spa/stores/clock.store';
 
 export interface WritingSimulatorScreenProps {
@@ -95,6 +98,9 @@ export function WritingSimulatorScreen({
   const [quotaBlocked, setQuotaBlocked] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const remainingSecondsRef = useRef(remainingSeconds);
+  remainingSecondsRef.current = remainingSeconds;
 
   useEffect(() => {
     let mounted = true;
@@ -177,13 +183,12 @@ export function WritingSimulatorScreen({
     [activeSection, bundle],
   );
 
-  const flushDraftToStore = useCallback(async () => {
-    if (!bundle) return;
-    setDraftStatus('saving');
-    await deps.attemptStore.saveAttemptDraft({
+  const buildCurrentDraft = useCallback(() => {
+    if (!bundle) return null;
+    return {
       attemptId: attemptIdRef.current,
       packId,
-      skill: 'writing',
+      skill: 'writing' as const,
       examId: (bundle.pack.examId ?? profileExamId) as SupportedExamId,
       taskType: activeTaskType,
       draftText: activeEssayText,
@@ -191,19 +196,17 @@ export function WritingSimulatorScreen({
       answersJson: draftsBySectionId,
       flaggedQuestionIds: [],
       currentQuestionIndex: activeTaskIndex,
-      timerRemainingSec: remainingSeconds,
+      timerRemainingSec: remainingSecondsRef.current,
       usedStudyMode: examMode === 'study',
       mockSessionId,
       mockStageKey,
       updatedAtMs: deps.clock.nowMs(),
-    });
-    setDraftStatus('saved');
+    };
   }, [
     activeEssayText,
     activeTaskIndex,
     activeTaskType,
     bundle,
-    deps.attemptStore,
     deps.clock,
     draftsBySectionId,
     examMode,
@@ -211,10 +214,20 @@ export function WritingSimulatorScreen({
     mockStageKey,
     packId,
     profileExamId,
-    remainingSeconds,
   ]);
 
-  // 500ms debounced Dexie draft autosave
+  const draftBuilderRef = useRef(buildCurrentDraft);
+  draftBuilderRef.current = buildCurrentDraft;
+
+  const flushDraftToStore = useCallback(async () => {
+    const snapshot = draftBuilderRef.current();
+    if (!snapshot) return;
+    setDraftStatus('saving');
+    await deps.attemptStore.saveAttemptDraft(snapshot);
+    setDraftStatus('saved');
+  }, [deps.attemptStore]);
+
+  // 500ms debounced Dexie draft autosave (does not reset on 1s timer ticks)
   useEffect(() => {
     if (!bundle || Object.keys(draftsBySectionId).length === 0) return;
     setDraftStatus('saving');
@@ -224,15 +237,14 @@ export function WritingSimulatorScreen({
     return () => window.clearTimeout(timer);
   }, [bundle, draftsBySectionId, flushDraftToStore]);
 
-  // pagehide synchronous best-effort flush
+  // Synchronous urgent localStorage + Dexie flush on tab hide or close
   useEffect(() => {
     if (!bundle) return;
-    const onPageHide = () => {
-      void flushDraftToStore();
-    };
-    window.addEventListener('pagehide', onPageHide);
-    return () => window.removeEventListener('pagehide', onPageHide);
-  }, [bundle, flushDraftToStore]);
+    return registerSpaUrgentDraftListeners(
+      () => draftBuilderRef.current(),
+      (draft) => deps.attemptStore.flushUrgentDraftSync(draft),
+    );
+  }, [bundle, deps.attemptStore]);
 
   const updateActiveDraftText = useCallback(
     (nextText: string) => {
@@ -293,7 +305,7 @@ export function WritingSimulatorScreen({
     const durationSeconds = Math.max(1, Math.round((nowMs - startedAtRef.current) / 1000));
     const examId = (bundle.pack.examId ?? profileExamId) as SupportedExamId;
 
-    const evalRes = await deps.evaluation.submitWritingEvaluation({
+    const writingPayload = {
       attemptId: attemptIdRef.current,
       packId: bundle.pack.packId,
       examId,
@@ -304,9 +316,61 @@ export function WritingSimulatorScreen({
       essayText: trimmed,
       durationSeconds,
       wordCount: countEssayWords(trimmed),
-    });
+    };
+
+    const evalRes = await deps.evaluation.submitWritingEvaluation(writingPayload);
 
     if (!evalRes.ok) {
+      if (evalRes.error.kind === 'network') {
+        await deps.attemptStore.completeObjectiveAttempt({
+          attemptId: attemptIdRef.current,
+          examId,
+          packId: bundle.pack.packId,
+          skill: 'writing',
+          status: 'submitted_local',
+          syncStatus: 'pending',
+          remoteJobId: null,
+          submissionJson: JSON.stringify({
+            taskType: activeTaskType,
+            essayText: trimmed,
+            wordCount: countEssayWords(trimmed),
+          }),
+          evaluationJson: null,
+          overallBand: null,
+          errorCode: null,
+          startedAtUtcMs: startedAtRef.current,
+          completedAtMs: nowMs,
+          durationSeconds,
+          usedStudyMode: examMode === 'study',
+          questionCount: 1,
+          isCalibratedFullPack: sortedSections.length >= 2,
+          contentVersion: bundle.pack.version,
+          mockSessionId,
+          mockStageKey,
+          updatedAtMs: nowMs,
+        });
+        await deps.syncOutbox.enqueue({
+          idempotencyKey: `eval-writing-${attemptIdRef.current}`,
+          actionType: 'evaluate_writing',
+          entityKind: 'attempt',
+          payloadJson: JSON.stringify(writingPayload),
+        });
+        await deps.attemptStore.deleteDraft(attemptIdRef.current);
+        await deps.attemptStore.incrementDailyStudyLog({
+          serialDay: deps.clock.todaySerialDay(),
+          addSeconds: durationSeconds,
+          addCompletedItems: 1,
+        });
+        setIsSubmitting(false);
+        setActiveExamLock(false);
+        if (onMockStageComplete) {
+          onMockStageComplete(attemptIdRef.current);
+          return;
+        }
+        await navigate({ to: '/progress' });
+        return;
+      }
+
       setIsSubmitting(false);
       if (evalRes.error.kind === 'quota_exceeded' || evalRes.error.kind === 'entitlement_required') {
         setQuotaBlocked(true);
@@ -374,6 +438,7 @@ export function WritingSimulatorScreen({
     deps.clock,
     deps.edition,
     deps.evaluation,
+    deps.syncOutbox,
     examMode,
     isSubmitting,
     mockSessionId,

@@ -7,6 +7,7 @@ import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import type { VocabCardWithSrs, VocabReviewRating } from '@/gateways/storage.gateway';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
+import { syncSeededVocabDeck } from '@/spa/vocab-sync';
 
 const RATING_SPECS: readonly {
   readonly rating: VocabReviewRating;
@@ -34,25 +35,35 @@ export function VocabReviewScreen() {
     const todaySerial = deps.clock.todaySerialDay();
 
     async function hydrate() {
-      const dueRes = await deps.vocabStore.getDueCards(todaySerial, 100);
+      const loadQueue = async () => {
+        const dueRes = await deps.vocabStore.getDueCards(todaySerial, 100);
+        if (!mounted) return;
+        if (dueRes.ok && dueRes.value.length > 0) {
+          setQueue(dueRes.value);
+          return;
+        }
+        const aheadRes = await deps.vocabStore.getAheadCards(25, todaySerial);
+        if (!mounted) return;
+        if (aheadRes.ok) {
+          setQueue(aheadRes.value);
+        }
+      };
+
+      await loadQueue();
       if (!mounted) return;
-      if (dueRes.ok && dueRes.value.length > 0) {
-        setQueue(dueRes.value);
-        setLoading(false);
-        return;
-      }
-      const aheadRes = await deps.vocabStore.getAheadCards(25, todaySerial);
-      if (!mounted) return;
-      if (aheadRes.ok) {
-        setQueue(aheadRes.value);
-      }
       setLoading(false);
+
+      const summary = await syncSeededVocabDeck(deps.catalog, deps.vocabStore);
+      if (!mounted || !summary) return;
+      if (summary.insertedCount > 0 || summary.updatedCount > 0) {
+        await loadQueue();
+      }
     }
     void hydrate();
     return () => {
       mounted = false;
     };
-  }, [deps.clock, deps.vocabStore]);
+  }, [deps.catalog, deps.clock, deps.vocabStore]);
 
   const currentEntry = queue[currentIndex] ?? null;
 

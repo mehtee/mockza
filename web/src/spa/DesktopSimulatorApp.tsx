@@ -97,6 +97,17 @@ export function DesktopSimulatorApp({
   }, []);
 
   useEffect(() => {
+    void dependencies.syncOutbox.purgeExpiredAudio().then(() => dependencies.syncOutbox.flushPending());
+    const handleOnline = () => {
+      void dependencies.syncOutbox.flushPending();
+    };
+    window.addEventListener('online', handleOnline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [dependencies.syncOutbox]);
+
+  useEffect(() => {
     const unsubRevoked = dependencies.auth.onSessionRevoked?.(() => {
       queryClient.clear();
       useClockStore.getState().resetClock();

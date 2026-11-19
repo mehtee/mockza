@@ -22,6 +22,7 @@ import type {
   VocabCardWithSrs,
 } from '@/gateways/storage.gateway';
 import { useDeps } from '@/spa/deps';
+import { syncSeededVocabDeck } from '@/spa/vocab-sync';
 import { useAuthSession } from '@/spa/stores/auth-session';
 
 function resolveIsoWeekday(nowMs: number): number {
@@ -84,7 +85,17 @@ export function useHomeController() {
       }
     }
     setIsLoading(false);
-  }, [deps.attemptStore, deps.auth, deps.clock, deps.vocabStore]);
+
+    const activeExam =
+      profileRes.ok && profileRes.value?.examId ? profileRes.value.examId : 'ielts_academic';
+    const vocabSyncSummary = await syncSeededVocabDeck(deps.catalog, deps.vocabStore, activeExam);
+    if (vocabSyncSummary && (vocabSyncSummary.insertedCount > 0 || vocabSyncSummary.updatedCount > 0)) {
+      const refreshedDue = await deps.vocabStore.getDueCards(today, 200);
+      if (refreshedDue.ok) {
+        setDueCards(refreshedDue.value);
+      }
+    }
+  }, [deps.attemptStore, deps.auth, deps.catalog, deps.clock, deps.vocabStore]);
 
   useEffect(() => {
     void hydrate();

@@ -7,6 +7,7 @@ import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import type { VocabCardWithSrs } from '@/gateways/storage.gateway';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
+import { syncSeededVocabDeck } from '@/spa/vocab-sync';
 
 export function VocabHubScreen() {
   const deps = useDeps();
@@ -30,12 +31,24 @@ export function VocabHubScreen() {
       if (!mounted) return;
       if (allRes.ok) setCards(allRes.value);
       if (dueRes.ok) setDueCount(dueRes.value.length);
+
+      const summary = await syncSeededVocabDeck(deps.catalog, deps.vocabStore);
+      if (!mounted || !summary) return;
+      if (summary.insertedCount > 0 || summary.updatedCount > 0) {
+        const [refreshedAll, refreshedDue] = await Promise.all([
+          deps.vocabStore.getAllCards(),
+          deps.vocabStore.getDueCards(todaySerial, 500),
+        ]);
+        if (!mounted) return;
+        if (refreshedAll.ok) setCards(refreshedAll.value);
+        if (refreshedDue.ok) setDueCount(refreshedDue.value.length);
+      }
     }
     void hydrate();
     return () => {
       mounted = false;
     };
-  }, [deps.clock, deps.vocabStore]);
+  }, [deps.catalog, deps.clock, deps.vocabStore]);
 
   const filteredCards = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();

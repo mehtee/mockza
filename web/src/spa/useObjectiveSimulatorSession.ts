@@ -3,7 +3,11 @@ import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ExamBundlePayload } from '@/gateways/catalog.gateway';
 import { useDeps } from '@/spa/deps';
-import { buildScoredObjectiveAttempt, generateUuid } from '@/spa/objective-sim-helpers';
+import {
+  buildScoredObjectiveAttempt,
+  generateUuid,
+  registerSpaUrgentDraftListeners,
+} from '@/spa/objective-sim-helpers';
 import { useClockStore } from '@/spa/stores/clock.store';
 
 export interface UseObjectiveSimulatorSessionOptions {
@@ -42,6 +46,15 @@ export function useObjectiveSimulatorSession({
   const [flaggedQuestionIds, setFlaggedQuestionIds] = useState<Record<string, boolean>>({});
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const remainingSecondsRef = useRef(remainingSeconds);
+  remainingSecondsRef.current = remainingSeconds;
+  const answersRef = useRef(answersByQuestionId);
+  answersRef.current = answersByQuestionId;
+  const flagsRef = useRef(flaggedQuestionIds);
+  flagsRef.current = flaggedQuestionIds;
+  const activeIndexRef = useRef(activeQuestionIndex);
+  activeIndexRef.current = activeQuestionIndex;
 
   useEffect(() => {
     let mounted = true;
@@ -147,7 +160,7 @@ export function useObjectiveSimulatorSession({
           .filter(([, flagged]) => flagged)
           .map(([qId]) => qId),
         currentQuestionIndex: nextIndex,
-        timerRemainingSec: remainingSeconds,
+        timerRemainingSec: remainingSecondsRef.current,
         usedStudyMode: examMode === 'study',
         mockSessionId,
         mockStageKey,
@@ -162,10 +175,35 @@ export function useObjectiveSimulatorSession({
       mockSessionId,
       mockStageKey,
       packId,
-      remainingSeconds,
       skill,
     ],
   );
+
+  useEffect(() => {
+    if (!bundle) return;
+    return registerSpaUrgentDraftListeners(
+      () => ({
+        attemptId: attemptIdRef.current,
+        packId,
+        skill,
+        examId: bundle.pack.examId as never,
+        taskType: skill,
+        draftText: '',
+        wordCount: 0,
+        answersJson: answersRef.current,
+        flaggedQuestionIds: Object.entries(flagsRef.current)
+          .filter(([, flagged]) => flagged)
+          .map(([qId]) => qId),
+        currentQuestionIndex: activeIndexRef.current,
+        timerRemainingSec: remainingSecondsRef.current,
+        usedStudyMode: examMode === 'study',
+        mockSessionId,
+        mockStageKey,
+        updatedAtMs: deps.clock.nowMs(),
+      }),
+      (draft) => deps.attemptStore.flushUrgentDraftSync(draft),
+    );
+  }, [bundle, deps.attemptStore, deps.clock, examMode, mockSessionId, mockStageKey, packId, skill]);
 
   const handleAnswerChange = useCallback(
     (questionId: string, nextValue: string) => {

@@ -263,6 +263,25 @@ function runCatalogContractSuite(
       const recordingStillThere = await harness.catalog.readUserRecordingBytes('rec-keep-lru');
       expect(recordingStillThere.ok).toBe(true);
     });
+
+    it('syncs remote /v1/vocab/deck cards into VocabCardRecord contracts and returns network error offline', async () => {
+      harness = await createHarness();
+      const onlineRes = await harness.catalog.syncVocabDeck('ielts_academic');
+      expect(onlineRes.ok).toBe(true);
+      if (onlineRes.ok) {
+        expect(onlineRes.value.length).toBeGreaterThanOrEqual(1);
+        expect(onlineRes.value[0]?.cardId).toBe('voc-contract-1');
+        expect(onlineRes.value[0]?.headword).toBe('mitigate');
+        expect(onlineRes.value[0]?.sourceKind).toBe('seeded');
+      }
+
+      harness.setOffline(true);
+      const offlineRes = await harness.catalog.syncVocabDeck('ielts_academic');
+      expect(offlineRes.ok).toBe(false);
+      if (!offlineRes.ok) {
+        expect(offlineRes.error.kind).toBe('network');
+      }
+    });
   });
 }
 
@@ -314,6 +333,27 @@ runCatalogContractSuite('FakeCatalogAdapter', async (options) => {
     clock,
     quotaBytes: options?.quotaBytes,
     initialDrills: [drill],
+    initialVocabCards: [
+      {
+        cardId: 'voc-contract-1',
+        examId: 'ielts_academic',
+        headword: 'mitigate',
+        ipa: '/ˈmɪt.ɪ.ɡeɪt/',
+        definition: 'Make less severe or painful.',
+        glossFa: null,
+        topicTag: 'Climate',
+        sourceKind: 'seeded',
+        tags: ['mitigate risk'],
+        contextSentence: 'Wetlands mitigate floods.',
+        paraphraseHints: ['alleviate'],
+        usageNote: 'mitigate risk',
+        sourceSkill: null,
+        sourceAttemptId: null,
+        sourceRefLabel: null,
+        createdAtMs: clock.nowMs(),
+        updatedAtMs: clock.nowMs(),
+      },
+    ],
     initialMediaBytes: {
       '/media/sample.svg': { bytes: svgBytes, mimeType: 'image/svg+xml' },
       '/media/large.svg': { bytes: largeSvgBytes, mimeType: 'image/svg+xml' },
@@ -399,6 +439,27 @@ runCatalogContractSuite('OpfsCatalogAdapter (Dexie + BinaryStore)', async (optio
               skill: 'reading',
               durationSeconds: 180,
               items: [],
+            },
+          ],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+    if (path === '/v1/vocab/deck') {
+      return new Response(
+        JSON.stringify({
+          totalCount: 1,
+          cards: [
+            {
+              cardId: 'voc-contract-1',
+              headword: 'mitigate',
+              ipa: '/ˈmɪt.ɪ.ɡeɪt/',
+              definition: 'Make less severe or painful.',
+              topicTag: 'Climate',
+              contextSentence: 'Wetlands mitigate floods.',
+              paraphrases: ['alleviate'],
+              collocations: ['mitigate risk'],
+              easeFactorMilli: 2500,
             },
           ],
         }),

@@ -7,7 +7,7 @@ import {
 } from '@mockza/domain';
 import type { PassageEvidenceSpan } from '@/components/exam-kit';
 import type { ExamBundlePayload } from '@/gateways/catalog.gateway';
-import type { CompletedAttemptRecord } from '@/gateways/storage.gateway';
+import type { AttemptDraftRecord, CompletedAttemptRecord } from '@/gateways/storage.gateway';
 
 export function generateUuid(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -142,4 +142,37 @@ export function buildScoredObjectiveAttempt(params: {
   };
 
   return { record, resolvedTrack };
+}
+
+/**
+ * Registers `pagehide` and `visibilitychange` (hidden) listeners to trigger synchronous
+ * best-effort draft persistence without bypassing gateway boundaries.
+ */
+export function registerSpaUrgentDraftListeners(
+  getDraft: () => AttemptDraftRecord | null,
+  flush: (draft: AttemptDraftRecord) => void,
+): () => void {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return () => {};
+  }
+  const handlePageHide = (): void => {
+    const draft = getDraft();
+    if (draft !== null) {
+      flush(draft);
+    }
+  };
+  const handleVisibilityChange = (): void => {
+    if (document.visibilityState === 'hidden') {
+      const draft = getDraft();
+      if (draft !== null) {
+        flush(draft);
+      }
+    }
+  };
+  window.addEventListener('pagehide', handlePageHide);
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  return () => {
+    window.removeEventListener('pagehide', handlePageHide);
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+  };
 }

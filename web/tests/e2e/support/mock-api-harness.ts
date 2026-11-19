@@ -755,6 +755,41 @@ export async function attachE2eApiHarness(
       return;
     }
 
+    if (pathname === '/v1/vocab/deck') {
+      await route.fulfill(
+        jsonOk({
+          totalCount: 2,
+          cards: [
+            {
+              cardId: 'voc-e2e-1',
+              headword: 'ubiquitous',
+              ipa: '/juːˈbɪk.wɪ.təs/',
+              definition: 'Present, appearing, or found everywhere.',
+              glossFa: 'همه‌جایی و فراگیر',
+              topicTag: 'Academic Environment',
+              contextSentence: 'Microgrids have become ubiquitous across island municipalities.',
+              paraphrases: ['omnipresent', 'pervasive'],
+              collocations: ['ubiquitous presence', 'become ubiquitous'],
+              easeFactorMilli: 2500,
+            },
+            {
+              cardId: 'voc-e2e-2',
+              headword: 'mitigate',
+              ipa: '/ˈmɪt.ɪ.ɡeɪt/',
+              definition: 'Make less severe, serious, or painful.',
+              glossFa: 'کاهش دادن شدت',
+              topicTag: 'Climate & Policy',
+              contextSentence: 'Coastal wetlands mitigate storm surges during cyclones.',
+              paraphrases: ['alleviate', 'attenuate'],
+              collocations: ['mitigate risk', 'mitigate impact'],
+              easeFactorMilli: 2500,
+            },
+          ],
+        }),
+      );
+      return;
+    }
+
     if (pathname === '/v1/evaluate/explain-question') {
       const body = (req.postDataJSON() ?? {}) as Record<string, unknown>;
       await route.fulfill(

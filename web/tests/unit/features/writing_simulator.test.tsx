@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { computeCanonicalBundleSha256 } from '@/adapters/media/opfs-catalog.adapter';
 import { createTestDependenciesBundle } from '@/composition/bootstrap-test';
 import type { ExamBundlePayload } from '@/gateways/catalog.gateway';
+import { err } from '@/gateways/result';
 import type { CatalogPackRecord } from '@/gateways/storage.gateway';
 import { DesktopSimulatorApp } from '@/spa/DesktopSimulatorApp';
 import { createAppRouter } from '@/spa/router';
@@ -288,5 +289,84 @@ describe('W5.3 WritingSimulatorScreen', () => {
       target: { value: 'First sentence. Second sentence violates limit.' },
     });
     expect(screen.getByTestId('essay-sentence-rule').className).toContain('text-error');
+  });
+
+  it('enqueues offline writing submission into syncOutbox and flushes automatically when online returns', async () => {
+    const { deps, bundleDeps } = await seedWritingPack({
+      edition: 'glb',
+      packId: 'write-offline-01',
+      examId: 'ielts_academic',
+      track: 'academic',
+      sections: [
+        {
+          sectionId: 'task-2',
+          sectionIndex: 0,
+          sectionType: 'writing_task',
+          title: 'Task 2: Grid Resilience',
+          instructions: 'Write at least 250 words.',
+          durationSeconds: 2400,
+          wordCount: 30,
+          contentText: 'Evaluate public investments in grid resilience.',
+          metadata: { taskType: 'task2Essay' },
+        },
+      ],
+      questions: [],
+    });
+
+    const history = createMemoryHistory({
+      initialEntries: ['/app/practice/writing/write-offline-01'],
+    });
+    const router = createAppRouter(history);
+
+    render(<DesktopSimulatorApp router={router} dependencies={deps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('essay-editor-textarea')).toBeTruthy();
+    });
+
+    fireEvent.change(screen.getByTestId('essay-editor-textarea'), {
+      target: {
+        value:
+          'Renewable energy infrastructure reduces urban grid instability during peak summer demand.',
+      },
+    });
+
+    // Simulate network offline on submit -> saves attempt locally & enqueues syncOutbox
+    const submitSpy = vi
+      .spyOn(deps.evaluation, 'submitWritingEvaluation')
+      .mockResolvedValueOnce(err({ kind: 'network', message: 'Network offline', retryable: true }));
+    bundleDeps.fakeStorage.setOnline(false);
+    fireEvent.click(screen.getByTestId('writing-submit-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('progress-screen')).toBeTruthy();
+    });
+
+    const attempts = await deps.attemptStore.listCompletedAttempts({
+      examId: 'ielts_academic',
+      skill: 'writing',
+    });
+    expect(attempts.ok).toBe(true);
+    if (attempts.ok) {
+      expect(attempts.value[0]?.status).toBe('submitted_local');
+      expect(attempts.value[0]?.syncStatus).toBe('pending');
+    }
+
+    // Reconnect network -> window 'online' listener triggers flushPending()
+    submitSpy.mockRestore();
+    bundleDeps.fakeStorage.setOnline(true);
+    await act(async () => {
+      window.dispatchEvent(new Event('online'));
+      await new Promise((r) => setTimeout(r, 30));
+    });
+
+    const flushed = await deps.attemptStore.listCompletedAttempts({
+      examId: 'ielts_academic',
+      skill: 'writing',
+    });
+    expect(flushed.ok).toBe(true);
+    if (flushed.ok) {
+      expect(flushed.value[0]?.status).not.toBe('submitted_local');
+    }
   });
 });

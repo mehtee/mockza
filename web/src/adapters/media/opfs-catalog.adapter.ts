@@ -32,6 +32,7 @@ import type {
   CatalogTrack,
   MediaCacheIndexRecord,
   MediaStorageBackend,
+  VocabCardRecord,
 } from '@/gateways/storage.gateway';
 import type { IClock } from '@/gateways/telemetry.gateway';
 import { type MockzaDexieDb, PREF_PREFIX_CACHED_DRILL } from '../dexie/mockza-db';
@@ -1026,6 +1027,92 @@ export class OpfsCatalogAdapter implements ICatalogMediaGateway {
       return err<NetworkError>({
         kind: 'network',
         message: `Drills sync error: ${cause instanceof Error ? cause.message : String(cause)}`,
+        retryable: true,
+      });
+    }
+  }
+
+  async syncVocabDeck(
+    defaultExamId: SupportedExamId = 'ielts_academic',
+  ): Promise<Result<readonly VocabCardRecord[], CatalogError>> {
+    try {
+      type VocabDeckApiResponse = {
+        readonly totalCount?: number;
+        readonly cards?: ReadonlyArray<{
+          readonly cardId: string;
+          readonly examId?: SupportedExamId;
+          readonly headword: string;
+          readonly ipa?: string | null;
+          readonly definition: string;
+          readonly glossFa?: string | null;
+          readonly topicTag: string;
+          readonly tags?: readonly string[];
+          readonly contextSentence?: string | null;
+          readonly paraphrases?: readonly string[];
+          readonly paraphraseHints?: readonly string[];
+          readonly collocations?: readonly string[];
+          readonly usageNote?: string | null;
+        }>;
+      };
+
+      let body: VocabDeckApiResponse;
+      if (this.apiClient) {
+        const apiRes = await this.apiClient.get<VocabDeckApiResponse>('/v1/vocab/deck?limit=500');
+        if (!apiRes.ok) {
+          return err(mapApiErrorToCatalogError(apiRes.error));
+        }
+        body = apiRes.value;
+      } else {
+        const response = await this.fetchFn(this.resolveApiUrl('/v1/vocab/deck?limit=500'), {
+          method: 'GET',
+          headers: this.buildApiHeaders(),
+        });
+        if (!response.ok) {
+          return err<NetworkError>({
+            kind: 'network',
+            message: `Vocab deck sync failed (${response.status})`,
+            retryable: response.status >= 500 || response.status === 429,
+            status: response.status,
+          });
+        }
+        body = (await response.json()) as VocabDeckApiResponse;
+      }
+
+      const now = this.clock.nowMs();
+      const cards: VocabCardRecord[] = (body.cards ?? []).map((card) => {
+        const collocations = Array.isArray(card.collocations) ? card.collocations : [];
+        const paraphrases = Array.isArray(card.paraphrases)
+          ? card.paraphrases
+          : Array.isArray(card.paraphraseHints)
+            ? card.paraphraseHints
+            : [];
+        return {
+          cardId: card.cardId,
+          examId: card.examId ?? defaultExamId,
+          headword: card.headword,
+          ipa: card.ipa ?? null,
+          definition: card.definition,
+          glossFa: card.glossFa ?? null,
+          topicTag: card.topicTag,
+          sourceKind: 'seeded',
+          tags: card.tags && card.tags.length > 0 ? card.tags : collocations,
+          contextSentence: card.contextSentence ?? null,
+          paraphraseHints: paraphrases,
+          usageNote:
+            card.usageNote ?? (collocations.length > 0 ? collocations.join(' · ') : null),
+          sourceSkill: null,
+          sourceAttemptId: null,
+          sourceRefLabel: null,
+          createdAtMs: now,
+          updatedAtMs: now,
+        };
+      });
+
+      return ok(cards);
+    } catch (cause) {
+      return err<NetworkError>({
+        kind: 'network',
+        message: `Vocab deck sync error: ${cause instanceof Error ? cause.message : String(cause)}`,
         retryable: true,
       });
     }

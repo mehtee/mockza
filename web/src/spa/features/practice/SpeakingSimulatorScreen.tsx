@@ -241,6 +241,12 @@ export function SpeakingSimulatorScreen({
     setIsSubmitting(true);
     setErrorMsg(null);
 
+    const examId = effectiveExamId as SupportedExamId;
+    const partSequence =
+      turns.length === 1 && turns[0]
+        ? (`part${Math.min(4, Math.max(1, turns[0].partIndex))}` as 'part1' | 'part2' | 'part3' | 'part4')
+        : 'full';
+
     const uploadedTurns: {
       readonly partIndex: number;
       readonly turnId: string;
@@ -249,6 +255,73 @@ export function SpeakingSimulatorScreen({
       readonly durationMs: number;
       readonly byteLength: number;
     }[] = [];
+
+    const enqueueOfflineSpeaking = async () => {
+      const nowMs = deps.clock.nowMs();
+      const durationSeconds = Math.max(1, Math.round((nowMs - startedAtRef.current) / 1000));
+      const outboxTurns = turns.map((turn) => {
+        const uploaded = uploadedTurns.find((u) => u.partIndex === turn.partIndex);
+        return {
+          partIndex: turn.partIndex,
+          turnId: turn.turnId,
+          promptText: turn.promptText,
+          mediaKey: turn.mediaKey,
+          durationMs: turn.clip.durationMs,
+          byteLength: turn.clip.byteLength,
+          contentType: turn.clip.strippedContentType,
+          ...(uploaded ? { objectKey: uploaded.objectKey } : {}),
+        };
+      });
+      await deps.attemptStore.completeObjectiveAttempt({
+        attemptId: attemptIdRef.current,
+        examId,
+        packId: bundle.pack.packId,
+        skill: 'speaking',
+        status: 'submitted_local',
+        syncStatus: 'pending',
+        remoteJobId: null,
+        submissionJson: JSON.stringify({ turns: outboxTurns }),
+        evaluationJson: null,
+        overallBand: null,
+        errorCode: null,
+        startedAtUtcMs: startedAtRef.current,
+        completedAtMs: nowMs,
+        durationSeconds,
+        usedStudyMode: examMode === 'study',
+        questionCount: turns.length,
+        isCalibratedFullPack: turns.length >= 2,
+        contentVersion: bundle.pack.version,
+        mockSessionId,
+        mockStageKey,
+        updatedAtMs: nowMs,
+      });
+      await deps.syncOutbox.enqueue({
+        idempotencyKey: `eval-speaking-${attemptIdRef.current}`,
+        actionType: 'evaluate_speaking',
+        entityKind: 'attempt',
+        payloadJson: JSON.stringify({
+          attemptId: attemptIdRef.current,
+          packId: bundle.pack.packId,
+          examId,
+          edition: deps.edition,
+          partSequence,
+          turns: outboxTurns,
+        }),
+      });
+      await deps.attemptStore.incrementDailyStudyLog({
+        serialDay: deps.clock.todaySerialDay(),
+        addSeconds: durationSeconds,
+        addCompletedItems: 1,
+      });
+      setUploadProgressText(null);
+      setIsSubmitting(false);
+      setActiveExamLock(false);
+      if (onMockStageComplete) {
+        onMockStageComplete(attemptIdRef.current);
+        return;
+      }
+      await navigate({ to: '/progress' });
+    };
 
     for (let i = 0; i < turns.length; i += 1) {
       const turn = turns[i]!;
@@ -262,6 +335,10 @@ export function SpeakingSimulatorScreen({
         clip: turn.clip,
       });
       if (!upRes.ok) {
+        if (upRes.error.kind === 'network') {
+          await enqueueOfflineSpeaking();
+          return;
+        }
         setIsSubmitting(false);
         setUploadProgressText(null);
         setErrorMsg(upRes.error.message);
@@ -278,12 +355,6 @@ export function SpeakingSimulatorScreen({
       });
     }
 
-    const examId = effectiveExamId as SupportedExamId;
-    const partSequence =
-      turns.length === 1 && turns[0]
-        ? (`part${Math.min(4, Math.max(1, turns[0].partIndex))}` as 'part1' | 'part2' | 'part3' | 'part4')
-        : 'full';
-
     const evalRes = await deps.evaluation.submitSpeakingEvaluation({
       attemptId: attemptIdRef.current,
       packId: bundle.pack.packId,
@@ -296,6 +367,10 @@ export function SpeakingSimulatorScreen({
     setUploadProgressText(null);
 
     if (!evalRes.ok) {
+      if (evalRes.error.kind === 'network') {
+        await enqueueOfflineSpeaking();
+        return;
+      }
       setIsSubmitting(false);
       if (evalRes.error.kind === 'quota_exceeded' || evalRes.error.kind === 'entitlement_required') {
         setQuotaBlocked(true);
@@ -359,6 +434,7 @@ export function SpeakingSimulatorScreen({
     deps.clock,
     deps.edition,
     deps.evaluation,
+    deps.syncOutbox,
     effectiveExamId,
     examMode,
     isSubmitting,

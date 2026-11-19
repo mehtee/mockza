@@ -5,6 +5,7 @@ import type {
   CachedDrillRecord,
   CatalogPackRecord,
   MediaCacheIndexRecord,
+  VocabCardRecord,
 } from './storage.gateway';
 
 export const MEDIA_CACHE_QUOTA_BYTES = 262_144_000 as const;
@@ -60,6 +61,9 @@ export interface ICatalogMediaGateway {
   ensureExamBundle(packId: string): Promise<Result<ExamBundlePayload, CatalogGatewayError>>;
   downloadExamPack(packId: string): Promise<Result<CatalogPackRecord, CatalogGatewayError>>;
   syncDrills(): Promise<Result<readonly CachedDrillRecord[], CatalogError>>;
+  syncVocabDeck(
+    defaultExamId?: SupportedExamId,
+  ): Promise<Result<readonly VocabCardRecord[], CatalogError>>;
   listCachedDrills(filter?: {
     readonly skill?: SkillKind;
     readonly drillType?: string;
