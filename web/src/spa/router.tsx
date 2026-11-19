@@ -10,35 +10,127 @@ import {
   useBlocker,
   useRouterState,
 } from '@tanstack/react-router';
+import { Suspense, lazy } from 'react';
 import { getActiveEditionCode, getActiveEditionDir } from '@/edition/edition-config';
 import { createTranslator } from '@/i18n';
 import type { DiagnosticSkill } from '@mockza/domain';
-import { AuthScreen } from '@/spa/features/auth/AuthScreen';
-import { DiagnosticIntroScreen } from '@/spa/features/diagnostic/DiagnosticIntroScreen';
-import { DiagnosticResultScreen } from '@/spa/features/diagnostic/DiagnosticResultScreen';
-import { DiagnosticSessionScreen } from '@/spa/features/diagnostic/DiagnosticSessionScreen';
-import { HomeScreen } from '@/spa/features/home/HomeScreen';
-import { GoalSetupScreen } from '@/spa/features/onboarding/GoalSetupScreen';
-import { WelcomeScreen } from '@/spa/features/onboarding/WelcomeScreen';
-import { PaywallScreen } from '@/spa/features/paywall/PaywallScreen';
-import { FullMockOrchestratorScreen } from '@/spa/features/practice/FullMockOrchestratorScreen';
-import { ListeningSimulatorScreen } from '@/spa/features/practice/ListeningSimulatorScreen';
-import { MicroDrillsScreen } from '@/spa/features/practice/MicroDrillsScreen';
-import { PracticeCatalogScreen } from '@/spa/features/practice/PracticeCatalogScreen';
-import { ReadingSimulatorScreen } from '@/spa/features/practice/ReadingSimulatorScreen';
-import { SpeakingSimulatorScreen } from '@/spa/features/practice/SpeakingSimulatorScreen';
-import { WritingSimulatorScreen } from '@/spa/features/practice/WritingSimulatorScreen';
-import { CompareAttemptsScreen } from '@/spa/features/progress/CompareAttemptsScreen';
-import { ProgressScreen } from '@/spa/features/progress/ProgressScreen';
-import { EvaluationPendingScreen } from '@/spa/features/results/EvaluationPendingScreen';
-import { EvaluationResultScreen } from '@/spa/features/results/EvaluationResultScreen';
-import { ObjectiveResultScreen } from '@/spa/features/results/ObjectiveResultScreen';
-import { SettingsScreen } from '@/spa/features/settings/SettingsScreen';
-import { VocabHubScreen } from '@/spa/features/vocabulary/VocabHubScreen';
-import { VocabReviewScreen } from '@/spa/features/vocabulary/VocabReviewScreen';
-import { VocabWordDetailScreen } from '@/spa/features/vocabulary/VocabWordDetailScreen';
 import { useClockStore } from '@/spa/stores/clock.store';
 import { useLayoutStore } from '@/spa/stores/layout.store';
+
+const AuthScreen = lazy(() =>
+  import('@/spa/features/auth/AuthScreen').then((m) => ({ default: m.AuthScreen })),
+);
+const DiagnosticIntroScreen = lazy(() =>
+  import('@/spa/features/diagnostic/DiagnosticIntroScreen').then((m) => ({
+    default: m.DiagnosticIntroScreen,
+  })),
+);
+const DiagnosticResultScreen = lazy(() =>
+  import('@/spa/features/diagnostic/DiagnosticResultScreen').then((m) => ({
+    default: m.DiagnosticResultScreen,
+  })),
+);
+const DiagnosticSessionScreen = lazy(() =>
+  import('@/spa/features/diagnostic/DiagnosticSessionScreen').then((m) => ({
+    default: m.DiagnosticSessionScreen,
+  })),
+);
+const HomeScreen = lazy(() =>
+  import('@/spa/features/home/HomeScreen').then((m) => ({ default: m.HomeScreen })),
+);
+const GoalSetupScreen = lazy(() =>
+  import('@/spa/features/onboarding/GoalSetupScreen').then((m) => ({
+    default: m.GoalSetupScreen,
+  })),
+);
+const WelcomeScreen = lazy(() =>
+  import('@/spa/features/onboarding/WelcomeScreen').then((m) => ({
+    default: m.WelcomeScreen,
+  })),
+);
+const PaywallScreen = lazy(() =>
+  import('@/spa/features/paywall/PaywallScreen').then((m) => ({ default: m.PaywallScreen })),
+);
+const FullMockOrchestratorScreen = lazy(() =>
+  import('@/spa/features/practice/FullMockOrchestratorScreen').then((m) => ({
+    default: m.FullMockOrchestratorScreen,
+  })),
+);
+const ListeningSimulatorScreen = lazy(() =>
+  import('@/spa/features/practice/ListeningSimulatorScreen').then((m) => ({
+    default: m.ListeningSimulatorScreen,
+  })),
+);
+const MicroDrillsScreen = lazy(() =>
+  import('@/spa/features/practice/MicroDrillsScreen').then((m) => ({
+    default: m.MicroDrillsScreen,
+  })),
+);
+const PracticeCatalogScreen = lazy(() =>
+  import('@/spa/features/practice/PracticeCatalogScreen').then((m) => ({
+    default: m.PracticeCatalogScreen,
+  })),
+);
+const ReadingSimulatorScreen = lazy(() =>
+  import('@/spa/features/practice/ReadingSimulatorScreen').then((m) => ({
+    default: m.ReadingSimulatorScreen,
+  })),
+);
+const SpeakingSimulatorScreen = lazy(() =>
+  import('@/spa/features/practice/SpeakingSimulatorScreen').then((m) => ({
+    default: m.SpeakingSimulatorScreen,
+  })),
+);
+const WritingSimulatorScreen = lazy(() =>
+  import('@/spa/features/practice/WritingSimulatorScreen').then((m) => ({
+    default: m.WritingSimulatorScreen,
+  })),
+);
+const CompareAttemptsScreen = lazy(() =>
+  import('@/spa/features/progress/CompareAttemptsScreen').then((m) => ({
+    default: m.CompareAttemptsScreen,
+  })),
+);
+const ProgressScreen = lazy(() =>
+  import('@/spa/features/progress/ProgressScreen').then((m) => ({
+    default: m.ProgressScreen,
+  })),
+);
+const EvaluationPendingScreen = lazy(() =>
+  import('@/spa/features/results/EvaluationPendingScreen').then((m) => ({
+    default: m.EvaluationPendingScreen,
+  })),
+);
+const EvaluationResultScreen = lazy(() =>
+  import('@/spa/features/results/EvaluationResultScreen').then((m) => ({
+    default: m.EvaluationResultScreen,
+  })),
+);
+const ObjectiveResultScreen = lazy(() =>
+  import('@/spa/features/results/ObjectiveResultScreen').then((m) => ({
+    default: m.ObjectiveResultScreen,
+  })),
+);
+const SettingsScreen = lazy(() =>
+  import('@/spa/features/settings/SettingsScreen').then((m) => ({
+    default: m.SettingsScreen,
+  })),
+);
+const VocabHubScreen = lazy(() =>
+  import('@/spa/features/vocabulary/VocabHubScreen').then((m) => ({
+    default: m.VocabHubScreen,
+  })),
+);
+const VocabReviewScreen = lazy(() =>
+  import('@/spa/features/vocabulary/VocabReviewScreen').then((m) => ({
+    default: m.VocabReviewScreen,
+  })),
+);
+const VocabWordDetailScreen = lazy(() =>
+  import('@/spa/features/vocabulary/VocabWordDetailScreen').then((m) => ({
+    default: m.VocabWordDetailScreen,
+  })),
+);
 
 export interface MappedRouteDescriptor {
   readonly id: number;
@@ -360,7 +452,15 @@ function AppRootLayout() {
       </aside>
 
       <main className="mx-auto w-full max-w-6xl flex-1 p-6">
-        <Outlet />
+        <Suspense
+          fallback={
+            <div className="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-6 text-sm text-text-secondary">
+              Loading workspace...
+            </div>
+          }
+        >
+          <Outlet />
+        </Suspense>
       </main>
 
       {blocker.status === 'blocked' && (

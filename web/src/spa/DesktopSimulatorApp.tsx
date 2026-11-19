@@ -1,7 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { Component, type ErrorInfo, type ReactNode, useEffect, useState } from 'react';
-import { createAppDependencies } from '@/composition/bootstrap';
 import { type AppDependencies, AppDependenciesProvider } from '@/spa/deps';
 import { type AppRouter, createAppRouter } from '@/spa/router';
 import { useClockStore } from '@/spa/stores/clock.store';
@@ -62,32 +60,15 @@ class SimulatorErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundary
 
 export interface DesktopSimulatorAppProps {
   readonly router?: AppRouter;
-  readonly queryClient?: QueryClient;
   readonly dependencies?: AppDependencies;
-}
-
-export function createDefaultQueryClient(): QueryClient {
-  return new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: 1,
-        staleTime: 30_000,
-        refetchOnWindowFocus: false,
-      },
-    },
-  });
 }
 
 export function DesktopSimulatorApp({
   router: providedRouter,
-  queryClient: providedQueryClient,
   dependencies: providedDependencies,
 }: DesktopSimulatorAppProps) {
-  const [dependencies] = useState(
-    () => providedDependencies ?? createAppDependencies(),
-  );
-  const [queryClient] = useState(
-    () => providedQueryClient ?? createDefaultQueryClient(),
+  const [dependencies, setDependencies] = useState<AppDependencies | null>(
+    () => providedDependencies ?? null,
   );
   const [router] = useState(() => providedRouter ?? createAppRouter());
 
@@ -97,6 +78,19 @@ export function DesktopSimulatorApp({
   }, []);
 
   useEffect(() => {
+    if (dependencies) return;
+    let mounted = true;
+    void import('@/composition/bootstrap').then(({ createAppDependencies }) => {
+      if (!mounted) return;
+      setDependencies(createAppDependencies());
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [dependencies]);
+
+  useEffect(() => {
+    if (!dependencies) return;
     void dependencies.syncOutbox.purgeExpiredAudio().then(() => dependencies.syncOutbox.flushPending());
     const handleOnline = () => {
       void dependencies.syncOutbox.flushPending();
@@ -105,11 +99,11 @@ export function DesktopSimulatorApp({
     return () => {
       window.removeEventListener('online', handleOnline);
     };
-  }, [dependencies.syncOutbox]);
+  }, [dependencies]);
 
   useEffect(() => {
+    if (!dependencies) return;
     const unsubRevoked = dependencies.auth.onSessionRevoked?.(() => {
-      queryClient.clear();
       useClockStore.getState().resetClock();
       void router.navigate({
         to: '/auth/login',
@@ -119,14 +113,20 @@ export function DesktopSimulatorApp({
     return () => {
       unsubRevoked?.();
     };
-  }, [dependencies.auth, queryClient, router]);
+  }, [dependencies, router]);
+
+  if (!dependencies) {
+    return (
+      <div className="p-6 text-sm text-text-secondary">
+        Initializing simulator...
+      </div>
+    );
+  }
 
   return (
     <SimulatorErrorBoundary>
       <AppDependenciesProvider dependencies={dependencies}>
-        <QueryClientProvider client={queryClient}>
-          <RouterProvider router={router} />
-        </QueryClientProvider>
+        <RouterProvider router={router} />
       </AppDependenciesProvider>
     </SimulatorErrorBoundary>
   );

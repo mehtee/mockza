@@ -251,9 +251,9 @@ describe('W5.1 ReadingSimulatorScreen & ObjectiveResultScreen', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('objective-result-screen')).toBeTruthy();
+      expect(screen.getByText(/2\s*\/\s*3.*67%/)).toBeTruthy();
     });
     expect(useClockStore.getState().activeExamLock).toBe(false);
-    expect(screen.getByText(/2\s*\/\s*3.*67%/)).toBeTruthy();
 
     // Filter Incorrect Only -> only Question 2 remains visible
     fireEvent.click(screen.getByRole('tab', { name: 'Incorrect Only' }));

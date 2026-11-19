@@ -1,0 +1,65 @@
+{
+	auto_https off
+	admin off
+}
+
+:8080 {
+	import /etc/caddy/security_headers.caddy
+
+	@health path /healthz
+	handle @health {
+		header Content-Type "text/plain; charset=utf-8"
+		respond "ok" 200
+	}
+
+	handle /v1/* {
+		reverse_proxy api:8787
+	}
+
+	handle /openapi.json {
+		reverse_proxy api:8787
+	}
+
+	handle /_astro/* {
+		header Cache-Control "public, max-age=31536000, immutable"
+		root * /srv/web
+		file_server {
+			precompressed br gzip
+		}
+	}
+
+	@crawlers path /robots.txt /llms.txt /llms-full.txt /sitemap-index.xml /sitemap-0.xml
+	handle @crawlers {
+		header Cache-Control "no-cache, must-revalidate"
+		root * /srv/web
+		file_server {
+			precompressed br gzip
+		}
+	}
+
+	handle /theme-boot.js {
+		header Cache-Control "public, max-age=3600"
+		root * /srv/web
+		file_server {
+			precompressed br gzip
+		}
+	}
+
+	handle /app/* {
+		header Cache-Control "no-cache, no-store, must-revalidate"
+		root * /srv/web
+		try_files {path} {path}/ /app/index.html
+		file_server {
+			precompressed br gzip
+		}
+	}
+
+	handle {
+		header Cache-Control "no-cache, must-revalidate"
+		root * /srv/web
+		try_files {path} {path}/index.html {path}.html =404
+		file_server {
+			precompressed br gzip
+		}
+	}
+}

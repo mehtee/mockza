@@ -89,8 +89,8 @@ describe('W6.2 Virtualized SM-2 Vocabulary Hub, Keyboard Review & Detail', () =>
     fireEvent.click(screen.getByTestId('vocab-inspect-mistake-1'));
     await waitFor(() => {
       expect(screen.getByTestId('vocab-word-detail-screen')).toBeTruthy();
+      expect(screen.getByTestId('vocab-srs-schedule-card')).toBeTruthy();
     });
-    expect(screen.getByTestId('vocab-srs-schedule-card')).toBeTruthy();
     expect(screen.getByText('alleviate')).toBeTruthy();
   });
 

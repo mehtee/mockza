@@ -8,6 +8,9 @@ import { compressDistDir } from './compress_web_dist.mjs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, '..');
 
+const SPA_INITIAL_JS_MAX_GZIP_BYTES = 95 * 1024;
+const CALCULATOR_JS_MAX_GZIP_BYTES = 4 * 1024;
+
 function walkFiles(dir) {
   const results = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -16,6 +19,65 @@ function walkFiles(dir) {
     else if (entry.isFile()) results.push(full);
   }
   return results;
+}
+
+function collectRouteInitialJsGzipBytes(distDir, htmlRelPath) {
+  const html = readFileSync(path.join(distDir, htmlRelPath), 'utf8');
+  const visited = new Set();
+  const queue = [];
+
+  for (const match of html.matchAll(/<script[^>]+src="([^"]+)"/gi)) {
+    const src = match[1];
+    if (src && src.startsWith('/')) queue.push(src);
+  }
+  for (const match of html.matchAll(/<link[^>]+rel="modulepreload"[^>]+href="([^"]+)"/gi)) {
+    const href = match[1];
+    if (href && href.startsWith('/')) queue.push(href);
+  }
+  for (const match of html.matchAll(/component-url="([^"]+)"/gi)) {
+    const comp = match[1];
+    if (comp && comp.startsWith('/')) queue.push(comp);
+  }
+
+  let totalGzipBytes = 0;
+  let totalBrBytes = 0;
+  const loadedFiles = [];
+
+  while (queue.length > 0) {
+    const webPath = queue.shift();
+    if (!webPath || visited.has(webPath)) continue;
+    visited.add(webPath);
+
+    const diskPath = path.join(distDir, webPath.replace(/^\/+/, ''));
+    if (!existsSync(diskPath)) continue;
+
+    const raw = readFileSync(diskPath);
+    const gzBytes = existsSync(`${diskPath}.gz`) ? statSync(`${diskPath}.gz`).size : raw.byteLength;
+    const brBytes = existsSync(`${diskPath}.br`) ? statSync(`${diskPath}.br`).size : raw.byteLength;
+    totalGzipBytes += gzBytes;
+    totalBrBytes += brBytes;
+    loadedFiles.push(webPath);
+
+    const text = raw.toString('utf8');
+    for (const imp of text.matchAll(/(?:import|export)\s*(?:[^'"]*?\sfrom\s*)?["'](\.[^"']+\.js)["']/g)) {
+      const rel = imp[1];
+      if (!rel) continue;
+      const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(webPath), rel));
+      if (!visited.has(resolved)) {
+        queue.push(resolved);
+      }
+    }
+    for (const sideEffectImp of text.matchAll(/import\s*["'](\.[^"']+\.js)["']/g)) {
+      const rel = sideEffectImp[1];
+      if (!rel) continue;
+      const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(webPath), rel));
+      if (!visited.has(resolved)) {
+        queue.push(resolved);
+      }
+    }
+  }
+
+  return { totalGzipBytes, totalBrBytes, loadedFiles };
 }
 
 function assert(cond, msg) {
@@ -56,17 +118,51 @@ function checkEditionBuild(edition) {
     assert(/<h1[\s>]/i.test(html), `${edition}/${rel}: missing H1 landmark`);
   }
 
-  // Verify self-hosted fonts exist (zero external font CDN latency)
+  // Verify self-hosted fonts exist and Vazirmatn is excluded from GLB
   const files = walkFiles(distDir);
   const hasWoff2 = files.some((f) => f.endsWith('.woff2'));
   assert(hasWoff2, `${edition}: missing self-hosted .woff2 font assets`);
+  if (edition === 'glb') {
+    const glbVazirmatn = files.filter((f) => f.includes('vazirmatn') && f.endsWith('.woff2'));
+    assert(
+      glbVazirmatn.length === 0,
+      `glb: found ${glbVazirmatn.length} Vazirmatn font assets that should only ship in IRN builds`,
+    );
+  } else {
+    const irnVazirmatn = files.some((f) => f.includes('vazirmatn') && f.endsWith('.woff2'));
+    assert(irnVazirmatn, 'irn: missing self-hosted Vazirmatn .woff2 font assets');
+  }
+
+  // Enforce strict initial JS budgets: <= 95 KB gzip on /app/home and <= 4 KB gzip on /calculators/*
+  const spaStats = collectRouteInitialJsGzipBytes(distDir, 'app/home/index.html');
+  assert(
+    spaStats.totalGzipBytes <= SPA_INITIAL_JS_MAX_GZIP_BYTES,
+    `${edition}: /app/home initial JS gzip ${(spaStats.totalGzipBytes / 1024).toFixed(1)}KB exceeds ${(SPA_INITIAL_JS_MAX_GZIP_BYTES / 1024).toFixed(0)}KB budget (${spaStats.loadedFiles.join(', ')})`,
+  );
+
+  for (const calcPath of ['calculators/index.html', 'calculators/toefl-6-to-120-converter/index.html']) {
+    const calcStats = collectRouteInitialJsGzipBytes(distDir, calcPath);
+    assert(
+      calcStats.totalGzipBytes <= CALCULATOR_JS_MAX_GZIP_BYTES,
+      `${edition}/${calcPath}: JS gzip ${(calcStats.totalGzipBytes / 1024).toFixed(2)}KB exceeds ${(CALCULATOR_JS_MAX_GZIP_BYTES / 1024).toFixed(0)}KB budget (${calcStats.loadedFiles.join(', ')})`,
+    );
+    assert(
+      !calcStats.loadedFiles.some((f) => f.includes('react') || f.includes('DesktopSimulatorApp')),
+      `${edition}/${calcPath}: calculator route unexpectedly pulls React runtime (${calcStats.loadedFiles.join(', ')})`,
+    );
+  }
 
   // Verify .br/.gz sidecars exist for main app JS bundle
   const largeJs = files.find((f) => f.endsWith('.js') && statSync(f).size > 50_000);
   assert(largeJs && existsSync(`${largeJs}.br`) && existsSync(`${largeJs}.gz`), `${edition}: missing .br/.gz sidecars for ${largeJs}`);
 
   const sampleAstroJs = path.basename(largeJs);
-  return { distDir, compSummary, sampleAstroJs };
+  return {
+    distDir,
+    compSummary,
+    sampleAstroJs,
+    spaInitialGzipKb: Number((spaStats.totalGzipBytes / 1024).toFixed(1)),
+  };
 }
 
 function httpGetRaw(url, headers = {}) {

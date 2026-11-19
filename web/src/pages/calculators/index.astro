@@ -2,7 +2,7 @@
 import { estimateToeflLegacy120, readingBandFor } from '@mockza/domain';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { getActiveEditionConfig } from '@/edition/edition-config';
-import { ScoreCalculatorsIsland } from '@/seo/ScoreCalculatorsIsland';
+import ScoreCalculatorsSection from '@/seo/ScoreCalculatorsSection.astro';
 import { getPublicSiteCopyForBuild } from '@/seo/public-catalog';
 
 const editionConfig = getActiveEditionConfig();
@@ -58,7 +58,7 @@ const title = isIrn
       </div>
     </section>
 
-    <ScoreCalculatorsIsland client:load isIrn={isIrn} />
+    <ScoreCalculatorsSection isIrn={isIrn} />
 
     <!-- Static crawlable concordance matrices (zero-JS fallback & GEO grounding) -->
     <section class="grid gap-6 md:grid-cols-2">

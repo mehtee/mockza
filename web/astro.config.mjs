@@ -27,6 +27,12 @@ export default defineConfig({
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
+        '@@edition-fonts.css': fileURLToPath(
+          new URL(
+            edition === 'irn' ? './src/styles/irn-fonts.css' : './src/styles/empty-fonts.css',
+            import.meta.url,
+          ),
+        ),
       },
     },
   },

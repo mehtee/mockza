@@ -1,0 +1,7 @@
+header {
+	X-Content-Type-Options "nosniff"
+	X-Frame-Options "DENY"
+	Referrer-Policy "strict-origin-when-cross-origin"
+	Permissions-Policy "camera=(), geolocation=(), microphone=(self)"
+	Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://cdn.mockza.com; media-src 'self' blob: https://cdn.mockza.com https://*.s3.amazonaws.com https://*.r2.cloudflarestorage.com; connect-src 'self' https://api.mockza.com https://cdn.mockza.com https://accounts.google.com https://appleid.apple.com; font-src 'self' data:; worker-src 'self' blob:; frame-ancestors 'none'; object-src 'none'; base-uri 'self';"
+}

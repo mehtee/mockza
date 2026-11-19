@@ -238,8 +238,8 @@ describe('W5.2 ListeningSimulatorScreen', () => {
     fireEvent.click(screen.getByTestId('listening-submit-btn'));
     await waitFor(() => {
       expect(screen.getByTestId('objective-result-screen')).toBeTruthy();
+      expect(screen.getByText(/2\s*\/\s*3.*67%/)).toBeTruthy();
     });
-    expect(screen.getByText(/2\s*\/\s*3.*67%/)).toBeTruthy();
 
     // Jump to Evidence seeks review AudioStudioPlayer playhead to 00:25
     fireEvent.click(screen.getByTestId('jump-evidence-2'));

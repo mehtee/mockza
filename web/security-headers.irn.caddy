@@ -1,0 +1,7 @@
+header {
+	X-Content-Type-Options "nosniff"
+	X-Frame-Options "DENY"
+	Referrer-Policy "strict-origin-when-cross-origin"
+	Permissions-Policy "camera=(), geolocation=(), microphone=(self)"
+	Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://cdn.sanjia.ir; media-src 'self' blob: https://cdn.sanjia.ir https://*.arvanstorage.ir https://*.sanjia.ir; connect-src 'self' https://api.sanjia.ir https://cdn.sanjia.ir https://payment.zarinpal.com https://sandbox.zarinpal.com; font-src 'self' data:; worker-src 'self' blob:; frame-ancestors 'none'; object-src 'none'; base-uri 'self';"
+}
