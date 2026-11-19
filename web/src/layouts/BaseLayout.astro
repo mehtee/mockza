@@ -5,7 +5,6 @@ import { getPublicSiteCopyForBuild } from '@/seo/public-catalog';
 import {
   DEFAULT_THEME_MODE,
   DEFAULT_THEME_PRESET_ID,
-  ZERO_FOUC_THEME_BOOT_SCRIPT,
 } from '@/theme/theme-controller';
 
 export interface Props {
@@ -72,7 +71,7 @@ const ogImageUrl = ogImagePath ? `${siteOrigin}${ogImagePath}` : `${siteOrigin}/
     {jsonLd ? (
       <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
     ) : null}
-    <script is:inline set:html={ZERO_FOUC_THEME_BOOT_SCRIPT} />
+    <script is:inline src="/theme-boot.js"></script>
   </head>
   <body class={`bg-canvas text-text-primary antialiased ${fontClass}`}>
     {showPublicNav ? (

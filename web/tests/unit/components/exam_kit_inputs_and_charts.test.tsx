@@ -187,12 +187,17 @@ describe('W3.2 Polymorphic Question Inputs, Sequence Control & SVG Chart Card', 
     expect(score.correctCount).toBe(1);
   });
 
-  it('sanitizes SVG, zooms inline 1x..3x, and opens Lightbox modal up to 4x', () => {
+  it('sanitizes SVG via DOMPurify, supports wheel/button zoom 1x..3x, and opens Lightbox modal up to 4x', () => {
     const dirtySvg =
-      '<svg viewBox="0 0 100 100" onload="alert(1)"><script>alert(2)</script><rect width="80" height="40" fill="#56CCF2" /></svg>';
+      '<svg viewBox="0 0 100 100" onload="alert(1)"><script>alert(2)</script><style>svg{}</style><foreignObject><div xmlns="http://www.w3.org/1999/xhtml">xss</div></foreignObject><iframe src="https://evil.invalid"></iframe><a href="javascript:alert(3)"><rect width="80" height="40" fill="#56CCF2" /></a></svg>';
     const clean = sanitizeSvgMarkup(dirtySvg);
     expect(clean).not.toContain('<script');
+    expect(clean).not.toContain('<foreignObject');
+    expect(clean).not.toContain('<iframe');
+    expect(clean).not.toContain('<style');
     expect(clean).not.toContain('onload');
+    expect(clean).not.toContain('javascript:');
+    expect(clean).toContain('<rect');
 
     render(
       <ExamSvgChartCard
@@ -205,6 +210,8 @@ describe('W3.2 Polymorphic Question Inputs, Sequence Control & SVG Chart Card', 
     expect(screen.getByTestId('chart-viewport').getAttribute('data-scale')).toBe('1');
     fireEvent.click(screen.getByTestId('chart-zoom-in'));
     expect(screen.getByTestId('chart-viewport').getAttribute('data-scale')).toBe('1.5');
+    fireEvent.wheel(screen.getByTestId('chart-viewport'), { deltaY: -100, ctrlKey: true });
+    expect(screen.getByTestId('chart-viewport').getAttribute('data-scale')).toBe('1.75');
     fireEvent.click(screen.getByTestId('chart-zoom-reset'));
     expect(screen.getByTestId('chart-viewport').getAttribute('data-scale')).toBe('1');
 

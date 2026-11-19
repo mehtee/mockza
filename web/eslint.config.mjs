@@ -130,6 +130,7 @@ export default tseslint.config(
                         'react-dom',
                         'react-dom/*',
                         'lucide-react',
+                        'dompurify',
                         '@radix-ui/*',
                         'react-resizable-panels',
                         '@mockza/domain',
