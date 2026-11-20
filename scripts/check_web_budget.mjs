@@ -28,7 +28,7 @@ function collectRouteInitialJsGzipBytes(distDir, htmlRelPath) {
 
   for (const match of html.matchAll(/<script[^>]+src="([^"]+)"/gi)) {
     const src = match[1];
-    if (src && src.startsWith('/')) queue.push(src);
+    if (src && src.startsWith('/')) queue.push(new URL(src, 'http://localhost').pathname);
   }
   for (const match of html.matchAll(/<link[^>]+rel="modulepreload"[^>]+href="([^"]+)"/gi)) {
     const href = match[1];
@@ -110,13 +110,23 @@ function checkEditionBuild(edition) {
 
   for (const rel of zeroJsHtmlPaths) {
     const html = readFileSync(path.join(distDir, rel), 'utf8');
-    assert(!/<script[^>]+src="\/_astro\//i.test(html), `${edition}/${rel}: public zero-JS route must not import /_astro/ scripts`);
+    assert(rel === 'index.html' || !/<script[^>]+src="\/_astro\//i.test(html), `${edition}/${rel}: public zero-JS route must not import /_astro/ scripts`);
     assert(html.includes(`lang="${expectedLang}"`) && html.includes(`dir="${expectedDir}"`), `${edition}/${rel}: invalid lang/dir`);
     assert(/<meta[^>]+name="viewport"/i.test(html), `${edition}/${rel}: missing viewport meta`);
     assert(/<meta[^>]+name="description"/i.test(html), `${edition}/${rel}: missing meta description`);
     assert(/<link[^>]+rel="canonical"/i.test(html), `${edition}/${rel}: missing canonical link`);
     assert(/<h1[\s>]/i.test(html), `${edition}/${rel}: missing H1 landmark`);
   }
+
+  const homeStats = collectRouteInitialJsGzipBytes(distDir, 'index.html');
+  assert(
+    homeStats.totalGzipBytes <= 9 * 1024,
+    `${edition}: public homepage exceeds 9 KiB gzip including theme boot`,
+  );
+  assert(
+    !homeStats.loadedFiles.some((file) => /react|DesktopSimulatorApp|dexie/i.test(file)),
+    `${edition}: homepage should load only its demo controller and theme boot`,
+  );
 
   // Verify self-hosted fonts exist and Vazirmatn is excluded from GLB
   const files = walkFiles(distDir);
@@ -250,10 +260,10 @@ async function main() {
   const irnPerf = await runConcurrencyBurstAndHeaderCheck(irn.distDir, irn.sampleAstroJs, 45981);
 
   console.log(
-    `GLB static budget OK: zero-JS landing/pillars, br/gz compressed (${glb.compSummary.filesProcessed} files), main chunk gzip=${(glbPerf.jsGzBytes / 1024).toFixed(1)}KB, 1000-req burst p95=${glbPerf.p95Ms}ms`,
+    `GLB static budget OK: landing JS within budget, zero-JS pillars, br/gz compressed (${glb.compSummary.filesProcessed} files), main chunk gzip=${(glbPerf.jsGzBytes / 1024).toFixed(1)}KB, 1000-req burst p95=${glbPerf.p95Ms}ms`,
   );
   console.log(
-    `IRN static budget OK: zero-JS landing/pillars, br/gz compressed (${irn.compSummary.filesProcessed} files), main chunk gzip=${(irnPerf.jsGzBytes / 1024).toFixed(1)}KB, 1000-req burst p95=${irnPerf.p95Ms}ms`,
+    `IRN static budget OK: landing JS within budget, zero-JS pillars, br/gz compressed (${irn.compSummary.filesProcessed} files), main chunk gzip=${(irnPerf.jsGzBytes / 1024).toFixed(1)}KB, 1000-req burst p95=${irnPerf.p95Ms}ms`,
   );
 }
 

@@ -22,88 +22,113 @@ class AppTypography extends ThemeExtension<AppTypography> {
     required Color textPrimary,
     required Color textSecondary,
     required Color textTertiary,
-  }) => AppTypography(
-    heroScore: TextStyle(
-      fontFamily: sansFamily,
-      fontSize: 72,
-      fontWeight: FontWeight.w700,
-      height: 0.95,
-      letterSpacing: -1,
-      fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
-      color: textPrimary,
-    ),
-    headline: TextStyle(
-      fontFamily: sansFamily,
-      fontSize: 34,
-      fontWeight: FontWeight.w700,
-      height: 1.12,
-      letterSpacing: -1.36, // -0.04em
-      color: textPrimary,
-    ),
-    sectionHeading: TextStyle(
-      fontFamily: sansFamily,
-      fontSize: 24,
-      fontWeight: FontWeight.w700,
-      height: 1.18,
-      letterSpacing: -0.84, // -0.035em
-      color: textPrimary,
-    ),
-    cardTitle: TextStyle(
-      fontFamily: sansFamily,
-      fontSize: 18,
-      fontWeight: FontWeight.w600,
-      height: 1.30,
-      letterSpacing: -0.2,
-      color: textPrimary,
-    ),
-    cardScore: TextStyle(
-      fontFamily: sansFamily,
-      fontSize: 29,
-      fontWeight: FontWeight.w700,
-      height: 1.12,
-      fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
-      color: textPrimary,
-    ),
-    body: TextStyle(
-      fontFamily: sansFamily,
-      fontSize: 16,
-      fontWeight: FontWeight.w400,
-      height: 1.50,
-      color: textPrimary,
-    ),
-    secondary: TextStyle(
-      fontFamily: sansFamily,
-      fontSize: 14,
-      fontWeight: FontWeight.w500,
-      height: 1.45,
-      color: textSecondary,
-    ),
-    caption: TextStyle(
-      fontFamily: sansFamily,
-      fontSize: 12,
-      fontWeight: FontWeight.w500,
-      height: 1.45,
-      color: textTertiary,
-    ),
-    readingPassage: TextStyle(
-      fontFamily: sansFamily,
-      fontSize: 16.5,
-      fontWeight: FontWeight.w400,
-      height: 1.70,
-      color: textPrimary,
-    ),
-    timerMono: TextStyle(
-      fontFamily: sansFamily,
-      fontSize: 16,
-      fontWeight: FontWeight.w700,
-      height: 1.20,
-      fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
-      color: textPrimary,
-    ),
-  );
+    bool editorial = false,
+    bool persian = false,
+  }) {
+    final ui = persian ? persianFamily : sansFamily;
+    final display = editorial && !persian ? editorialFamily : ui;
+    final displayWeight = editorial && !persian
+        ? FontWeight.w400
+        : FontWeight.w700;
+    return AppTypography(
+      heroScore: TextStyle(
+        fontFamily: display,
+        fontFamilyFallback: const [persianFamily, sansFamily],
+        fontSize: 72,
+        fontWeight: displayWeight,
+        height: 0.95,
+        letterSpacing: -1,
+        fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+        color: textPrimary,
+      ),
+      headline: TextStyle(
+        fontFamily: display,
+        fontFamilyFallback: const [persianFamily, sansFamily],
+        fontSize: 34,
+        fontWeight: displayWeight,
+        height: 1.12,
+        letterSpacing: persian ? null : -1.36, // -0.04em
+        color: textPrimary,
+      ),
+      sectionHeading: TextStyle(
+        fontFamily: ui,
+        fontFamilyFallback: const [persianFamily, sansFamily],
+        fontSize: 24,
+        fontWeight: FontWeight.w700,
+        height: 1.18,
+        letterSpacing: persian ? null : -0.84, // -0.035em
+        color: textPrimary,
+      ),
+      cardTitle: TextStyle(
+        fontFamily: ui,
+        fontFamilyFallback: const [persianFamily, sansFamily],
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        height: 1.30,
+        letterSpacing: -0.2,
+        color: textPrimary,
+      ),
+      cardScore: TextStyle(
+        fontFamily: ui,
+        fontFamilyFallback: const [persianFamily, sansFamily],
+        fontSize: 29,
+        fontWeight: FontWeight.w700,
+        height: 1.12,
+        fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+        color: textPrimary,
+      ),
+      body: TextStyle(
+        fontFamily: ui,
+        fontFamilyFallback: const [persianFamily, sansFamily],
+        fontSize: 16,
+        fontWeight: FontWeight.w400,
+        height: 1.50,
+        color: textPrimary,
+      ),
+      secondary: TextStyle(
+        fontFamily: ui,
+        fontFamilyFallback: const [persianFamily, sansFamily],
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        height: 1.45,
+        color: textSecondary,
+      ),
+      caption: TextStyle(
+        fontFamily: ui,
+        fontFamilyFallback: const [persianFamily, sansFamily],
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        height: 1.45,
+        color: textTertiary,
+      ),
+      readingPassage: TextStyle(
+        fontFamily: sansFamily,
+        fontFamilyFallback: const [persianFamily, sansFamily],
+        fontSize: 16.5,
+        fontWeight: FontWeight.w400,
+        height: 1.70,
+        color: textPrimary,
+      ),
+      timerMono: TextStyle(
+        fontFamily: ui,
+        fontFamilyFallback: const [persianFamily, sansFamily],
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        height: 1.20,
+        fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+        color: textPrimary,
+      ),
+    );
+  }
 
   /// Primary font family identifier (`Inter`, with platform fallback).
   static const String sansFamily = 'Inter';
+
+  /// Bundled Persian user-interface family.
+  static const String persianFamily = 'Vazirmatn';
+
+  /// Display family for large English headings and scores.
+  static const String editorialFamily = 'Instrument Serif';
 
   /// Hero dominant band score (72 / 0.95 tabular).
   final TextStyle heroScore;

@@ -17,6 +17,7 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import type { DiagnosticSessionDto } from '@/gateways/diagnostic.gateway';
 import type {
+  AttemptDraftRecord,
   CompletedAttemptRecord,
   UserProfileRecord,
   VocabCardWithSrs,
@@ -177,6 +178,14 @@ export function useHomeController() {
   }, [deps.clock, deviceId]);
 
   const activeTrack: SupportedExamId = profile?.examId ?? 'ielts_academic';
+  const [resumableDraft, setResumableDraft] = useState<AttemptDraftRecord | null>(null);
+  useEffect(() => {
+    let mounted = true;
+    void deps.attemptStore.getLatestResumableDraft(activeTrack).then((result) => {
+      if (mounted) setResumableDraft(result.ok ? result.value : null);
+    });
+    return () => { mounted = false; };
+  }, [activeTrack, deps.attemptStore]);
   const trackSpec = EXAM_TRACK_SPECS[activeTrack];
   const descriptor = EXAM_DESCRIPTORS[activeTrack];
   const targetScore = profile?.targetBand ?? trackSpec.targetScoreDefault;
@@ -280,6 +289,7 @@ export function useHomeController() {
         : null;
 
   return {
+    resumableDraft: resumableDraft?.examId === activeTrack ? resumableDraft : null,
     isLoading,
     activeTrack,
     trackSpec,

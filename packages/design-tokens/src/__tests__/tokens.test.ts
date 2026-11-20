@@ -38,9 +38,9 @@ describe('@mockza/design-tokens', () => {
   it('has unique preset IDs and valid default preset & mode', () => {
     const ids = DESIGN_TOKENS.presets.map((preset) => preset.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids).toEqual(['midnight_indigo', 'nordic_emerald', 'editorial_amber', 'oceanic_cobalt']);
-    expect(DESIGN_TOKENS.defaults.presetId).toBe('midnight_indigo');
-    expect(DESIGN_TOKENS.defaults.mode).toBe('dark');
+    expect(ids).toEqual(['midnight_indigo', 'nordic_emerald', 'editorial_amber', 'oceanic_cobalt', 'editorial_green']);
+    expect(DESIGN_TOKENS.defaults.presetId).toBe('editorial_green');
+    expect(DESIGN_TOKENS.defaults.mode).toBe('light');
     expect(ids).toContain(DESIGN_TOKENS.defaults.presetId);
   });
 
@@ -168,8 +168,8 @@ describe('@mockza/design-tokens', () => {
     expect(isThemePresetId('unknown_preset')).toBe(false);
 
     expect(resolveThemePreset('nordic_emerald').id).toBe('nordic_emerald');
-    expect(resolveThemePreset('non_existent').id).toBe('midnight_indigo');
-    expect(resolveThemePreset(undefined).id).toBe('midnight_indigo');
+    expect(resolveThemePreset('non_existent').id).toBe('editorial_green');
+    expect(resolveThemePreset(undefined).id).toBe('editorial_green');
 
     const lightPalette = resolveModePalette('oceanic_cobalt', 'light');
     expect(lightPalette.colors.primary).toBe('#0B69A3');

@@ -27,6 +27,8 @@ class ObjectiveQuestionReview {
     this.distractorExplanation = '',
     this.evidenceQuote,
     this.paragraphIndex,
+    this.cueTimestampMs,
+    this.sectionId,
   });
 
   /// 1-based question number.
@@ -55,6 +57,12 @@ class ObjectiveQuestionReview {
 
   /// Zero-based passage paragraph index when available.
   final int? paragraphIndex;
+
+  /// Authored position in the matching source audio.
+  final int? cueTimestampMs;
+
+  /// Identifier of the section that contains the evidence.
+  final String? sectionId;
 }
 
 /// Real historical comparison against the previous scored attempt in the same skill.
@@ -101,6 +109,7 @@ class EvaluationReviewState {
     required this.status,
     required this.targetBandScore,
     this.examTrack = ExamTrack.ieltsAcademic,
+    this.contentVersion,
     this.isLoading = false,
     this.notFound = false,
     this.selectedTabIndex = 0,
@@ -130,6 +139,9 @@ class EvaluationReviewState {
 
   /// Associated pack identifier.
   final String packId;
+
+  /// Exact version of the source used to score this attempt.
+  final String? contentVersion;
 
   /// Human-readable pack/exam title.
   final String packTitle;
@@ -225,6 +237,8 @@ class EvaluationReviewState {
     ExamTrack? examTrack,
     String? packId,
     String? packTitle,
+    String? contentVersion,
+    bool clearContentVersion = false,
     SkillKind? skill,
     AttemptStatus? status,
     double? targetBandScore,
@@ -260,6 +274,9 @@ class EvaluationReviewState {
     attemptId: attemptId ?? this.attemptId,
     packId: packId ?? this.packId,
     packTitle: packTitle ?? this.packTitle,
+    contentVersion: clearContentVersion
+        ? null
+        : contentVersion ?? this.contentVersion,
     skill: skill ?? this.skill,
     status: status ?? this.status,
     targetBandScore: targetBandScore ?? this.targetBandScore,
@@ -344,6 +361,7 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
       clearWritingResult: true,
       clearSpeakingResult: true,
       clearComparison: true,
+      clearContentVersion: true,
       clearOverallBand: true,
       objectiveQuestions: const <ObjectiveQuestionReview>[],
       savedCardIds: const <String>{},
@@ -433,6 +451,8 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
                   (q['distractorExplanation'] as String?) ?? '',
               evidenceQuote: q['evidenceQuote'] as String?,
               paragraphIndex: (q['paragraphIndex'] as num?)?.toInt(),
+              cueTimestampMs: q['cueTimestampMs'] as int?,
+              sectionId: q['sectionId'] as String?,
             );
           })
           .toList(growable: false);
@@ -464,6 +484,7 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
       attemptId: row.attemptId,
       packId: row.packId,
       packTitle: packTitle,
+      contentVersion: row.contentVersion,
       skill: skill,
       status: status,
       examTrack: examTrack,

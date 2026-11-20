@@ -1,4 +1,5 @@
 ---
+import { createHash } from 'node:crypto';
 import '../styles/global.css';
 import '@@edition-fonts.css';
 import { getActiveEditionConfig } from '@/edition/edition-config';
@@ -6,6 +7,7 @@ import { getPublicSiteCopyForBuild } from '@/seo/public-catalog';
 import {
   DEFAULT_THEME_MODE,
   DEFAULT_THEME_PRESET_ID,
+  ZERO_FOUC_THEME_BOOT_SCRIPT,
 } from '@/theme/theme-controller';
 
 export interface Props {
@@ -16,6 +18,7 @@ export interface Props {
   markdownTwinPath?: string;
   jsonLd?: Record<string, unknown> | readonly Record<string, unknown>[];
   showPublicNav?: boolean;
+  sampleNavigation?: boolean;
 }
 
 const editionConfig = getActiveEditionConfig();
@@ -38,10 +41,12 @@ const {
   markdownTwinPath,
   jsonLd,
   showPublicNav = false,
+  sampleNavigation = false,
 } = Astro.props;
 
 const canonicalUrl = canonicalPath ? `${siteOrigin}${canonicalPath}` : undefined;
 const ogImageUrl = ogImagePath ? `${siteOrigin}${ogImagePath}` : `${siteOrigin}/og/home.png`;
+const themeBootVersion = createHash('sha256').update(ZERO_FOUC_THEME_BOOT_SCRIPT).digest('hex').slice(0, 12);
 ---
 
 <!doctype html>
@@ -74,27 +79,34 @@ const ogImageUrl = ogImagePath ? `${siteOrigin}${ogImagePath}` : `${siteOrigin}/
     {jsonLd ? (
       <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
     ) : null}
-    <script is:inline src="/theme-boot.js"></script>
+    <script is:inline src={`/theme-boot.js?v=${themeBootVersion}`}></script>
   </head>
   <body class={`bg-canvas text-text-primary antialiased ${fontClass}`}>
     {showPublicNav ? (
-      <header class="border-b border-border-subtle bg-bg-raised">
-        <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">
-          <a href="/" class="text-base font-bold text-text-primary">
+      <header class:list={['border-b border-border-subtle bg-canvas', sampleNavigation && 'sticky top-0 z-20']}>
+        <div class="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
+          <a href="/" class="inline-flex items-center gap-2 text-lg font-bold text-text-primary">
+            <span class="grid size-6 grid-cols-2 gap-0.5 rounded-md border border-border-strong p-1 text-primary" aria-hidden="true">{[0,1,2,3].map(() => <i class="rounded-[2px] bg-current" />)}</span>
             {siteCopy.brandTitle}
           </a>
-          <nav aria-label="Public navigation" class="flex flex-wrap items-center gap-4 text-xs font-medium text-text-secondary">
-            <a href="/" class="hover:text-text-primary">{siteCopy.navHome}</a>
-            <a href="/calculators" class="hover:text-text-primary">{siteCopy.navCalculators}</a>
-            <a href="/samples" class="hover:text-text-primary">{siteCopy.navSamples}</a>
-            <a href="/vocab" class="hover:text-text-primary">{siteCopy.navVocab}</a>
-            <a
-              href="/app/welcome"
-              class="inline-flex h-8 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3 font-semibold text-on-primary hover:bg-primary-pressed"
-            >
-              {siteCopy.navOpenApp}
-            </a>
+          <nav aria-label={isIrn ? 'ناوبری سایت' : 'Public navigation'} class="flex order-last w-full flex-wrap items-center gap-3 text-sm font-medium text-text-secondary sm:order-none sm:w-auto sm:gap-6">
+            {sampleNavigation ? (
+              <>
+                <a href="#sample-report">{isIrn ? 'گزارش نمونه' : 'Sample report'}</a>
+                <a href="#ai-feedback">{isIrn ? 'بازخورد هوش مصنوعی' : 'AI feedback'}</a>
+                <a href="#study-tools">{isIrn ? 'ابزارهای مطالعه' : 'Study tools'}</a>
+              </>
+            ) : (
+              <>
+                <a href="/calculators">{siteCopy.navCalculators}</a>
+                <a href="/samples">{siteCopy.navSamples}</a>
+                <a href="/vocab">{siteCopy.navVocab}</a>
+              </>
+            )}
           </nav>
+          <a href="/app/" class="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3.5 text-sm font-semibold text-on-primary hover:bg-primary-pressed">
+            {siteCopy.navOpenApp}
+          </a>
         </div>
       </header>
     ) : null}

@@ -38,7 +38,7 @@ describe('W1.1 theme-controller & zero-FOUC boot script', () => {
   it('returns canonical defaults when localStorage is empty or invalid', () => {
     expect(readStoredAppearance()).toMatchObject({
       modePreference: DEFAULT_THEME_MODE,
-      resolvedMode: 'dark',
+      resolvedMode: 'light',
       presetId: DEFAULT_THEME_PRESET_ID,
     });
 
@@ -47,7 +47,7 @@ describe('W1.1 theme-controller & zero-FOUC boot script', () => {
 
     expect(readStoredAppearance()).toMatchObject({
       modePreference: DEFAULT_THEME_MODE,
-      resolvedMode: 'dark',
+      resolvedMode: 'light',
       presetId: DEFAULT_THEME_PRESET_ID,
     });
   });
@@ -83,7 +83,7 @@ describe('W1.1 theme-controller & zero-FOUC boot script', () => {
     window.localStorage.setItem(APPEARANCE_PRESET_STORAGE_KEY, 'editorial_amber');
     window.localStorage.setItem(APPEARANCE_MODE_STORAGE_KEY, 'light');
 
-    // Execute the exact inline script string injected into BaseLayout <head>.
+    // Execute the theme script loaded by BaseLayout before styles are painted.
     const bootFn = new Function(ZERO_FOUC_THEME_BOOT_SCRIPT);
     bootFn();
 

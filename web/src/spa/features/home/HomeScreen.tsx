@@ -82,6 +82,7 @@ export function HomeScreen() {
 
   const {
     activeTrack,
+    resumableDraft,
     trackSpec,
     descriptor,
     targetScore,
@@ -110,6 +111,10 @@ export function HomeScreen() {
         }`
       : null;
 
+  const resumeSkill = resumableDraft
+    ? getSkillMeta(resumableDraft.skill, t, descriptor)
+    : null;
+
   return (
     <div data-testid="home-screen" className="mx-auto flex max-w-6xl flex-col gap-6 pb-10 text-start">
       {/* Top Workspace Header + Instant 5-Track Switcher */}
@@ -118,8 +123,8 @@ export function HomeScreen() {
           <p className="text-xs font-semibold uppercase tracking-wider text-primary">
             {editionConfig.brandName}
           </p>
-          <h1 className="mt-0.5 text-2xl font-bold text-text-primary">{t('navHome')}</h1>
-          <p className="mt-0.5 text-sm text-text-secondary">{t('homeDashboardSubtitle')}</p>
+          <h1 className="font-editorial mt-0.5 text-4xl text-text-primary">{t('homeStudyRoom')}</h1>
+          <p className="mt-0.5 text-sm text-text-secondary">{t('homeStudyRoomDescription')}</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -134,6 +139,59 @@ export function HomeScreen() {
           ) : null}
         </div>
       </header>
+
+      <MzCard variant="hero" data-testid="home-recommended-card">
+        <div className="flex items-start gap-2.5">
+          <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+          <div>
+            <h2 className="font-editorial text-3xl text-text-primary">
+              {resumeSkill?.label ?? latestDiagnostic?.recommendedFirstAction.title ?? t('homeRecommendedNextTitle')}
+            </h2>
+            <p className="mt-1 text-xs text-text-secondary">
+              {resumeSkill ? t('homeResumeDescription') : latestDiagnostic?.recommendedFirstAction.description ?? descriptor.formatHint}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 flex flex-wrap gap-2.5">
+          {resumableDraft && resumeSkill ? (
+            <Link
+              to={resumeSkill.to}
+              params={{ packId: resumableDraft.packId }}
+              className="inline-flex h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-sm font-semibold text-on-primary"
+            >
+              {t('homeResumeAttempt')}
+            </Link>
+          ) : !latestDiagnostic ? (
+            <Link
+              to="/diagnostic/intro"
+              data-testid="home-diagnostic-cta"
+              search={{ track: activeTrack }}
+              className="inline-flex h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-sm font-semibold text-on-primary"
+            >
+              {t('homeStartDiagnosticCta')}
+            </Link>
+          ) : null}
+          <Link to="/practice" search={{ track: activeTrack }} className="inline-flex h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-strong px-4 text-sm font-semibold text-primary">
+            {t('navPractice')}
+          </Link>
+          <Link
+            to="/practice/drills"
+            data-testid="home-drills-cta"
+            className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-compact)] bg-surface-alt border border-primary/40 px-3.5 text-xs font-semibold text-primary hover:bg-surface-hover"
+          >
+            <Zap className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>{t('homeQuickDrillsCta')}</span>
+          </Link>
+          <Link
+            to="/practice/full-mock"
+            data-testid="home-full-mock-cta"
+            className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3.5 text-xs font-semibold text-text-primary hover:bg-surface-hover"
+          >
+            <span>{t('homeQuickFullMockCta')}</span>
+          </Link>
+        </div>
+      </MzCard>
 
       {/* Instant Track Switcher Strip */}
       <div
@@ -229,10 +287,11 @@ export function HomeScreen() {
               ) : null}
             </div>
 
-            {estimatedSummary.diagnosticRecommended ? (
+            {estimatedSummary.diagnosticRecommended && (resumableDraft || latestDiagnostic) ? (
               <Link
                 to="/diagnostic/intro"
                 data-testid="home-diagnostic-cta"
+                search={{ track: activeTrack }}
                 className="inline-flex h-10 items-center gap-2 rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary transition-colors hover:bg-primary-pressed"
               >
                 <Rocket className="h-4 w-4" aria-hidden="true" />
@@ -341,9 +400,9 @@ export function HomeScreen() {
         </div>
       </section>
 
-      {/* Row 3: Due SM-2 Vocabulary Widget + Recommended Next Action & Quick Tools */}
+      {/* Due vocabulary */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-        <MzCard variant="default" className="lg:col-span-6" data-testid="home-due-vocab-card">
+        <MzCard variant="default" className="lg:col-span-12" data-testid="home-due-vocab-card">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2">
               <Layers className="h-5 w-5 text-primary" aria-hidden="true" />
@@ -393,38 +452,6 @@ export function HomeScreen() {
               className="inline-flex h-9 items-center justify-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary transition-colors hover:bg-primary-pressed"
             >
               {t('homeStartReviewCta')}
-            </Link>
-          </div>
-        </MzCard>
-
-        <MzCard variant="default" className="lg:col-span-6" data-testid="home-recommended-card">
-          <div className="flex items-start gap-2.5">
-            <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
-            <div>
-              <h2 className="text-base font-semibold text-text-primary">
-                {latestDiagnostic?.recommendedFirstAction.title ?? t('homeRecommendedNextTitle')}
-              </h2>
-              <p className="mt-1 text-xs text-text-secondary">
-                {latestDiagnostic?.recommendedFirstAction.description ?? descriptor.formatHint}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 flex flex-wrap gap-2.5">
-            <Link
-              to="/practice/drills"
-              data-testid="home-drills-cta"
-              className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-compact)] bg-surface-alt border border-primary/40 px-3.5 text-xs font-semibold text-primary hover:bg-surface-hover"
-            >
-              <Zap className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>{t('homeQuickDrillsCta')}</span>
-            </Link>
-            <Link
-              to="/practice/full-mock"
-              data-testid="home-full-mock-cta"
-              className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3.5 text-xs font-semibold text-text-primary hover:bg-surface-hover"
-            >
-              <span>{t('homeQuickFullMockCta')}</span>
             </Link>
           </div>
         </MzCard>

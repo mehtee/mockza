@@ -64,7 +64,7 @@ export default tseslint.config(
           default: 'disallow',
           checkAllOrigins: true,
           policies: [
-            // Gateways: pure interfaces; only sibling gateways + @mockza/domain + @mockza/contracts.
+            // Gateways use pure shared contract types and sibling gateway modules.
             {
               from: { element: { type: 'gateways' } },
               allow: [
@@ -73,7 +73,7 @@ export default tseslint.config(
                   to: {
                     module: {
                       origin: 'external',
-                      source: ['@mockza/domain', '@mockza/contracts'],
+                      source: ['@mockza/domain', '@mockza/contracts', '@mockza/design-tokens'],
                     },
                   },
                 },

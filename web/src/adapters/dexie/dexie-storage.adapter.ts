@@ -1,3 +1,4 @@
+import { isResumableStandaloneDraft } from '@/gateways/storage.gateway';
 import {
   DEFAULT_EASE_FACTOR_MILLI,
   type ReviewQuality,
@@ -286,6 +287,21 @@ export class DexieStorageAdapter implements IOfflineAttemptStore, IVocabSrsStore
     void this.db.attemptDrafts.put(draft).catch(() => {
       // Ignore async put errors when browser is tearing down page.
     });
+  }
+
+  async getLatestResumableDraft(
+    examId: AttemptDraftRecord['examId'],
+  ): Promise<Result<AttemptDraftRecord | null, StorageError>> {
+    try {
+      const draft = await this.db.attemptDrafts
+        .orderBy('updatedAtMs')
+        .reverse()
+        .filter((entry) => isResumableStandaloneDraft(entry, examId))
+        .first();
+      return ok(draft ?? null);
+    } catch (cause) {
+      return err(toStorageError('Failed to find a resumable attempt', cause));
+    }
   }
 
   async getActiveDraft(

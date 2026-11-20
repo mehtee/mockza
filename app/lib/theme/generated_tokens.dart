@@ -480,11 +480,11 @@ abstract final class GeneratedTypographyTokens {
 
 /// Auto-generated built-in [MzThemePreset] catalog from `tokens.json`.
 abstract final class GeneratedPresetCatalog {
-  /// Default theme preset identifier (`midnight_indigo`).
-  static const String defaultPresetId = 'midnight_indigo';
+  /// Default theme preset identifier (`editorial_green`).
+  static const String defaultPresetId = 'editorial_green';
 
-  /// Default theme brightness mode (`dark`).
-  static const String defaultMode = 'dark';
+  /// Default theme brightness mode (`light`).
+  static const String defaultMode = 'light';
 
   /// Midnight Indigo preset (Calm obsidian navy & electric indigo contrast.)
   static const MzThemePreset midnightIndigo = MzThemePreset(
@@ -908,11 +908,148 @@ abstract final class GeneratedPresetCatalog {
     ),
   );
 
+  /// Editorial Green preset (Warm paper and forest green)
+  static const MzThemePreset editorialGreen = MzThemePreset(
+    id: 'editorial_green',
+    displayName: 'Editorial Green',
+    description: 'Warm paper and forest green',
+    previewPrimary: Color(0xFFA9C9A7),
+    previewAccent: Color(0xFFB1D1E0),
+    previewBackgroundDark: Color(0xFF17231C),
+    darkColors: AppColors(
+      background: Color(0xFF17231C),
+      bgRaised: Color(0xFF1D2A21),
+      surface: Color(0xFF202F25),
+      surfaceAlt: Color(0xFF283E2E),
+      surfaceHover: Color(0xFF344B38),
+      borderSubtle: Color(0xFF405546),
+      borderStrong: Color(0xFF829986),
+      textPrimary: Color(0xFFEDF2E6),
+      textSecondary: Color(0xFFBDCEBC),
+      textTertiary: Color(0xFFA7B9A6),
+      primary: Color(0xFFA9C9A7),
+      primaryPressed: Color(0xFFBEDBB9),
+      onPrimary: Color(0xFF172B20),
+      focus: Color(0xFFFFD497),
+      speakingAccent: Color(0xFFA9C9BA),
+      writingAccent: Color(0xFFE0BC9F),
+      readingAccent: Color(0xFFACD3AD),
+      listeningAccent: Color(0xFFB1D1E0),
+      vocabAccent: Color(0xFFDBB885),
+      success: Color(0xFFA9D3AB),
+      warning: Color(0xFFE6CB9F),
+      error: Color(0xFFFFB6A7),
+      track: Color(0xFF566D59),
+      mintBg: Color(0xFF344B38),
+      amberBg: Color(0xFF41392A),
+      dangerBg: Color(0xFF4C2F2A),
+      blueBg: Color(0xFF283E47),
+      violetBg: Color(0xFF43382F),
+    ),
+    lightColors: AppColors(
+      background: Color(0xFFF8F6EF),
+      bgRaised: Color(0xFFF0EEE4),
+      surface: Color(0xFFFFFDF7),
+      surfaceAlt: Color(0xFFEDF0E4),
+      surfaceHover: Color(0xFFE2E8D8),
+      borderSubtle: Color(0xFFD9DCD0),
+      borderStrong: Color(0xFF788674),
+      textPrimary: Color(0xFF22372D),
+      textSecondary: Color(0xFF56665A),
+      textTertiary: Color(0xFF5D695E),
+      primary: Color(0xFF264E3B),
+      primaryPressed: Color(0xFF1B3D2D),
+      onPrimary: Color(0xFFFFFEFA),
+      focus: Color(0xFF745A30),
+      speakingAccent: Color(0xFF326256),
+      writingAccent: Color(0xFF6C4D38),
+      readingAccent: Color(0xFF28614A),
+      listeningAccent: Color(0xFF376075),
+      vocabAccent: Color(0xFF745A30),
+      success: Color(0xFF25603E),
+      warning: Color(0xFF795831),
+      error: Color(0xFF983D37),
+      track: Color(0xFFD4DDCC),
+      mintBg: Color(0xFFE2E8D8),
+      amberBg: Color(0xFFF3ECDB),
+      dangerBg: Color(0xFFF6E9E4),
+      blueBg: Color(0xFFE4EDF1),
+      violetBg: Color(0xFFECE7E1),
+    ),
+    darkGradients: AppGradients(
+      primaryButton: LinearGradient(
+        begin: Alignment(-0.8, -0.6),
+        end: Alignment(0.8, 0.6),
+        colors: <Color>[
+          Color(0xFFA9C9A7),
+          Color(0xFFA9C9A7),
+        ],
+      ),
+      scoreFill: LinearGradient(
+        colors: <Color>[
+          Color(0xFFA9C9A7),
+          Color(0xFFA9D3AB),
+        ],
+      ),
+      heroCard: LinearGradient(
+        begin: Alignment(-0.8, -0.6),
+        end: Alignment(0.8, 0.6),
+        stops: <double>[0, 0.63, 1],
+        colors: <Color>[
+          Color(0xFF283E2E),
+          Color(0xFF202F25),
+          Color(0xFF202F25),
+        ],
+      ),
+      recommendationCard: LinearGradient(
+        begin: Alignment(-0.7, -0.7),
+        end: Alignment(0.7, 0.7),
+        colors: <Color>[
+          Color(0xFF283E2E),
+          Color(0xFF202F25),
+        ],
+      ),
+    ),
+    lightGradients: AppGradients(
+      primaryButton: LinearGradient(
+        begin: Alignment(-0.8, -0.6),
+        end: Alignment(0.8, 0.6),
+        colors: <Color>[
+          Color(0xFF264E3B),
+          Color(0xFF264E3B),
+        ],
+      ),
+      scoreFill: LinearGradient(
+        colors: <Color>[
+          Color(0xFF264E3B),
+          Color(0xFF25603E),
+        ],
+      ),
+      heroCard: LinearGradient(
+        begin: Alignment(-0.8, -0.6),
+        end: Alignment(0.8, 0.6),
+        colors: <Color>[
+          Color(0xFFEDF0E4),
+          Color(0xFFFFFDF7),
+        ],
+      ),
+      recommendationCard: LinearGradient(
+        begin: Alignment(-0.7, -0.7),
+        end: Alignment(0.7, 0.7),
+        colors: <Color>[
+          Color(0xFFEDF0E4),
+          Color(0xFFFFFDF7),
+        ],
+      ),
+    ),
+  );
+
   /// All built-in presets in canonical catalog order.
   static const List<MzThemePreset> builtInPresets = <MzThemePreset>[
     midnightIndigo,
     nordicEmerald,
     editorialAmber,
     oceanicCobalt,
+    editorialGreen,
   ];
 }

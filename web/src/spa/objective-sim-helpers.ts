@@ -19,6 +19,8 @@ export function generateUuid(): string {
 }
 
 export interface StoredObjectiveSubmission {
+  readonly reviewQuestions?: ExamBundlePayload['questions'];
+  readonly packTitle?: string;
   readonly answersByQuestionId: Readonly<Record<string, string>>;
   readonly questionCorrectness: Readonly<Record<string, boolean>>;
   readonly flaggedQuestionIds?: readonly string[];
@@ -34,6 +36,7 @@ export function resolveObjectiveEvidenceSpan(
 ): PassageEvidenceSpan | null {
   if (!evidence || sectionText.length === 0) return null;
 
+  const exactQuote = evidence['exactQuote'];
   const rawStart = evidence['startOffset'];
   const rawEnd = evidence['endOffset'];
   if (
@@ -41,8 +44,9 @@ export function resolveObjectiveEvidenceSpan(
     typeof rawEnd === 'number' &&
     Number.isInteger(rawStart) &&
     Number.isInteger(rawEnd) &&
-    rawEnd > rawStart &&
-    rawEnd <= sectionText.length
+    rawStart >= 0 && rawEnd > rawStart &&
+    rawEnd <= sectionText.length &&
+    (typeof exactQuote !== 'string' || sectionText.slice(rawStart, rawEnd) === exactQuote)
   ) {
     return {
       startOffset: rawStart,
@@ -51,10 +55,9 @@ export function resolveObjectiveEvidenceSpan(
     };
   }
 
-  const exactQuote = evidence['exactQuote'];
   if (typeof exactQuote === 'string' && exactQuote.trim().length > 0) {
     const foundIndex = sectionText.indexOf(exactQuote);
-    if (foundIndex >= 0) {
+    if (foundIndex >= 0 && sectionText.indexOf(exactQuote, foundIndex + 1) === -1) {
       return {
         startOffset: foundIndex,
         endOffset: foundIndex + exactQuote.length,
@@ -106,6 +109,17 @@ export function buildScoredObjectiveAttempt(params: {
   });
 
   const submissionPayload: StoredObjectiveSubmission = {
+    reviewQuestions: params.bundle.questions.map(question => ({
+      questionId: question.questionId,
+      questionNumber: question.questionNumber,
+      sectionId: question.sectionId,
+      questionType: question.questionType,
+      prompt: question.prompt,
+      acceptedAnswers: question.acceptedAnswers,
+      evidence: question.evidence,
+      cueTimestampMs: question.cueTimestampMs,
+    })),
+    packTitle: params.bundle.pack.title,
     answersByQuestionId: params.answersByQuestionId,
     questionCorrectness: scoreReport.questionCorrectness,
     ...(params.flaggedQuestionIds && params.flaggedQuestionIds.length > 0

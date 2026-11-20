@@ -89,7 +89,10 @@ export function useObjectiveSimulatorSession({
       if (profileRes.ok && profileRes.value?.examId) {
         setProfileExamId(profileRes.value.examId);
       }
-      if (draftRes.ok && draftRes.value) {
+      if (draftRes.ok && draftRes.value &&
+          (draftRes.value.mockSessionId ?? null) === mockSessionId &&
+          (draftRes.value.mockStageKey ?? null) === mockStageKey) {
+        setExamMode(draftRes.value.usedStudyMode ? 'study' : 'exam');
         attemptIdRef.current = draftRes.value.attemptId;
         resetClock(draftRes.value.timerRemainingSec ?? durationSec, durationSec);
         const restoredAnswers: Record<string, string> = {};
@@ -111,7 +114,7 @@ export function useObjectiveSimulatorSession({
     return () => {
       mounted = false;
     };
-  }, [deps.attemptStore, deps.catalog, packId, resetClock, skill]);
+  }, [deps.attemptStore, deps.catalog, mockSessionId, mockStageKey, packId, resetClock, skill]);
 
   useEffect(() => {
     if (!bundle) return;
@@ -260,8 +263,12 @@ export function useObjectiveSimulatorSession({
       mockStageKey,
     });
 
-    await deps.attemptStore.completeObjectiveAttempt(record);
-    await deps.attemptStore.deleteDraft(record.attemptId);
+    const completion = await deps.attemptStore.completeObjectiveAttempt(record);
+    if (!completion.ok) {
+      setIsSubmitting(false);
+      setErrorMsg(completion.error.message);
+      return;
+    }
     await deps.attemptStore.incrementDailyStudyLog({
       serialDay: deps.clock.todaySerialDay(),
       addSeconds: record.durationSeconds,

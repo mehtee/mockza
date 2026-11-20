@@ -1,3 +1,4 @@
+import type { ThemePresetId } from '@mockza/design-tokens';
 import type {
   CatalogTrackSchema,
   EvaluationOutputSchema,
@@ -30,11 +31,7 @@ export type MicroDrillItemDto = (typeof MicroDrillItemSchema)['_output'];
 export type MicroDrillDto = (typeof MicroDrillSchema)['_output'];
 
 export type AppearanceThemeMode = 'dark' | 'light' | 'system';
-export type AppearancePresetId =
-  | 'midnight_indigo'
-  | 'nordic_emerald'
-  | 'editorial_amber'
-  | 'oceanic_cobalt';
+export type AppearancePresetId = ThemePresetId;
 
 export interface UserProfileRecord {
   readonly deviceId: string;
@@ -124,6 +121,24 @@ export interface AttemptDraftRecord {
   readonly mockSessionId: string | null;
   readonly mockStageKey: string | null;
   readonly updatedAtMs: number;
+}
+
+export function isResumableStandaloneDraft(
+  draft: AttemptDraftRecord,
+  examId: SupportedExamId,
+): boolean {
+  return (
+    draft.examId === examId &&
+    draft.mockSessionId == null &&
+    (draft.skill === 'reading' || draft.skill === 'writing' ||
+      (draft.skill === 'listening' && draft.usedStudyMode)) &&
+    (draft.usedStudyMode || draft.timerRemainingSec > 0) &&
+    (draft.draftText.trim() !== '' ||
+      Object.values(draft.answersJson).some(
+        (answer) => typeof answer === 'string' && answer.trim() !== '',
+      ) ||
+      draft.flaggedQuestionIds.length > 0)
+  );
 }
 
 export type AttemptStatus =
@@ -341,6 +356,9 @@ export interface IOfflineAttemptStore {
   getActiveDraft(
     packId: string,
     skill: SkillKind,
+  ): Promise<Result<AttemptDraftRecord | null, StorageError>>;
+  getLatestResumableDraft(
+    examId: SupportedExamId,
   ): Promise<Result<AttemptDraftRecord | null, StorageError>>;
   deleteDraft(attemptId: string): Promise<Result<void, StorageError>>;
   completeObjectiveAttempt(record: CompletedAttemptRecord): Promise<Result<void, StorageError>>;

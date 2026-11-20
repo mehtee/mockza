@@ -623,10 +623,11 @@ function AppRootLayout() {
   return (
     <div
       dir={dir}
+      data-study-app
       className={
         isActiveSimulator
           ? 'flex h-dvh w-screen overflow-hidden bg-canvas text-text-primary'
-          : 'flex min-h-dvh bg-canvas text-text-primary'
+          : 'flex min-h-dvh flex-col bg-canvas text-text-primary'
       }
     >
       {isActiveSimulator ? (
@@ -648,17 +649,17 @@ function AppRootLayout() {
 
           <aside
             aria-label={t('navAriaLabel')}
-            className={`fixed inset-y-0 start-0 z-40 flex shrink-0 flex-col border-e border-border-subtle bg-bg-raised p-4 transition-all lg:static ${
+            className={`fixed inset-y-0 start-0 z-40 w-64 shrink-0 flex-col gap-4 overflow-y-auto border-e border-border-subtle bg-surface p-4 lg:static lg:w-full lg:flex-row lg:items-center lg:justify-between lg:overflow-visible lg:border-e-0 lg:border-b lg:px-6 lg:py-3 ${
               mobileMenuOpen ? 'flex' : 'hidden lg:flex'
-            } ${sidebarCollapsed ? 'w-16 items-center px-2' : 'w-60'}`}
+            }`}
           >
-            <div className="flex w-full items-center justify-between gap-2 border-b border-border-subtle pb-3">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border-subtle pb-3 lg:border-b-0 lg:pb-0">
               {sidebarCollapsed ? (
-                <a href="/" className="mx-auto text-sm font-bold text-primary" title={t('appTitle')}>
+                <a href="/" className="font-editorial text-2xl font-semibold text-primary" title={t('appTitle')}>
                   {t('brandShort')}
                 </a>
               ) : (
-                <a href="/" className="text-sm font-bold text-text-primary">
+                <a href="/" className="font-editorial text-2xl font-semibold text-text-primary">
                   {t('appTitle')}
                 </a>
               )}
@@ -692,7 +693,7 @@ function AppRootLayout() {
               </button>
             </div>
 
-            <nav className="mt-4 flex w-full flex-col gap-1 text-sm text-start">
+            <nav className="flex flex-col gap-1 text-start text-sm lg:flex-row lg:flex-wrap lg:justify-end">
               {navItems.map(({ to, label, Icon, testId }) => (
                 <Link
                   key={to}
@@ -701,12 +702,12 @@ function AppRootLayout() {
                   data-testid={testId}
                   onMouseEnter={() => void preloadRouteForPathname(to)}
                   onFocus={() => void preloadRouteForPathname(to)}
-                  className={`flex items-center gap-2.5 rounded-[var(--mz-radius-compact)] px-3 py-2 text-text-secondary hover:bg-surface-hover hover:text-text-primary ${
-                    sidebarCollapsed ? 'justify-center px-2' : ''
+                  className={`flex min-h-10 items-center gap-2 rounded-[var(--mz-radius-compact)] px-3 py-2 font-medium text-text-secondary hover:bg-surface-hover hover:text-text-primary data-[status=active]:bg-surface-alt data-[status=active]:text-primary ${
+                    sidebarCollapsed ? 'lg:justify-center lg:px-2.5' : ''
                   }`}
                 >
                   <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  {!sidebarCollapsed ? <span>{label}</span> : null}
+                  <span className={sidebarCollapsed ? 'lg:sr-only' : undefined}>{label}</span>
                 </Link>
               ))}
               <Link
@@ -715,12 +716,12 @@ function AppRootLayout() {
                 data-testid="nav-auth-link"
                 onMouseEnter={() => void preloadRouteForPathname('/auth/login')}
                 onFocus={() => void preloadRouteForPathname('/auth/login')}
-                className={`mt-2 flex items-center gap-2.5 rounded-[var(--mz-radius-compact)] border border-border-subtle px-3 py-2 text-text-secondary hover:bg-surface-hover hover:text-text-primary ${
-                  sidebarCollapsed ? 'justify-center px-2' : ''
+                className={`mt-2 flex min-h-10 items-center gap-2 rounded-[var(--mz-radius-compact)] border border-border-strong px-3 py-2 font-semibold text-primary hover:bg-surface-hover lg:mt-0 lg:ms-2 ${
+                  sidebarCollapsed ? 'lg:justify-center lg:px-2.5' : ''
                 }`}
               >
                 <LogIn className="h-4 w-4 shrink-0" aria-hidden="true" />
-                {!sidebarCollapsed ? <span>{t('authSignInAction')}</span> : null}
+                <span className={sidebarCollapsed ? 'lg:sr-only' : undefined}>{t('authSignInAction')}</span>
               </Link>
             </nav>
           </aside>
@@ -775,7 +776,7 @@ function AppRootLayout() {
                 data-testid="topbar-sync-status"
                 className={`inline-flex items-center gap-1.5 rounded-[var(--mz-radius-pill)] border px-2.5 py-1 text-xs font-medium ${
                   !isOnline
-                    ? 'border-amber-500/40 bg-amber-500/10 text-amber-400'
+                    ? 'border-warning/40 bg-amber-bg text-warning'
                     : pendingOutboxCount > 0
                       ? 'border-primary/40 bg-primary/10 text-primary'
                       : 'border-border-subtle bg-surface text-text-secondary'
@@ -824,7 +825,7 @@ function AppRootLayout() {
           className={
             isActiveSimulator
               ? 'h-full w-full flex-1 overflow-hidden'
-              : 'mx-auto w-full max-w-[1440px] flex-1 p-6'
+              : 'mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 sm:px-6'
           }
         >
           <Suspense
@@ -1008,10 +1009,25 @@ const homeRoute = createRoute({
 const practiceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/practice',
-  validateSearch: parseTrackSearchParam,
+  validateSearch: (search: Record<string, unknown>): {
+    track?: SupportedExamId;
+    skill?: 'reading' | 'listening';
+  } => {
+    const skill = search['skill'];
+    return {
+      ...parseTrackSearchParam(search),
+      ...(skill === 'reading' || skill === 'listening' ? { skill } : {}),
+    };
+  },
   component: () => {
-    const search = practiceRoute.useSearch();
-    return <PracticeCatalogScreen initialTrack={search.track} />;
+    const { track, skill } = practiceRoute.useSearch();
+    return (
+      <PracticeCatalogScreen
+        key={`${track ?? ''}:${skill ?? ''}`}
+        initialTrack={track}
+        initialSkill={skill}
+      />
+    );
   },
 });
 
@@ -1060,9 +1076,11 @@ const microDrillsRoute = createRoute({
 const microDrillByIdRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/practice/drills/$drillId',
+  validateSearch: parseTrackSearchParam,
   component: () => {
     const { drillId } = microDrillByIdRoute.useParams();
-    return <MicroDrillsScreen initialDrillId={drillId} />;
+    const { track } = microDrillByIdRoute.useSearch();
+    return <MicroDrillsScreen key={`${drillId}:${track ?? ''}`} initialDrillId={drillId} initialTrack={track} />;
   },
 });
 
@@ -1104,7 +1122,7 @@ const objectiveResultRoute = createRoute({
   path: '/practice/objective-result/$attemptId',
   component: () => {
     const { attemptId } = objectiveResultRoute.useParams();
-    return <ObjectiveResultScreen attemptId={attemptId} />;
+    return <ObjectiveResultScreen key={attemptId} attemptId={attemptId} />;
   },
 });
 

@@ -10,6 +10,51 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get homeResumeAttempt => 'Resume attempt';
+
+  @override
+  String get homeResumeDescription => 'Your saved work is ready to pick up.';
+
+  @override
+  String get homeCheckLevel => 'Check my level';
+
+  @override
+  String get homeLevelCheckDescription =>
+      'Find what to practise next with a short assessment.';
+
+  @override
+  String get homePractiseSkill => 'Practise a skill';
+
+  @override
+  String get homeStudyRoom => 'Your study room';
+
+  @override
+  String get homeStudyRoomDescription =>
+      'Pick up where you left off or choose your next practice.';
+
+  @override
+  String get studyStart => 'Start';
+
+  @override
+  String get objectiveAudioReplay => 'Replay audio cue';
+
+  @override
+  String get objectiveAudioPause => 'Pause';
+
+  @override
+  String get objectiveAudioLoading => 'Loading the original audio';
+
+  @override
+  String get objectiveAudioUnavailable =>
+      'The original audio is unavailable. Your answers and score are saved.';
+
+  @override
+  String get objectiveReviewMissed => 'Review the first missed answer';
+
+  @override
+  String get objectiveNextDrill => 'Try a follow-up drill';
+
+  @override
   String get appTitle => 'Mockza';
 
   @override

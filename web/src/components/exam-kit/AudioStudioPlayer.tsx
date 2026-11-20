@@ -25,7 +25,11 @@ export interface AudioStudioPlayerProps {
   readonly source: AudioSourceSpec;
   readonly playbackMode: AudioPlaybackMode;
   readonly transcriptSegments?: readonly TranscriptSegmentItem[];
-  readonly externalSeekRequest?: { readonly sec: number; readonly seq: number } | null;
+  readonly externalSeekRequest?: {
+    readonly sec: number;
+    readonly seq: number;
+    readonly replayEndSec?: number;
+  } | null;
   readonly onEnded?: () => void;
   readonly onPlaybackStateChange?: (state: AudioPlaybackState) => void;
 }
@@ -45,6 +49,8 @@ export function AudioStudioPlayer({
   const t = createTranslator(edition);
 
   const handleRef = useRef<AudioTrackHandle | null>(null);
+  const appliedRequest = useRef<{ handle: AudioTrackHandle; seq: number; sec: number } | null>(null);
+  const replayEnd = useRef<number | null>(null);
   const [handleReady, setHandleReady] = useState(false);
   const onEndedRef = useRef(onEnded);
   const onPlaybackStateChangeRef = useRef(onPlaybackStateChange);
@@ -96,6 +102,13 @@ export function AudioStudioPlayer({
       unsubscribe = handle.subscribe((nextState) => {
         if (!mounted) return;
         setPlayback(nextState);
+        if (
+          replayEnd.current !== null &&
+          (nextState.currentTimeSec >= replayEnd.current || nextState.status === 'ended')
+        ) {
+          replayEnd.current = null;
+          if (nextState.status === 'playing') handle.pause();
+        }
         onPlaybackStateChangeRef.current?.(nextState);
         if (nextState.status === 'ended') {
           onEndedRef.current?.();
@@ -106,6 +119,8 @@ export function AudioStudioPlayer({
     return () => {
       mounted = false;
       unsubscribe?.();
+      replayEnd.current = null;
+      appliedRequest.current = null;
       handleRef.current?.dispose();
       handleRef.current = null;
       setHandleReady(false);
@@ -121,6 +136,7 @@ export function AudioStudioPlayer({
     if (!handle) return;
     if (isPlaying) {
       if (isExamLocked) return;
+      replayEnd.current = null;
       handle.pause();
     } else {
       if (isEndedLocked) return;
@@ -134,6 +150,7 @@ export function AudioStudioPlayer({
   const handleSeek = useCallback(
     (seconds: number) => {
       if (isExamLocked || !handleRef.current) return;
+      replayEnd.current = null;
       const clamped = Math.max(0, Math.min(playback.durationSec || seconds, seconds));
       const res = handleRef.current.seek(clamped);
       if (!res.ok) {
@@ -144,9 +161,29 @@ export function AudioStudioPlayer({
   );
 
   useEffect(() => {
-    if (!externalSeekRequest || isExamLocked || !handleRef.current) return;
-    handleSeek(externalSeekRequest.sec);
-  }, [externalSeekRequest, handleSeek, isExamLocked]);
+    const handle = handleRef.current;
+    if (!externalSeekRequest || isExamLocked || !handleReady || !handle) return;
+    const { sec, seq, replayEndSec } = externalSeekRequest;
+    const previous = appliedRequest.current;
+    if (previous?.handle === handle && previous.seq === seq && previous.sec === sec) return;
+    if (playback.status === 'loading') return;
+    appliedRequest.current = { handle, seq, sec };
+
+    replayEnd.current = null;
+    const position = Math.max(0, Math.min(playback.durationSec || sec, sec));
+    const seek = handle.seek(position);
+    if (!seek.ok) {
+      setErrorMessage(seek.error.message);
+      return;
+    }
+    if (replayEndSec === undefined || replayEndSec <= position) return;
+    replayEnd.current = replayEndSec;
+    void handle.play().then((result) => {
+      if (!result.ok && handleRef.current === handle) {
+        setErrorMessage(result.error.message);
+      }
+    });
+  }, [externalSeekRequest, handleReady, isExamLocked, playback.durationSec, playback.status]);
 
   const handleCycleSpeed = useCallback(() => {
     if (isExamLocked || !handleRef.current) return;

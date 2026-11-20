@@ -12,7 +12,7 @@ final class ShellAndHomeRobot {
 
   /// Verifies Home dashboard is visible.
   void expectHomeVisible() {
-    expect(find.text('Keep improving.'), findsOneWidget);
+    expect(find.text('Your study room'), findsOneWidget);
   }
 
   /// Opens one of the 4 bottom tabs: `'Home'`, `'Practice'`, `'Vocabulary'`, `'Progress'`.

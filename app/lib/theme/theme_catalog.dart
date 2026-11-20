@@ -5,7 +5,7 @@ import 'package:mockza/theme/theme_preset.dart';
 /// Registering or modifying a palette here automatically propagates across
 /// all screens via `Theme.of(context)` extensions without touching widgets.
 abstract final class MzThemeCatalog {
-  /// Canonical default preset (`Midnight Indigo`).
+  /// Midnight Indigo preset.
   static const MzThemePreset midnightIndigo =
       GeneratedPresetCatalog.midnightIndigo;
 
@@ -20,6 +20,10 @@ abstract final class MzThemeCatalog {
   /// Oceanic Cobalt preset (`Marine Slate` / `Ice Mist`).
   static const MzThemePreset oceanicCobalt =
       GeneratedPresetCatalog.oceanicCobalt;
+
+  /// Default palette used by a new installation.
+  static const MzThemePreset editorialGreen =
+      GeneratedPresetCatalog.editorialGreen;
 
   /// Built-in presets in display order.
   static const List<MzThemePreset> builtInPresets =
@@ -40,11 +44,13 @@ abstract final class MzThemeCatalog {
       ..add(preset);
   }
 
-  /// Resolves a preset by [id], falling back to [midnightIndigo].
+  /// Resolves a preset by [id], falling back to the generated default.
   static MzThemePreset resolvePreset(String id) {
     for (final preset in allPresets) {
       if (preset.id == id) return preset;
     }
-    return midnightIndigo;
+    return builtInPresets.firstWhere(
+      (preset) => preset.id == GeneratedPresetCatalog.defaultPresetId,
+    );
   }
 }

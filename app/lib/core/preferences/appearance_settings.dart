@@ -1,4 +1,5 @@
 import 'package:meta/meta.dart';
+import 'package:mockza/core/preferences/generated_appearance_defaults.dart';
 
 /// Immutable user visual theme & palette preset preferences (`lib/core/`).
 @immutable
@@ -9,11 +10,11 @@ class AppearanceSettings {
     this.presetId = defaultPresetId,
   });
 
-  /// Canonical dark primary mode per `docs/design.md`.
-  static const String defaultThemeModeKey = 'dark';
+  /// Default brightness for installations without a saved choice.
+  static const String defaultThemeModeKey = GeneratedAppearanceDefaults.mode;
 
-  /// Default palette preset identifier (`midnight_indigo`).
-  static const String defaultPresetId = 'midnight_indigo';
+  /// Default palette for installations without a saved choice.
+  static const String defaultPresetId = GeneratedAppearanceDefaults.presetId;
 
   /// Visual brightness preference (`dark`, `light`, or `system`).
   final String themeModeKey;

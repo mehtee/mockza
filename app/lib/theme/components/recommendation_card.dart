@@ -51,43 +51,39 @@ class RecommendationCard extends StatelessWidget {
     return MzCard(
       variant: MzCardVariant.action,
       onTap: onTapCard,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          IconWell(
-            glyph: glyph,
-            tint: tint,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              IconWell(glyph: glyph, tint: tint),
+              const SizedBox(width: SpacingTokens.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(title, style: typography.cardTitle),
+                    const SizedBox(height: SpacingTokens.xs),
+                    Text(
+                      subtitle,
+                      style: typography.secondary.copyWith(
+                        color: colors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: SpacingTokens.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(
-                  title,
-                  style: typography.cardTitle.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: SpacingTokens.xs),
-                Text(
-                  subtitle,
-                  style: typography.secondary.copyWith(
-                    color: colors.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+          const SizedBox(height: SpacingTokens.md),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: PrimaryButton(
+              label: ctaLabel,
+              isFullWidth: false,
+              onPressed: onTapStart,
             ),
-          ),
-          const SizedBox(width: SpacingTokens.md),
-          PrimaryButton(
-            label: ctaLabel,
-            isFullWidth: false,
-            onPressed: onTapStart,
           ),
         ],
       ),

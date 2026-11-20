@@ -57,18 +57,58 @@ test.describe('Sanjia IRN Edition + Static SEO & GEO Emitters E2E (Web-E2E 8)', 
     await expect(page.getByTestId('paywall-screen')).toBeVisible();
   });
 
-  test('Web-E2E 8B: Public 0 KB JS SEO Pages, Interactive Score Calculators Island & GEO Markdown/SVG/Sitemap Emitters', async ({
+  test('Web-E2E 8B: Landing demos, static exam guides, calculators and GEO endpoints', async ({
+    browser,
     page,
     request,
   }) => {
     const glbBase = 'http://127.0.0.1:45380';
     const irnBase = 'http://127.0.0.1:45381';
 
-    // 0 KB JS on public landing and exam pillar page (GLB)
+    // The landing uses one small external controller. Exam guides remain static.
     await page.goto(`${glbBase}/`);
     await expect(page.locator('main')).toBeVisible();
     const homeScriptCount = await page.locator('script[src*="/_astro/"]').count();
-    expect(homeScriptCount).toBe(0);
+    expect(homeScriptCount).toBe(1);
+    await expect(page.locator('astro-island')).toHaveCount(0);
+    await page.locator('#evaluation-panel-writing [data-demo-revise]').click();
+    await expect(page.locator('#evaluation-panel-writing [data-demo-revise]')).toHaveAttribute('aria-pressed', 'true');
+    await page.locator('#evaluation-tab-speaking').click();
+    await expect(page.locator('#evaluation-panel-speaking')).toBeVisible();
+
+    await page.locator('#report-tab-reading').click();
+    const reading = page.locator('#report-panel-reading');
+    await reading.locator('[data-report-toggle="drill"]').click();
+    await reading.locator('[data-report-part="answer"] [data-correct-choice] input').check();
+    await reading.locator('[data-report-part="evidence"] label:not([data-correct-choice]) input').first().check();
+    await reading.locator('button[type="submit"]').click();
+    await expect(reading.locator('[data-drill-count="answer"]')).toHaveText('1 / 1');
+    await expect(reading.locator('[data-drill-count="evidence"]')).toHaveText('0 / 1');
+
+    await page.locator('#report-tab-listening').click();
+    const listening = page.locator('#report-panel-listening');
+    await listening.locator('[data-report-toggle="drill"]').click();
+    await listening.locator('[data-correct-choice] input').check();
+    await listening.locator('button[type="submit"]').click();
+    await expect(listening.locator('[data-drill-count="answer"]')).toHaveText('1 / 1');
+    await expect(listening.locator('.report-drill-transcript')).toHaveAttribute('open', '');
+
+    const staticContext = await browser.newContext({
+      javaScriptEnabled: false,
+      viewport: { width: 390, height: 844 },
+    });
+    try {
+      const staticPage = await staticContext.newPage();
+      await staticPage.goto(`${irnBase}/`);
+      await expect(staticPage.locator('html')).toHaveAttribute('lang', 'fa');
+      await expect(staticPage.locator('html')).toHaveAttribute('dir', 'rtl');
+      await expect(staticPage.locator('#report-panel-reading')).toBeVisible();
+      await expect(staticPage.locator('#report-panel-listening [data-report-review] audio')).toBeVisible();
+      await expect(staticPage.locator('#evaluation-panel-writing')).toBeVisible();
+      await expect(staticPage.locator('#evaluation-panel-speaking')).toBeVisible();
+    } finally {
+      await staticContext.close();
+    }
 
     await page.goto(`${glbBase}/toefl-ibt`);
     await expect(page.locator('main')).toBeVisible();

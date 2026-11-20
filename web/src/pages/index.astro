@@ -1,263 +1,49 @@
 ---
-import { estimateToeflLegacy120, readingBandFor } from '@mockza/domain';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { getActiveEditionConfig } from '@/edition/edition-config';
-import { getExamPillarsForBuild, getPublicSiteCopyForBuild } from '@/seo/public-catalog';
+import { landingFaqEntries, renderLanding } from '@/landing/markup.mjs';
+import interactions from '@/landing/interactions.js?url&no-inline';
+import '@/landing/landing.css';
 
-const editionConfig = getActiveEditionConfig();
-const isIrn = editionConfig.edition === 'irn';
-const copy = getPublicSiteCopyForBuild();
-const pillars = getExamPillarsForBuild();
-
-const previewRows = [
-  { raw: 39, ieltsAcad: readingBandFor(39, 'academic').toFixed(1), toefl2026: '6.0', toefl120: estimateToeflLegacy120(6.0), cefr: 'C2' },
-  { raw: 35, ieltsAcad: readingBandFor(35, 'academic').toFixed(1), toefl2026: '5.5', toefl120: estimateToeflLegacy120(5.5), cefr: 'C1+' },
-  { raw: 30, ieltsAcad: readingBandFor(30, 'academic').toFixed(1), toefl2026: '5.0', toefl120: estimateToeflLegacy120(5.0), cefr: 'C1' },
-  { raw: 23, ieltsAcad: readingBandFor(23, 'academic').toFixed(1), toefl2026: '4.0', toefl120: estimateToeflLegacy120(4.0), cefr: 'B2' },
+const edition = getActiveEditionConfig();
+const irn = edition.edition === 'irn';
+const title = irn ? 'تمرین آزمون زبان و بازخورد مهارت‌ها' : 'English exam practice and feedback';
+const description = irn
+  ? 'بازخورد نمونهٔ چهار مهارت را ببین، تعیین سطح انجام بده و برای آزمون زبان تمرین کن.'
+  : 'Explore worked Reading, Listening, Writing and Speaking feedback, check your level, and practise the formats on your English exam.';
+const faqs = landingFaqEntries(irn);
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: edition.brandName,
+    applicationCategory: 'EducationalApplication',
+    operatingSystem: 'Web',
+    url: `https://${edition.domain}/`,
+    description,
+    inLanguage: irn ? 'fa-IR' : 'en',
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((item) => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: { '@type': 'Answer', text: item.a },
+    })),
+  },
 ];
-
-const landingFaqs = isIrn
-  ? [
-      {
-        q: 'تفاوت حالت آزمون واقعی (Exam Mode) و حالت تمرین (Study Mode) چیست؟',
-        a: 'در Exam Mode پخش صوت فقط یک بار مجاز است و غلط‌یاب املایی مرورگر قفل می‌شود؛ در Study Mode سرعت پخش ۰.۷۵ تا ۱.۵ و متن همگام صوت فعال است.',
-      },
-      {
-        q: 'آیا سنجیا بدون فیلترشکن کار می‌کند و پرداخت ریالی دارد؟',
-        a: 'بله، تمام زیرساخت سنجیا با پشتیبانی از درگاه ریالی زرین‌پال، پیامک تایید موبایل و تقویم شمسی بدون نیاز به تغییر IP کار می‌کند.',
-      },
-      {
-        q: 'آیا نمره شبیه‌ساز را می‌توان به ناویا (Navia) ارسال کرد؟',
-        a: 'بله، در صفحات پیشرفت و نتایج می‌توانید وضعیت آمادگی و نمره تاییدشده خود را مستقیم برای پذیرش تحصیلی در ناویا استفاده کنید.',
-      },
-    ]
-  : [
-      {
-        q: 'What makes the desktop split-pane studio different from mobile flashcard apps?',
-        a: 'You read full passages beside questions with UTF-16 highlighting, draft essays with 500ms IndexedDB crash recovery, and audit every score criterion with quoted verbatim excerpts.',
-      },
-      {
-        q: 'Can I train offline on flights or unstable Wi-Fi?',
-        a: 'Yes. Exam bundles and studio audio cache into SHA-256 verified OPFS storage with IndexedDB outbox queuing so responses automatically sync once reconnected.',
-      },
-      {
-        q: 'Are TOEFL iBT 2026, IELTS General, PTE Academic & DET scales exact?',
-        a: 'Yes. Each track runs deterministic scoring tables (IELTS Academic vs GT reading curves, TOEFL 1–6 to 0–120 bridge, PTE 10–90, and DET 4 integrated subscores).',
-      },
-    ];
-
-const appJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'SoftwareApplication',
-  name: copy.brandTitle,
-  applicationCategory: 'EducationalApplication',
-  operatingSystem: 'Web, Desktop Browser',
-  url: `https://${editionConfig.domain}/`,
-  description: copy.heroSubtitle,
-  inLanguage: isIrn ? 'fa-IR' : 'en-US',
-};
-
-const faqJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'FAQPage',
-  mainEntity: landingFaqs.map((item) => ({
-    '@type': 'Question',
-    name: item.q,
-    acceptedAnswer: { '@type': 'Answer', text: item.a },
-  })),
-};
-
-const breadcrumbJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
-  itemListElement: [
-    { '@type': 'ListItem', position: 1, name: copy.brandTitle, item: `https://${editionConfig.domain}/` },
-  ],
-};
 ---
 
 <BaseLayout
-  title={`${copy.brandTitle} | ${copy.heroHeadline}`}
-  description={copy.heroSubtitle}
+  title={`${edition.brandName} | ${title}`}
+  description={description}
   canonicalPath="/"
   markdownTwinPath="/index.md"
-  jsonLd={[appJsonLd, faqJsonLd, breadcrumbJsonLd]}
+  jsonLd={jsonLd}
   showPublicNav
+  sampleNavigation
 >
-  <main class="mx-auto flex max-w-6xl flex-col gap-10 px-6 py-12 text-start">
-    <section class="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-8 sm:p-10">
-      <p class="text-xs font-bold uppercase tracking-wider text-primary">
-        {copy.brandTitle} · {isIrn ? 'نسخه فارسی (IRN)' : 'Global Edition (GLB)'}
-      </p>
-      <h1 class="mt-2 text-3xl font-bold tracking-tight text-text-primary sm:text-4xl">
-        {copy.heroHeadline}
-      </h1>
-      <p class="mt-4 max-w-3xl text-base leading-relaxed text-text-secondary">
-        {copy.heroSubtitle}
-      </p>
-
-      <div class="mt-7 flex flex-wrap items-center gap-3">
-        <a
-          href="/app/diagnostic/intro"
-          data-testid="landing-cta-diagnostic"
-          class="inline-flex h-11 items-center justify-center rounded-[var(--mz-radius-control)] bg-primary px-6 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-pressed"
-        >
-          {copy.ctaDiagnostic}
-        </a>
-        <a
-          href="/app/practice"
-          data-testid="landing-cta-catalog"
-          class="inline-flex h-11 items-center justify-center rounded-[var(--mz-radius-control)] border border-border-strong bg-surface-alt px-6 text-sm font-semibold text-text-primary transition-colors hover:bg-surface-hover"
-        >
-          {copy.ctaCatalog}
-        </a>
-      </div>
-    </section>
-
-    <aside
-      aria-label={copy.keyFactsHeading}
-      class="rounded-[var(--mz-radius-card)] border border-border-subtle bg-bg-raised p-6"
-    >
-      <h2 class="text-sm font-bold text-primary">{copy.keyFactsHeading}</h2>
-      <dl class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 text-xs">
-        <div>
-          <dt class="text-text-tertiary">{isIrn ? 'رشته‌های آزمون' : 'Exam Tracks'}</dt>
-          <dd class="mt-1 font-semibold text-text-primary">
-            {isIrn ? 'آیلتس (آکادمیک و جنرال)، تافل ۲۰۲۶، PTE و دولینگو' : 'IELTS (Acad & GT), TOEFL 2026, PTE, DET'}
-          </dd>
-        </div>
-        <div>
-          <dt class="text-text-tertiary">{isIrn ? 'فضای کار دسکتاپ' : 'Desktop Workspace'}</dt>
-          <dd class="mt-1 font-semibold text-text-primary">
-            {isIrn ? 'ریدینگ دوستونه، ویرایشگر متمرکز رایتینگ و پخش استودیویی' : 'Split-Pane Reading, Writing & Studio Audio'}
-          </dd>
-        </div>
-        <div>
-          <dt class="text-text-tertiary">{isIrn ? 'موتور آفلاین' : 'Offline Engine'}</dt>
-          <dd class="mt-1 font-semibold text-text-primary">
-            {isIrn ? 'ذخیره‌سازی محلی IndexedDB + کش صوتی و متنی تاییدشده OPFS' : 'IndexedDB (14 tables) + SHA-256 OPFS Media'}
-          </dd>
-        </div>
-        <div>
-          <dt class="text-text-tertiary">{isIrn ? 'مرور هوشمند واژگان' : 'Spaced Repetition'}</dt>
-          <dd class="mt-1 font-semibold text-text-primary">
-            {isIrn ? 'جعبه لایتنر SM-2 با ترجمه فارسی + تبدیل خطا به کارت' : 'SM-2 Flashcards + Mistake-to-Deck'}
-          </dd>
-        </div>
-      </dl>
-    </aside>
-
-    <section aria-labelledby="pillars-heading">
-      <h2 id="pillars-heading" class="text-xl font-bold text-text-primary">
-        {copy.examPillarsHeading}
-      </h2>
-      <div class="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {pillars.map((pillar) => (
-          <a
-            href={`/${pillar.slug}`}
-            class="flex flex-col justify-between gap-3 rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-5 transition-colors hover:border-primary"
-          >
-            <div>
-              <p class="text-xs font-semibold text-primary">{pillar.scoreScaleLabel}</p>
-              <h3 class="mt-1.5 text-lg font-bold text-text-primary">{pillar.name}</h3>
-              <p class="mt-2 text-xs leading-relaxed text-text-secondary">{pillar.summary}</p>
-            </div>
-            <p class="text-xs font-semibold text-focus">
-              {pillar.durationLabel} {isIrn ? '←' : '→'}
-            </p>
-          </a>
-        ))}
-      </div>
-    </section>
-
-    {/* Zero-JS Concordance Preview */}
-    <section class="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-6">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 class="text-lg font-bold text-text-primary">
-            {isIrn ? 'جدول مقایسه فوری نمرات (آیلتس، تافل ۲۰۲۶ و CEFR)' : 'Live Score Scale Preview (IELTS, TOEFL 2026 & CEFR)'}
-          </h2>
-          <p class="mt-1 text-xs text-text-secondary">
-            {isIrn ? 'محاسبه‌شده با موتور مشترک شبیه‌ساز' : 'Open interactive calculators for PTE & DET estimates too.'}
-          </p>
-        </div>
-        <a
-          href="/calculators"
-          class="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-4 text-xs font-semibold text-primary hover:bg-surface-hover"
-        >
-          {copy.navCalculators}
-        </a>
-      </div>
-      <div class="mt-4 overflow-x-auto">
-        <table class="w-full text-xs">
-          <thead>
-            <tr class="border-b border-border-subtle text-text-tertiary">
-              <th class="py-2 text-start">{isIrn ? 'صحیح از ۴۰' : 'Raw (/40)'}</th>
-              <th class="py-2 text-start">IELTS Acad</th>
-              <th class="py-2 text-start">TOEFL 2026</th>
-              <th class="py-2 text-start">TOEFL /120</th>
-              <th class="py-2 text-end">CEFR</th>
-            </tr>
-          </thead>
-          <tbody>
-            {previewRows.map((row) => (
-              <tr class="border-b border-border-subtle/50">
-                <td class="py-2 font-mono-exam">{row.raw}/40</td>
-                <td class="py-2 font-mono-exam font-bold text-primary">{row.ieltsAcad}</td>
-                <td class="py-2 font-mono-exam">{row.toefl2026}</td>
-                <td class="py-2 font-mono-exam text-text-secondary">~{row.toefl120}/120</td>
-                <td class="py-2 text-end font-mono-exam font-semibold text-focus">{row.cefr}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    {/* Edition-Isolated Pricing Comparison */}
-    <section class="grid gap-4 md:grid-cols-2">
-      <div class="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-6">
-        <h2 class="text-base font-bold text-text-primary">
-          {isIrn ? 'حساب رایگان شبیه‌ساز' : 'Free Starter Plan'}
-        </h2>
-        <p class="mt-1 font-mono-exam text-2xl font-bold text-text-primary">
-          {isIrn ? '۰ تومان' : '$0 / mo'}
-        </p>
-        <ul class="mt-3 flex flex-col gap-1.5 text-xs text-text-secondary">
-          <li>{isIrn ? '• ۱ آزمون کامل تعیین سطح ۴ مهارته' : '• 1 Full 4-skill adaptive diagnostic'}</li>
-          <li>{isIrn ? '• بسته‌های رایگان Reading و Listening + واژگان SM-2' : '• Free Reading & Listening packs + SM-2 vocabulary'}</li>
-          <li>{isIrn ? '• تصحیح روزانه محدود رایتینگ و اسپیکینگ' : '• Daily starter AI writing & speaking quota'}</li>
-        </ul>
-      </div>
-
-      <div class="rounded-[var(--mz-radius-card)] border border-primary/50 bg-surface-alt p-6">
-        <h2 class="text-base font-bold text-primary">
-          {isIrn ? 'اشتراک حرفه‌ای سنجیا پرو (زرین‌پال)' : 'Pro Unlimited Studio'}
-        </h2>
-        <p class="mt-1 font-mono-exam text-2xl font-bold text-text-primary">
-          {isIrn ? '۴۹۰,۰۰۰ تومان / ماه' : '$14.99 / mo'}
-        </p>
-        <ul class="mt-3 flex flex-col gap-1.5 text-xs text-text-secondary">
-          <li>{isIrn ? '• دسترسی نامحدود به تمام آزمون‌های آزمایشی کامل' : '• Unlimited Full Mock simulations across 5 exam tracks'}</li>
-          <li>{isIrn ? '• بازنویسی نمره ۸.۵ با تحلیل فارسی و صوتی' : '• Expanded AI rubric quota + Band 8.5 inline rewrites'}</li>
-          <li>{isIrn ? '• همگام‌سازی ۱ موبایل + ۱ دسکتاپ بدون فیلترشکن' : '• 1+1 Mobile & Desktop device sync via Stripe'}</li>
-        </ul>
-      </div>
-    </section>
-
-    {/* Crawlable FAQ Accordion */}
-    <section class="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-6">
-      <h2 class="text-lg font-bold text-text-primary">
-        {isIrn ? 'پرسش‌های متداول' : 'Frequently Asked Questions'}
-      </h2>
-      <div class="mt-4 flex flex-col gap-3">
-        {landingFaqs.map((faq) => (
-          <details class="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised p-4 text-xs">
-            <summary class="cursor-pointer font-bold text-text-primary">{faq.q}</summary>
-            <p class="mt-2 leading-relaxed text-text-secondary">{faq.a}</p>
-          </details>
-        ))}
-      </div>
-    </section>
-  </main>
+  <Fragment set:html={renderLanding(irn)} />
+  <script type="module" src={interactions} is:inline></script>
 </BaseLayout>

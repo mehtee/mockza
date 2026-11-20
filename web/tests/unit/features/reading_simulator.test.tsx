@@ -6,6 +6,7 @@ import { createTestDependenciesBundle } from '@/composition/bootstrap-test';
 import type { ExamBundlePayload } from '@/gateways/catalog.gateway';
 import type { CatalogPackRecord } from '@/gateways/storage.gateway';
 import { DesktopSimulatorApp } from '@/spa/DesktopSimulatorApp';
+import { buildScoredObjectiveAttempt } from '@/spa/objective-sim-helpers';
 import { createAppRouter } from '@/spa/router';
 import { useClockStore } from '@/spa/stores/clock.store';
 
@@ -74,6 +75,7 @@ async function seedReadingTestBundle(edition: 'glb' | 'irn') {
       evidence: {
         exactQuote: 'forty percent fewer blackouts',
         paragraphHint: 'Paragraph 1',
+        rationale: 'The trial counted blackouts over the summer.',
       },
     },
     {
@@ -155,6 +157,36 @@ describe('W5.1 ReadingSimulatorScreen & ObjectiveResultScreen', () => {
     useClockStore.getState().setActiveExamLock(false);
     cleanup();
     vi.unstubAllGlobals();
+  });
+
+  it('keeps the scored answer and authored evidence after a pack changes', async () => {
+    const { deps, bundle } = await seedReadingTestBundle('glb');
+    const { record } = buildScoredObjectiveAttempt({
+      attemptId: 'original-review',
+      bundle,
+      skill: 'reading',
+      profileExamId: 'ielts_academic',
+      answersByQuestionId: { 'q-r1': 'TRUE', 'q-r2': 'delays', 'q-r3': 'B' },
+      startedAtUtcMs: deps.clock.nowMs() - 1000,
+      nowMs: deps.clock.nowMs(),
+      usedStudyMode: true,
+    });
+    await deps.attemptStore.completeObjectiveAttempt(record);
+    const ensureBundle = vi.spyOn(deps.catalog, 'ensureExamBundle').mockResolvedValue({
+      ok: true,
+      value: { ...bundle, pack: { ...bundle.pack, version: '2.0.0' }, questions: [] },
+    });
+    const router = createAppRouter(createMemoryHistory({
+      initialEntries: ['/app/practice/objective-result/original-review'],
+    }));
+
+    render(<DesktopSimulatorApp router={router} dependencies={deps} />);
+
+    await screen.findByText('The original source is unavailable. Your saved answers and score are still here.');
+    expect(ensureBundle).toHaveBeenCalledWith(bundle.pack.packId, bundle.pack.version);
+    expect(screen.getByText('The trial counted blackouts over the summer.')).toBeTruthy();
+    expect(screen.getByText(/2\s*\/\s*3.*67%/)).toBeTruthy();
+    expect(screen.queryByTestId('ask-ai-why-2')).toBeNull();
   });
 
   it('supports split reading, passage highlight/notes, save-to-vocab, scoring, evidence jump, and AI tutor (GLB)', async () => {

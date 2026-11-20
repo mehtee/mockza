@@ -53,9 +53,10 @@ function resolveSimulatorPath(
 
 export interface PracticeCatalogScreenProps {
   readonly initialTrack?: SupportedExamId;
+  readonly initialSkill?: 'reading' | 'listening';
 }
 
-export function PracticeCatalogScreen({ initialTrack }: PracticeCatalogScreenProps = {}) {
+export function PracticeCatalogScreen({ initialTrack, initialSkill }: PracticeCatalogScreenProps = {}) {
   const deps = useDeps();
   const t = createTranslator(deps.edition);
   const navigate = useNavigate();
@@ -70,7 +71,9 @@ export function PracticeCatalogScreen({ initialTrack }: PracticeCatalogScreenPro
   const [selectedExam, setSelectedExam] = useState<SupportedExamId | 'all'>(
     () => initialTrack ?? readSwrTrack(deps.edition) ?? 'all',
   );
-  const [selectedSkill, setSelectedSkill] = useState<SkillKind | 'fullMock' | 'all'>('all');
+  const [selectedSkill, setSelectedSkill] = useState<SkillKind | 'fullMock' | 'all'>(
+    initialSkill ?? 'all',
+  );
   const [cachedOnly, setCachedOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [downloadingPackId, setDownloadingPackId] = useState<string | null>(null);
@@ -103,7 +106,7 @@ export function PracticeCatalogScreen({ initialTrack }: PracticeCatalogScreenPro
       if (cacheRes.ok) {
         setCacheSummary(cacheRes.value);
       }
-      if (profileRes.ok && profileRes.value?.examId) {
+      if (!initialTrack && profileRes.ok && profileRes.value?.examId) {
         setSelectedExam(profileRes.value.examId);
         writeSwrTrack(deps.edition, profileRes.value.examId);
       }

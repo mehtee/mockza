@@ -12,6 +12,10 @@ export const MEDIA_CACHE_QUOTA_BYTES = 262_144_000 as const;
 
 export type ExamBundlePayload = (typeof ExamBundleResponseSchema)['_output'];
 
+export function makePackMediaKey(packId: string, url: string): string {
+  return `pack:${packId}:${url}`;
+}
+
 export interface CatalogPackFilter {
   readonly examId?: SupportedExamId;
   readonly skill?: SkillKind | 'fullMock';
@@ -58,7 +62,7 @@ export type CatalogError = CatalogGatewayError;
 export interface ICatalogMediaGateway {
   syncCatalogManifest(): Promise<Result<readonly CatalogPackRecord[], CatalogGatewayError>>;
   listPacks(filter?: CatalogPackFilter): Promise<Result<readonly CatalogPackRecord[], StorageError>>;
-  ensureExamBundle(packId: string): Promise<Result<ExamBundlePayload, CatalogGatewayError>>;
+  ensureExamBundle(packId: string, preferredVersion?: string): Promise<Result<ExamBundlePayload, CatalogGatewayError>>;
   downloadExamPack(packId: string): Promise<Result<CatalogPackRecord, CatalogGatewayError>>;
   syncDrills(): Promise<Result<readonly CachedDrillRecord[], CatalogError>>;
   syncVocabDeck(

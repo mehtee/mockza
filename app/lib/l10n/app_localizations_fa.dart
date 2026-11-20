@@ -10,6 +10,52 @@ class AppLocalizationsFa extends AppLocalizations {
   AppLocalizationsFa([String locale = 'fa']) : super(locale);
 
   @override
+  String get homeResumeAttempt => 'ادامهٔ تمرین';
+
+  @override
+  String get homeResumeDescription =>
+      'می‌توانی تمرین ذخیره‌شده‌ات را ادامه دهی.';
+
+  @override
+  String get homeCheckLevel => 'تعیین سطح';
+
+  @override
+  String get homeLevelCheckDescription =>
+      'با یک ارزیابی کوتاه، قدم بعدی تمرین را پیدا کن.';
+
+  @override
+  String get homePractiseSkill => 'تمرین یک مهارت';
+
+  @override
+  String get homeStudyRoom => 'اتاق مطالعهٔ شما';
+
+  @override
+  String get homeStudyRoomDescription =>
+      'تمرین قبلی را ادامه دهید یا تمرین بعدی را انتخاب کنید.';
+
+  @override
+  String get studyStart => 'شروع';
+
+  @override
+  String get objectiveAudioReplay => 'پخش دوبارهٔ بخش مرتبط';
+
+  @override
+  String get objectiveAudioPause => 'توقف موقت';
+
+  @override
+  String get objectiveAudioLoading => 'در حال بارگیری صدای اصلی';
+
+  @override
+  String get objectiveAudioUnavailable =>
+      'صدای اصلی در دسترس نیست. پاسخ‌ها و نمرهٔ شما ذخیره شده‌اند.';
+
+  @override
+  String get objectiveReviewMissed => 'مرور نخستین پاسخ نادرست';
+
+  @override
+  String get objectiveNextDrill => 'انجام تمرین تکمیلی';
+
+  @override
   String get appTitle => 'موکزا';
 
   @override

@@ -56,6 +56,7 @@ const PRESET_I18N_KEYS: Partial<Record<ThemePresetId, TranslationKey>> = {
   nordic_emerald: 'presetNordicEmerald',
   editorial_amber: 'presetEditorialAmber',
   oceanic_cobalt: 'presetOceanicCobalt',
+  editorial_green: 'presetEditorialGreen',
 };
 
 export interface SettingsScreenProps {

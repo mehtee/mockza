@@ -5,12 +5,11 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   AudioStudioPlayer,
   PassageAnnotatorPane,
-  type PassageEvidenceSpan,
   SplitPaneWorkspace,
 } from '@/components/exam-kit';
 import { MzBanner, MzButton, MzCard, MzSegmentedControl } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
-import type { ExamBundlePayload } from '@/gateways/catalog.gateway';
+import { makePackMediaKey, type ExamBundlePayload } from '@/gateways/catalog.gateway';
 import type { ExplainQuestionResponse } from '@/gateways/evaluation.gateway';
 import type { CompletedAttemptRecord } from '@/gateways/storage.gateway';
 import { createTranslator } from '@/i18n';
@@ -31,12 +30,12 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
   const [attempt, setAttempt] = useState<CompletedAttemptRecord | null>(null);
   const [bundle, setBundle] = useState<ExamBundlePayload | null>(null);
   const [filterMode, setFilterMode] = useState<'all' | 'incorrect' | 'flagged'>('all');
-  const [activeEvidence, setActiveEvidence] = useState<{
-    readonly sectionId: string;
-    readonly span: PassageEvidenceSpan | null;
-    readonly cueSec: number | null;
+  const [evidenceRequest, setEvidenceRequest] = useState<{
+    readonly questionId: string;
     readonly seq: number;
+    readonly replay?: boolean;
   } | null>(null);
+  const [loadingBundle, setLoadingBundle] = useState(true);
   const [explanationsByQId, setExplanationsByQId] = useState<
     Record<string, ExplainQuestionResponse>
   >({});
@@ -49,17 +48,23 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
       const attemptRes = await deps.attemptStore.getAttemptById(attemptId);
       if (!mounted) return;
       if (!attemptRes.ok || !attemptRes.value) {
-        setErrorMsg('Attempt not found locally.');
+        setLoadingBundle(false);
         return;
       }
       setAttempt(attemptRes.value);
-      const bundleRes = await deps.catalog.ensureExamBundle(attemptRes.value.packId);
+      const bundleRes = await deps.catalog.ensureExamBundle(
+        attemptRes.value.packId,
+        attemptRes.value.contentVersion ?? undefined,
+      );
       if (!mounted) return;
-      if (bundleRes.ok) {
+      if (
+        bundleRes.ok &&
+        (attemptRes.value.contentVersion == null ||
+          bundleRes.value.pack.version === attemptRes.value.contentVersion)
+      ) {
         setBundle(bundleRes.value);
-      } else {
-        setErrorMsg(bundleRes.error.message);
       }
+      setLoadingBundle(false);
     }
     void hydrate();
     return () => {
@@ -67,66 +72,74 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
     };
   }, [attemptId, deps.attemptStore, deps.catalog]);
 
-  const activeSection = useMemo(
-    () =>
-      bundle?.sections.find((s) => s.sectionId === activeEvidence?.sectionId) ??
-      bundle?.sections[0] ??
-      null,
-    [activeEvidence?.sectionId, bundle],
-  );
+  const submission = useMemo(() => {
+    if (!attempt) return null;
+    try {
+      const stored = JSON.parse(attempt.submissionJson) as StoredObjectiveSubmission;
+      return stored?.answersByQuestionId && stored.questionCorrectness ? stored : null;
+    } catch {
+      return null;
+    }
+  }, [attempt]);
 
-  const reviewAudioSource = useMemo(
-    () => ({
-      mediaKey: `${bundle?.pack.packId ?? attempt?.packId ?? 'review'}:${activeSection?.sectionId ?? 'main'}`,
-      fallbackUrl: activeSection?.mediaUrl ?? bundle?.pack.mediaUrl ?? '',
-    }),
-    [activeSection?.mediaUrl, activeSection?.sectionId, attempt?.packId, bundle?.pack.mediaUrl, bundle?.pack.packId],
+  const sortedQuestions = useMemo(
+    () => [...(submission?.reviewQuestions ?? bundle?.questions ?? [])]
+      .sort((a, b) => a.questionNumber - b.questionNumber),
+    [submission, bundle],
   );
-
+  const firstMiss = sortedQuestions.find(
+    (q) => submission?.questionCorrectness[q.questionId] !== true,
+  );
+  const activeQuestion =
+    sortedQuestions.find((q) => q.questionId === evidenceRequest?.questionId) ??
+    firstMiss ??
+    sortedQuestions[0];
+  const activeSection =
+    bundle?.sections.find((s) => s.sectionId === activeQuestion?.sectionId) ?? null;
+  const activeSpan = activeSection
+    ? resolveObjectiveEvidenceSpan(activeSection.contentText, activeQuestion?.evidence)
+    : null;
+  const cueMs = activeQuestion?.cueTimestampMs;
+  const cueLine = activeSection?.transcript?.find(
+    (line) => cueMs != null && line.startMs <= cueMs && cueMs < line.endMs,
+  );
+  const mediaUrl = activeSection?.mediaUrl ??
+    (activeSection === bundle?.sections[0] ? bundle?.pack.mediaUrl : null);
   const reviewTranscriptSegments = useMemo(
     () =>
       activeSection?.transcript?.map((line, i) => ({
         id: `tr-${i}`,
-        startSec: Math.round(line.startMs / 1000),
-        endSec: Math.round(line.endMs / 1000),
+        startSec: line.startMs / 1000,
+        endSec: line.endMs / 1000,
         speaker: line.speaker,
         text: line.text,
       })) ?? [],
     [activeSection],
   );
 
-  if (!attempt || !bundle) {
+  if (!attempt || !submission) {
     return (
       <div data-testid="objective-result-screen" className="p-6 text-sm text-text-secondary">
-        {errorMsg ? <MzBanner tone="danger">{errorMsg}</MzBanner> : 'Loading attempt review...'}
+        {errorMsg || !loadingBundle || (attempt && !submission)
+          ? <MzBanner tone="danger">{errorMsg ?? t('objResultUnavailable')}</MzBanner>
+          : t('objResultLoading')}
       </div>
     );
   }
 
-  let submission: StoredObjectiveSubmission = {
-    answersByQuestionId: {},
-    questionCorrectness: {},
-    correctCount: 0,
-    totalCount: bundle.questions.length,
-    accuracyPercent: 0,
-    isCalibratedFullPack: attempt.isCalibratedFullPack,
-  };
-  try {
-    submission = JSON.parse(attempt.submissionJson) as StoredObjectiveSubmission;
-  } catch {
-    // Keep defaults on parse failure.
-  }
-
-  const sortedQuestions = [...bundle.questions].sort((a, b) => a.questionNumber - b.questionNumber);
   const flaggedSet = new Set(submission.flaggedQuestionIds ?? []);
+  const reviewOrder = firstMiss
+    ? [firstMiss, ...sortedQuestions.filter((question) => question !== firstMiss)]
+    : sortedQuestions;
   const filteredQuestions =
     filterMode === 'incorrect'
-      ? sortedQuestions.filter((q) => submission.questionCorrectness[q.questionId] !== true)
+      ? reviewOrder.filter((q) => submission.questionCorrectness[q.questionId] !== true)
       : filterMode === 'flagged'
-        ? sortedQuestions.filter((q) => flaggedSet.has(q.questionId))
-        : sortedQuestions;
+        ? reviewOrder.filter((q) => flaggedSet.has(q.questionId))
+        : reviewOrder;
 
   const handleAskAiWhy = async (question: ExamBundlePayload['questions'][number]) => {
+    if (!bundle) return;
     setLoadingQuestionId(question.questionId);
     const res = await deps.evaluation.explainObjectiveQuestion({
       packId: bundle.pack.packId,
@@ -150,18 +163,9 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
     }));
   };
 
-  const handleJumpEvidence = (question: ExamBundlePayload['questions'][number]) => {
-    const section =
-      bundle.sections.find((s) => s.sectionId === question.sectionId) ?? bundle.sections[0];
-    if (!section) return;
-    const span = resolveObjectiveEvidenceSpan(section.contentText, question.evidence);
-    setActiveEvidence((prev) => ({
-      sectionId: section.sectionId,
-      span,
-      cueSec: question.cueTimestampMs ? Math.round(question.cueTimestampMs / 1000) : null,
-      seq: (prev?.seq ?? 0) + 1,
-    }));
-  };
+  const drillId = attempt.examId.startsWith('ielts_') && firstMiss
+    ? attempt.skill === 'listening' ? 'ielts-micro-drill-03' : 'ielts-micro-drill-04'
+    : null;
 
   return (
     <div
@@ -173,9 +177,9 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-4">
             <div>
-              <p className="text-xs font-semibold text-text-secondary">
-                {t('objResultTitle')} · {bundle.pack.title}
-              </p>
+              <h1 className="font-editorial text-3xl text-text-primary">
+                {submission.packTitle ?? bundle?.pack.title ?? t('objResultTitle')}
+              </h1>
               <div className="mt-1 flex flex-wrap items-baseline gap-3">
                 <LtrExamBoundary>
                   <span
@@ -210,7 +214,7 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
 
           <div className="flex flex-wrap items-center gap-2">
             <MzSegmentedControl<'all' | 'incorrect' | 'flagged'>
-              ariaLabel="Filter Questions"
+              ariaLabel={t('objResultFilterAll')}
               value={filterMode}
               onChange={setFilterMode}
               options={[
@@ -232,34 +236,49 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
 
       {errorMsg ? <MzBanner tone="danger">{errorMsg}</MzBanner> : null}
 
+      {!loadingBundle && !bundle ? (
+        <MzBanner tone="info">{t('objResultSourceUnavailable')}</MzBanner>
+      ) : null}
+
       {/* Master-Detail Split Review Pane */}
       <div className="min-h-0 flex-1 overflow-hidden rounded-[var(--mz-radius-card)] border border-border-subtle bg-canvas">
         <SplitPaneWorkspace
           viewKey="review:objective"
           initialRatio={0.5}
-          leftLabel="Source Evidence"
-          rightLabel="Questions & AI Tutor"
+          leftLabel={t('objResultSourceTitle')}
+          rightLabel={t('objResultTitle')}
           leftPane={
             attempt.skill === 'listening' ? (
               <div className="flex flex-col gap-4">
                 <h2 className="text-base font-bold text-text-primary">{activeSection?.title}</h2>
-                <AudioStudioPlayer
-                  source={reviewAudioSource}
-                  playbackMode="study_interactive"
-                  externalSeekRequest={
-                    activeEvidence?.cueSec !== null && activeEvidence?.cueSec !== undefined
-                      ? { sec: activeEvidence.cueSec, seq: activeEvidence.seq }
-                      : null
-                  }
-                  transcriptSegments={reviewTranscriptSegments}
-                />
+                {mediaUrl && activeSection ? (
+                  <AudioStudioPlayer
+                    source={{
+                      mediaKey: makePackMediaKey(attempt.packId, mediaUrl),
+                      fallbackUrl: mediaUrl,
+                    }}
+                    playbackMode="study_interactive"
+                    externalSeekRequest={
+                      cueMs != null
+                        ? {
+                            sec: cueMs / 1000,
+                            seq: evidenceRequest?.seq ?? 0,
+                            replayEndSec: evidenceRequest?.replay && cueLine
+                              ? cueLine.endMs / 1000
+                              : undefined,
+                          }
+                        : null
+                    }
+                    transcriptSegments={reviewTranscriptSegments}
+                  />
+                ) : null}
               </div>
             ) : (
               <PassageAnnotatorPane
                 title={activeSection?.title}
                 rawText={activeSection?.contentText ?? ''}
                 annotations={[]}
-                evidenceSpan={activeEvidence?.span ?? null}
+                evidenceSpan={activeSpan}
                 readOnly
               />
             )
@@ -267,13 +286,31 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
           rightPane={
             <div className="flex flex-col gap-3">
               {filteredQuestions.length === 0 ? (
-                <MzBanner tone="success">{t('objResultReviewAllPassMessage')}</MzBanner>
+                <MzBanner tone="info">
+                  {sortedQuestions.length && filterMode === 'incorrect'
+                    ? t('objResultReviewAllPassMessage')
+                    : t('objResultNoQuestions')}
+                </MzBanner>
               ) : (
                 filteredQuestions.map((question) => {
                   const isCorrect = submission.questionCorrectness[question.questionId] === true;
                   const userAns = (submission.answersByQuestionId[question.questionId] ?? '').trim();
                   const acceptedText = question.acceptedAnswers.join(' / ');
                   const aiExplain = explanationsByQId[question.questionId];
+                  const evidence = question.evidence;
+                  const notes = [
+                    evidence?.['rationale'],
+                    evidence?.['distractorNote'] ?? evidence?.['distractorExplanation'],
+                    evidence?.['notGivenOmissionReason'],
+                  ]
+                    .filter((value): value is string => typeof value === 'string' && value.trim() !== '');
+                  const quote = evidence?.['exactQuote'];
+                  const source = bundle?.sections.find((section) => section.sectionId === question.sectionId);
+                  const hasCue = question.cueTimestampMs != null;
+                  const hasSource = source && (attempt.skill === 'listening'
+                    ? hasCue && Boolean(source.mediaUrl ?? (source === bundle?.sections[0] ? bundle?.pack.mediaUrl : null))
+                    : Boolean(resolveObjectiveEvidenceSpan(source.contentText, evidence)));
+
 
                   return (
                     <MzCard
@@ -287,11 +324,12 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
                             {`${question.questionNumber}. ${question.prompt}`}
                           </LtrExamBoundary>
                         </div>
-                        {isCorrect ? (
-                          <CheckCircle2 className="h-5 w-5 shrink-0 text-success" aria-hidden="true" />
-                        ) : (
-                          <XCircle className="h-5 w-5 shrink-0 text-error" aria-hidden="true" />
-                        )}
+                        <span className={`inline-flex shrink-0 items-center gap-1 text-xs font-semibold ${isCorrect ? 'text-success' : 'text-error'}`}>
+                          {isCorrect
+                            ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                            : <XCircle className="h-4 w-4" aria-hidden="true" />}
+                          {t(isCorrect ? 'objResultCorrect' : userAns ? 'objResultMissed' : 'objResultSkipped')}
+                        </span>
                       </div>
 
                       <div className="mt-2.5 flex flex-wrap gap-3 text-xs">
@@ -315,17 +353,48 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
                         ) : null}
                       </div>
 
+                      {typeof quote === 'string' && quote ? (
+                        <blockquote className="mt-3 border-s-2 border-primary bg-surface-alt p-3 text-sm text-text-primary" dir="ltr">
+                          {quote}
+                        </blockquote>
+                      ) : null}
+                      {notes.length > 0 ? (
+                        <div className="mt-3 space-y-1 text-sm text-text-secondary" dir="ltr">
+                          {[...new Set(notes)].map((note) => <p key={note}>{note}</p>)}
+                        </div>
+                      ) : null}
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <MzButton
+                        {hasSource ? <MzButton
                           variant="secondary"
                           size="sm"
                           data-testid={`jump-evidence-${question.questionNumber}`}
                           leadingIcon={<Crosshair className="h-3.5 w-3.5" aria-hidden="true" />}
-                          onClick={() => handleJumpEvidence(question)}
+                          onClick={() => setEvidenceRequest((prev) => ({
+                            questionId: question.questionId,
+                            seq: (prev?.seq ?? 0) + 1,
+                          }))}
                         >
-                          {t('objResultJumpEvidenceAction')}
-                        </MzButton>
-                        <MzButton
+                          {t(attempt.skill === 'listening' ? 'objResultReplay' : 'objResultJumpEvidenceAction')}
+                        </MzButton> : null}
+                        {attempt.skill === 'listening' && hasSource &&
+                        source?.transcript?.some((line) =>
+                          question.cueTimestampMs != null &&
+                          line.startMs <= question.cueTimestampMs &&
+                          question.cueTimestampMs < line.endMs,
+                        ) ? (
+                          <MzButton
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setEvidenceRequest((prev) => ({
+                              questionId: question.questionId,
+                              seq: (prev?.seq ?? 0) + 1,
+                              replay: true,
+                            }))}
+                          >
+                            {t('objResultReplayClip')}
+                          </MzButton>
+                        ) : null}
+                        {bundle ? <MzButton
                           variant="secondary"
                           size="sm"
                           data-testid={`ask-ai-why-${question.questionNumber}`}
@@ -336,7 +405,7 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
                           {loadingQuestionId === question.questionId
                             ? t('objResultLoadingTutorLabel')
                             : t('objResultAskAiWhyAction')}
-                        </MzButton>
+                        </MzButton> : null}
                       </div>
 
                       {aiExplain ? (
@@ -375,6 +444,27 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
           }
         />
       </div>
+      <MzCard variant="default" padding="sm" className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-editorial text-xl">{t('objResultNextStep')}</h2>
+        {drillId ? (
+          <Link
+            to="/practice/drills/$drillId"
+            params={{ drillId }}
+            search={{ track: attempt.examId }}
+            className="font-semibold text-primary underline"
+          >
+            {t(attempt.skill === 'listening' ? 'objResultListeningDrill' : 'objResultReadingDrill')}
+          </Link>
+        ) : (
+          <Link
+            to="/practice"
+            search={{ track: attempt.examId, skill: attempt.skill === 'listening' ? 'listening' : 'reading' }}
+            className="font-semibold text-primary underline"
+          >
+            {t('objResultAnotherSet')}
+          </Link>
+        )}
+      </MzCard>
     </div>
   );
 }

@@ -7,6 +7,7 @@ export const THEME_PRESET_IDS = [
   'nordic_emerald',
   'editorial_amber',
   'oceanic_cobalt',
+  'editorial_green',
 ] as const;
 
 export type ThemePresetId = (typeof THEME_PRESET_IDS)[number];
@@ -26,17 +27,17 @@ export interface ThemePresetMeta {
   readonly preview: ThemePresetPreview;
 }
 
-export const DEFAULT_THEME_PRESET_ID: ThemePresetId = 'midnight_indigo';
-export const DEFAULT_THEME_MODE: ThemeMode = 'dark';
+export const DEFAULT_THEME_PRESET_ID: ThemePresetId = 'editorial_green';
+export const DEFAULT_THEME_MODE: ThemeMode = 'light';
 
 const DEFAULT_THEME_PRESET: ThemePresetMeta = {
-  id: 'midnight_indigo',
-  displayName: 'Midnight Indigo',
-  description: 'Calm obsidian navy & electric indigo contrast.',
+  id: 'editorial_green',
+  displayName: 'Editorial Green',
+  description: 'Warm paper and forest green',
   preview: {
-    primary: '#9580FF',
-    accent: '#70BEFF',
-    backgroundDark: '#0C0F19',
+    primary: '#A9C9A7',
+    accent: '#B1D1E0',
+    backgroundDark: '#17231C',
   },
 };
 
@@ -79,6 +80,16 @@ export const THEME_PRESETS: readonly ThemePresetMeta[] = [
       primary: '#56CCF2',
       accent: '#4F8DFD',
       backgroundDark: '#07111C',
+    },
+  },
+  {
+    id: 'editorial_green',
+    displayName: 'Editorial Green',
+    description: 'Warm paper and forest green',
+    preview: {
+      primary: '#A9C9A7',
+      accent: '#B1D1E0',
+      backgroundDark: '#17231C',
     },
   },
 ];

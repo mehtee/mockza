@@ -15,6 +15,7 @@ abstract final class AppTheme {
   static ThemeData build({
     required MzThemePreset preset,
     required Brightness brightness,
+    bool persian = false,
   }) {
     final isDark = brightness == Brightness.dark;
     final colors = isDark ? preset.darkColors : preset.lightColors;
@@ -48,18 +49,20 @@ abstract final class AppTheme {
       colors: colors,
       gradients: gradients,
       colorScheme: colorScheme,
+      editorial: preset.id == MzThemeCatalog.editorialGreen.id,
+      persian: persian,
     );
   }
 
   /// Returns the default light [ThemeData].
   static ThemeData light() => build(
-    preset: MzThemeCatalog.midnightIndigo,
+    preset: MzThemeCatalog.editorialGreen,
     brightness: Brightness.light,
   );
 
-  /// Returns the default dark [ThemeData] (canonical primary product mode).
+  /// Returns the dark form of the default theme.
   static ThemeData dark() => build(
-    preset: MzThemeCatalog.midnightIndigo,
+    preset: MzThemeCatalog.editorialGreen,
     brightness: Brightness.dark,
   );
 
@@ -67,11 +70,15 @@ abstract final class AppTheme {
     required AppColors colors,
     required AppGradients gradients,
     required ColorScheme colorScheme,
+    required bool editorial,
+    required bool persian,
   }) {
     final typography = AppTypography.fromColors(
       textPrimary: colors.textPrimary,
       textSecondary: colors.textSecondary,
       textTertiary: colors.textTertiary,
+      editorial: editorial,
+      persian: persian,
     );
 
     const shapes = AppShapes.standard;
@@ -80,7 +87,27 @@ abstract final class AppTheme {
       useMaterial3: true,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: colors.background,
-      fontFamily: AppTypography.sansFamily,
+      fontFamily: persian
+          ? AppTypography.persianFamily
+          : AppTypography.sansFamily,
+      fontFamilyFallback: const [
+        AppTypography.persianFamily,
+        AppTypography.sansFamily,
+      ],
+      textTheme: TextTheme(
+        headlineLarge: typography.headline,
+        headlineMedium: typography.sectionHeading,
+        titleLarge: typography.sectionHeading,
+        titleMedium: typography.cardTitle,
+        bodyLarge: typography.body,
+        bodyMedium: typography.secondary,
+        bodySmall: typography.caption,
+      ),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: colors.primary,
+        selectionColor: colors.primary.withValues(alpha: 0.24),
+        selectionHandleColor: colors.primary,
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: colors.background,
         foregroundColor: colors.textPrimary,
@@ -119,15 +146,15 @@ abstract final class AppTheme {
         ),
         border: OutlineInputBorder(
           borderRadius: shapes.controlRadius,
-          borderSide: BorderSide(color: colors.borderSubtle),
+          borderSide: BorderSide(color: colors.borderStrong),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: shapes.controlRadius,
-          borderSide: BorderSide(color: colors.borderSubtle),
+          borderSide: BorderSide(color: colors.borderStrong),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: shapes.controlRadius,
-          borderSide: BorderSide(color: colors.primary, width: 1.5),
+          borderSide: BorderSide(color: colors.focus, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: shapes.controlRadius,

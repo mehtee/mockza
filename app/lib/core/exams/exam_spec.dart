@@ -315,6 +315,8 @@ class QuestionSpec {
     this.maxWords = 3,
     this.evidenceSpan,
     this.distractorExplanation,
+    this.cueTimestampMs,
+    this.sectionId,
   });
 
   /// Unique question identifier.
@@ -343,6 +345,12 @@ class QuestionSpec {
 
   /// Educational rationale explaining why distractors are wrong.
   final String? distractorExplanation;
+
+  /// Authored timestamp of supporting audio, in milliseconds.
+  final int? cueTimestampMs;
+
+  /// Source section identifier in the published bundle.
+  final String? sectionId;
 }
 
 /// Single passage inside a Reading pack (~750–900 words parsed into paragraphs).
@@ -380,6 +388,7 @@ class ReadingPackSpec {
     required this.packId,
     required this.title,
     required this.passages,
+    this.contentVersion,
     this.durationSeconds = 60 * 60,
   });
 
@@ -388,6 +397,9 @@ class ReadingPackSpec {
 
   /// Pack display title.
   final String title;
+
+  /// Version of the bundle used for the attempt.
+  final String? contentVersion;
 
   /// 3 reading passages.
   final List<ReadingPassageSpec> passages;
@@ -442,6 +454,7 @@ class ListeningPackSpec {
     required this.audioRelativePath,
     required this.sha256,
     required this.sections,
+    this.contentVersion,
     this.durationSeconds = 30 * 60,
   });
 
@@ -450,6 +463,9 @@ class ListeningPackSpec {
 
   /// Pack display title.
   final String title;
+
+  /// Version of the bundle used for the attempt.
+  final String? contentVersion;
 
   /// Relative path to packaged `.m4a` audio file.
   final String audioRelativePath;

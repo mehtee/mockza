@@ -392,7 +392,11 @@ describe('W1.2 Static dependency boundary hygiene for web/src/gateways/*', () =>
 
     expect(actualFiles).toEqual(expectedFiles);
 
-    const allowedExternalPackages = new Set(['@mockza/domain', '@mockza/contracts']);
+    const allowedExternalPackages = new Set([
+      '@mockza/domain',
+      '@mockza/contracts',
+      '@mockza/design-tokens',
+    ]);
     const importExportFromRegex =
       /(?:^|\n)\s*(?:import|export)\s+(?:type\s+)?(?:[\s\S]*?)\s+from\s+['"]([^'"]+)['"]/g;
     const bareImportRegex = /(?:^|\n)\s*import\s+['"]([^'"]+)['"]/g;
@@ -431,7 +435,7 @@ describe('W1.2 Static dependency boundary hygiene for web/src/gateways/*', () =>
         }
       }
 
-      // Ensure external package imports (@mockza/domain, @mockza/contracts) are strictly type-only
+      // External package imports are strictly type-only.
       const externalImportRegex =
         /(?:^|\n)\s*import\s+(?!type\b)[\s\S]*?\s+from\s+['"]([^.'"][^'"]*)['"]/g;
       const runtimeExternalMatch = externalImportRegex.exec(source);

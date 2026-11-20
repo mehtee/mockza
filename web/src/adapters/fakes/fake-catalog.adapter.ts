@@ -133,11 +133,15 @@ export class FakeCatalogAdapter implements ICatalogMediaGateway {
     return ok(items);
   }
 
-  async ensureExamBundle(packId: string): Promise<Result<ExamBundlePayload, CatalogGatewayError>> {
+  async ensureExamBundle(
+    packId: string,
+    preferredVersion?: string,
+  ): Promise<Result<ExamBundlePayload, CatalogGatewayError>> {
     const existing = this.packs.get(packId);
     if (existing && existing.isCachedOffline === 1 && existing.bundleJson) {
       try {
         const parsed = JSON.parse(existing.bundleJson) as ExamBundlePayload;
+        if (preferredVersion && parsed.pack.version === preferredVersion) return ok(parsed);
         const isStale =
           parsed.pack.version !== existing.version ||
           parsed.pack.sha256.toLowerCase() !== existing.sha256.toLowerCase();

@@ -226,6 +226,7 @@ final class MultiExamTracksRobot {
     await _returnToPracticeHub(tester);
     await shell.openTab(tester, 'Home');
 
+    await tester.scrollUntilVisible(find.textContaining('Literacy:'), 200);
     expect(find.textContaining('Literacy:'), findsOneWidget);
     expect(find.textContaining('Comprehension:'), findsOneWidget);
     expect(find.textContaining('Conversation:'), findsOneWidget);

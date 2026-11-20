@@ -9,6 +9,8 @@ import 'package:mockza/core/models/evaluation_models.dart';
 import 'package:mockza/core/models/speaking_evaluation.dart';
 import 'package:mockza/features/evaluation_review/presentation/evaluation_review_notifier.dart';
 import 'package:mockza/features/evaluation_review/presentation/evaluation_review_providers.dart';
+import 'package:mockza/features/evaluation_review/presentation/widgets/listening_evidence_sheet.dart';
+import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/routing/routes.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
@@ -346,9 +348,7 @@ class _OverviewTab extends StatelessWidget {
     final nextStep =
         state.writingResult?.actionableNextStep ??
         state.speakingResult?.actionableNextStep ??
-        (state.objectiveTotalCount > 0
-            ? 'Review missed answers (${state.objectiveTotalCount - state.objectiveCorrectCount} remaining) and inspect distractor notes.'
-            : '');
+        '';
     final drill =
         state.writingResult?.recommendedDrill ??
         state.speakingResult?.recommendedDrill;
@@ -502,6 +502,26 @@ class _OverviewTab extends StatelessWidget {
             ],
           ),
         ),
+        if (!isAiSkill &&
+            state.objectiveTotalCount >
+                state.objectiveCorrectCount) ...<Widget>[
+          PrimaryButton(
+            label: AppLocalizations.of(context).objectiveReviewMissed,
+            onPressed: () => notifier.selectTab(1),
+          ),
+          SecondaryButton(
+            label: AppLocalizations.of(context).objectiveNextDrill,
+            onPressed: () => context.push(
+              state.examTrack.isIelts
+                  ? AppRoutes.buildMicroDrill(
+                      state.skill == SkillKind.listening
+                          ? 'ielts-micro-drill-03'
+                          : 'ielts-micro-drill-04',
+                    )
+                  : AppRoutes.practice,
+            ),
+          ),
+        ],
         if (nextStep.isNotEmpty) ...<Widget>[
           const SectionHeader(title: 'Priority Next Step'),
           MzCard(
@@ -633,10 +653,18 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
     final shapes = AppShapes.of(context);
     final typography = AppTypography.of(context);
     final state = widget.state;
+    final l10n = AppLocalizations.of(context);
 
     if (state.skill == SkillKind.reading ||
         state.skill == SkillKind.listening) {
-      final filtered = state.objectiveQuestions
+      final firstMiss = state.objectiveQuestions
+          .where((q) => !q.isCorrect)
+          .firstOrNull;
+      final ordered = [
+        ?firstMiss,
+        ...state.objectiveQuestions.where((q) => q != firstMiss),
+      ];
+      final filtered = ordered
           .where((q) {
             if (_filter == 'missed') return !q.isCorrect;
             if (_filter == 'correct') return q.isCorrect;
@@ -723,7 +751,11 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
                             ),
                             if (q.prompt.isNotEmpty) ...<Widget>[
                               const SizedBox(height: SpacingTokens.sm),
-                              Text(q.prompt, style: typography.body),
+                              Text(
+                                q.prompt,
+                                textDirection: TextDirection.ltr,
+                                style: typography.body,
+                              ),
                             ],
                             const SizedBox(height: SpacingTokens.sm),
                             Text(
@@ -758,6 +790,7 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
                                 ),
                                 child: Text(
                                   q.distractorExplanation,
+                                  textDirection: TextDirection.ltr,
                                   style: typography.secondary.copyWith(
                                     color: colors.textSecondary,
                                   ),
@@ -771,15 +804,37 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
                                 q.paragraphIndex != null
                                     ? 'Paragraph ${q.paragraphIndex! + 1}: "${q.evidenceQuote}"'
                                     : '"${q.evidenceQuote}"',
+                                textDirection: TextDirection.ltr,
                                 style: typography.caption.copyWith(
                                   color: colors.primary,
                                   fontStyle: FontStyle.italic,
                                 ),
                               ),
                             ],
+                            if (state.skill == SkillKind.listening &&
+                                state.contentVersion != null &&
+                                q.sectionId != null &&
+                                q.cueTimestampMs != null &&
+                                q.cueTimestampMs! >= 0)
+                              TextButton.icon(
+                                icon: const AppIcon(LucideGlyph.play, size: 16),
+                                label: Text(l10n.objectiveAudioReplay),
+                                onPressed: () => unawaited(
+                                  showMzBottomSheet<void>(
+                                    context: ctx,
+                                    title: l10n.objectiveAudioReplay,
+                                    child: ListeningEvidenceSheet(
+                                      packId: state.packId,
+                                      contentVersion: state.contentVersion!,
+                                      sectionId: q.sectionId!,
+                                      cueTimestampMs: q.cueTimestampMs!,
+                                    ),
+                                  ),
+                                ),
+                              ),
                             const SizedBox(height: SpacingTokens.sm),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
+                            Wrap(
+                              alignment: WrapAlignment.end,
                               children: <Widget>[
                                 if (q.acceptedAnswers.isNotEmpty)
                                   TextButton.icon(

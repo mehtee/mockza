@@ -364,6 +364,7 @@ final class ExamCatalogRepository {
         .toList(growable: false);
 
     return ReadingPackSpec(
+      contentVersion: pack['version'] as String?,
       packId: (pack['packId'] as String?) ?? '',
       title: (pack['title'] as String?) ?? 'Reading Practice',
       passages: passages,
@@ -417,6 +418,7 @@ final class ExamCatalogRepository {
         : rawAudioUrl;
 
     return ListeningPackSpec(
+      contentVersion: pack['version'] as String?,
       packId: (pack['packId'] as String?) ?? '',
       title: (pack['title'] as String?) ?? 'Listening Test',
       audioRelativePath: resolvedAudioPath,
@@ -694,6 +696,13 @@ final class ExamCatalogRepository {
         _inferMaxWords(qItem['prompt'] as String?, accepted) ??
         defaultMaxWords;
 
+    final notes = <Object?>[
+      rawEv?['rationale'],
+      rawEv?['distractorNote'] ?? rawEv?['distractorExplanation'],
+      rawEv?['notGivenOmissionReason'],
+    ].whereType<String>().where((text) => text.trim().isNotEmpty).toSet();
+    final cueTimestampMs = qItem['cueTimestampMs'];
+
     return QuestionSpec(
       questionId: (qItem['questionId'] as String?) ?? '',
       number: (qItem['questionNumber'] as num?)?.toInt() ?? 1,
@@ -703,7 +712,11 @@ final class ExamCatalogRepository {
       options: options,
       maxWords: maxWords,
       evidenceSpan: evidenceSpan,
-      distractorExplanation: rawEv?['distractorExplanation'] as String?,
+      distractorExplanation: notes.isEmpty ? null : notes.join('\n\n'),
+      cueTimestampMs: cueTimestampMs is int && cueTimestampMs >= 0
+          ? cueTimestampMs
+          : null,
+      sectionId: qItem['sectionId'] as String?,
     );
   }
 

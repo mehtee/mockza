@@ -47,6 +47,18 @@ export function SplitPaneWorkspace({
   const edition = deps?.edition ?? getActiveEditionCode();
   const t = createTranslator(edition);
 
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const [stacked, setStacked] = useState(false);
+  useEffect(() => {
+    const workspace = workspaceRef.current;
+    if (!workspace || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setStacked(entry.contentRect.width < 680);
+    });
+    observer.observe(workspace);
+    return () => observer.disconnect();
+  }, []);
+
   const groupRef = useRef<ImperativePanelGroupHandle | null>(null);
   const [leftPercent, setLeftPercent] = useState<number>(() =>
     clampSplitRatioPercent(initialRatio ?? 0.55),
@@ -111,13 +123,14 @@ export function SplitPaneWorkspace({
 
   return (
     <div
+      ref={workspaceRef}
       data-testid="split-pane-workspace"
       data-split-percent={leftPercent}
       className={['h-full w-full overflow-hidden', className].filter(Boolean).join(' ')}
     >
       <PanelGroup
         ref={groupRef}
-        direction="horizontal"
+        direction={stacked ? 'vertical' : 'horizontal'}
         onLayout={handleLayout}
         className="h-full w-full"
       >
@@ -132,7 +145,7 @@ export function SplitPaneWorkspace({
           <section
             aria-label={leftLabel}
             data-testid="split-pane-left"
-            className="h-full overflow-y-auto p-5"
+            className="h-full overflow-y-auto p-3 sm:p-5"
           >
             {leftPane}
           </section>
@@ -142,10 +155,13 @@ export function SplitPaneWorkspace({
           data-testid="split-pane-divider"
           title={t('workspaceResetSplitAction')}
           onDoubleClick={handleResetSplit}
-          className="group relative flex w-2.5 cursor-col-resize items-center justify-center border-s border-e border-border-subtle bg-bg-raised transition-colors hover:bg-primary/15 focus-visible:bg-primary/20 focus-visible:outline-none"
+          className={[
+            'group relative flex shrink-0 items-center justify-center border-border-subtle bg-bg-raised transition-colors hover:bg-primary/15 focus-visible:bg-primary/20 focus-visible:outline-none',
+            stacked ? 'h-3 cursor-row-resize border-y' : 'w-3 cursor-col-resize border-x',
+          ].join(' ')}
         >
           <GripVertical
-            className="h-4 w-4 text-text-tertiary transition-colors group-hover:text-primary"
+            className={`h-4 w-4 text-text-tertiary transition-colors group-hover:text-primary ${stacked ? 'rotate-90' : ''}`}
             aria-hidden="true"
           />
         </PanelResizeHandle>
@@ -161,7 +177,7 @@ export function SplitPaneWorkspace({
           <section
             aria-label={rightLabel}
             data-testid="split-pane-right"
-            className="h-full overflow-y-auto p-5"
+            className="h-full overflow-y-auto p-3 sm:p-5"
           >
             {rightPane}
           </section>

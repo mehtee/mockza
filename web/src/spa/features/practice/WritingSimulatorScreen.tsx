@@ -141,7 +141,10 @@ export function WritingSimulatorScreen({
       if (quotaRes.ok) {
         setQuota(quotaRes.value);
       }
-      if (draftRes.ok && draftRes.value) {
+      if (draftRes.ok && draftRes.value &&
+          (draftRes.value.mockSessionId ?? null) === mockSessionId &&
+          (draftRes.value.mockStageKey ?? null) === mockStageKey) {
+        setExamMode(draftRes.value.usedStudyMode ? 'study' : 'exam');
         attemptIdRef.current = draftRes.value.attemptId;
         resetClock(draftRes.value.timerRemainingSec ?? durationSec, durationSec);
         setActiveTaskIndex(draftRes.value.currentQuestionIndex || 0);
@@ -163,7 +166,7 @@ export function WritingSimulatorScreen({
     return () => {
       mounted = false;
     };
-  }, [deps.attemptStore, deps.catalog, deps.evaluation, packId, resetClock]);
+  }, [deps.attemptStore, deps.catalog, deps.evaluation, mockSessionId, mockStageKey, packId, resetClock]);
 
   useEffect(() => {
     if (!bundle) return;

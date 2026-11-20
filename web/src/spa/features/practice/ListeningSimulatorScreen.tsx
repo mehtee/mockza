@@ -1,5 +1,5 @@
 import { Bookmark, ChevronLeft, ChevronRight, Headphones } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   AudioStudioPlayer,
   type KeyboardShortcutHint,
@@ -12,6 +12,7 @@ import {
 import { MzBanner, MzButton, MzCard, MzSegmentedControl } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import { createTranslator } from '@/i18n';
+import { makePackMediaKey } from '@/gateways/catalog.gateway';
 import { useDeps } from '@/spa/deps';
 import { useObjectiveSimulatorSession } from '@/spa/useObjectiveSimulatorSession';
 
@@ -42,8 +43,10 @@ export function ListeningSimulatorScreen({
     onMockStageComplete,
   });
 
-  const [audioBuffered, setAudioBuffered] = useState(false);
-  const [resolvedMediaUrl, setResolvedMediaUrl] = useState<string>('');
+  const [audioStatus, setAudioStatus] = useState<{
+    readonly mediaKey: string;
+    readonly ready: boolean;
+  } | null>(null);
 
   const {
     bundle,
@@ -73,52 +76,19 @@ export function ListeningSimulatorScreen({
   } = session;
 
   const activeMediaUrl = activeSection?.mediaUrl ?? bundle?.pack.mediaUrl ?? '';
-  const activeMediaKey = `${packId}:${activeSection?.sectionId ?? 'main'}`;
-
-  const audioSource = useMemo(
-    () => ({
-      mediaKey: activeMediaKey,
-      fallbackUrl: resolvedMediaUrl || activeMediaUrl,
-    }),
-    [activeMediaKey, activeMediaUrl, resolvedMediaUrl],
-  );
-
-  // Pre-buffer OPFS/Cache audio cleanly when section/pack loads
-  useEffect(() => {
-    if (!bundle) return;
-    let mounted = true;
-    setAudioBuffered(false);
-    setResolvedMediaUrl('');
-
-    if (!activeMediaUrl) {
-      setAudioBuffered(true);
-      return;
-    }
-
-    void deps.catalog
-      .getCachedMediaUrl({
-        mediaKey: activeMediaKey,
-        fallbackUrl: activeMediaUrl,
-      })
-      .then((res) => {
-        if (!mounted) return;
-        if (res.ok && res.value) {
-          setResolvedMediaUrl(res.value);
-        }
-        setAudioBuffered(true);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [activeMediaKey, activeMediaUrl, bundle, deps.catalog]);
+  const activeMediaKey = makePackMediaKey(packId, activeMediaUrl);
+  const audioSource = {
+    mediaKey: activeMediaKey,
+    fallbackUrl: activeMediaUrl,
+  };
+  const audioBuffered = audioStatus?.mediaKey === activeMediaKey && audioStatus.ready;
 
   const transcriptSegments: readonly TranscriptSegmentItem[] = useMemo(
     () =>
       activeSection?.transcript?.map((seg, idx) => ({
         id: `${activeSection.sectionId}-tr-${idx}`,
-        startSec: Math.round(seg.startMs / 1000),
-        endSec: Math.round(seg.endMs / 1000),
+        startSec: seg.startMs / 1000,
+        endSec: seg.endMs / 1000,
         speaker: seg.speaker,
         text: seg.text,
       })) ?? [],
@@ -291,6 +261,14 @@ export function ListeningSimulatorScreen({
 
               <AudioStudioPlayer
                 source={audioSource}
+                onPlaybackStateChange={(playback) => {
+                  const ready = playback.status !== 'loading' && playback.status !== 'error';
+                  setAudioStatus((previous) =>
+                    previous?.mediaKey === activeMediaKey && previous.ready === ready
+                      ? previous
+                      : { mediaKey: activeMediaKey, ready },
+                  );
+                }}
                 playbackMode={examMode === 'exam' ? 'exam_linear_locked' : 'study_interactive'}
                 transcriptSegments={transcriptSegments}
               />

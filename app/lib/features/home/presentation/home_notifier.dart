@@ -27,6 +27,7 @@ class HomeState {
     required this.recommendedTitle,
     required this.recommendedSubtitle,
     required this.recommendedRoute,
+    this.resumeSpeakingRoute,
     this.daysUntilExam,
     this.latestDiagnosticId,
     this.latestDiagnosticStatus,
@@ -59,6 +60,9 @@ class HomeState {
   /// Navigation route for recommendation card.
   final String recommendedRoute;
 
+  /// Route to validated local Speaking recovery, when a session is pending.
+  final String? resumeSpeakingRoute;
+
   /// Days remaining until test date, or null if unset.
   final int? daysUntilExam;
 
@@ -79,6 +83,8 @@ class HomeState {
     String? recommendedTitle,
     String? recommendedSubtitle,
     String? recommendedRoute,
+    String? resumeSpeakingRoute,
+    bool clearResumeSpeakingRoute = false,
     int? daysUntilExam,
     bool clearDaysUntilExam = false,
     String? latestDiagnosticId,
@@ -93,6 +99,9 @@ class HomeState {
     recommendedTitle: recommendedTitle ?? this.recommendedTitle,
     recommendedSubtitle: recommendedSubtitle ?? this.recommendedSubtitle,
     recommendedRoute: recommendedRoute ?? this.recommendedRoute,
+    resumeSpeakingRoute: clearResumeSpeakingRoute
+        ? null
+        : resumeSpeakingRoute ?? this.resumeSpeakingRoute,
     daysUntilExam: clearDaysUntilExam
         ? null
         : (daysUntilExam ?? this.daysUntilExam),
@@ -289,6 +298,18 @@ class HomeNotifier extends Notifier<HomeState> {
     );
 
     final recommendation = _buildRecommendation(skillMetrics);
+    final pendingSpeaking = _latestAttempts
+        .where(
+          (attempt) =>
+              attempt.skill == SkillKind.speaking &&
+              attempt.status == AttemptStatus.inProgress &&
+              attempt.mockSessionId == null &&
+              _matchesActiveScale(attempt) &&
+              _latestPacks.any(
+                (pack) => pack.packId == attempt.packId && pack.isCachedOffline,
+              ),
+        )
+        .firstOrNull;
 
     state = state.copyWith(
       estimatedSummary: estimated,
@@ -298,6 +319,13 @@ class HomeNotifier extends Notifier<HomeState> {
       recommendedTitle: recommendation.title,
       recommendedSubtitle: recommendation.subtitle,
       recommendedRoute: recommendation.route,
+      clearResumeSpeakingRoute: pendingSpeaking == null,
+      resumeSpeakingRoute: pendingSpeaking == null
+          ? null
+          : AppRoutes.buildSpeakingSim(
+              pendingSpeaking.packId,
+              !pendingSpeaking.usedStudyMode,
+            ),
     );
   }
 

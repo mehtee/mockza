@@ -38,7 +38,7 @@
 	}
 
 	handle /theme-boot.js {
-		header Cache-Control "public, max-age=3600"
+		header Cache-Control "no-cache, must-revalidate"
 		root * /srv/web
 		file_server {
 			precompressed br gzip

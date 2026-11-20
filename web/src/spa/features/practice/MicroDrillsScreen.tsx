@@ -19,6 +19,7 @@ import { formatMmSs } from '@/components/exam-kit';
 
 export interface MicroDrillsScreenProps {
   readonly initialDrillId?: string | null;
+  readonly initialTrack?: SupportedExamId;
 }
 
 interface ParsedDrillView {
@@ -47,13 +48,14 @@ function parseCachedDrill(record: CachedDrillRecord): ParsedDrillView | null {
   }
 }
 
-export function MicroDrillsScreen({ initialDrillId = null }: MicroDrillsScreenProps) {
+export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: MicroDrillsScreenProps) {
   const deps = useDeps();
   const t = createTranslator(deps.edition);
   const navigate = useNavigate();
 
   const [drills, setDrills] = useState<readonly ParsedDrillView[]>([]);
-  const [profileExamId, setProfileExamId] = useState<SupportedExamId>('ielts_academic');
+  const [profileExamId, setProfileExamId] = useState<SupportedExamId>(initialTrack ?? 'ielts_academic');
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
   const [activeDrillId, setActiveDrillId] = useState<string | null>(initialDrillId);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answersById, setAnswersById] = useState<Record<string, string>>({});
@@ -80,18 +82,20 @@ export function MicroDrillsScreen({ initialDrillId = null }: MicroDrillsScreenPr
         deps.attemptStore.getUserProfile(),
       ]);
       if (!mounted) return;
-      if (profileRes.ok && profileRes.value?.examId) {
+      if (!initialTrack && profileRes.ok && profileRes.value?.examId) {
         setProfileExamId(profileRes.value.examId);
       }
       let rows = cachedRes.ok ? cachedRes.value : [];
-      if (rows.length === 0) {
+      if (rows.length === 0 || (initialDrillId && !rows.some((row) => row.drillId === initialDrillId))) {
         const synced = await deps.catalog.syncDrills();
+        if (!mounted) return;
         if (synced.ok) rows = synced.value;
       }
       const parsed = rows
         .map(parseCachedDrill)
         .filter((d): d is ParsedDrillView => d !== null);
       setDrills(parsed);
+      setIsLoadingCatalog(false);
       if (initialDrillId) {
         const matched = parsed.find((d) => d.drillId === initialDrillId);
         if (matched) {
@@ -104,7 +108,7 @@ export function MicroDrillsScreen({ initialDrillId = null }: MicroDrillsScreenPr
     return () => {
       mounted = false;
     };
-  }, [deps.attemptStore, deps.catalog, deps.clock, initialDrillId, resetClock]);
+  }, [deps.attemptStore, deps.catalog, deps.clock, initialDrillId, initialTrack, resetClock]);
 
   const activeDrill = useMemo(
     () => drills.find((d) => d.drillId === activeDrillId) ?? null,
@@ -233,7 +237,12 @@ export function MicroDrillsScreen({ initialDrillId = null }: MicroDrillsScreenPr
           <p className="mt-1 text-sm text-text-secondary">{t('drillsHubSubtitle')}</p>
         </div>
 
-        {drills.length === 0 ? (
+        {initialDrillId && !isLoadingCatalog && !drills.some((drill) => drill.drillId === initialDrillId) ? (
+          <MzBanner tone="info">{t('drillsRecommendedUnavailable')}</MzBanner>
+        ) : null}
+        {isLoadingCatalog ? (
+          <p role="status" className="text-sm text-text-secondary">{t('workspaceLoadingLabel')}</p>
+        ) : drills.length === 0 ? (
           <MzCard variant="alt">
             <p className="py-6 text-center text-sm text-text-secondary">{t('drillsEmptyMessage')}</p>
           </MzCard>

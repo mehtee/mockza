@@ -627,6 +627,9 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
               'acceptedAnswers': q.acceptedVariants,
               'isCorrect': report.questionCorrectness[qId] ?? false,
               'distractorExplanation': q.distractorExplanation,
+              'evidenceQuote': q.evidenceSpan?.exactQuote,
+              'cueTimestampMs': q.cueTimestampMs,
+              'sectionId': q.sectionId,
             };
           })
           .toList(growable: false);
@@ -635,9 +638,6 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
           ? clock.now().difference(_sessionStartTime!).inSeconds.clamp(5, 3600)
           : state.currentPosition.inSeconds.clamp(5, 3600);
 
-      final installedPack = await ref
-          .read(examCatalogRepositoryProvider)
-          .getInstalledPackById(pack.packId);
       final nowUtcMs = clock.now().toUtc().millisecondsSinceEpoch;
 
       final submissionJson = jsonEncode({
@@ -665,7 +665,7 @@ class ListeningSimNotifier extends Notifier<ListeningSimState> {
         usedStudyMode: !state.isExamMode,
         questionCount: report.totalCount,
         isCalibratedFullPack: report.isCalibratedFullPack,
-        contentVersion: installedPack?.version,
+        contentVersion: pack.contentVersion,
         mockSessionId: _mockSessionId,
         mockStageKey: _mockStageKey,
       );

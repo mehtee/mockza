@@ -7,6 +7,7 @@ import 'package:mockza/core/exams/exam_descriptor.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/features/home/presentation/home_providers.dart';
+import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/routing/routes.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
@@ -15,6 +16,7 @@ import 'package:mockza/theme/components/brand_header.dart';
 import 'package:mockza/theme/components/icon_well.dart';
 import 'package:mockza/theme/components/metric_hero.dart';
 import 'package:mockza/theme/components/mz_bottom_sheet.dart';
+import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
@@ -33,6 +35,15 @@ class HomeScreen extends ConsumerWidget {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
     final state = ref.watch(homeNotifierProvider);
+    final l10n = AppLocalizations.of(context);
+    final resumeRoute = state.resumeSpeakingRoute;
+    final needsLevelCheck =
+        state.estimatedSummary.overallBand == null &&
+        (state.latestDiagnosticId == null ||
+            state.latestDiagnosticStatus == 'in_progress');
+    final diagnosticRoute = AppRoutes.buildDiagnosticIntro(
+      examId: state.track.id,
+    );
 
     // Delta pill display
     String? deltaText;
@@ -129,12 +140,12 @@ class HomeScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
-                        Text('Keep improving.', style: typography.headline),
+                        Text(l10n.homeStudyRoom, style: typography.headline),
                         const SizedBox(height: SpacingTokens.xs),
                         Text(
                           state.daysUntilExam != null
                               ? '${state.daysUntilExam} days until your exam'
-                              : 'Target your highest-leverage skill',
+                              : l10n.homeStudyRoomDescription,
                           style: typography.secondary.copyWith(
                             color: colors.textSecondary,
                           ),
@@ -149,53 +160,36 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: SpacingTokens.md),
 
-                if (state.estimatedSummary.overallBand == null &&
-                    (state.latestDiagnosticId == null ||
-                        state.latestDiagnosticStatus ==
-                            'in_progress')) ...<Widget>[
-                  MzCard(
-                    onTap: () => unawaited(
-                      context.push(
-                        AppRoutes.buildDiagnosticIntro(examId: state.track.id),
-                      ),
-                    ),
-                    child: Row(
-                      children: <Widget>[
-                        const IconWell(
-                          glyph: LucideGlyph.sparkles,
-                          tint: IconWellTint.blue,
-                          size: 38,
-                          iconSize: 18,
-                        ),
-                        const SizedBox(width: SpacingTokens.md),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Text(
-                                'Find Your Starting Level (~10–15 Min)',
-                                style: typography.cardTitle,
-                              ),
-                              Text(
-                                'Quick 4-skill placement to personalize drills for your level.',
-                                style: typography.caption.copyWith(
-                                  color: colors.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: SpacingTokens.xs),
-                        AppIcon(
-                          LucideGlyph.chevronRight,
-                          size: 18,
-                          color: colors.textTertiary,
-                        ),
-                      ],
-                    ),
+                RecommendationCard(
+                  ctaLabel: resumeRoute != null
+                      ? l10n.homeResumeAttempt
+                      : needsLevelCheck
+                      ? l10n.homeCheckLevel
+                      : l10n.studyStart,
+                  title: resumeRoute != null
+                      ? l10n.speakingSimTitle
+                      : needsLevelCheck
+                      ? l10n.homeCheckLevel
+                      : state.recommendedTitle,
+                  subtitle: resumeRoute != null
+                      ? l10n.homeResumeDescription
+                      : needsLevelCheck
+                      ? l10n.homeLevelCheckDescription
+                      : state.recommendedSubtitle,
+                  onTapStart: () => context.push(
+                    resumeRoute ??
+                        (needsLevelCheck
+                            ? diagnosticRoute
+                            : state.recommendedRoute),
                   ),
-                  const SizedBox(height: SpacingTokens.md),
-                ],
+                ),
+                const SizedBox(height: SpacingTokens.sm),
+                SecondaryButton(
+                  label: l10n.homePractiseSkill,
+                  glyph: LucideGlyph.circlePlay,
+                  onPressed: () => context.go(AppRoutes.practice),
+                ),
+                const SizedBox(height: SpacingTokens.lg),
 
                 // Metric Hero Card
                 MetricHero(
@@ -307,14 +301,6 @@ class HomeScreen extends ConsumerWidget {
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: SpacingTokens.lg),
-
-                // Recommendation Card
-                RecommendationCard(
-                  title: state.recommendedTitle,
-                  subtitle: state.recommendedSubtitle,
-                  onTapStart: () => context.push(state.recommendedRoute),
                 ),
                 const SizedBox(height: SpacingTokens.lg),
 

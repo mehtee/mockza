@@ -567,9 +567,6 @@ class ReadingSimNotifier extends Notifier<ReadingSimState> {
           ? clock.now().difference(_sessionStartTime!).inSeconds.clamp(5, 7200)
           : (state.totalSeconds - state.remainingSeconds).clamp(5, 7200);
 
-      final installedPack = await ref
-          .read(examCatalogRepositoryProvider)
-          .getInstalledPackById(pack.packId);
       final nowUtcMs = clock.now().toUtc().millisecondsSinceEpoch;
 
       final submissionJson = jsonEncode({
@@ -597,7 +594,7 @@ class ReadingSimNotifier extends Notifier<ReadingSimState> {
         usedStudyMode: !state.isExamMode,
         questionCount: report.totalCount,
         isCalibratedFullPack: report.isCalibratedFullPack,
-        contentVersion: installedPack?.version,
+        contentVersion: pack.contentVersion,
         mockSessionId: _mockSessionId,
         mockStageKey: _mockStageKey,
       );

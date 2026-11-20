@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/providers.dart';
 import 'package:mockza/routing/app_router.dart';
@@ -64,6 +65,7 @@ class _MockzaAppState extends ConsumerState<MockzaApp>
     final router = ref.watch(appRouterProvider);
     final appearance = ref.watch(appearanceSettingsProvider);
     final preset = MzThemeCatalog.resolvePreset(appearance.presetId);
+    final persian = ref.watch(editionConfigProvider).edition == AppEdition.iran;
     final themeMode = switch (appearance.themeModeKey) {
       'light' => ThemeMode.light,
       'dark' => ThemeMode.dark,
@@ -72,8 +74,17 @@ class _MockzaAppState extends ConsumerState<MockzaApp>
     return MaterialApp.router(
       onGenerateTitle: (ctx) => AppLocalizations.of(ctx).appTitle,
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.build(preset: preset, brightness: Brightness.light),
-      darkTheme: AppTheme.build(preset: preset, brightness: Brightness.dark),
+      theme: AppTheme.build(
+        preset: preset,
+        brightness: Brightness.light,
+        persian: persian,
+      ),
+      darkTheme: AppTheme.build(
+        preset: preset,
+        brightness: Brightness.dark,
+        persian: persian,
+      ),
+      locale: persian ? const Locale('fa') : null,
       themeMode: themeMode,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,

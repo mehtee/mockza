@@ -46,8 +46,8 @@
     },
     "presets": {
       "type": "array",
-      "minItems": 4,
-      "maxItems": 4,
+      "minItems": 5,
+      "maxItems": 5,
       "items": {
         "$ref": "#/$defs/preset"
       },
@@ -78,6 +78,13 @@
             "type": "object",
             "required": ["id"],
             "properties": { "id": { "const": "oceanic_cobalt" } }
+          }
+        },
+        {
+          "contains": {
+            "type": "object",
+            "required": ["id"],
+            "properties": { "id": { "const": "editorial_green" } }
           }
         }
       ]
@@ -112,7 +119,7 @@
     },
     "presetId": {
       "type": "string",
-      "enum": ["midnight_indigo", "nordic_emerald", "editorial_amber", "oceanic_cobalt"]
+      "enum": ["midnight_indigo", "nordic_emerald", "editorial_amber", "oceanic_cobalt", "editorial_green"]
     },
     "unitPoint2D": {
       "type": "array",

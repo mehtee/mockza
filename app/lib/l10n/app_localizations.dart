@@ -98,6 +98,90 @@ abstract class AppLocalizations {
     Locale('fa'),
   ];
 
+  /// No description provided for @homeResumeAttempt.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume attempt'**
+  String get homeResumeAttempt;
+
+  /// No description provided for @homeResumeDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Your saved work is ready to pick up.'**
+  String get homeResumeDescription;
+
+  /// No description provided for @homeCheckLevel.
+  ///
+  /// In en, this message translates to:
+  /// **'Check my level'**
+  String get homeCheckLevel;
+
+  /// No description provided for @homeLevelCheckDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Find what to practise next with a short assessment.'**
+  String get homeLevelCheckDescription;
+
+  /// No description provided for @homePractiseSkill.
+  ///
+  /// In en, this message translates to:
+  /// **'Practise a skill'**
+  String get homePractiseSkill;
+
+  /// No description provided for @homeStudyRoom.
+  ///
+  /// In en, this message translates to:
+  /// **'Your study room'**
+  String get homeStudyRoom;
+
+  /// No description provided for @homeStudyRoomDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick up where you left off or choose your next practice.'**
+  String get homeStudyRoomDescription;
+
+  /// No description provided for @studyStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get studyStart;
+
+  /// No description provided for @objectiveAudioReplay.
+  ///
+  /// In en, this message translates to:
+  /// **'Replay audio cue'**
+  String get objectiveAudioReplay;
+
+  /// No description provided for @objectiveAudioPause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get objectiveAudioPause;
+
+  /// No description provided for @objectiveAudioLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading the original audio'**
+  String get objectiveAudioLoading;
+
+  /// No description provided for @objectiveAudioUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The original audio is unavailable. Your answers and score are saved.'**
+  String get objectiveAudioUnavailable;
+
+  /// No description provided for @objectiveReviewMissed.
+  ///
+  /// In en, this message translates to:
+  /// **'Review the first missed answer'**
+  String get objectiveReviewMissed;
+
+  /// No description provided for @objectiveNextDrill.
+  ///
+  /// In en, this message translates to:
+  /// **'Try a follow-up drill'**
+  String get objectiveNextDrill;
+
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:

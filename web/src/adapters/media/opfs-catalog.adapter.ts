@@ -1,3 +1,4 @@
+import { makePackMediaKey } from '@/gateways/catalog.gateway';
 import type { ApiClient, ApiClientError } from '@/adapters/http/api-client';
 import {
   type AppEditionCode,
@@ -567,10 +568,6 @@ function inferMimeTypeFromUrl(url: string, contentTypeHeader?: string | null): s
   return 'application/octet-stream';
 }
 
-function makePackMediaKey(packId: string, url: string): string {
-  return `pack:${packId}:${url}`;
-}
-
 export class OpfsCatalogAdapter implements ICatalogMediaGateway {
   private readonly db: MockzaDexieDb;
   private readonly edition: AppEditionCode;
@@ -738,12 +735,14 @@ export class OpfsCatalogAdapter implements ICatalogMediaGateway {
 
   async ensureExamBundle(
     packId: string,
+    preferredVersion?: string,
   ): Promise<Result<ExamBundlePayload, CatalogGatewayError>> {
     try {
       const existing = await this.db.catalogPacks.get(packId);
       if (existing && existing.isCachedOffline === 1 && existing.bundleJson) {
         try {
           const parsed = JSON.parse(existing.bundleJson) as ExamBundlePayload;
+          if (preferredVersion && parsed.pack?.version === preferredVersion) return ok(parsed);
           const isStale =
             (parsed.pack?.version && existing.version && parsed.pack.version !== existing.version) ||
             (parsed.pack?.sha256 &&

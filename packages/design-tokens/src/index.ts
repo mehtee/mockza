@@ -5,6 +5,7 @@ export const DESIGN_TOKENS_PRESET_IDS = [
   'nordic_emerald',
   'editorial_amber',
   'oceanic_cobalt',
+  'editorial_green',
 ] as const;
 
 export type ThemePresetId = (typeof DESIGN_TOKENS_PRESET_IDS)[number];

@@ -1,3 +1,4 @@
+import { isResumableStandaloneDraft } from '@/gateways/storage.gateway';
 import {
   DEFAULT_EASE_FACTOR_MILLI,
   type SerialDay,
@@ -147,6 +148,15 @@ export class FakeStorageAdapter
       return;
     }
     this.drafts.set(key, draft);
+  }
+
+  async getLatestResumableDraft(
+    examId: AttemptDraftRecord['examId'],
+  ): Promise<Result<AttemptDraftRecord | null, StorageError>> {
+    const draft = [...this.drafts.values()]
+      .filter((entry) => isResumableStandaloneDraft(entry, examId))
+      .sort((a, b) => b.updatedAtMs - a.updatedAtMs)[0];
+    return ok(draft ?? null);
   }
 
   async getActiveDraft(
