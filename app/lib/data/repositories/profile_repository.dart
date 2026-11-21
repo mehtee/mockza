@@ -32,6 +32,7 @@ final class ProfileRepository {
             : ExamModuleType.academic,
         isPro: row.isPro,
         examId: row.examId,
+        studyFocus: row.studyFocus,
         targetDateSerial: row.targetDateSerial,
         onboardingCompleted: row.onboardingCompleted,
         freeDiagnosticUsed: row.freeDiagnosticUsed,
@@ -50,6 +51,7 @@ final class ProfileRepository {
         examModule: Value(initial.name),
         isPro: const Value(false),
         examId: const Value('ielts_academic'),
+        studyFocus: const Value('both'),
         onboardingCompleted: const Value(false),
         freeDiagnosticUsed: const Value(false),
         themeMode: const Value('system'),
@@ -71,6 +73,7 @@ final class ProfileRepository {
     required double targetBand,
     required ExamModuleType examModule,
     String? examId,
+    String? studyFocus,
     int? targetDateSerial,
     bool clearTargetDate = false,
   }) async {
@@ -83,6 +86,7 @@ final class ProfileRepository {
         examModule: Value(examModule.name),
         isPro: Value(existing?.isPro ?? false),
         examId: Value(examId ?? existing?.examId ?? 'ielts_academic'),
+        studyFocus: Value(studyFocus ?? existing?.studyFocus ?? 'both'),
         targetDateSerial: Value(
           clearTargetDate
               ? null
@@ -131,6 +135,7 @@ final class ProfileRepository {
         examModule: module,
         isPro: row.isPro,
         examId: row.examId,
+        studyFocus: row.studyFocus,
         targetDateSerial: row.targetDateSerial,
         onboardingCompleted: row.onboardingCompleted,
         freeDiagnosticUsed: row.freeDiagnosticUsed,
@@ -149,6 +154,7 @@ final class ProfileRepository {
     String? appUserId,
     String? linkedEmail,
     bool? freeDiagnosticUsed,
+    String? studyFocus,
   }) async {
     final now = _clock.now().toUtc();
     final existing = await _db.progressDao.getProfile(deviceId);
@@ -160,6 +166,7 @@ final class ProfileRepository {
         examModule: Value(existing.examModule),
         isPro: Value(isPro ?? existing.isPro),
         examId: Value(existing.examId),
+        studyFocus: Value(studyFocus ?? existing.studyFocus),
         targetDateSerial: Value(existing.targetDateSerial),
         onboardingCompleted: Value(
           onboardingCompleted ?? existing.onboardingCompleted,
@@ -183,6 +190,10 @@ final class ProfileRepository {
   /// Sets the user's theme mode ('system', 'dark', 'light').
   Future<void> setThemeMode(String deviceId, String themeMode) =>
       _patchProfile(deviceId, themeMode: themeMode);
+
+  /// Updates the user's study focus preference (`exams`, `coach`, or `both`).
+  Future<void> setStudyFocus(String deviceId, String studyFocus) =>
+      _patchProfile(deviceId, studyFocus: studyFocus);
 
   /// Persists the Pro subscription entitlement flag on the learner profile.
   Future<void> setProEntitlement(String deviceId, {required bool isPro}) =>

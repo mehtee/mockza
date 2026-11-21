@@ -140,99 +140,240 @@ export function HomeScreen() {
         </div>
       </header>
 
-      <MzCard variant="hero" data-testid="home-recommended-card">
-        <div className="flex items-start gap-2.5">
-          <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+      {/* Clear 2-Pillar Quick Switcher: Mock Exams vs Smart Coach */}
+      <div
+        data-testid="home-two-pillars"
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+      >
+        <Link
+          to="/practice"
+          search={{ track: activeTrack }}
+          className={`flex items-center justify-between rounded-[var(--mz-radius-compact)] border px-4 py-3 text-start transition-colors ${
+            ctrl.studyFocus === 'exams'
+              ? 'border-primary bg-surface-alt'
+              : 'border-border-subtle bg-bg-surface hover:bg-surface-hover'
+          }`}
+        >
           <div>
-            <h2 className="font-editorial text-3xl text-text-primary">
-              {resumeSkill?.label ?? latestDiagnostic?.recommendedFirstAction.title ?? t('homeRecommendedNextTitle')}
-            </h2>
-            <p className="mt-1 text-xs text-text-secondary">
-              {resumeSkill ? t('homeResumeDescription') : latestDiagnostic?.recommendedFirstAction.description ?? descriptor.formatHint}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-5 flex flex-wrap gap-2.5">
-          {resumableDraft && resumeSkill ? (
-            <Link
-              to={resumeSkill.to}
-              params={{ packId: resumableDraft.packId }}
-              className="inline-flex h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-sm font-semibold text-on-primary"
-            >
-              {t('homeResumeAttempt')}
-            </Link>
-          ) : !latestDiagnostic ? (
-            <Link
-              to="/diagnostic/intro"
-              data-testid="home-diagnostic-cta"
-              search={{ track: activeTrack }}
-              className="inline-flex h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-sm font-semibold text-on-primary"
-            >
-              {t('homeStartDiagnosticCta')}
-            </Link>
-          ) : null}
-          <Link to="/practice" search={{ track: activeTrack }} className="inline-flex h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-strong px-4 text-sm font-semibold text-primary">
-            {t('navPractice')}
-          </Link>
-          <Link
-            to="/practice/drills"
-            data-testid="home-drills-cta"
-            className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-compact)] bg-surface-alt border border-primary/40 px-3.5 text-xs font-semibold text-primary hover:bg-surface-hover"
-          >
-            <Zap className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>{t('homeQuickDrillsCta')}</span>
-          </Link>
-          <Link
-            to="/practice/full-mock"
-            data-testid="home-full-mock-cta"
-            className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3.5 text-xs font-semibold text-text-primary hover:bg-surface-hover"
-          >
-            <span>{t('homeQuickFullMockCta')}</span>
-          </Link>
-        </div>
-      </MzCard>
-
-      {/* Closed-Loop Daily 10-Min Transfer Mission + Signature Tools (ADR-ADV-007 priority) */}
-      <MzCard variant="default" data-testid="home-daily-mission-card">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
-              <Flame className="h-3.5 w-3.5" aria-hidden="true" />
-              {t('homeDailyMissionTitle')}
-            </p>
-            <p className="mt-1 text-xs text-text-secondary">
+            <p className="text-xs font-semibold text-primary">{t('navPractice')}</p>
+            <p className="mt-0.5 text-[11px] text-text-secondary">
               {deps.edition === 'irn'
-                ? 'تمرین هدفمند ۱۰ دقیقه‌ای بر اساس گلوگاه‌های واقعی، واژگان SM-2 و موضوعات دلخواه شما'
-                : 'Closed-loop 10-minute transfer drill blending active bottlenecks, due SM-2 cards, and favorite topics.'}
+                ? 'آزمون‌های شبیه‌ساز زمان‌دار و تخمین دقیق نمره'
+                : 'Timed simulations, section drills & accurate band estimates'}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              to="/mission/$missionId"
-              params={{ missionId: 'today' }}
-              data-testid="home-daily-mission-cta"
-              className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3.5 text-xs font-semibold text-on-primary"
-            >
-              {t('homeDailyMissionStartCta')}
-            </Link>
-            <Link
-              to="/register-shifter"
-              data-testid="home-register-shifter-cta"
-              className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] border border-border-strong px-3 text-xs font-semibold text-primary hover:bg-surface-hover"
-            >
-              {t('homeRegisterShifterCta')}
-            </Link>
-            <Link
-              to="/drop"
-              data-testid="home-drop-anything-cta"
-              className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 text-xs font-semibold text-text-primary hover:bg-surface-hover"
-            >
-              {t('homeDropAnythingCta')}
-            </Link>
+          <span className="text-xs font-semibold text-primary">→</span>
+        </Link>
+        <Link
+          to="/coach"
+          data-testid="home-coach-hub-cta"
+          className={`flex items-center justify-between rounded-[var(--mz-radius-compact)] border px-4 py-3 text-start transition-colors ${
+            ctrl.studyFocus === 'coach'
+              ? 'border-primary bg-surface-alt'
+              : 'border-border-subtle bg-bg-surface hover:bg-surface-hover'
+          }`}
+        >
+          <div>
+            <p className="text-xs font-semibold text-primary">{t('navSmartCoach')}</p>
+            <p className="mt-0.5 text-[11px] text-text-secondary">
+              {t('smartCoachSubtitle')}
+            </p>
           </div>
-        </div>
-      </MzCard>
+          <span className="text-xs font-semibold text-primary">→</span>
+        </Link>
+      </div>
+
+      {ctrl.studyFocus === 'coach' ? (
+        <>
+          <MzCard variant="hero" data-testid="home-daily-mission-card">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
+                  <Flame className="h-3.5 w-3.5" aria-hidden="true" />
+                  {t('homeDailyMissionTitle')}
+                </p>
+                <p className="mt-1 text-xs text-text-secondary">
+                  {deps.edition === 'irn'
+                    ? 'یک تمرین ۱۰ دقیقه‌ای اختصاصی با ترکیب نقاط ضعف، واژگان امروز و موضوعات مورد علاقه شما'
+                    : 'One 10-minute custom exercise mixing your weak spots, due words, and favorite topics.'}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  to="/mission/$missionId"
+                  params={{ missionId: 'today' }}
+                  data-testid="home-daily-mission-cta"
+                  className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3.5 text-xs font-semibold text-on-primary"
+                >
+                  {t('homeDailyMissionStartCta')}
+                </Link>
+                <Link
+                  to="/register-shifter"
+                  data-testid="home-register-shifter-cta"
+                  className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] border border-border-strong px-3 text-xs font-semibold text-primary hover:bg-surface-hover"
+                >
+                  {t('homeRegisterShifterCta')}
+                </Link>
+                <Link
+                  to="/drop"
+                  data-testid="home-drop-anything-cta"
+                  className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 text-xs font-semibold text-text-primary hover:bg-surface-hover"
+                >
+                  {t('homeDropAnythingCta')}
+                </Link>
+              </div>
+            </div>
+          </MzCard>
+
+          <MzCard variant="default" data-testid="home-recommended-card">
+            <div className="flex items-start gap-2.5">
+              <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+              <div>
+                <h2 className="font-editorial text-3xl text-text-primary">
+                  {resumeSkill?.label ?? latestDiagnostic?.recommendedFirstAction.title ?? t('homeRecommendedNextTitle')}
+                </h2>
+                <p className="mt-1 text-xs text-text-secondary">
+                  {resumeSkill ? t('homeResumeDescription') : latestDiagnostic?.recommendedFirstAction.description ?? descriptor.formatHint}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2.5">
+              {resumableDraft && resumeSkill ? (
+                <Link
+                  to={resumeSkill.to}
+                  params={{ packId: resumableDraft.packId }}
+                  className="inline-flex h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-sm font-semibold text-on-primary"
+                >
+                  {t('homeResumeAttempt')}
+                </Link>
+              ) : !latestDiagnostic ? (
+                <Link
+                  to="/diagnostic/intro"
+                  data-testid="home-diagnostic-cta"
+                  search={{ track: activeTrack }}
+                  className="inline-flex h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-sm font-semibold text-on-primary"
+                >
+                  {t('homeStartDiagnosticCta')}
+                </Link>
+              ) : null}
+              <Link to="/practice" search={{ track: activeTrack }} className="inline-flex h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-strong px-4 text-sm font-semibold text-primary">
+                {t('navPractice')}
+              </Link>
+              <Link
+                to="/practice/drills"
+                data-testid="home-drills-cta"
+                className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-compact)] bg-surface-alt border border-primary/40 px-3.5 text-xs font-semibold text-primary hover:bg-surface-hover"
+              >
+                <Zap className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>{t('homeQuickDrillsCta')}</span>
+              </Link>
+              <Link
+                to="/practice/full-mock"
+                data-testid="home-full-mock-cta"
+                className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3.5 text-xs font-semibold text-text-primary hover:bg-surface-hover"
+              >
+                <span>{t('homeQuickFullMockCta')}</span>
+              </Link>
+            </div>
+          </MzCard>
+        </>
+      ) : (
+        <>
+          <MzCard variant="hero" data-testid="home-recommended-card">
+            <div className="flex items-start gap-2.5">
+              <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+              <div>
+                <h2 className="font-editorial text-3xl text-text-primary">
+                  {resumeSkill?.label ?? latestDiagnostic?.recommendedFirstAction.title ?? t('homeRecommendedNextTitle')}
+                </h2>
+                <p className="mt-1 text-xs text-text-secondary">
+                  {resumeSkill ? t('homeResumeDescription') : latestDiagnostic?.recommendedFirstAction.description ?? descriptor.formatHint}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2.5">
+              {resumableDraft && resumeSkill ? (
+                <Link
+                  to={resumeSkill.to}
+                  params={{ packId: resumableDraft.packId }}
+                  className="inline-flex h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-sm font-semibold text-on-primary"
+                >
+                  {t('homeResumeAttempt')}
+                </Link>
+              ) : !latestDiagnostic ? (
+                <Link
+                  to="/diagnostic/intro"
+                  data-testid="home-diagnostic-cta"
+                  search={{ track: activeTrack }}
+                  className="inline-flex h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-sm font-semibold text-on-primary"
+                >
+                  {t('homeStartDiagnosticCta')}
+                </Link>
+              ) : null}
+              <Link to="/practice" search={{ track: activeTrack }} className="inline-flex h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-strong px-4 text-sm font-semibold text-primary">
+                {t('navPractice')}
+              </Link>
+              <Link
+                to="/practice/drills"
+                data-testid="home-drills-cta"
+                className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-compact)] bg-surface-alt border border-primary/40 px-3.5 text-xs font-semibold text-primary hover:bg-surface-hover"
+              >
+                <Zap className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>{t('homeQuickDrillsCta')}</span>
+              </Link>
+              <Link
+                to="/practice/full-mock"
+                data-testid="home-full-mock-cta"
+                className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3.5 text-xs font-semibold text-text-primary hover:bg-surface-hover"
+              >
+                <span>{t('homeQuickFullMockCta')}</span>
+              </Link>
+            </div>
+          </MzCard>
+
+          <MzCard variant="default" data-testid="home-daily-mission-card">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
+                  <Flame className="h-3.5 w-3.5" aria-hidden="true" />
+                  {t('homeDailyMissionTitle')}
+                </p>
+                <p className="mt-1 text-xs text-text-secondary">
+                  {deps.edition === 'irn'
+                    ? 'یک تمرین ۱۰ دقیقه‌ای اختصاصی با ترکیب نقاط ضعف، واژگان امروز و موضوعات مورد علاقه شما'
+                    : 'One 10-minute custom exercise mixing your weak spots, due words, and favorite topics.'}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  to="/mission/$missionId"
+                  params={{ missionId: 'today' }}
+                  data-testid="home-daily-mission-cta"
+                  className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3.5 text-xs font-semibold text-on-primary"
+                >
+                  {t('homeDailyMissionStartCta')}
+                </Link>
+                <Link
+                  to="/register-shifter"
+                  data-testid="home-register-shifter-cta"
+                  className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] border border-border-strong px-3 text-xs font-semibold text-primary hover:bg-surface-hover"
+                >
+                  {t('homeRegisterShifterCta')}
+                </Link>
+                <Link
+                  to="/drop"
+                  data-testid="home-drop-anything-cta"
+                  className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 text-xs font-semibold text-text-primary hover:bg-surface-hover"
+                >
+                  {t('homeDropAnythingCta')}
+                </Link>
+              </div>
+            </div>
+          </MzCard>
+        </>
+      )}
 
       {/* Instant Track Switcher Strip */}
       <div

@@ -650,6 +650,16 @@ export const QuotaStatusResponseSchema = z
     monthlyLimit: z.number().int().nonnegative(),
     dailyResetAt: z.string(),
     monthlyResetAt: z.string(),
+    advancedQuota: z
+      .object({
+        isPro: z.boolean(),
+        freeSampleUsed: z.boolean(),
+        shifterRemainingToday: z.number().int().nonnegative(),
+        dropsRemainingToday: z.number().int().nonnegative(),
+        audioDropAllowed: z.boolean(),
+        monthlyRemaining: z.number().int().nonnegative(),
+      })
+      .optional(),
   })
   .openapi('QuotaStatusResponse');
 
@@ -1130,14 +1140,35 @@ export const DailyMissionResponseSchema = z
     evaluationResult: z
       .object({
         matchedTargets: z.array(z.string()),
+        missedTargets: z.array(z.string()).optional(),
         feedbackEn: z.string(),
         feedbackFa: z.string().nullable().optional(),
         clarityScore1To5: z.number().int().min(1).max(5),
+        transcriptEn: z.string().nullable().optional(),
+        inlineUpgrades: z
+          .array(
+            z.object({
+              original: z.string(),
+              improved: z.string(),
+              whyEn: z.string(),
+              whyFa: z.string().nullable().optional(),
+            }),
+          )
+          .max(3)
+          .optional(),
+        modelRewriteEn: z.string().nullable().optional(),
       })
       .nullable()
       .optional(),
   })
   .openapi('DailyMissionResponse');
+
+export const RefreshDailyMissionRequestSchema = z
+  .object({
+    focusTopic: z.string().trim().min(2).max(80),
+    examTrack: z.string().default('ielts_academic'),
+  })
+  .openapi('RefreshDailyMissionRequest');
 
 export const CompleteDailyMissionRequestSchema = z
   .object({
@@ -1148,10 +1179,15 @@ export const CompleteDailyMissionRequestSchema = z
 
 export const RegisterShifterRequestSchema = z
   .object({
-    objectKey: z.string().min(5).max(500),
+    inputMode: z.enum(['audio', 'text']).optional(),
+    objectKey: z.string().min(5).max(500).optional(),
+    rawText: z.string().trim().min(15).max(600).optional(),
     examTrack: z.string().default('ielts_academic'),
     topicHint: z.string().max(120).optional(),
-    durationSeconds: z.number().min(5).max(45),
+    durationSeconds: z.number().min(5).max(45).optional(),
+  })
+  .refine((v) => Boolean(v.objectKey || v.rawText), {
+    message: 'Provide either an audio objectKey or rawText.',
   })
   .openapi('RegisterShifterRequest');
 
@@ -1294,6 +1330,8 @@ export const DroppedContentResponseSchema = z
       comprehensionPrompt: z.string(),
       comprehensionOptions: z.array(z.string()).min(2).max(4),
       correctOptionIndex: z.number().int().nonnegative(),
+      comprehensionExplanationEn: z.string().nullable().optional(),
+      comprehensionExplanationFa: z.string().nullable().optional(),
       clozeSentence: z.string(),
       clozeAnswer: z.string(),
       shadowingPrompt: z.string(),

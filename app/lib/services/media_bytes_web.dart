@@ -342,3 +342,51 @@ Future<bool> clearAllCachedMediaAndClips() async {
     db.close();
   }
 }
+
+/// Opens a browser `<input type="file">` picker for images or audio and reads bytes cleanly.
+Future<List<({String name, String mimeType, Uint8List bytes})>>
+pickLocalMediaFiles({
+  required String acceptMime,
+  bool allowMultiple = false,
+  int maxFiles = 4,
+}) async {
+  final input = web.document.createElement('input') as web.HTMLInputElement
+    ..type = 'file'
+    ..accept = acceptMime
+    ..multiple = allowMultiple;
+  final completer = Completer<List<web.File>>();
+
+  input
+    ..onchange = (web.Event _) {
+      if (completer.isCompleted) return;
+      final fileList = input.files;
+      final out = <web.File>[];
+      if (fileList != null) {
+        for (var i = 0; i < fileList.length && i < maxFiles; i++) {
+          final item = fileList.item(i);
+          if (item != null) out.add(item);
+        }
+      }
+      completer.complete(out);
+    }.toJS
+    ..oncancel = (web.Event _) {
+      if (!completer.isCompleted) completer.complete(const <web.File>[]);
+    }.toJS;
+
+  input.click();
+  final selected = await completer.future.timeout(
+    const Duration(seconds: 60),
+    onTimeout: () => const <web.File>[],
+  );
+  final out = <({String name, String mimeType, Uint8List bytes})>[];
+  for (final file in selected.take(maxFiles)) {
+    final buf = await file.arrayBuffer().toDart;
+    final bytes = buf.toDart.asUint8List();
+    if (bytes.isEmpty) continue;
+    final mime = file.type.trim().isNotEmpty
+        ? file.type.trim()
+        : (acceptMime.startsWith('audio/') ? 'audio/mp4' : 'image/jpeg');
+    out.add((name: file.name, mimeType: mime, bytes: bytes));
+  }
+  return out;
+}

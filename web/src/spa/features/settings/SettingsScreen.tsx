@@ -367,6 +367,42 @@ export function SettingsScreen({ onExternalRedirect }: SettingsScreenProps = {})
             </div>
           </MzCard>
 
+          <MzCard variant="default" data-testid="settings-study-focus-card">
+            <h2 className="text-sm font-semibold text-text-primary">
+              {t('learningFocusHeadline')}
+            </h2>
+            <p className="mt-1 text-xs text-text-secondary">
+              {t('learningFocusSubtitle')}
+            </p>
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {(['both', 'exams', 'coach'] as const).map((focusKey) => {
+                const selected = ctrl.studyFocus === focusKey;
+                const label =
+                  focusKey === 'both'
+                    ? t('learningFocusBothTitle')
+                    : focusKey === 'exams'
+                      ? t('learningFocusExamsTitle')
+                      : t('learningFocusCoachTitle');
+                return (
+                  <button
+                    key={focusKey}
+                    type="button"
+                    data-testid={`settings-focus-${focusKey}`}
+                    aria-pressed={selected}
+                    onClick={() => void ctrl.setStudyFocus(focusKey)}
+                    className={`rounded-[var(--mz-radius-compact)] border px-3 py-2 text-start text-xs font-semibold transition-colors ${
+                      selected
+                        ? 'border-primary bg-primary text-on-primary'
+                        : 'border-border-subtle bg-bg-raised text-text-primary hover:bg-surface-hover'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </MzCard>
+
           <MzCard variant="default">
             <h2 className="text-base font-semibold text-text-primary">
               {t('settingsAppearanceSection')}

@@ -55,7 +55,15 @@ export interface SafeFetchedDocument {
   byteLength: number;
 }
 
+export interface SafeFetchedBinary {
+  finalUrl: string;
+  sourceDomain: string;
+  contentType: string;
+  body: Buffer;
+}
+
 const DEFAULT_MAX_BYTES = Math.floor(1.5 * 1024 * 1024); // 1.5 MB text cap
+const DEFAULT_BINARY_MAX_BYTES = 5 * 1024 * 1024; // 5 MB bounded media cap
 const DEFAULT_MAX_REDIRECTS = 3;
 const DEFAULT_TIMEOUT_MS = 8_000;
 
@@ -253,17 +261,14 @@ function isBlockedMimeType(contentType: string): boolean {
   );
 }
 
-/**
- * Fetches an external article URL with DNS pinning, SSRF IP blocklist, video-host/MIME rejection,
- * manual redirect hop checks, and strict byte/UTF-16 size caps (`ADR-ADV-004`).
- */
-export async function safeFetchReadableUrl(
+async function fetchPinnedUrlRaw(
   rawUrl: string,
-  options: SafeUrlFetchOptions = {},
-): Promise<SafeFetchedDocument> {
+  options: SafeUrlFetchOptions,
+  defaultMaxBytes: number,
+): Promise<SafeFetchedBinary> {
   const isProd = options.isProduction ?? process.env['NODE_ENV'] === 'production';
   const allowHttp = Boolean(options.allowHttpInNonProd && !isProd);
-  const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
+  const maxBytes = options.maxBytes ?? defaultMaxBytes;
   const maxRedirects = options.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const lookupFn = options.lookupFn ?? defaultDnsLookup();
@@ -354,7 +359,7 @@ export async function safeFetchReadableUrl(
     }
 
     const ctHeader = res.headers['content-type'];
-    const contentType = (Array.isArray(ctHeader) ? ctHeader[0] : ctHeader) ?? 'text/html';
+    const contentType = (Array.isArray(ctHeader) ? ctHeader[0] : ctHeader) ?? 'application/octet-stream';
     if (isBlockedMimeType(contentType)) {
       throw new SafeUrlFetchError(
         'UNSUPPORTED_DROP_SOURCE',
@@ -363,27 +368,54 @@ export async function safeFetchReadableUrl(
       );
     }
 
-    const rawText = res.body.toString('utf8');
-    const extracted = extractReadableTextFromHtml(rawText, contentType);
-    const boundedText = extracted.text.slice(0, 15_000);
-    const snippetCheck = validateDropTextSnippet(boundedText);
-    if (!snippetCheck.ok) {
-      throw new SafeUrlFetchError(
-        'FETCH_FAILED',
-        422,
-        'Fetched page did not contain enough readable text.',
-      );
-    }
-
     return {
       finalUrl: parsed.toString(),
       sourceDomain: parsed.hostname,
       contentType,
-      title: extracted.title || parsed.hostname,
-      extractedText: boundedText,
-      byteLength: res.body.length,
+      body: res.body,
     };
   }
 
   throw new SafeUrlFetchError('FETCH_FAILED', 422, 'Exceeded redirect ceiling.');
+}
+
+/**
+ * Fetches an external article URL with DNS pinning, SSRF IP blocklist, video-host/MIME rejection,
+ * manual redirect hop checks, and strict byte/UTF-16 size caps (`ADR-ADV-004`).
+ */
+export async function safeFetchReadableUrl(
+  rawUrl: string,
+  options: SafeUrlFetchOptions = {},
+): Promise<SafeFetchedDocument> {
+  const fetched = await fetchPinnedUrlRaw(rawUrl, options, DEFAULT_MAX_BYTES);
+  const rawText = fetched.body.toString('utf8');
+  const extracted = extractReadableTextFromHtml(rawText, fetched.contentType);
+  const boundedText = extracted.text.slice(0, 15_000);
+  const snippetCheck = validateDropTextSnippet(boundedText);
+  if (!snippetCheck.ok) {
+    throw new SafeUrlFetchError(
+      'FETCH_FAILED',
+      422,
+      'Fetched page did not contain enough readable text.',
+    );
+  }
+
+  return {
+    finalUrl: fetched.finalUrl,
+    sourceDomain: fetched.sourceDomain,
+    contentType: fetched.contentType,
+    title: extracted.title || fetched.sourceDomain,
+    extractedText: boundedText,
+    byteLength: fetched.body.length,
+  };
+}
+
+/**
+ * Fetches bounded external image or audio bytes (`<= 5 MB`) through DNS-pinned SSRF guards (`TD-CL-11`).
+ */
+export async function safeFetchBinaryUrl(
+  rawUrl: string,
+  options: SafeUrlFetchOptions = {},
+): Promise<SafeFetchedBinary> {
+  return fetchPinnedUrlRaw(rawUrl, options, DEFAULT_BINARY_MAX_BYTES);
 }

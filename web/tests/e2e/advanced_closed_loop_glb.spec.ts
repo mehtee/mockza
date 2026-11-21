@@ -9,10 +9,12 @@ test.describe('Desktop Closed-Loop Linguistic Engine (Web-E2E 9: GLB)', () => {
     await attachE2eApiHarness(page, { edition: 'glb' });
     await attachClosedLoopRoutes(page, { edition: 'glb' });
 
-    // 1. Home renders Daily Mission card and launches Daily Mission screen.
+    // 1. Home renders two-pillar Smart Coach card, opens Coach Hub, and launches Today's 10-Min Coach.
     await page.goto('/app/home');
     await expect(page.getByTestId('home-daily-mission-card')).toBeVisible({ timeout: 15000 });
-    await page.getByTestId('home-daily-mission-cta').click();
+    await page.getByTestId('home-coach-hub-cta').click();
+    await expect(page.getByTestId('coach-hub-screen')).toBeVisible();
+    await page.getByTestId('coach-start-daily-cta').click();
 
     await expect(page.getByTestId('daily-mission-screen')).toBeVisible();
     await expect(page.getByTestId('mission-forced-targets')).toContainText('albeit');
@@ -25,8 +27,8 @@ test.describe('Desktop Closed-Loop Linguistic Engine (Web-E2E 9: GLB)', () => {
     await page.getByTestId('mission-complete-btn').click();
     await expect(page.getByTestId('mission-completed-banner')).toBeVisible();
 
-    // 2. Navigate to Linguistic Graph & verify bottlenecks + pinned topic.
-    await page.getByRole('link', { name: 'View Linguistic Graph' }).click();
+    // 2. Navigate to My Weak Spots & verify bottlenecks + pinned topic.
+    await page.getByRole('link', { name: 'See My Weak Spots' }).click();
     await expect(page.getByTestId('linguistic-graph-screen')).toBeVisible();
     await expect(page.getByTestId('linguistic-graph-screen')).toContainText('Overuses generic "good/bad"');
 
@@ -46,8 +48,8 @@ test.describe('Desktop Closed-Loop Linguistic Engine (Web-E2E 9: GLB)', () => {
     await expect(page.getByTestId('register-active-sentence')).toContainText('compelling technical demos');
 
     await page.getByTestId('gear-tab-2').click();
-    await page.getByRole('button', { name: 'Save to SM-2 Deck' }).click();
-    await expect(page.getByRole('button', { name: 'Saved to SM-2 Deck' })).toBeVisible();
+    await page.getByRole('button', { name: 'Save to Vocab Deck' }).first().click();
+    await expect(page.getByRole('button', { name: 'Saved to Vocab Deck' }).first()).toBeVisible();
 
     await page.getByTestId('shifter-repeat-btn').click();
     await page.waitForTimeout(400);

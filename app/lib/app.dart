@@ -6,6 +6,8 @@ import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/providers.dart';
 import 'package:mockza/routing/app_router.dart';
+import 'package:mockza/routing/routes.dart';
+import 'package:mockza/services/native/share_intent_bridge.dart';
 import 'package:mockza/theme/app_theme.dart';
 import 'package:mockza/theme/theme_catalog.dart';
 
@@ -20,6 +22,8 @@ class MockzaApp extends ConsumerStatefulWidget {
 
 class _MockzaAppState extends ConsumerState<MockzaApp>
     with WidgetsBindingObserver {
+  StreamSubscription<InboundSharePayload>? _shareSub;
+
   @override
   void initState() {
     super.initState();
@@ -30,8 +34,24 @@ class _MockzaAppState extends ConsumerState<MockzaApp>
     });
   }
 
+  void _routeInboundShare(InboundSharePayload payload) {
+    if (!mounted) return;
+    unawaited(
+      ref
+          .read(appRouterProvider)
+          .push(
+            AppRoutes.dropIngest,
+            extra: payload,
+          ),
+    );
+  }
+
   Future<void> _bootstrapServices() async {
     try {
+      final shareBridge = ref.read(shareIntentBridgeProvider);
+      _shareSub ??= shareBridge.incomingShares.listen(_routeInboundShare);
+      final initialShare = await shareBridge.initializeAndDrainInitialShare();
+
       final identity = ref.read(secureIdentityServiceProvider);
       final deviceRes = await identity.getOrCreateDeviceId();
       final fallbackId =
@@ -41,6 +61,10 @@ class _MockzaAppState extends ConsumerState<MockzaApp>
           .loadOrInitializePrimary(fallbackDeviceId: fallbackId);
       await ref.read(contentSyncServiceProvider).syncAllCatalogData();
       await ref.read(outboxSyncServiceProvider).processPendingQueue();
+
+      if (initialShare != null) {
+        _routeInboundShare(initialShare);
+      }
     } on Object catch (e, st) {
       ref.read(crashLogProvider).recordError(e, st);
     }
@@ -56,6 +80,7 @@ class _MockzaAppState extends ConsumerState<MockzaApp>
 
   @override
   void dispose() {
+    unawaited(_shareSub?.cancel());
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

@@ -7,9 +7,11 @@ import 'package:mockza/core/models/writing_evaluation.dart';
 import 'package:mockza/core/result/failure.dart';
 import 'package:mockza/core/result/result.dart';
 import 'package:mockza/data/repositories/attempt_repository.dart';
+import 'package:mockza/data/repositories/linguistic_repository.dart';
 import 'package:mockza/services/auth_session_service.dart';
 import 'package:mockza/services/crash_log.dart';
 import 'package:mockza/services/grading_gateway.dart';
+import 'package:mockza/services/linguistic_gateway.dart';
 import 'package:mockza/services/media_bytes_platform.dart';
 
 /// Processes offline-queued uploads/evaluations with foreground scheduling,
@@ -21,6 +23,8 @@ final class OutboxSyncService {
     required this._gradingGateway,
     required this._authSession,
     required this._crashLog,
+    this._linguisticGateway,
+    this._linguisticRepository,
     this.clock = const Clock(),
   });
 
@@ -28,6 +32,8 @@ final class OutboxSyncService {
   final GradingGateway _gradingGateway;
   final AuthSessionService _authSession;
   final CrashLog _crashLog;
+  final LinguisticGateway? _linguisticGateway;
+  final LinguisticRepository? _linguisticRepository;
 
   /// Wall clock used for scheduling retry timers.
   final Clock clock;
@@ -181,6 +187,73 @@ final class OutboxSyncService {
             currentRetryCount: retryCount,
           );
           return false;
+        case 'mission.complete':
+          final ling = _linguisticGateway;
+          if (ling == null) {
+            await _attemptRepository.deleteOutboxItem(id);
+            return false;
+          }
+          final missionId = payload['missionId'] as String? ?? '';
+          final responseText = payload['responseText'] as String? ?? '';
+          if (missionId.isEmpty || responseText.isEmpty) {
+            await _attemptRepository.deleteOutboxItem(id);
+            return false;
+          }
+          final missionRes = await ling.completeMission(
+            missionId: missionId,
+            responseText: responseText,
+          );
+          if (missionRes.valueOrNull case final updated?) {
+            await _linguisticRepository?.cacheDailyMission(updated);
+            await _attemptRepository.deleteOutboxItem(id);
+            return true;
+          }
+          await _attemptRepository.scheduleOutboxRetry(
+            id: id,
+            currentRetryCount: retryCount,
+          );
+          return false;
+        case 'graph.update_interests':
+          final ling = _linguisticGateway;
+          if (ling == null) {
+            await _attemptRepository.deleteOutboxItem(id);
+            return false;
+          }
+          final pinTopics =
+              ((payload['pinTopics'] as List<Object?>?) ?? const <Object?>[])
+                  .map((e) => '$e')
+                  .where((e) => e.trim().isNotEmpty)
+                  .toList(growable: false);
+          final muteTopics =
+              ((payload['muteTopics'] as List<Object?>?) ?? const <Object?>[])
+                  .map((e) => '$e')
+                  .where((e) => e.trim().isNotEmpty)
+                  .toList(growable: false);
+          final edition = payload['edition'] as String? ?? 'glb';
+          final graphRes = await ling.updateInterests(
+            pinTopics: pinTopics,
+            muteTopics: muteTopics,
+          );
+          if (graphRes.valueOrNull case final snapshot?) {
+            await _linguisticRepository?.cacheGraphSnapshot(
+              snapshot,
+              edition: edition,
+            );
+            await _attemptRepository.deleteOutboxItem(id);
+            return true;
+          }
+          await _attemptRepository.scheduleOutboxRetry(
+            id: id,
+            currentRetryCount: retryCount,
+          );
+          return false;
+        case 'drop.drill_complete':
+          final dropId = payload['dropId'] as String? ?? '';
+          if (dropId.isNotEmpty) {
+            await _linguisticRepository?.markDropCompleted(dropId);
+          }
+          await _attemptRepository.deleteOutboxItem(id);
+          return true;
         default:
           await _attemptRepository.deleteOutboxItem(id);
           return false;

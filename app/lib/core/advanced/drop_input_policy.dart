@@ -375,4 +375,55 @@ abstract final class DropInputPolicy {
     }
     return const DropBoundsCheckResult(ok: true);
   }
+
+  static String _normalizeClozeText(String raw) {
+    return raw
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp("['’`]"), '')
+        .replaceAll(RegExp(r'[^a-z0-9\s-]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  static String _stripSimpleEnglishInflection(String token) {
+    if (token.length >= 6 && token.endsWith('ing')) {
+      return token.substring(0, token.length - 3);
+    }
+    if (token.length >= 5 && token.endsWith('ed')) {
+      return token.substring(0, token.length - 2);
+    }
+    if (token.length >= 5 && token.endsWith('es')) {
+      return token.substring(0, token.length - 2);
+    }
+    if (token.length >= 5 && token.endsWith('s')) {
+      return token.substring(0, token.length - 1);
+    }
+    return token;
+  }
+
+  /// Tolerant paraphrasing/cloze answer check mirroring TS `checkClozeAnswer`.
+  static bool checkClozeAnswer(String input, String expected) {
+    final normIn = _normalizeClozeText(input);
+    final normExp = _normalizeClozeText(expected);
+    if (normIn.isEmpty || normExp.isEmpty) return false;
+    if (normIn == normExp) return true;
+    if (normIn.replaceAll(RegExp(r'[-\s]+'), ' ') ==
+        normExp.replaceAll(RegExp(r'[-\s]+'), ' ')) {
+      return true;
+    }
+    final inWords = normIn
+        .split(RegExp(r'[\s-]+'))
+        .map(_stripSimpleEnglishInflection)
+        .toList(growable: false);
+    final expWords = normExp
+        .split(RegExp(r'[\s-]+'))
+        .map(_stripSimpleEnglishInflection)
+        .toList(growable: false);
+    if (inWords.length != expWords.length) return false;
+    for (var i = 0; i < inWords.length; i++) {
+      if (inWords[i] != expWords[i]) return false;
+    }
+    return true;
+  }
 }

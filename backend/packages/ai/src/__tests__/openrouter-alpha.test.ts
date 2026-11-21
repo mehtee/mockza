@@ -160,4 +160,11 @@ describe('Phase A1: OpenRouterAlphaClient + Circuit Breaker + Media/Redaction', 
     expect(redacted.image_url).toBe('[MEDIA_DATA_URI_REDACTED]');
     expect(redacted.email).toBe('[REDACTED_EMAIL]');
   });
+
+  it('shares default circuit breaker instance across distinct OpenRouterAlphaClient instances (TD-CL-15)', () => {
+    const first = new OpenRouterAlphaClient({ apiKey: 'test-key-1' });
+    const second = new OpenRouterAlphaClient({ apiKey: 'test-key-2' });
+    expect(first.decisionBreaker).toBe(second.decisionBreaker);
+    expect(first.extractionBreaker).toBe(second.extractionBreaker);
+  });
 });

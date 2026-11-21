@@ -96,6 +96,19 @@ class AppScaffoldShell extends StatelessWidget {
                 ),
                 NavigationDestination(
                   icon: AppIcon(
+                    LucideGlyph.sparkles,
+                    size: 22,
+                    color: colors.textSecondary,
+                  ),
+                  selectedIcon: AppIcon(
+                    LucideGlyph.sparkles,
+                    size: 22,
+                    color: colors.primary,
+                  ),
+                  label: l10n.navSmartCoach,
+                ),
+                NavigationDestination(
+                  icon: AppIcon(
                     LucideGlyph.layers3,
                     size: 22,
                     color: colors.textSecondary,

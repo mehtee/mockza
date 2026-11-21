@@ -53,8 +53,9 @@ Dio createApiDioClient({
         final sameOrigin = _isSameApiOrigin(options, config);
         final isAuthRoute = options.path.contains('/v1/auth/');
         final isSignedPut = options.path.contains('/v1/uploads/signed-put');
+        final skipAuth = options.extra['_skipAuth'] == true;
 
-        if (!sameOrigin || isSignedPut) {
+        if (!sameOrigin || isSignedPut || skipAuth) {
           // Never send API credentials or custom edition headers to presigned S3 / external CDNs.
           options.headers.remove('authorization');
           options.headers.remove('x-mockza-edition');

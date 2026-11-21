@@ -1,6 +1,11 @@
 import { RouterProvider } from '@tanstack/react-router';
 import { Component, type ErrorInfo, type ReactNode, useEffect, useState } from 'react';
 import { createTranslator } from '@/i18n';
+import {
+  clearBackgroundDropReady,
+  type ReadyBackgroundDrop,
+  subscribeBackgroundDropReady,
+} from '@/spa/advanced-job-watcher';
 import { type AppDependencies, AppDependenciesProvider } from '@/spa/deps';
 import {
   clearBackgroundEvaluationReady,
@@ -82,8 +87,10 @@ export function DesktopSimulatorApp({
   );
   const [router] = useState(() => providedRouter ?? createAppRouter());
   const [bgReadyEval, setBgReadyEval] = useState<ReadyBackgroundEvaluation | null>(null);
+  const [bgReadyDrop, setBgReadyDrop] = useState<ReadyBackgroundDrop | null>(null);
 
   useEffect(() => subscribeBackgroundEvaluationReady(setBgReadyEval), []);
+  useEffect(() => subscribeBackgroundDropReady(setBgReadyDrop), []);
 
   useEffect(() => {
     syncAppearanceFromStorage();
@@ -104,6 +111,8 @@ export function DesktopSimulatorApp({
 
   useEffect(() => {
     if (!dependencies) return;
+    // Ensure first-time guests hold a signed device JWT before clicking Smart Coach tools.
+    void dependencies.auth.ensureAuthenticated(false);
     void dependencies.syncOutbox.purgeExpiredAudio().then(() => dependencies.syncOutbox.flushPending());
     const runPrefetch = () => {
       void prefetchOfflineSimulatorChunks().then(() => {
@@ -183,6 +192,41 @@ export function DesktopSimulatorApp({
               type="button"
               aria-label={t('workspaceShortcutsCloseAction')}
               onClick={() => clearBackgroundEvaluationReady()}
+              className="text-text-secondary hover:text-text-primary"
+            >
+              ×
+            </button>
+          </div>
+        ) : null}
+        {bgReadyDrop ? (
+          <div
+            data-testid="bg-drop-ready-banner"
+            role="status"
+            className="fixed bottom-16 end-4 z-50 flex items-center gap-3 rounded-[var(--mz-radius-card)] border border-primary bg-surface-alt px-4 py-3 text-xs shadow-lg"
+          >
+            <span className="font-semibold text-text-primary">
+              {dependencies.edition === 'irn'
+                ? `مطالعه آماده شد: ${bgReadyDrop.title}`
+                : `Study set ready: ${bgReadyDrop.title}`}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                const targetDropId = bgReadyDrop.dropId;
+                clearBackgroundDropReady();
+                void router.navigate({
+                  to: '/drop/drill/$dropId',
+                  params: { dropId: targetDropId },
+                });
+              }}
+              className="rounded-[var(--mz-radius-compact)] bg-primary px-2.5 py-1 font-semibold text-on-primary hover:bg-primary-pressed"
+            >
+              {dependencies.edition === 'irn' ? 'شروع تمرین' : 'Open Quiz'}
+            </button>
+            <button
+              type="button"
+              aria-label={t('workspaceShortcutsCloseAction')}
+              onClick={() => clearBackgroundDropReady()}
               className="text-text-secondary hover:text-text-primary"
             >
               ×

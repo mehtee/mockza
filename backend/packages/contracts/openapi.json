@@ -1272,6 +1272,12 @@
                   "type": "string"
                 }
               },
+              "missedTargets": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
               "feedbackEn": {
                 "type": "string"
               },
@@ -1283,6 +1289,41 @@
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 5
+              },
+              "transcriptEn": {
+                "type": "string",
+                "nullable": true
+              },
+              "inlineUpgrades": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "original": {
+                      "type": "string"
+                    },
+                    "improved": {
+                      "type": "string"
+                    },
+                    "whyEn": {
+                      "type": "string"
+                    },
+                    "whyFa": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "original",
+                    "improved",
+                    "whyEn"
+                  ]
+                },
+                "maxItems": 3
+              },
+              "modelRewriteEn": {
+                "type": "string",
+                "nullable": true
               }
             },
             "required": [
@@ -1320,10 +1361,22 @@
       "RegisterShifterRequest": {
         "type": "object",
         "properties": {
+          "inputMode": {
+            "type": "string",
+            "enum": [
+              "audio",
+              "text"
+            ]
+          },
           "objectKey": {
             "type": "string",
             "minLength": 5,
             "maxLength": 500
+          },
+          "rawText": {
+            "type": "string",
+            "minLength": 15,
+            "maxLength": 600
           },
           "examTrack": {
             "type": "string",
@@ -1338,11 +1391,7 @@
             "minimum": 5,
             "maximum": 45
           }
-        },
-        "required": [
-          "objectKey",
-          "durationSeconds"
-        ]
+        }
       },
       "VerifyRepeatAloudResponse": {
         "type": "object",
@@ -1737,6 +1786,14 @@
               "correctOptionIndex": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "comprehensionExplanationEn": {
+                "type": "string",
+                "nullable": true
+              },
+              "comprehensionExplanationFa": {
+                "type": "string",
+                "nullable": true
               },
               "clozeSentence": {
                 "type": "string"

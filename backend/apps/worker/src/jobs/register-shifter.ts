@@ -27,7 +27,8 @@ export interface RegisterShifterJobPayload {
   accountKey: string;
   deviceId: string;
   edition: 'glb' | 'irn';
-  objectKey: string;
+  objectKey?: string;
+  rawText?: string;
   examTrack: string;
   topicHint?: string;
   durationSeconds?: number;
@@ -116,7 +117,7 @@ export async function handleRegisterShifterJob(
         topicHint: payload.topicHint,
         base64AudioData: preparedAudio?.base64Data,
         audioFormat: preparedAudio?.format,
-        sourceTextFallback: payload.sourceTextFallback,
+        sourceTextFallback: payload.rawText ?? payload.sourceTextFallback,
       },
       {
         ...invokeOptions,

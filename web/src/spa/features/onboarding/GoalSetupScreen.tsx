@@ -15,7 +15,7 @@ import { formatDisplayDate } from '@/edition/calendar/jalali-edge';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
 import { utcMidnightMsFromSerialDay } from '@mockza/domain';
-import { useOnboardingController } from './useOnboardingController';
+import { STARTER_INTEREST_TOPICS, useOnboardingController } from './useOnboardingController';
 
 export function GoalSetupScreen() {
   const deps = useDeps();
@@ -47,11 +47,17 @@ export function GoalSetupScreen() {
       ? formatDisplayDate(utcMidnightMsFromSerialDay(ctrl.targetDateSerial), deps.edition)
       : null;
 
-  const finishAndNavigate = async (destination: '/diagnostic/intro' | '/home') => {
+  const finishAndNavigate = async (destination: '/diagnostic/intro' | '/home' | '/mission/$missionId') => {
     const saved = await ctrl.saveProfile(true);
     if (!saved) return;
+    if (destination === '/mission/$missionId') {
+      await navigate({ to: '/mission/$missionId', params: { missionId: 'today' } });
+      return;
+    }
     await navigate({ to: destination });
   };
+
+  const isIrn = deps.edition === 'irn';
 
   return (
     <div data-testid="goal-setup-screen" className="mx-auto flex max-w-4xl flex-col gap-6 pb-10 text-start">
@@ -74,6 +80,96 @@ export function GoalSetupScreen() {
         <h1 className="text-2xl font-bold text-text-primary">{t('onboardingGoalHeadline')}</h1>
         <p className="mt-1 text-sm text-text-secondary">{t('onboardingGoalSubtitle')}</p>
       </header>
+
+      {/* Step 1 on Goal Setup: Prominent Screening (Mock Exams vs Smart Coach vs Both) */}
+      <MzCard variant="hero" data-testid="goal-study-focus-card">
+        <p className="text-sm font-semibold text-text-primary">
+          {t('learningFocusHeadline')}
+        </p>
+        <p className="mt-1 text-xs text-text-secondary">
+          {t('learningFocusSubtitle')}
+        </p>
+        <div className="mt-3 grid grid-cols-1 gap-2.5 md:grid-cols-3">
+          {(
+            [
+              {
+                key: 'both',
+                title: t('learningFocusBothTitle'),
+                subtitle: t('learningFocusBothDesc'),
+              },
+              {
+                key: 'exams',
+                title: t('learningFocusExamsTitle'),
+                subtitle: t('learningFocusExamsDesc'),
+              },
+              {
+                key: 'coach',
+                title: t('learningFocusCoachTitle'),
+                subtitle: t('learningFocusCoachDesc'),
+              },
+            ] as const
+          ).map((option) => {
+            const selected = ctrl.studyFocus === option.key;
+            return (
+              <button
+                key={option.key}
+                type="button"
+                data-testid={`goal-focus-${option.key}`}
+                aria-pressed={selected}
+                onClick={() => ctrl.selectStudyFocus(option.key)}
+                className={`rounded-[var(--mz-radius-compact)] border p-3 text-start transition-colors ${
+                  selected
+                    ? 'border-primary bg-canvas text-text-primary shadow-sm'
+                    : 'border-border-subtle bg-bg-raised text-text-secondary hover:bg-surface-hover'
+                }`}
+              >
+                <p className="text-xs font-semibold text-text-primary">
+                  {option.title}
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
+                  {option.subtitle}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </MzCard>
+
+      {/* 1-Tap Personal Interest Topics for Smart Coach */}
+      <MzCard variant="default" data-testid="goal-interest-topics-card">
+        <p className="text-sm font-semibold text-text-primary">
+          {isIrn
+            ? 'چه موضوعاتی برای تمرین‌های روزانه شما جذاب‌تر است؟ (اختیاری)'
+            : 'Pick topics you actually enjoy talking about (optional)'}
+        </p>
+        <p className="mt-1 text-xs text-text-secondary">
+          {isIrn
+            ? 'تمرین‌های کوتاه ۱۰ دقیقه‌ای شما بر اساس همین علایق شخصی‌سازی می‌شوند.'
+            : "Your 10-minute Smart Coach prompts will use these topics instead of dry textbooks."}
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {STARTER_INTEREST_TOPICS.map((topic) => {
+            const active = ctrl.selectedTopics.includes(topic.key);
+            const slug = topic.key.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+            return (
+              <button
+                key={topic.key}
+                type="button"
+                data-testid={`goal-topic-chip-${slug}`}
+                aria-pressed={active}
+                onClick={() => ctrl.toggleTopic(topic.key)}
+                className={`rounded-[var(--mz-radius-pill)] border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  active
+                    ? 'border-primary bg-primary text-on-primary'
+                    : 'border-border-subtle bg-bg-raised text-text-secondary hover:bg-surface-hover hover:text-text-primary'
+                }`}
+              >
+                {isIrn ? topic.labelFa : topic.labelEn}
+              </button>
+            );
+          })}
+        </div>
+      </MzCard>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Target Score Stepper + Slider */}
@@ -234,7 +330,7 @@ export function GoalSetupScreen() {
         </MzCard>
       </div>
 
-      {/* Primary Launch into Rapid Starting-Level Check OR Straight to Home */}
+      {/* Primary Launch into Coach / Starting-Level Check OR Straight to Home */}
       <MzCard variant="default">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <MzButton
@@ -254,9 +350,17 @@ export function GoalSetupScreen() {
             isLoading={ctrl.isSaving}
             disabled={ctrl.dateError}
             leadingIcon={<Rocket className="h-4 w-4" aria-hidden="true" />}
-            onClick={() => void finishAndNavigate('/diagnostic/intro')}
+            onClick={() =>
+              void finishAndNavigate(
+                ctrl.studyFocus === 'coach' ? '/mission/$missionId' : '/diagnostic/intro',
+              )
+            }
           >
-            {t('onboardingStartDiagnosticAction')}
+            {ctrl.studyFocus === 'coach'
+              ? isIrn
+                ? 'شروع مربی ۱۰ دقیقه‌ای امروز'
+                : "Start Today's 10-Min Coach"
+              : t('onboardingStartDiagnosticAction')}
           </MzButton>
         </div>
       </MzCard>

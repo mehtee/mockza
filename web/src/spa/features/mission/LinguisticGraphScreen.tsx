@@ -1,15 +1,37 @@
-import { Network, Pin, EyeOff, Plus, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  EyeOff,
+  Flame,
+  Network,
+  Pin,
+  Plus,
+  SlidersHorizontal,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { MzCard } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
+import { toPersianDigits } from '@/edition/bidi/numerals';
 import { formatDisplayDate } from '@/edition/calendar/jalali-edge';
 import type { LinguisticGraphSnapshot } from '@/gateways/linguistic.gateway';
+import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
 import { utcMidnightMsFromSerialDay } from '@mockza/domain';
+
+const STARTER_TOPICS = [
+  'Technology & AI',
+  'Career & Workplace',
+  'Travel & Culture',
+  'Science & Climate',
+  'Sports',
+] as const;
 
 export function LinguisticGraphScreen() {
   const deps = useDeps();
   const isRtl = deps.edition === 'irn';
+  const t = createTranslator(deps.edition);
   const [graph, setGraph] = useState<LinguisticGraphSnapshot | null>(null);
   const [newTopic, setNewTopic] = useState('');
   const [loading, setLoading] = useState(true);
@@ -26,16 +48,21 @@ export function LinguisticGraphScreen() {
     };
   }, [deps]);
 
-  const handlePinTopic = async () => {
-    if (!newTopic.trim()) return;
+  const handlePinTopicValue = async (topicLabel: string) => {
+    const clean = topicLabel.trim();
+    if (!clean) return;
     const res = await deps.linguistic.updateInterests({
-      pinTopics: [newTopic.trim()],
+      pinTopics: [clean],
       muteTopics: [],
     });
     if (res.ok) {
       setGraph(res.value);
-      setNewTopic('');
+      if (clean === newTopic.trim()) setNewTopic('');
     }
+  };
+
+  const handlePinTopic = async () => {
+    await handlePinTopicValue(newTopic);
   };
 
   const handleMuteTopic = async (canonicalKey: string) => {
@@ -49,25 +76,31 @@ export function LinguisticGraphScreen() {
   if (loading) {
     return (
       <div className="mx-auto max-w-5xl py-10 text-sm text-text-secondary">
-        {isRtl ? 'در حال بارگذاری گراف زبانی...' : 'Loading your Linguistic Graph...'}
+        {isRtl ? 'در حال بارگذاری نقاط ضعف و پیشرفت...' : 'Loading your Weak Spots & Topics...'}
       </div>
     );
   }
+
+  const pinnedLabelsLower = new Set(
+    (graph?.interestTopics ?? [])
+      .filter((topic) => !topic.isMuted)
+      .map((topic) => topic.displayLabelEn.toLowerCase()),
+  );
 
   return (
     <div data-testid="linguistic-graph-screen" className="mx-auto flex max-w-5xl flex-col gap-6 pb-10 text-start">
       <header className="border-b border-border-subtle pb-4">
         <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
           <Network className="h-3.5 w-3.5" aria-hidden="true" />
-          {isRtl ? 'مغزِ سیستم یادگیری' : 'Persistent Linguistic Graph'}
+          {t('graphEyebrow')}
         </p>
         <h1 className="font-editorial mt-1 text-3xl text-text-primary">
-          {isRtl ? 'الگوهای زبانی، گلوگاه‌ها و علایق شما' : 'Habits, Bottlenecks & Interest Graph'}
+          {t('graphTitle')}
         </h1>
         <p className="mt-1 text-xs text-text-secondary">
           {isRtl
-            ? `ردیابی ${graph?.totalEvidenceCount ?? 0} سیگنال واقعی از آزمون‌ها، تغییر لحن و محتوای ارسالی`
-            : `Tracking ${graph?.totalEvidenceCount ?? 0} real production signals across exams, Register Shifter, and Drops`}
+            ? `ردیابی ${toPersianDigits(graph?.totalEvidenceCount ?? 0)} سیگنال واقعی از آزمون‌ها، ارتقای گفتار و منابع مطالعاتی`
+            : `Tracking ${graph?.totalEvidenceCount ?? 0} real production signals across exams, speaking upgrades, and study sets`}
         </p>
       </header>
 
@@ -79,40 +112,83 @@ export function LinguisticGraphScreen() {
               style={{ color: 'var(--mz-color-gap-observed)' }}
               aria-hidden="true"
             />
-            <span>{isRtl ? 'گلوگاه‌های فعال (Bottlenecks)' : 'Active Bottlenecks'}</span>
+            <span>{t('graphActiveBottlenecks')}</span>
           </h2>
           <div className="mt-3 space-y-3">
             {(graph?.bottlenecks ?? []).length === 0 ? (
-              <p className="text-xs text-text-secondary">
-                {isRtl ? 'هنوز گلوگاه فعالی ثبت نشده است.' : 'Complete a writing or speaking check to surface habits.'}
-              </p>
-            ) : (
-              graph!.bottlenecks.map((node) => (
-                <div
-                  key={node.nodeId}
-                  className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised p-3 text-xs"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-text-primary">
-                      {isRtl && node.displayLabelFa ? node.displayLabelFa : node.displayLabelEn}
-                    </span>
-                    <span className="font-mono-exam text-[11px] text-text-secondary">
-                      {Math.round(node.masteryScoreMilli / 10)}%
-                    </span>
-                  </div>
-                  <p className="mt-1 text-text-secondary">
-                    {isRtl && node.coachNoteFa ? node.coachNoteFa : node.coachNoteEn}
-                  </p>
-                  {node.lastExampleEn ? (
-                    <LtrExamBoundary className="mt-1.5 block rounded bg-surface-alt px-2 py-1 font-mono text-[11px] text-text-secondary">
-                      “{node.lastExampleEn}”
-                    </LtrExamBoundary>
-                  ) : null}
-                  <p className="mt-1.5 text-[11px] text-text-secondary">
-                    {formatDisplayDate(utcMidnightMsFromSerialDay(node.lastSeenDaySerial), deps.edition)}
-                  </p>
+              <div className="space-y-3 rounded-[var(--mz-radius-compact)] border border-dashed border-border-subtle bg-bg-raised p-4 text-xs">
+                <p className="leading-relaxed text-text-secondary">
+                  {isRtl
+                    ? 'هنوز خطای پرتکراری ثبت نشده است. با یک تمرین ۱۰ دقیقه‌ای یا ارتقای جمله، نقشه دقیق نقاط ضعف شما شکل می‌گیرد.'
+                    : 'No recurring weak spots recorded yet. Run one 10-minute session or upgrade one casual thought to build your baseline map.'}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    to="/mission/$missionId"
+                    params={{ missionId: 'today' }}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-[var(--mz-radius-compact)] bg-primary px-3 font-semibold text-on-primary"
+                  >
+                    <Flame className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>{isRtl ? 'شروع مربی امروز' : "Start Today's 10-Min Coach"}</span>
+                  </Link>
+                  <Link
+                    to="/register-shifter"
+                    className="inline-flex h-8 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-border-strong bg-canvas px-3 font-semibold text-primary"
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>{isRtl ? 'ارتقای گفتار' : 'Upgrade a Thought'}</span>
+                  </Link>
                 </div>
-              ))
+              </div>
+            ) : (
+              graph!.bottlenecks.map((node) => {
+                const pct = Math.min(100, Math.max(0, Math.round(node.masteryScoreMilli / 10)));
+                return (
+                  <div
+                    key={node.nodeId}
+                    className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised p-3 text-xs"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-text-primary">
+                        {isRtl && node.displayLabelFa ? node.displayLabelFa : node.displayLabelEn}
+                      </span>
+                      <span className="font-mono-exam text-[11px] text-text-secondary">
+                        {isRtl ? `${toPersianDigits(pct)}٪` : `${pct}%`}
+                      </span>
+                    </div>
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-alt">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${pct}%`,
+                          backgroundColor: 'var(--mz-color-gap-observed)',
+                        }}
+                      />
+                    </div>
+                    <p className="mt-2 text-text-secondary">
+                      {isRtl && node.coachNoteFa ? node.coachNoteFa : node.coachNoteEn}
+                    </p>
+                    {node.lastExampleEn ? (
+                      <LtrExamBoundary className="mt-1.5 block rounded bg-surface-alt px-2 py-1 font-mono text-[11px] text-text-secondary">
+                        “{node.lastExampleEn}”
+                      </LtrExamBoundary>
+                    ) : null}
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-[11px] text-text-secondary">
+                        {formatDisplayDate(utcMidnightMsFromSerialDay(node.lastSeenDaySerial), deps.edition)}
+                      </span>
+                      <Link
+                        to="/mission/$missionId"
+                        params={{ missionId: 'today' }}
+                        className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                      >
+                        <span>{isRtl ? 'رفع در تمرین امروز' : 'Fix This Now'}</span>
+                        <ArrowRight className="h-3 w-3" aria-hidden="true" />
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </MzCard>
@@ -124,35 +200,47 @@ export function LinguisticGraphScreen() {
               style={{ color: 'var(--mz-color-structure-mastered)' }}
               aria-hidden="true"
             />
-            <span>{isRtl ? 'ساختارهای تسلط‌یافته' : 'Mastered & Active Structures'}</span>
+            <span>{t('graphMasteredStructures')}</span>
           </h2>
           <div className="mt-3 space-y-3">
             {(graph?.targetStructures ?? []).length === 0 ? (
               <p className="text-xs text-text-secondary">
-                {isRtl ? 'هنوز ساختار فعالی تیک نخورده است.' : 'Target structures you recycle in missions appear here.'}
+                {isRtl ? 'ساختارهایی که در تمرین‌های روزانه با موفقیت به کار می‌برید اینجا ثبت می‌شوند.' : 'Target structures you master in daily sessions appear here.'}
               </p>
             ) : (
-              graph!.targetStructures.map((node) => (
-                <div
-                  key={node.nodeId}
-                  className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised p-3 text-xs"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <LtrExamBoundary className="font-mono-exam font-semibold text-primary">
-                      {node.displayLabelEn}
-                    </LtrExamBoundary>
-                    <span
-                      className="rounded-[var(--mz-radius-pill)] px-2 py-0.5 text-[11px] font-semibold text-white"
-                      style={{ backgroundColor: 'var(--mz-color-structure-mastered)' }}
-                    >
-                      {Math.round(node.masteryScoreMilli / 10)}%
-                    </span>
+              graph!.targetStructures.map((node) => {
+                const pct = Math.min(100, Math.max(0, Math.round(node.masteryScoreMilli / 10)));
+                return (
+                  <div
+                    key={node.nodeId}
+                    className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised p-3 text-xs"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <LtrExamBoundary className="font-mono-exam font-semibold text-primary">
+                        {node.displayLabelEn}
+                      </LtrExamBoundary>
+                      <span
+                        className="rounded-[var(--mz-radius-pill)] px-2 py-0.5 text-[11px] font-semibold text-white"
+                        style={{ backgroundColor: 'var(--mz-color-structure-mastered)' }}
+                      >
+                        {isRtl ? `${toPersianDigits(pct)}٪` : `${pct}%`}
+                      </span>
+                    </div>
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-alt">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${pct}%`,
+                          backgroundColor: 'var(--mz-color-structure-mastered)',
+                        }}
+                      />
+                    </div>
+                    <p className="mt-2 text-text-secondary">
+                      {isRtl && node.coachNoteFa ? node.coachNoteFa : node.coachNoteEn}
+                    </p>
                   </div>
-                  <p className="mt-1 text-text-secondary">
-                    {isRtl && node.coachNoteFa ? node.coachNoteFa : node.coachNoteEn}
-                  </p>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </MzCard>
@@ -160,8 +248,28 @@ export function LinguisticGraphScreen() {
 
       <MzCard variant="default">
         <h2 className="text-sm font-semibold text-text-primary">
-          {isRtl ? 'علایق موضوعی برای ساخت مأموریت‌های روزانه' : 'Interest Topics Shaping Your Daily Missions'}
+          {t('graphInterestTopics')}
         </h2>
+        <p className="mt-1 text-xs text-text-secondary">
+          {isRtl
+            ? 'موضوعات دلخواهتان را انتخاب یا پین کنید تا مربی روزانه بر اساس همین علایق تمرین بسازد.'
+            : 'Tap a quick topic or pin your own so daily prompts stay engaging.'}
+        </p>
+
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {STARTER_TOPICS.filter((s) => !pinnedLabelsLower.has(s.toLowerCase())).map((topic) => (
+            <button
+              key={topic}
+              type="button"
+              onClick={() => void handlePinTopicValue(topic)}
+              className="inline-flex items-center gap-1 rounded-[var(--mz-radius-pill)] border border-dashed border-primary/50 bg-canvas px-2.5 py-1 text-xs font-medium text-primary hover:bg-surface-hover"
+            >
+              <Plus className="h-3 w-3" aria-hidden="true" />
+              <span>{topic}</span>
+            </button>
+          ))}
+        </div>
+
         <div className="mt-3 flex flex-wrap gap-2">
           {(graph?.interestTopics ?? [])
             .filter((t) => !t.isMuted)
@@ -199,7 +307,7 @@ export function LinguisticGraphScreen() {
             className="inline-flex h-9 items-center gap-1 rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-on-primary"
           >
             <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>{isRtl ? 'پین موضوع' : 'Pin Topic'}</span>
+            <span>{t('graphPinTopicBtn')}</span>
           </button>
         </div>
       </MzCard>

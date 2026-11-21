@@ -1,9 +1,29 @@
 import { Link, useNavigate } from '@tanstack/react-router';
-import { FileText, Headphones, Image as ImageIcon, Link2, Sparkles, Upload } from 'lucide-react';
-import { useEffect, useState, type ClipboardEvent } from 'react';
+import {
+  FileText,
+  Headphones,
+  Image as ImageIcon,
+  Link2,
+  Lock,
+  Sparkles,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react';
+import {
+  type ClipboardEvent,
+  type DragEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { MzCard } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
-import type { DroppedContentItem } from '@/gateways/linguistic.gateway';
+import type { QuotaStatusSnapshot } from '@/gateways/evaluation.gateway';
+import type { DropMediaContentType, DroppedContentItem } from '@/gateways/linguistic.gateway';
+import { createTranslator } from '@/i18n';
+import { pollAdvancedJobUntilDone, watchDropJobInBackground } from '@/spa/advanced-job-watcher';
 import { useDeps } from '@/spa/deps';
 import {
   DROP_MAX_AUDIO_SECONDS,
@@ -13,13 +33,81 @@ import {
   type SupportedExamId,
 } from '@mockza/domain';
 
-type DropTabMode = 'url' | 'text' | 'image' | 'audio';
+export type DropTabMode = 'url' | 'text' | 'image' | 'audio';
 
-async function downscaleImageFileToPngOrWebp(file: File): Promise<{
-  bytes: Uint8Array;
-  contentType: 'image/png' | 'image/jpeg' | 'image/webp';
-  name: string;
-}> {
+export interface DropHubScreenProps {
+  readonly initialTab?: DropTabMode;
+}
+
+interface StagedImageItem {
+  readonly bytes: Uint8Array;
+  readonly contentType: 'image/png' | 'image/jpeg' | 'image/webp';
+  readonly name: string;
+  readonly previewUrl: string;
+}
+
+interface StagedAudioItem {
+  readonly bytes: Uint8Array;
+  readonly contentType: 'audio/mp4' | 'audio/mpeg' | 'audio/wav' | 'audio/ogg';
+  readonly name: string;
+  readonly previewUrl: string;
+  readonly durationSeconds: number;
+}
+
+const SAMPLE_EXCERPTS = [
+  {
+    label: 'AI & Work',
+    text: 'Generative tools accelerate initial drafting, albeit often introducing subtle factual hallucinations that require seasoned human judgment and deliberate editorial verification before publication.',
+  },
+  {
+    label: 'Urban Design',
+    text: 'Forward-thinking municipalities have prioritized walkable green corridors rather than widening highways, recognizing that congestion cannot simply be paved away in dense metropolitan regions.',
+  },
+  {
+    label: 'Habit Science',
+    text: 'Sustainable fluency rarely stems from marathon weekend cramming; rather, it compounds through compact daily feedback loops that surface recurring errors while memory traces remain fresh.',
+  },
+] as const;
+
+function resolveAudioContentType(
+  file: File,
+): 'audio/mp4' | 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | null {
+  const mime = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  if (mime === 'audio/mp4' || mime === 'audio/x-m4a' || name.endsWith('.m4a')) return 'audio/mp4';
+  if (mime === 'audio/mpeg' || mime === 'audio/mp3' || name.endsWith('.mp3')) return 'audio/mpeg';
+  if (mime === 'audio/wav' || mime === 'audio/x-wav' || name.endsWith('.wav')) return 'audio/wav';
+  if (mime === 'audio/ogg' || name.endsWith('.ogg')) return 'audio/ogg';
+  return null;
+}
+
+async function probeAudioDurationSeconds(url: string): Promise<number> {
+  if (typeof document === 'undefined') return 30;
+  return new Promise<number>((resolve) => {
+    const audio = document.createElement('audio');
+    audio.preload = 'metadata';
+    const done = (val: number) => {
+      audio.src = '';
+      resolve(val);
+    };
+    const timer = window.setTimeout(() => done(30), 1500);
+    audio.onloadedmetadata = () => {
+      window.clearTimeout(timer);
+      done(Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 30);
+    };
+    audio.onerror = () => {
+      window.clearTimeout(timer);
+      done(30);
+    };
+    audio.src = url;
+  });
+}
+
+async function downscaleImageFileToPngOrWebp(file: File): Promise<StagedImageItem> {
+  const fallbackPreview =
+    typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function'
+      ? URL.createObjectURL(file)
+      : '';
   if (typeof createImageBitmap === 'function' && typeof document !== 'undefined') {
     try {
       const bitmap = await createImageBitmap(file);
@@ -37,7 +125,12 @@ async function downscaleImageFileToPngOrWebp(file: File): Promise<{
         );
         if (blob) {
           const buf = await blob.arrayBuffer();
-          return { bytes: new Uint8Array(buf), contentType: 'image/webp', name: file.name };
+          return {
+            bytes: new Uint8Array(buf),
+            contentType: 'image/webp',
+            name: file.name,
+            previewUrl: fallbackPreview,
+          };
         }
       }
     } catch {
@@ -47,77 +140,183 @@ async function downscaleImageFileToPngOrWebp(file: File): Promise<{
   const arr = await file.arrayBuffer();
   const mime =
     file.type === 'image/png' || file.type === 'image/webp' ? file.type : 'image/jpeg';
-  return { bytes: new Uint8Array(arr), contentType: mime, name: file.name };
+  return {
+    bytes: new Uint8Array(arr),
+    contentType: mime,
+    name: file.name,
+    previewUrl: fallbackPreview,
+  };
 }
 
-export function DropHubScreen() {
+export function DropHubScreen({ initialTab }: DropHubScreenProps = {}) {
   const deps = useDeps();
   const navigate = useNavigate();
   const isRtl = deps.edition === 'irn';
-  const [tab, setTab] = useState<DropTabMode>('url');
+  const t = createTranslator(deps.edition);
+  const [tab, setTab] = useState<DropTabMode>(initialTab ?? 'url');
   const [examTrack, setExamTrack] = useState<SupportedExamId>('ielts_academic');
+  const [quota, setQuota] = useState<QuotaStatusSnapshot | null>(null);
   const [sourceUrl, setSourceUrl] = useState('');
   const [rawText, setRawText] = useState('');
-  const [queuedImages, setQueuedImages] = useState<
-    Array<{ bytes: Uint8Array; contentType: 'image/png' | 'image/jpeg' | 'image/webp'; name: string }>
-  >([]);
-  const [audioFile, setAudioFile] = useState<{ bytes: Uint8Array; name: string } | null>(null);
+  const [queuedImages, setQueuedImages] = useState<StagedImageItem[]>([]);
+  const [audioFile, setAudioFile] = useState<StagedAudioItem | null>(null);
   const [history, setHistory] = useState<readonly DroppedContentItem[]>([]);
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'url' | 'text' | 'image' | 'audio'>('all');
   const [submitting, setSubmitting] = useState(false);
+  const [statusLabel, setStatusLabel] = useState<string>('');
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
+    if (initialTab) setTab(initialTab);
+  }, [initialTab]);
+
+  useEffect(() => {
+    mountedRef.current = true;
     void deps.attemptStore.getUserProfile().then((res) => {
-      if (res.ok && res.value) setExamTrack(res.value.examId);
+      if (mountedRef.current && res.ok && res.value) setExamTrack(res.value.examId);
     });
     void deps.linguistic.getDropHistory().then((res) => {
-      if (res.ok) setHistory(res.value.items);
+      if (mountedRef.current && res.ok) setHistory(res.value.items);
     });
+    void deps.evaluation.getQuotaStatus().then((res) => {
+      if (mountedRef.current && res.ok) setQuota(res.value);
+    });
+    return () => {
+      mountedRef.current = false;
+    };
   }, [deps]);
+
+  const stageImages = async (fileList: File[]) => {
+    const remaining = Math.max(0, DROP_MAX_IMAGES - queuedImages.length);
+    const chosen = fileList.filter((f) => f.type.startsWith('image/')).slice(0, remaining);
+    if (chosen.length === 0) return;
+    const scaled = await Promise.all(chosen.map(downscaleImageFileToPngOrWebp));
+    setQueuedImages((prev) => [...prev, ...scaled].slice(0, DROP_MAX_IMAGES));
+    setTab('image');
+    setError(null);
+  };
 
   const handlePaste = async (e: ClipboardEvent<HTMLDivElement>) => {
     const items = e.clipboardData?.items;
     if (!items) return;
+    const imageFiles: File[] = [];
     for (const item of items) {
       if (item.type.startsWith('image/')) {
         const file = item.getAsFile();
-        if (file && queuedImages.length < DROP_MAX_IMAGES) {
-          const scaled = await downscaleImageFileToPngOrWebp(file);
-          setQueuedImages((prev) => [...prev, scaled].slice(0, DROP_MAX_IMAGES));
-          setTab('image');
-        }
+        if (file) imageFiles.push(file);
       }
+    }
+    if (imageFiles.length > 0) {
+      await stageImages(imageFiles);
     }
   };
 
-  const pollDropAndNavigate = async (jobId: string) => {
-    for (let i = 0; i < 20; i += 1) {
-      const poll = await deps.linguistic.pollAdvancedJob<DroppedContentItem>(jobId);
-      if (!poll.ok) {
-        setError(poll.error.message);
-        setSubmitting(false);
-        return;
-      }
-      if (poll.value.status === 'completed' && poll.value.result?.dropId) {
-        setSubmitting(false);
-        void navigate({
-          to: '/drop/drill/$dropId',
-          params: { dropId: poll.value.result.dropId },
-        });
-        return;
-      }
-      if (poll.value.status === 'failed') {
-        setError(
-          isRtl
-            ? 'این لینک در دسترس نبود؛ متن را پیست کنید یا اسکرین‌شات بفرستید.'
-            : 'Could not extract that source. Paste a clean text excerpt or upload a screenshot instead.',
-        );
-        setSubmitting(false);
-        return;
-      }
-      await new Promise((r) => setTimeout(r, 600));
+  const handleDropImages = async (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer?.files ?? []);
+    if (files.length > 0) {
+      await stageImages(files);
     }
+  };
+
+  const handleStageAudio = async (file: File) => {
+    const contentType = resolveAudioContentType(file);
+    if (!contentType) {
+      setError(
+        isRtl
+          ? 'فرمت صوتی پشتیبانی نمی‌شود. از mp3، m4a، wav یا ogg استفاده کنید.'
+          : 'Unsupported audio format. Please pick an MP3, M4A, WAV, or OGG clip.',
+      );
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError(
+        isRtl
+          ? 'حجم فایل صوتی باید کمتر از ۵ مگابایت باشد.'
+          : 'Audio clip must be under 5 MB.',
+      );
+      return;
+    }
+    const previewUrl =
+      typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function'
+        ? URL.createObjectURL(file)
+        : '';
+    const durationSeconds = await probeAudioDurationSeconds(previewUrl);
+    if (durationSeconds > DROP_MAX_AUDIO_SECONDS) {
+      setError(
+        isRtl
+          ? 'مدت فایل صوتی باید حداکثر ۳ دقیقه (۱۸۰ ثانیه) باشد.'
+          : 'Audio clip exceeds the 3-minute (180s) limit. Trim it or paste a transcript.',
+      );
+      return;
+    }
+    const arr = await file.arrayBuffer();
+    setError(null);
+    setAudioFile({
+      bytes: new Uint8Array(arr),
+      contentType,
+      name: file.name,
+      previewUrl,
+      durationSeconds,
+    });
+  };
+
+  const pollDropAndNavigate = async (jobId: string) => {
+    setActiveJobId(jobId);
+    setStatusLabel(
+      isRtl
+        ? 'در حال استخراج واژگان و ساخت آزمونک ۲ دقیقه‌ای...'
+        : 'Extracting idioms and building your 2-minute quiz...',
+    );
+    const outcome = await pollAdvancedJobUntilDone<DroppedContentItem>({
+      pollFn: () => deps.linguistic.pollAdvancedJob<DroppedContentItem>(jobId),
+      timeoutMs: 90_000,
+      onStage: (stage) => {
+        if (mountedRef.current) setStatusLabel(stage);
+      },
+      isCancelled: () => !mountedRef.current,
+    });
+    if (!mountedRef.current) return;
     setSubmitting(false);
+    setActiveJobId(null);
+    setStatusLabel('');
+
+    if (outcome.kind === 'completed' && outcome.result.dropId) {
+      void navigate({
+        to: '/drop/drill/$dropId',
+        params: { dropId: outcome.result.dropId },
+      });
+      return;
+    }
+    if (outcome.kind === 'error') {
+      setError(outcome.error.message);
+      return;
+    }
+    if (outcome.kind === 'timeout') {
+      setError(
+        isRtl
+          ? 'تحلیل بیشتر از حد معمول طول کشید. کمی بعد از بخش تاریخچه بررسی کنید یا متن را مستقیم پیست کنید.'
+          : 'Analysis is taking longer than expected. Check History in a moment or paste clean text.',
+      );
+      return;
+    }
+    if (outcome.kind === 'failed') {
+      setError(
+        isRtl
+          ? 'استخراج از این منبع کامل نشد (شاید سایت متن قابل خواندن نداشت). متن را پیست کنید یا اسکرین‌شات بفرستید.'
+          : 'Could not extract readable text from that source. Paste a text excerpt or try a clearer screenshot.',
+      );
+    }
+  };
+
+  const handleContinueInBackground = () => {
+    if (!activeJobId) return;
+    watchDropJobInBackground(deps, activeJobId);
+    setSubmitting(false);
+    setStatusLabel('');
+    void navigate({ to: '/coach' });
   };
 
   const handleIngest = async () => {
@@ -133,6 +332,7 @@ export function DropHubScreen() {
         return;
       }
       setSubmitting(true);
+      setStatusLabel(isRtl ? 'در حال دریافت متن صفحه...' : 'Fetching readable article text...');
       const res = await deps.linguistic.ingestDrop({
         inputKind: 'text_url',
         sourceUrl: sourceUrl.trim(),
@@ -141,6 +341,7 @@ export function DropHubScreen() {
       if (!res.ok) {
         setError(res.error.message);
         setSubmitting(false);
+        setStatusLabel('');
         return;
       }
       await pollDropAndNavigate(res.value.jobId);
@@ -154,6 +355,7 @@ export function DropHubScreen() {
         return;
       }
       setSubmitting(true);
+      setStatusLabel(isRtl ? 'در حال تحلیل متن...' : 'Analyzing excerpt...');
       const res = await deps.linguistic.ingestDrop({
         inputKind: 'text',
         rawText: rawText.trim(),
@@ -162,6 +364,7 @@ export function DropHubScreen() {
       if (!res.ok) {
         setError(res.error.message);
         setSubmitting(false);
+        setStatusLabel('');
         return;
       }
       await pollDropAndNavigate(res.value.jobId);
@@ -174,31 +377,35 @@ export function DropHubScreen() {
         return;
       }
       setSubmitting(true);
+      setStatusLabel(
+        isRtl
+          ? `در حال آپلود ${queuedImages.length} تصویر...`
+          : `Uploading ${queuedImages.length} image(s)...`,
+      );
       const dropId = crypto.randomUUID();
-      const keys: string[] = [];
-      for (let i = 0; i < queuedImages.length; i += 1) {
-        const up = await deps.linguistic.uploadDropMediaFile({
-          dropId,
-          mediaKind: 'image',
-          index: i,
-          bytes: queuedImages[i]!.bytes,
-          contentType: queuedImages[i]!.contentType,
-        });
-        if (!up.ok) {
-          setError(up.error.message);
-          setSubmitting(false);
-          return;
-        }
-        keys.push(up.value.objectKey);
+      const batch = await deps.linguistic.uploadDropMediaBatch({
+        dropId,
+        mediaKind: 'image',
+        files: queuedImages.map((img) => ({
+          bytes: img.bytes,
+          contentType: img.contentType as DropMediaContentType,
+        })),
+      });
+      if (!batch.ok) {
+        setError(batch.error.message);
+        setSubmitting(false);
+        setStatusLabel('');
+        return;
       }
       const res = await deps.linguistic.ingestDrop({
         inputKind: 'image',
-        imageObjectKeys: keys,
+        imageObjectKeys: [...batch.value.objectKeys],
         examTrack,
       });
       if (!res.ok) {
         setError(res.error.message);
         setSubmitting(false);
+        setStatusLabel('');
         return;
       }
       await pollDropAndNavigate(res.value.jobId);
@@ -210,32 +417,53 @@ export function DropHubScreen() {
       return;
     }
     setSubmitting(true);
+    setStatusLabel(isRtl ? 'در حال آپلود فایل صوتی...' : 'Uploading audio clip...');
     const dropId = crypto.randomUUID();
-    const up = await deps.linguistic.uploadDropMediaFile({
+    const up = await deps.linguistic.uploadDropMediaBatch({
       dropId,
       mediaKind: 'audio',
-      index: 0,
-      bytes: audioFile.bytes,
-      contentType: 'audio/mp4',
+      files: [{ bytes: audioFile.bytes, contentType: audioFile.contentType }],
     });
-    if (!up.ok) {
-      setError(up.error.message);
+    if (!up.ok || !up.value.objectKeys[0]) {
+      setError(up.ok ? 'Upload failed.' : up.error.message);
       setSubmitting(false);
+      setStatusLabel('');
       return;
     }
     const res = await deps.linguistic.ingestDrop({
       inputKind: 'audio',
-      audioObjectKey: up.value.objectKey,
-      durationSeconds: DROP_MAX_AUDIO_SECONDS,
+      audioObjectKey: up.value.objectKeys[0],
+      durationSeconds: Math.min(DROP_MAX_AUDIO_SECONDS, Math.max(3, audioFile.durationSeconds)),
       examTrack,
     });
     if (!res.ok) {
       setError(res.error.message);
       setSubmitting(false);
+      setStatusLabel('');
       return;
     }
     await pollDropAndNavigate(res.value.jobId);
   };
+
+  const handleDeleteHistoryItem = async (dropId: string) => {
+    const res = await deps.linguistic.deleteDrop(dropId);
+    if (res.ok) {
+      setHistory((prev) => prev.filter((item) => item.dropId !== dropId));
+    } else {
+      setError(res.error.message);
+    }
+  };
+
+  const filteredHistory = useMemo(() => {
+    if (historyFilter === 'all') return history;
+    return history.filter((item) => {
+      if (historyFilter === 'url') return item.inputKind === 'text_url';
+      return item.inputKind === historyFilter;
+    });
+  }, [history, historyFilter]);
+
+  const advQuota = quota?.advancedQuota;
+  const audioBlockedForFree = advQuota ? !advQuota.audioDropAllowed : false;
 
   return (
     <div
@@ -244,20 +472,44 @@ export function DropHubScreen() {
       className="mx-auto flex max-w-5xl flex-col gap-6 pb-10 text-start"
     >
       <header className="border-b border-border-subtle pb-4">
-        <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
-          <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-          {isRtl ? 'ورود هر محتوایی (Drop Anything)' : 'Drop Anything · Personal Immersion to 2-Min Drill'}
-        </p>
-        <h1 className="font-editorial mt-1 text-3xl text-text-primary">
-          {isRtl
-            ? 'از مقاله، صفحه کتاب یا اسکرین‌شات دلخواهت میکرودریل بساز'
-            : 'Turn Any Article, Excerpt, or Screenshot Into a 2-Min Drill'}
-        </h1>
-        {isRtl ? (
-          <p className="mt-1 text-xs text-text-secondary">
-            بدون نیاز به فیلترشکن: لینک‌ها روی سرور سنجیا خوانده می‌شوند و برای لینک‌های محدود شده می‌توانید مستقیم متن یا اسکرین‌شات را پیست کنید.
-          </p>
-        ) : null}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
+              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+              {t('dropEyebrow')}
+            </p>
+            <h1 className="font-editorial mt-1 text-3xl text-text-primary">
+              {t('dropTitle')}
+            </h1>
+            {isRtl ? (
+              <p className="mt-1 text-xs text-text-secondary">
+                بدون نیاز به فیلترشکن: لینک‌ها روی سرور سنجیا خوانده می‌شوند و برای لینک‌های محدود شده می‌توانید مستقیم متن یا اسکرین‌شات را پیست کنید.
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-text-secondary">
+                Paste any article link, book excerpt, screenshot, or clip to build a 2-minute quiz + flashcards.
+              </p>
+            )}
+          </div>
+          {advQuota ? (
+            <span
+              data-testid="drop-quota-badge"
+              className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-surface px-3 py-1 text-xs font-semibold text-primary"
+            >
+              {advQuota.isPro
+                ? isRtl
+                  ? `${advQuota.dropsRemainingToday} محتوا باقی‌مانده امروز`
+                  : `${advQuota.dropsRemainingToday} study sets left today`
+                : advQuota.freeSampleUsed
+                  ? isRtl
+                    ? 'نمونه رایگان مصرف شد'
+                    : 'Free sample used'
+                  : isRtl
+                    ? '۱ نمونه رایگان موجود'
+                    : '1 free sample included'}
+            </span>
+          ) : null}
+        </div>
       </header>
 
       <MzCard variant="hero">
@@ -266,7 +518,7 @@ export function DropHubScreen() {
             [
               { id: 'url', labelEn: 'Article URL', labelFa: 'لینک مقاله', Icon: Link2 },
               { id: 'text', labelEn: 'Paste Text', labelFa: 'چسباندن متن', Icon: FileText },
-              { id: 'image', labelEn: 'Screenshot / Image', labelFa: 'اسکرین‌شات / عکس', Icon: ImageIcon },
+              { id: 'image', labelEn: 'Screenshot / Photo', labelFa: 'اسکرین‌شات / عکس', Icon: ImageIcon },
               { id: 'audio', labelEn: 'Audio (<=3 min)', labelFa: 'فایل صوتی کوتاه', Icon: Headphones },
             ] as const
           ).map((item) => (
@@ -288,6 +540,9 @@ export function DropHubScreen() {
             >
               <item.Icon className="h-3.5 w-3.5" aria-hidden="true" />
               <span>{isRtl ? item.labelFa : item.labelEn}</span>
+              {item.id === 'audio' && audioBlockedForFree ? (
+                <Lock className="h-3 w-3 opacity-80" aria-hidden="true" />
+              ) : null}
             </button>
           ))}
         </div>
@@ -306,84 +561,194 @@ export function DropHubScreen() {
           ) : null}
 
           {tab === 'text' ? (
-            <textarea
-              dir="ltr"
-              rows={5}
-              data-testid="drop-text-input"
-              value={rawText}
-              onChange={(e) => setRawText(e.target.value)}
-              placeholder="Paste any English article paragraph, podcast transcript, or book excerpt (40..15,000 chars)..."
-              className="w-full rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-surface p-3 text-sm text-text-primary focus:border-primary focus:outline-none"
-            />
+            <div className="space-y-2.5">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-semibold text-text-secondary">
+                  {isRtl ? 'متن‌های نمونه:' : 'Try a sample excerpt:'}
+                </span>
+                {SAMPLE_EXCERPTS.map((ex) => (
+                  <button
+                    key={ex.label}
+                    type="button"
+                    onClick={() => setRawText(ex.text)}
+                    className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-2.5 py-0.5 text-[11px] font-medium text-text-primary hover:border-primary hover:text-primary"
+                  >
+                    {ex.label}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                dir="ltr"
+                rows={5}
+                data-testid="drop-text-input"
+                value={rawText}
+                onChange={(e) => setRawText(e.target.value)}
+                placeholder="Paste any English article paragraph, podcast transcript, or book excerpt (40..15,000 chars)..."
+                className="w-full rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-surface p-3 text-sm text-text-primary focus:border-primary focus:outline-none"
+              />
+              <p className="text-[11px] text-text-secondary">
+                {rawText.trim().length} / 15,000 {isRtl ? 'نویسه (حداقل ۴۰)' : 'chars (min 40)'}
+              </p>
+            </div>
           ) : null}
 
           {tab === 'image' ? (
-            <div className="rounded-[var(--mz-radius-compact)] border border-dashed border-border-strong bg-bg-raised p-4 text-xs text-text-secondary">
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => void handleDropImages(e)}
+              className="rounded-[var(--mz-radius-compact)] border border-dashed border-border-strong bg-bg-raised p-4 text-xs text-text-secondary"
+            >
               <label className="inline-flex cursor-pointer items-center gap-2 font-semibold text-primary">
                 <Upload className="h-4 w-4" aria-hidden="true" />
                 <span>
                   {isRtl
-                    ? 'انتخاب یا پیست (Ctrl+V) حداکثر ۴ تصویر (زیر ۵ مگابایت)'
-                    : 'Choose or Paste (Ctrl+V) up to 4 PNG/JPEG/WebP screenshots'}
+                    ? 'کشیدن و رها کردن، انتخاب یا پیست (Ctrl+V) حداکثر ۴ تصویر (زیر ۵ مگابایت)'
+                    : 'Drag, Choose, or Paste (Ctrl+V) up to 4 PNG/JPEG/WebP screenshots'}
                 </span>
                 <input
                   type="file"
                   multiple
+                  data-testid="drop-image-input"
                   accept="image/png,image/jpeg,image/webp"
                   className="hidden"
-                  onChange={async (e) => {
-                    const files = Array.from(e.target.files ?? []).slice(0, DROP_MAX_IMAGES);
-                    const scaled = await Promise.all(files.map(downscaleImageFileToPngOrWebp));
-                    setQueuedImages(scaled);
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? []);
+                    void stageImages(files);
                   }}
                 />
               </label>
               {queuedImages.length > 0 ? (
-                <p className="mt-2 font-mono text-text-primary">
-                  {queuedImages.map((img) => img.name).join(', ')}
-                </p>
+                <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                  {queuedImages.map((img, idx) => (
+                    <div
+                      key={`${img.name}-${idx}`}
+                      className="relative overflow-hidden rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-surface p-1.5"
+                    >
+                      {img.previewUrl ? (
+                        <img
+                          src={img.previewUrl}
+                          alt={img.name}
+                          className="h-20 w-full rounded object-cover"
+                        />
+                      ) : null}
+                      <p className="mt-1 truncate font-mono text-[10px] text-text-primary">
+                        {img.name}
+                      </p>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${img.name}`}
+                        onClick={() =>
+                          setQueuedImages((prev) => prev.filter((_, i) => i !== idx))
+                        }
+                        className="absolute end-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-canvas/90 text-text-primary shadow hover:text-danger"
+                      >
+                        <X className="h-3 w-3" aria-hidden="true" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               ) : null}
             </div>
           ) : null}
 
           {tab === 'audio' ? (
-            <div className="rounded-[var(--mz-radius-compact)] border border-dashed border-border-strong bg-bg-raised p-4 text-xs text-text-secondary">
-              <label className="inline-flex cursor-pointer items-center gap-2 font-semibold text-primary">
-                <Upload className="h-4 w-4" aria-hidden="true" />
-                <span>
-                  {isRtl
-                    ? 'انتخاب فایل صوتی کوتاه (.m4a / .mp3، حداکثر ۳ دقیقه)'
-                    : 'Choose short voice memo or clip (.m4a / .mp3 / .wav, <= 180s)'}
-                </span>
-                <input
-                  type="file"
-                  accept="audio/mp4,audio/mpeg,audio/wav,audio/ogg"
-                  className="hidden"
-                  onChange={async (e) => {
-                    const f = e.target.files?.[0];
-                    if (f) {
-                      const arr = await f.arrayBuffer();
-                      setAudioFile({ bytes: new Uint8Array(arr), name: f.name });
-                    }
-                  }}
-                />
-              </label>
-              {audioFile ? <p className="mt-2 font-mono text-text-primary">{audioFile.name}</p> : null}
-            </div>
+            audioBlockedForFree ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--mz-radius-compact)] border border-warning/40 bg-amber-bg p-4 text-xs">
+                <div className="flex items-start gap-2">
+                  <Lock className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
+                  <p className="text-text-primary">
+                    {isRtl
+                      ? 'تبدیل فایل صوتی به آزمونک ویژه اشتراک حرفه‌ای است. با متن یا اسکرین‌شات می‌توانید همین الان رایگان تمرین بسازید.'
+                      : 'Audio-to-Quiz is included in Pro plans. Try Article Link, Paste Text, or Screenshots with your free trial.'}
+                  </p>
+                </div>
+                <Link
+                  to="/paywall"
+                  className="inline-flex h-8 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3 font-semibold text-on-primary hover:bg-primary-pressed"
+                >
+                  {isRtl ? 'ارتقا به نسخه کامل' : 'Upgrade to Pro'}
+                </Link>
+              </div>
+            ) : (
+              <div className="rounded-[var(--mz-radius-compact)] border border-dashed border-border-strong bg-bg-raised p-4 text-xs text-text-secondary">
+                <label className="inline-flex cursor-pointer items-center gap-2 font-semibold text-primary">
+                  <Upload className="h-4 w-4" aria-hidden="true" />
+                  <span>
+                    {isRtl
+                      ? 'انتخاب فایل صوتی کوتاه (.m4a / .mp3 / .wav، حداکثر ۳ دقیقه)'
+                      : 'Choose short voice memo or clip (.m4a / .mp3 / .wav, <= 180s)'}
+                  </span>
+                  <input
+                    type="file"
+                    accept="audio/mp4,audio/mpeg,audio/wav,audio/ogg,.m4a,.mp3,.wav,.ogg"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void handleStageAudio(f);
+                    }}
+                  />
+                </label>
+                {audioFile ? (
+                  <div className="mt-3 space-y-2">
+                    <p className="font-mono text-text-primary">
+                      {audioFile.name} ({Math.round(audioFile.durationSeconds)}s)
+                    </p>
+                    {audioFile.previewUrl ? (
+                      <audio controls src={audioFile.previewUrl} className="h-9 w-full max-w-md" />
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            )
           ) : null}
         </div>
 
+        {statusLabel ? (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-[var(--mz-radius-compact)] border border-primary/30 bg-surface-alt p-2.5 text-xs">
+            <span className="font-medium text-primary">{statusLabel}</span>
+            {activeJobId ? (
+              <button
+                type="button"
+                onClick={handleContinueInBackground}
+                className="font-semibold text-primary hover:underline"
+              >
+                {isRtl ? 'مرور حین آماده‌سازی' : 'Keep browsing — notify me when ready'}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
         {error ? (
-          <p data-testid="drop-error-banner" className="mt-3 text-xs font-medium text-danger">
-            {error}
-          </p>
+          <div
+            data-testid="drop-error-banner"
+            className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-[var(--mz-radius-compact)] border border-danger/40 bg-danger/10 p-2.5 text-xs text-danger"
+          >
+            <span>{error}</span>
+            <div className="flex items-center gap-2">
+              {tab !== 'text' ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTab('text');
+                    setError(null);
+                  }}
+                  className="font-semibold underline"
+                >
+                  {isRtl ? 'ارسال به صورت متن' : 'Paste text instead'}
+                </button>
+              ) : null}
+              <Link to="/paywall" className="font-semibold underline">
+                {isRtl ? 'اشتراک' : 'Plans'}
+              </Link>
+            </div>
+          </div>
         ) : null}
 
         <div className="mt-4 flex justify-end">
           <button
             type="button"
             data-testid="drop-ingest-btn"
-            disabled={submitting}
+            disabled={submitting || (tab === 'audio' && audioBlockedForFree)}
             onClick={() => void handleIngest()}
             className="inline-flex h-10 items-center gap-2 rounded-[var(--mz-radius-compact)] bg-primary px-5 text-sm font-semibold text-on-primary disabled:opacity-50"
           >
@@ -392,10 +757,8 @@ export function DropHubScreen() {
               {submitting
                 ? isRtl
                   ? 'در حال استخراج اصطلاحات و ساخت تمرین...'
-                  : 'Extracting Phrases & Building Drill...'
-                : isRtl
-                  ? 'ساخت میکرودریل ۲ دقیقه‌ای'
-                  : 'Generate 2-Min Micro-Drill'}
+                  : 'Extracting Phrases & Building Quiz...'
+                : t('dropCreateCta')}
             </span>
           </button>
         </div>
@@ -403,27 +766,58 @@ export function DropHubScreen() {
 
       {history.length > 0 ? (
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-text-primary">
-            {isRtl ? 'آرشیو شخصی محتوای ارسالی شما' : 'Your Recent Dropped Materials'}
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-text-primary">
+              {isRtl ? 'آرشیو شخصی منابع مطالعاتی شما' : 'Your Saved Study Materials'}
+            </h2>
+            <div className="flex flex-wrap gap-1.5">
+              {(['all', 'url', 'text', 'image', 'audio'] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setHistoryFilter(f)}
+                  className={`rounded-[var(--mz-radius-pill)] border px-2.5 py-0.5 text-[11px] font-semibold ${
+                    historyFilter === f
+                      ? 'border-primary bg-primary text-on-primary'
+                      : 'border-border-subtle bg-bg-raised text-text-secondary'
+                  }`}
+                >
+                  {f === 'all' ? (isRtl ? 'همه' : 'All') : f.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {history.map((item) => (
-              <Link
+            {filteredHistory.map((item) => (
+              <div
                 key={item.dropId}
-                to="/drop/drill/$dropId"
-                params={{ dropId: item.dropId }}
-                className="rounded-[var(--mz-radius-card)] border border-border-subtle bg-bg-surface p-4 hover:bg-surface-hover"
+                className="flex items-start justify-between gap-2 rounded-[var(--mz-radius-card)] border border-border-subtle bg-bg-surface p-4 hover:bg-surface-hover"
               >
-                <div className="flex items-center justify-between gap-2 text-[11px] text-text-secondary">
-                  <span>{item.sourceDomainOrLabel}</span>
-                  <LtrExamBoundary className="font-mono font-semibold text-primary">
-                    {item.cefrEstimate}
+                <Link
+                  to="/drop/drill/$dropId"
+                  params={{ dropId: item.dropId }}
+                  className="min-w-0 flex-1"
+                >
+                  <div className="flex items-center justify-between gap-2 text-[11px] text-text-secondary">
+                    <span>{item.sourceDomainOrLabel}</span>
+                    <LtrExamBoundary className="font-mono font-semibold text-primary">
+                      CEFR {item.cefrEstimate}
+                    </LtrExamBoundary>
+                  </div>
+                  <LtrExamBoundary className="mt-1 block truncate font-semibold text-text-primary">
+                    {item.title}
                   </LtrExamBoundary>
-                </div>
-                <LtrExamBoundary className="mt-1 block font-semibold text-text-primary">
-                  {item.title}
-                </LtrExamBoundary>
-              </Link>
+                </Link>
+                <button
+                  type="button"
+                  data-testid={`drop-delete-${item.dropId}`}
+                  aria-label={isRtl ? 'حذف این مورد' : `Delete ${item.title}`}
+                  onClick={() => void handleDeleteHistoryItem(item.dropId)}
+                  className="rounded p-1 text-text-tertiary hover:bg-danger/10 hover:text-danger"
+                >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              </div>
             ))}
           </div>
         </section>

@@ -13,6 +13,7 @@ import {
   calculateEstimatedOverallBand,
   calculateSkillMetrics,
   calculateStudyWeek,
+  checkClozeAnswer,
   classifyBlockOutcome,
   computeBoundedStageDeadlineUtcMs,
   computeDetSubscores,
@@ -984,5 +985,11 @@ describe('Cross-Codebase Golden Parity Suite (@mockza/domain <-> shared-fixtures
       expect(irnCap.allowed).toBe(false);
       expect(irnCap.reason).toBe('monthly_quota_exceeded');
     });
+
+    for (const v of dropFixtures.clozeCases) {
+      it(`checkClozeAnswer [${v.id}]`, () => {
+        expect(checkClozeAnswer(v.input, v.expected)).toBe(v.matches);
+      });
+    }
   });
 });

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
@@ -16,6 +18,7 @@ class MissionProgressCard extends StatelessWidget {
     required this.onStartMission,
     required this.onOpenRegisterShifter,
     required this.onOpenDropAnything,
+    this.onOpenCoachHub,
     this.focusTopic,
     super.key,
   });
@@ -34,6 +37,9 @@ class MissionProgressCard extends StatelessWidget {
 
   /// Opens Drop Anything screen.
   final VoidCallback onOpenDropAnything;
+
+  /// Optional callback to open the full Smart Coach Hub (`/coach`).
+  final VoidCallback? onOpenCoachHub;
 
   @override
   Widget build(BuildContext context) {
@@ -55,14 +61,18 @@ class MissionProgressCard extends StatelessWidget {
               const SizedBox(width: SpacingTokens.xs),
               Expanded(
                 child: Text(
-                  isRtl
-                      ? 'مأموریت ۱۰ دقیقه‌ای امروز'
-                      : '10-Min Daily Transfer Mission',
+                  AppLocalizations.of(context).missionCardTitle,
                   style: typography.cardTitle.copyWith(
                     color: colors.textPrimary,
                   ),
                 ),
               ),
+              if (onOpenCoachHub != null)
+                TextButton(
+                  key: const ValueKey<String>('home_coach_hub_btn'),
+                  onPressed: onOpenCoachHub,
+                  child: Text(AppLocalizations.of(context).navSmartCoach),
+                ),
               if (focusTopic != null)
                 Container(
                   padding: const EdgeInsetsDirectional.symmetric(
@@ -85,14 +95,12 @@ class MissionProgressCard extends StatelessWidget {
           ),
           const SizedBox(height: SpacingTokens.xs),
           Text(
-            isRtl
-                ? 'تمرین هدفمند با ترکیب گلوگاه‌های گرامری، کارت‌های SM-2 و علایق شما'
-                : 'Targets your live bottlenecks and overdue SM-2 cards inside your favorite topics.',
+            AppLocalizations.of(context).missionCardSubtitle,
             style: typography.secondary.copyWith(color: colors.textSecondary),
           ),
           const SizedBox(height: SpacingTokens.md),
           PrimaryButton(
-            label: isRtl ? 'شروع مأموریت روزانه' : 'Start 10-Min Mission',
+            label: AppLocalizations.of(context).missionStartAction,
             glyph: LucideGlyph.sparkles,
             onPressed: onStartMission,
           ),
@@ -102,13 +110,13 @@ class MissionProgressCard extends StatelessWidget {
             runSpacing: SpacingTokens.xs,
             children: <Widget>[
               SecondaryButton(
-                label: isRtl ? 'تغییردهنده لحن (۳۰ث)' : 'Register Shifter',
+                label: AppLocalizations.of(context).registerShifterShortTitle,
                 glyph: LucideGlyph.slidersHorizontal,
                 isFullWidth: false,
                 onPressed: onOpenRegisterShifter,
               ),
               SecondaryButton(
-                label: isRtl ? 'ورود هر محتوایی' : 'Drop Anything',
+                label: AppLocalizations.of(context).dropAnythingTitle,
                 glyph: LucideGlyph.cloudUpload,
                 isFullWidth: false,
                 onPressed: onOpenDropAnything,
@@ -145,7 +153,11 @@ class BottleneckBadge extends StatelessWidget {
     final colors = AppColors.of(context);
     final shapes = AppShapes.of(context);
     final typography = AppTypography.of(context);
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
     final tint = isBottleneck ? colors.gapObserved : colors.structureMastered;
+    final percentText = isRtl
+        ? '${EdgeNumerals.toPersianDigits(masteryPercent)}٪'
+        : '$masteryPercent%';
 
     return Container(
       constraints: const BoxConstraints(maxWidth: 320),
@@ -169,7 +181,7 @@ class BottleneckBadge extends StatelessWidget {
           const SizedBox(width: SpacingTokens.xs),
           Flexible(
             child: Text(
-              '$label · $masteryPercent%',
+              '$label · $percentText',
               style: typography.caption.copyWith(
                 color: tint,
                 fontWeight: FontWeight.w600,

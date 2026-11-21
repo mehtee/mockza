@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { computeNextMasteryMilli, clampMilli } from '@mockza/domain';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import {
+  computeNodePriorityScore,
+  slugifyTopicCanonicalKey,
+} from '@mockza/domain';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { MockzaDb } from './client.js';
 import { linguisticEvidenceEvents, linguisticNodes } from './schema.js';
 
@@ -44,62 +47,34 @@ export async function upsertLinguisticGraphSignals(params: {
 
   await params.db.transaction(async (tx) => {
     for (const s of params.signals) {
-      const existingRows = await tx
-        .select()
-        .from(linguisticNodes)
-        .where(
-          and(
-            eq(linguisticNodes.accountKey, params.accountKey),
-            eq(linguisticNodes.edition, params.edition),
-            eq(linguisticNodes.nodeKind, s.nodeKind),
-            eq(linguisticNodes.canonicalKey, s.canonicalKey),
-          ),
-        )
-        .limit(1);
-
-      const existing = existingRows[0];
-      const nextEvidenceCount = (existing?.evidenceCount ?? 0) + 1;
-      const baseMastery =
-        existing?.masteryScoreMilli ?? (s.nodeKind === 'bottleneck' ? 350 : 450);
-      const nextMastery = computeNextMasteryMilli({
-        currentMilli: baseMastery,
-        polarity: s.observedPolarity,
-        evidenceCount: nextEvidenceCount,
-      });
-      const baseWeight = existing?.signalWeightMilli ?? 450;
+      const initialMastery =
+        s.observedPolarity === 'gap_observed'
+          ? 270
+          : s.observedPolarity === 'target_used'
+            ? 588
+            : 570;
       const weightBump = s.observedPolarity === 'gap_observed' ? 120 : 80;
-      const nextWeight = clampMilli(baseWeight + weightBump);
+      const initialWeight = Math.min(1000, 450 + weightBump);
 
-      let nodeId: string;
-      if (existing) {
-        nodeId = existing.nodeId;
-        await tx
-          .update(linguisticNodes)
-          .set({
-            displayLabelEn: s.displayLabelEn,
-            displayLabelFa: s.displayLabelFa,
-            masteryScoreMilli: nextMastery,
-            signalWeightMilli: nextWeight,
-            evidenceCount: nextEvidenceCount,
-            lastSeenDaySerial: daySerial,
-            lastExampleEn: s.excerptText ?? existing.lastExampleEn,
-            coachNoteEn: s.coachNoteEn,
-            coachNoteFa: s.coachNoteFa,
-            updatedAt: now,
-          })
-          .where(eq(linguisticNodes.nodeId, existing.nodeId));
-      } else {
-        nodeId = randomUUID();
-        await tx.insert(linguisticNodes).values({
-          nodeId,
+      const masteryUpdateSql =
+        s.observedPolarity === 'gap_observed'
+          ? sql`GREATEST(0, ${linguisticNodes.masteryScoreMilli} - GREATEST(40, 140 - LEAST(${linguisticNodes.evidenceCount} + 1, 10) * 8))`
+          : s.observedPolarity === 'target_used'
+            ? sql`LEAST(1000, ${linguisticNodes.masteryScoreMilli} + GREATEST(60, ROUND((1000 - ${linguisticNodes.masteryScoreMilli}) * 0.25)::int))`
+            : sql`LEAST(1000, ${linguisticNodes.masteryScoreMilli} + 120)`;
+
+      const [upserted] = await tx
+        .insert(linguisticNodes)
+        .values({
+          nodeId: randomUUID(),
           accountKey: params.accountKey,
           edition: params.edition,
           nodeKind: s.nodeKind,
           canonicalKey: s.canonicalKey,
           displayLabelEn: s.displayLabelEn,
           displayLabelFa: s.displayLabelFa,
-          masteryScoreMilli: nextMastery,
-          signalWeightMilli: nextWeight,
+          masteryScoreMilli: initialMastery,
+          signalWeightMilli: initialWeight,
           evidenceCount: 1,
           firstSeenDaySerial: daySerial,
           lastSeenDaySerial: daySerial,
@@ -109,8 +84,30 @@ export async function upsertLinguisticGraphSignals(params: {
           isPinned: false,
           isMuted: false,
           updatedAt: now,
-        });
-      }
+        })
+        .onConflictDoUpdate({
+          target: [
+            linguisticNodes.accountKey,
+            linguisticNodes.edition,
+            linguisticNodes.nodeKind,
+            linguisticNodes.canonicalKey,
+          ],
+          set: {
+            displayLabelEn: s.displayLabelEn,
+            displayLabelFa: s.displayLabelFa,
+            masteryScoreMilli: masteryUpdateSql,
+            signalWeightMilli: sql`LEAST(1000, ${linguisticNodes.signalWeightMilli} + ${weightBump})`,
+            evidenceCount: sql`${linguisticNodes.evidenceCount} + 1`,
+            lastSeenDaySerial: daySerial,
+            lastExampleEn: sql`COALESCE(${s.excerptText}, ${linguisticNodes.lastExampleEn})`,
+            coachNoteEn: s.coachNoteEn,
+            coachNoteFa: s.coachNoteFa,
+            updatedAt: now,
+          },
+        })
+        .returning({ nodeId: linguisticNodes.nodeId });
+
+      const nodeId = upserted!.nodeId;
 
       await tx.insert(linguisticEvidenceEvents).values({
         eventId: randomUUID(),
@@ -133,7 +130,9 @@ export async function listLinguisticGraphForAccount(params: {
   db: MockzaDb;
   accountKey: string;
   edition: 'glb' | 'irn';
+  now?: Date;
 }) {
+  const daySerial = getUtcDaySerial(params.now);
   const rows = await params.db
     .select()
     .from(linguisticNodes)
@@ -142,12 +141,41 @@ export async function listLinguisticGraphForAccount(params: {
         eq(linguisticNodes.accountKey, params.accountKey),
         eq(linguisticNodes.edition, params.edition),
       ),
-    )
-    .orderBy(desc(linguisticNodes.signalWeightMilli), desc(linguisticNodes.updatedAt));
+    );
 
-  const bottlenecks = rows.filter((r) => r.nodeKind === 'bottleneck');
-  const targetStructures = rows.filter((r) => r.nodeKind === 'target_structure');
-  const interestTopics = rows.filter((r) => r.nodeKind === 'interest_topic');
+  const byDecayedPriorityDesc = (a: (typeof rows)[number], b: (typeof rows)[number]) => {
+    const pA = computeNodePriorityScore({
+      node: {
+        nodeKind: a.nodeKind as 'bottleneck' | 'target_structure' | 'interest_topic',
+        masteryScoreMilli: a.masteryScoreMilli,
+        signalWeightMilli: a.signalWeightMilli,
+        lastSeenDaySerial: a.lastSeenDaySerial,
+      },
+      currentDaySerial: daySerial,
+    });
+    const pB = computeNodePriorityScore({
+      node: {
+        nodeKind: b.nodeKind as 'bottleneck' | 'target_structure' | 'interest_topic',
+        masteryScoreMilli: b.masteryScoreMilli,
+        signalWeightMilli: b.signalWeightMilli,
+        lastSeenDaySerial: b.lastSeenDaySerial,
+      },
+      currentDaySerial: daySerial,
+    });
+    if (pB !== pA) return pB - pA;
+    return b.updatedAt.getTime() - a.updatedAt.getTime();
+  };
+
+  const bottlenecks = rows.filter((r) => r.nodeKind === 'bottleneck').sort(byDecayedPriorityDesc);
+  const targetStructures = rows
+    .filter((r) => r.nodeKind === 'target_structure')
+    .sort(byDecayedPriorityDesc);
+  const interestTopics = rows
+    .filter((r) => r.nodeKind === 'interest_topic')
+    .sort((a, b) => {
+      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+      return byDecayedPriorityDesc(a, b);
+    });
   const totalEvidenceCount = rows.reduce((sum, r) => sum + r.evidenceCount, 0);
 
   return {
@@ -171,34 +199,18 @@ export async function updateGraphInterestPreferences(params: {
 
   await params.db.transaction(async (tx) => {
     for (const rawTopic of params.pinTopics) {
-      const slug = rawTopic.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-      const canonicalKey = `topic:${slug || 'general'}`;
-      const existing = await tx
-        .select()
-        .from(linguisticNodes)
-        .where(
-          and(
-            eq(linguisticNodes.accountKey, params.accountKey),
-            eq(linguisticNodes.edition, params.edition),
-            eq(linguisticNodes.nodeKind, 'interest_topic'),
-            eq(linguisticNodes.canonicalKey, canonicalKey),
-          ),
-        )
-        .limit(1);
-      if (existing[0]) {
-        await tx
-          .update(linguisticNodes)
-          .set({ isPinned: true, isMuted: false, updatedAt: now })
-          .where(eq(linguisticNodes.nodeId, existing[0].nodeId));
-      } else {
-        await tx.insert(linguisticNodes).values({
+      const label = rawTopic.trim();
+      const canonicalKey = slugifyTopicCanonicalKey(label);
+      await tx
+        .insert(linguisticNodes)
+        .values({
           nodeId: randomUUID(),
           accountKey: params.accountKey,
           edition: params.edition,
           nodeKind: 'interest_topic',
           canonicalKey,
-          displayLabelEn: rawTopic.trim(),
-          displayLabelFa: rawTopic.trim(),
+          displayLabelEn: label,
+          displayLabelFa: label,
           masteryScoreMilli: 500,
           signalWeightMilli: 800,
           evidenceCount: 1,
@@ -207,16 +219,26 @@ export async function updateGraphInterestPreferences(params: {
           isPinned: true,
           isMuted: false,
           updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: [
+            linguisticNodes.accountKey,
+            linguisticNodes.edition,
+            linguisticNodes.nodeKind,
+            linguisticNodes.canonicalKey,
+          ],
+          set: {
+            displayLabelEn: label,
+            displayLabelFa: label,
+            isPinned: true,
+            isMuted: false,
+            updatedAt: now,
+          },
         });
-      }
     }
 
     if (params.muteTopics.length > 0) {
-      const keys = params.muteTopics.map((t) =>
-        t.startsWith('topic:')
-          ? t
-          : `topic:${t.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')}`,
-      );
+      const keys = params.muteTopics.map((t) => slugifyTopicCanonicalKey(t));
       await tx
         .update(linguisticNodes)
         .set({ isMuted: true, isPinned: false, updatedAt: now })

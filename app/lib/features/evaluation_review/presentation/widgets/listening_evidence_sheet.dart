@@ -7,6 +7,7 @@ import 'package:mockza/providers.dart';
 import 'package:mockza/services/audio_player_gateway.dart';
 import 'package:mockza/services/media_bytes_platform.dart';
 import 'package:mockza/theme/app_icons.dart';
+import 'package:mockza/theme/app_motion.dart';
 import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/status_banner.dart';
@@ -54,7 +55,7 @@ class _ListeningEvidenceSheetState
   late final AudioPlayerGateway _player;
   late final AppLifecycleListener _lifecycle;
   late final Future<bool> _sourceReady;
-  late final Duration _start = Duration(milliseconds: widget.cueTimestampMs);
+  late final Duration _start = AppMotion.msDuration(widget.cueTimestampMs);
   Duration? _end;
   StreamSubscription<Duration>? _positions;
   String? _playableUrl;
@@ -114,7 +115,7 @@ class _ListeningEvidenceSheetState
               start >= 0 &&
               start <= widget.cueTimestampMs &&
               widget.cueTimestampMs < end) {
-            _end = Duration(milliseconds: end);
+            _end = AppMotion.msDuration(end);
             _transcript = line['text'] as String?;
             break;
           }
@@ -143,7 +144,7 @@ class _ListeningEvidenceSheetState
         return false;
       }
       // Without transcript timing, play a short preview from the authored cue.
-      _end ??= _start + const Duration(seconds: 8);
+      _end ??= _start + AppMotion.listeningEvidenceFallbackPreview;
       _positions = _player.watchPosition().listen((position) {
         if (_playing && !_preparing && position >= _end!) unawaited(_stop());
       });

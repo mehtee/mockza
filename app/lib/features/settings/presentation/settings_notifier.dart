@@ -29,6 +29,7 @@ class SettingsState {
     required this.writingRemaining,
     required this.appUserId,
     this.track = ExamTrack.ieltsAcademic,
+    this.studyFocus = 'both',
     this.targetDateSerial,
     this.presetId = AppearanceSettings.defaultPresetId,
     this.appVersionLabel = 'v1.0.0',
@@ -46,6 +47,9 @@ class SettingsState {
 
   /// Active exam track across IELTS, TOEFL iBT, PTE, and DET.
   final ExamTrack track;
+
+  /// Learner study focus preference (`exams`, `coach`, or `both`).
+  final String studyFocus;
 
   /// Active IELTS track.
   final ExamModuleType examModule;
@@ -102,6 +106,7 @@ class SettingsState {
   SettingsState copyWith({
     AppEdition? edition,
     ExamTrack? track,
+    String? studyFocus,
     ExamModuleType? examModule,
     double? targetBand,
     int? targetDateSerial,
@@ -125,6 +130,7 @@ class SettingsState {
   }) => SettingsState(
     edition: edition ?? this.edition,
     track: track ?? this.track,
+    studyFocus: studyFocus ?? this.studyFocus,
     examModule: examModule ?? this.examModule,
     targetBand: targetBand ?? this.targetBand,
     targetDateSerial: clearTargetDateSerial
@@ -191,6 +197,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
               if (profile == null || _isDisposed) return;
               state = state.copyWith(
                 track: ExamTrack.fromId(profile.examId),
+                studyFocus: profile.studyFocus,
                 examModule: profile.examModule,
                 targetBand: profile.targetBand,
                 targetDateSerial: profile.targetDateSerial,
@@ -232,6 +239,7 @@ class SettingsNotifier extends Notifier<SettingsState> {
       if (!_isDisposed) {
         state = state.copyWith(
           track: ExamTrack.fromId(profile.examId),
+          studyFocus: profile.studyFocus,
           examModule: profile.examModule,
           targetBand: profile.targetBand,
           targetDateSerial: profile.targetDateSerial,
@@ -507,6 +515,18 @@ class SettingsNotifier extends Notifier<SettingsState> {
     state = state.copyWith(themeMode: mode, clearStatusMessage: true);
     ref.read(appearanceSettingsProvider.notifier).setThemeMode(mode);
     unawaited(_persistThemeMode(mode));
+  }
+
+  /// Updates the learner's study focus (`exams`, `coach`, or `both`).
+  Future<void> setStudyFocus(String focus) async {
+    state = state.copyWith(studyFocus: focus, clearStatusMessage: true);
+    try {
+      final profileRepo = ref.read(profileRepositoryProvider);
+      final primary = await profileRepo.loadOrInitializePrimary();
+      await profileRepo.setStudyFocus(primary.deviceId, focus);
+    } on Object {
+      // Ignore in isolated widget tests without database plugin.
+    }
   }
 
   /// Updates the Open-Closed palette preset and persists selection.

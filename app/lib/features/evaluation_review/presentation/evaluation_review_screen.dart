@@ -618,6 +618,69 @@ class _OverviewTab extends StatelessWidget {
             ),
           ),
         ],
+        if (isAiSkill) ...<Widget>[
+          const SizedBox(height: SpacingTokens.lg),
+          Builder(
+            builder: (context) {
+              CriterionScore? weakest;
+              for (final c in criteria) {
+                if (weakest == null || c.band < weakest.band) {
+                  weakest = c;
+                }
+              }
+              return MzCard(
+                key: const ValueKey<String>('eval_coach_bridge_card'),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        AppIcon(
+                          LucideGlyph.sparkles,
+                          size: 18,
+                          color: colors.primary,
+                        ),
+                        const SizedBox(width: SpacingTokens.xs),
+                        Expanded(
+                          child: Text(
+                            'Turn This Feedback Into Daily Habits',
+                            style: typography.cardTitle.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: SpacingTokens.xs),
+                    Text(
+                      weakest != null
+                          ? 'Lowest area: ${weakest.criterionLabel} (${state.examTrack.formatScore(weakest.band)}). Lock in stronger phrasing in 10 minutes.'
+                          : 'Reinforce weaker expressions from this attempt with Smart Coach.',
+                      style: typography.secondary.copyWith(
+                        color: colors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: SpacingTokens.md),
+                    PrimaryButton(
+                      key: const ValueKey<String>('eval_bridge_coach_btn'),
+                      label: "Fix in Today's 10-Min Coach",
+                      glyph: LucideGlyph.flame,
+                      onPressed: () =>
+                          context.push(AppRoutes.buildDailyMission()),
+                    ),
+                    const SizedBox(height: SpacingTokens.sm),
+                    SecondaryButton(
+                      key: const ValueKey<String>('eval_bridge_shifter_btn'),
+                      label: 'Upgrade Weak Sentences',
+                      glyph: LucideGlyph.slidersHorizontal,
+                      onPressed: () => context.push(AppRoutes.registerShifter),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
         const SizedBox(height: SpacingTokens.lg),
         SecondaryButton(
           label: 'Practice Again',

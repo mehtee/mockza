@@ -109,4 +109,64 @@ describe('W4.1 Onboarding Wizard (/app/welcome & /app/onboarding/goal)', () => {
       serialDayFromUtcMs(Date.UTC(2025, 2, 20)),
     );
   });
+
+  it('redirects brand-new users on /app to /welcome and returning users to /home, plus pins 1-tap Coach topics', async () => {
+    const newUserDeps = createTestDependencies({ edition: 'glb' });
+    const newUserHistory = createMemoryHistory({ initialEntries: ['/app/'] });
+    const newUserRouter = createAppRouter(newUserHistory);
+
+    const { unmount } = render(
+      <DesktopSimulatorApp router={newUserRouter} dependencies={newUserDeps} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('welcome-screen')).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId('welcome-continue-btn'));
+    await waitFor(() => {
+      expect(screen.getByTestId('goal-setup-screen')).toBeTruthy();
+      expect(screen.getByTestId('goal-interest-topics-card')).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId('goal-focus-coach'));
+    fireEvent.click(screen.getByTestId('goal-topic-chip-technology-ai'));
+    fireEvent.click(screen.getByTestId('goal-start-diagnostic-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('daily-mission-screen')).toBeTruthy();
+    });
+
+    const graphRes = await newUserDeps.linguistic.getMyGraph();
+    expect(
+      graphRes.ok &&
+        graphRes.value.interestTopics.some((t) =>
+          t.displayLabelEn.toLowerCase().includes('technology'),
+        ),
+    ).toBe(true);
+    unmount();
+
+    const returningDeps = createTestDependencies({ edition: 'glb' });
+    await returningDeps.attemptStore.saveUserProfile({
+      deviceId: 'returning-device',
+      examId: 'ielts_academic',
+      examModule: 'academic',
+      studyFocus: 'both',
+      targetBand: 7.5,
+      targetDateSerial: null,
+      onboardingCompleted: true,
+      freeDiagnosticUsed: false,
+      linkedEmail: null,
+      appUserId: null,
+      isPro: false,
+      updatedAtMs: 1_700_000_000_000,
+    });
+    const returningHistory = createMemoryHistory({ initialEntries: ['/app/'] });
+    const returningRouter = createAppRouter(returningHistory);
+    render(<DesktopSimulatorApp router={returningRouter} dependencies={returningDeps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('home-screen')).toBeTruthy();
+    });
+  });
 });

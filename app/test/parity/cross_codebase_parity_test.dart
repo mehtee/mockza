@@ -1208,6 +1208,19 @@ void main() {
         expect(freeAudio.allowed, isFalse);
         expect(freeAudio.reason, 'pro_required_for_audio_drop');
       });
+
+      for (final raw in _asList(dropFixtures['clozeCases'])) {
+        final v = _asMap(raw);
+        test('DropInputPolicy.checkClozeAnswer [${_asString(v['id'])}]', () {
+          expect(
+            DropInputPolicy.checkClozeAnswer(
+              _asString(v['input']),
+              _asString(v['expected']),
+            ),
+            _asBool(v['matches']),
+          );
+        });
+      }
     });
   });
 }

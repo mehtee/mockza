@@ -16,6 +16,7 @@ import {
   refundQuotaAtomic,
 } from '@mockza/db';
 import {
+  safeFetchBinaryUrl,
   safeFetchReadableUrl,
   SafeUrlFetchError,
 } from '@mockza/storage';
@@ -130,6 +131,13 @@ export async function handleDropIngestJob(
       sourceDomainOrLabel = req.sourceLabel || 'Personal Snippet';
       rawText = req.rawText;
     } else if (req.inputKind === 'image') {
+      if (db && payload.jobId) {
+        await db
+          .update(evaluationJobs)
+          .set({ stageDetail: 'Reading uploaded image(s)', updatedAt: new Date() })
+          .where(eq(evaluationJobs.jobId, payload.jobId))
+          .catch(() => {});
+      }
       sourceDomainOrLabel = 'Screenshot Upload';
       imageDataUris = [];
       for (const objKey of req.imageObjectKeys ?? []) {
@@ -148,10 +156,15 @@ export async function handleDropIngestJob(
           }
         }
       }
-      if (imageDataUris.length === 0 && !invokeOptions?.allowDemoEvaluator) {
-        if ((req.imageUrls?.length ?? 0) > 0) {
-          imageDataUris.push(...(req.imageUrls ?? []).slice(0, 4));
-          sourceDomainOrLabel = new URL(req.imageUrls![0]!).hostname;
+      for (const imgUrl of (req.imageUrls ?? []).slice(0, 4)) {
+        const fetchedImg = await safeFetchBinaryUrl(imgUrl, {
+          allowHttpInNonProd: process.env['NODE_ENV'] !== 'production',
+          maxBytes: 5 * 1024 * 1024,
+        });
+        const stripped = validateAndStripImageForModel(fetchedImg.body);
+        imageDataUris.push(stripped.dataUri);
+        if (sourceDomainOrLabel === 'Screenshot Upload') {
+          sourceDomainOrLabel = fetchedImg.sourceDomain;
         }
       }
     } else if (req.inputKind === 'audio') {
@@ -169,7 +182,32 @@ export async function handleDropIngestJob(
           audioFormat = prepared.format;
           mediaKeys.push(req.audioObjectKey);
         }
+      } else if (req.audioUrl) {
+        const fetchedAudio = await safeFetchBinaryUrl(req.audioUrl, {
+          allowHttpInNonProd: process.env['NODE_ENV'] !== 'production',
+          maxBytes: 5 * 1024 * 1024,
+        });
+        const ctLower = fetchedAudio.contentType.toLowerCase();
+        const extHint = ctLower.includes('mpeg') || req.audioUrl.endsWith('.mp3')
+          ? 'drop.mp3'
+          : ctLower.includes('wav') || req.audioUrl.endsWith('.wav')
+            ? 'drop.wav'
+            : 'drop.m4a';
+        const prepared = await prepareAudioForModel(fetchedAudio.body, extHint, {
+          maxDurationSeconds: 180,
+        });
+        audioBase64 = prepared.base64Data;
+        audioFormat = prepared.format;
+        sourceDomainOrLabel = fetchedAudio.sourceDomain;
       }
+    }
+
+    if (db && payload.jobId) {
+      await db
+        .update(evaluationJobs)
+        .set({ stageDetail: 'Picking high-value expressions & building 2-min drill', updatedAt: new Date() })
+        .where(eq(evaluationJobs.jobId, payload.jobId))
+        .catch(() => {});
     }
 
     const result = await ingestDroppedContentGraph(

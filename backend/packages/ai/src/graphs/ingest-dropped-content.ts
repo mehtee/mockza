@@ -148,9 +148,153 @@ export async function ingestDroppedContentGraph(
     );
   }
 
-  const alphaClient = options.alphaClient ?? new OpenRouterAlphaClient({ apiKey });
+  const alphaClient = options.alphaClient;
   const gaClient = options.client ?? new OpenRouterClient({ apiKey, timeoutMs: 25_000 });
   const routingTier = options.routingTier ?? 'flex';
+
+  // Fast-path 1-call multimodal / text synthesis for live production runs (cuts 25-45s waterfall -> ~4-8s).
+  // When an explicit alphaClient is injected (unit tests verifying dual-system alpha routing), run the dual-system path below.
+  if (!alphaClient) {
+    const fastModel =
+      input.inputKind === 'audio' || input.inputKind === 'image'
+        ? MODEL_REGISTRY.speakingAudioPrimary
+        : MODEL_REGISTRY.missionPlanner;
+    const isIrn = input.edition === 'irn';
+
+    const userContent: OpenRouterMessage['content'] =
+      input.inputKind === 'audio' && input.audioBase64
+        ? [
+            {
+              type: 'text',
+              text: `Analyze this bounded English audio clip for ${input.examTrack}.`,
+            },
+            {
+              type: 'input_audio',
+              input_audio: { data: input.audioBase64, format: input.audioFormat ?? 'm4a' },
+            },
+          ]
+        : input.inputKind === 'image' && input.imageDataUris?.length
+          ? [
+              {
+                type: 'text',
+                text: `Extract English reading/study content across these ${input.imageDataUris.length} image(s) for ${input.examTrack}.`,
+              },
+              ...input.imageDataUris.slice(0, 4).map((url) => ({
+                type: 'image_url' as const,
+                image_url: { url },
+              })),
+            ]
+          : `Source: ${input.sourceDomainOrLabel}${input.titleHint ? `\nTitle: ${input.titleHint}` : ''}\nExcerpt:\n${(input.rawText ?? '').slice(0, 10_000)}`;
+
+    const singleRes = await gaClient.createChatCompletion({
+      model: fastModel,
+      routingTier,
+      response_format: { type: 'json_object' },
+      temperature: 0.2,
+      max_tokens: 1800,
+      messages: [
+        {
+          role: 'system',
+          content: [
+            `You turn authentic English articles, screenshots, or short audio clips into a concise 2-minute interactive study drill for ${input.examTrack}.`,
+            isIrn
+              ? 'Keep title, headwords, definitions, exampleSentences, comprehensionQuestion, cloze, and shadowingPrompt in natural English. Provide clear Persian (fa-IR) glossFa and comprehensionExplanationFa.'
+              : 'Set glossFa and comprehensionExplanationFa to null.',
+            'Return ONLY valid JSON matching:',
+            '{"isSafeEducational":true,"cefrEstimate":"B2","mainTopic":"technology_ai","title":"Short 4-8 Word Title","transcriptExcerpt":"...","extractedPhrases":[{"headword":"...","ipa":"/.../","definitionEn":"...","glossFa":null,"exampleSentence":"..."}],"drillPayload":{"comprehensionPrompt":"...","comprehensionOptions":["...","...","..."],"correctOptionIndex":0,"comprehensionExplanationEn":"...","comprehensionExplanationFa":null,"clozeSentence":"... (with ______)","clozeAnswer":"...","shadowingPrompt":"..."}}',
+          ].join('\n'),
+        },
+        { role: 'user', content: userContent },
+      ],
+    });
+
+    const parsed = JSON.parse(
+      stripJsonCodeFences(singleRes.choices[0]?.message?.content ?? '{}'),
+    ) as {
+      isSafeEducational?: boolean;
+      cefrEstimate?: string;
+      mainTopic?: string;
+      title?: string;
+      transcriptExcerpt?: string;
+      extractedPhrases?: Array<Partial<DroppedPhraseDto>>;
+      drillPayload?: Partial<DropDrillPayload>;
+    };
+
+    if (parsed.isSafeEducational === false) {
+      throw new EvaluationModelError(
+        'model_unavailable',
+        'Dropped content failed educational safety screening.',
+        false,
+      );
+    }
+
+    const cefrEstimate =
+      parsed.cefrEstimate && ['A2', 'B1', 'B2', 'C1', 'C2'].includes(parsed.cefrEstimate)
+        ? parsed.cefrEstimate
+        : 'B2';
+    const mainTopic = parsed.mainTopic?.trim() || 'everyday_life';
+    const extractedTitle = (
+      parsed.title?.trim() ||
+      input.titleHint ||
+      `Study Material (${input.sourceDomainOrLabel})`
+    ).slice(0, 140);
+
+    const phrases: DroppedPhraseDto[] = (parsed.extractedPhrases ?? [])
+      .slice(0, 5)
+      .map((p) => {
+        const headword = p.headword?.trim() || 'academic expression';
+        const aligned = alignPhraseSpan(input.rawText, headword);
+        return {
+          headword,
+          ipa: p.ipa ?? null,
+          definitionEn: p.definitionEn ?? 'Useful expression captured from your study material.',
+          glossFa: isIrn ? (p.glossFa ?? null) : null,
+          exampleSentence: p.exampleSentence ?? `Practice using "${headword}" naturally.`,
+          startUtf16: aligned.startUtf16,
+          endUtf16: aligned.endUtf16,
+        };
+      });
+
+    return {
+      title: extractedTitle,
+      cefrEstimate,
+      detectedTopics: [mainTopic],
+      extractedPhrases: phrases,
+      drillPayload: {
+        comprehensionPrompt:
+          parsed.drillPayload?.comprehensionPrompt ??
+          `Which statement best reflects the core idea of "${extractedTitle}"?`,
+        comprehensionOptions: parsed.drillPayload?.comprehensionOptions?.length
+          ? parsed.drillPayload.comprehensionOptions.slice(0, 4)
+          : [
+              'It highlights practical language patterns in authentic context.',
+              'It recommends memorizing isolated grammar tables without context.',
+            ],
+        correctOptionIndex: Math.max(
+          0,
+          parsed.drillPayload?.correctOptionIndex ?? 0,
+        ),
+        comprehensionExplanationEn: parsed.drillPayload?.comprehensionExplanationEn ?? null,
+        comprehensionExplanationFa: isIrn
+          ? (parsed.drillPayload?.comprehensionExplanationFa ?? null)
+          : null,
+        clozeSentence:
+          parsed.drillPayload?.clozeSentence ??
+          `You can express this point clearly using ______.`,
+        clozeAnswer:
+          parsed.drillPayload?.clozeAnswer ?? phrases[0]?.headword ?? 'academic expression',
+        shadowingPrompt:
+          parsed.drillPayload?.shadowingPrompt ??
+          phrases[0]?.exampleSentence ??
+          'Read the target sentence aloud smoothly.',
+      },
+      excerptForGraph: (
+        parsed.transcriptExcerpt ??
+        input.rawText ??
+        extractedTitle
+      ).slice(0, 320),
+    };
+  }
 
   // Build System 1 preflight payload
   const preflightContent: OpenRouterMessage['content'] =

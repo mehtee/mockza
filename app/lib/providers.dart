@@ -197,6 +197,8 @@ final Provider<OutboxSyncService> outboxSyncServiceProvider =
         gradingGateway: ref.watch(gradingGatewayProvider),
         authSession: ref.watch(authSessionServiceProvider),
         crashLog: ref.watch(crashLogProvider),
+        linguisticGateway: ref.watch(linguisticGatewayProvider),
+        linguisticRepository: ref.watch(linguisticRepositoryProvider),
         clock: ref.watch(clockProvider),
       );
       ref.onDispose(service.dispose);

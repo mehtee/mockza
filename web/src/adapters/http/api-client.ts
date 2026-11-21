@@ -36,6 +36,7 @@ export interface ApiRequestOptions {
   readonly includeAuthOnAuthRoute?: boolean;
   readonly skipAuthRefresh?: boolean;
   readonly signal?: AbortSignal;
+  readonly timeoutMs?: number;
 }
 
 function normalizePort(url: URL): string {
@@ -419,12 +420,13 @@ export class ApiClient {
       bodyInit = JSON.stringify(options.body);
     }
 
+    const effectiveTimeoutMs = options.timeoutMs ?? this.timeoutMs;
     const controller = new AbortController();
     const timeoutId =
-      this.timeoutMs > 0
+      effectiveTimeoutMs > 0
         ? setTimeout(() => {
             controller.abort();
-          }, this.timeoutMs)
+          }, effectiveTimeoutMs)
         : undefined;
 
     const externalSignal = options.signal;
@@ -575,6 +577,24 @@ export function createHttpOutboxTransport(client: ApiClient): OutboxTransport {
     },
     async flagQuestion(payload) {
       const res = await client.post<unknown>('/v1/feedback/question-flag', payload);
+      return res.ok ? ok(undefined) : err(mapGatewayErrorToSyncOutboxError(res.error));
+    },
+    async completeMission(payload) {
+      const missionId = typeof payload['missionId'] === 'string' ? payload['missionId'] : '';
+      if (!missionId) return ok(undefined);
+      const res = await client.post<unknown>(
+        `/v1/missions/${encodeURIComponent(missionId)}/complete`,
+        payload,
+      );
+      return res.ok ? ok(undefined) : err(mapGatewayErrorToSyncOutboxError(res.error));
+    },
+    async verifyRepeatAloud(payload) {
+      const runId = typeof payload['runId'] === 'string' ? payload['runId'] : '';
+      if (!runId) return ok(undefined);
+      const res = await client.post<unknown>(
+        `/v1/register-shifter/${encodeURIComponent(runId)}/verify-repeat`,
+        payload,
+      );
       return res.ok ? ok(undefined) : err(mapGatewayErrorToSyncOutboxError(res.error));
     },
   };

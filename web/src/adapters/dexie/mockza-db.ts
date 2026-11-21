@@ -104,5 +104,11 @@ export class MockzaDexieDb extends Dexie {
       dailyMissions: 'missionId, [missionDaySerial+edition], status',
       droppedContents: 'dropId, inputKind, createdAtMs, completedAtMs',
     });
+    this.version(3).stores({
+      ...v1Stores,
+      linguisticNodes: 'nodeId, edition, [edition+nodeKind], canonicalKey, lastSeenDaySerial',
+      dailyMissions: 'missionId, edition, [missionDaySerial+edition], status',
+      droppedContents: 'dropId, edition, inputKind, createdAtMs, completedAtMs',
+    });
   }
 }

@@ -5,7 +5,7 @@ import type { MockzaDb } from '@mockza/db';
 import { getNextUtcDayReset, getNextUtcMonthReset } from '@mockza/domain';
 import { createDeviceAuthMiddleware } from '../middleware/auth.js';
 import type { RequestVariables } from '../middleware/request-id.js';
-import { getAccountQuotaStatus } from '../services/quota.js';
+import { getAccountQuotaStatus, getAdvancedQuotaSummary } from '../services/quota.js';
 import type { SessionManager } from '../services/session-manager.js';
 
 export function registerQuotaRoutes(
@@ -43,7 +43,11 @@ export function registerQuotaRoutes(
     const accountKey = c.get('accountKey') ?? deviceId;
 
     if (db) {
-      const status = await getAccountQuotaStatus({ db, accountKey, deviceId });
+      const [status, adv] = await Promise.all([
+        getAccountQuotaStatus({ db, accountKey, deviceId }),
+        getAdvancedQuotaSummary({ db, accountKey, deviceId, edition: env.EDITION }),
+      ]);
+      const monthlyCap = env.EDITION === 'irn' ? 120 : 150;
       return c.json(
         QuotaStatusResponseSchema.parse({
           isPro: status.isPro,
@@ -56,9 +60,17 @@ export function registerQuotaRoutes(
           dailyWritingUsed: status.writingUsedToday,
           dailyWritingLimit: status.isPro ? 10 : status.freeDiagnosticUsed ? 0 : 1,
           monthlyUsed: status.monthlyUsed,
-          monthlyLimit: status.isPro ? 150 : 1,
+          monthlyLimit: status.isPro ? monthlyCap : 1,
           dailyResetAt: getNextUtcDayReset(),
           monthlyResetAt: getNextUtcMonthReset(),
+          advancedQuota: {
+            isPro: adv.isPro,
+            freeSampleUsed: adv.freeSampleUsed,
+            shifterRemainingToday: adv.shifterRemainingToday,
+            dropsRemainingToday: adv.dropsRemainingToday,
+            audioDropAllowed: adv.audioDropAllowed,
+            monthlyRemaining: adv.monthlyRemaining,
+          },
         }),
         200,
       );
@@ -74,6 +86,7 @@ export function registerQuotaRoutes(
           expiresAt: null,
           source: 'none' as const,
         };
+    const memMonthlyCap = env.EDITION === 'irn' ? 120 : 150;
 
     return c.json(
       QuotaStatusResponseSchema.parse({
@@ -87,9 +100,17 @@ export function registerQuotaRoutes(
         dailyWritingUsed: 0,
         dailyWritingLimit: memSnap.isPro ? 10 : 1,
         monthlyUsed: 0,
-        monthlyLimit: memSnap.isPro ? 150 : 1,
+        monthlyLimit: memSnap.isPro ? memMonthlyCap : 1,
         dailyResetAt: getNextUtcDayReset(),
         monthlyResetAt: getNextUtcMonthReset(),
+        advancedQuota: {
+          isPro: memSnap.isPro,
+          freeSampleUsed: false,
+          shifterRemainingToday: memSnap.isPro ? 10 : 1,
+          dropsRemainingToday: memSnap.isPro ? 10 : 1,
+          audioDropAllowed: memSnap.isPro,
+          monthlyRemaining: memSnap.isPro ? memMonthlyCap : 1,
+        },
       }),
       200,
     );

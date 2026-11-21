@@ -18,6 +18,23 @@ import type { UserProfileRecord } from '@/gateways/storage.gateway';
 import { useDeps } from '@/spa/deps';
 import { useAuthSession } from '@/spa/stores/auth-session';
 
+export interface StarterInterestTopic {
+  readonly key: string;
+  readonly labelEn: string;
+  readonly labelFa: string;
+}
+
+export const STARTER_INTEREST_TOPICS: readonly StarterInterestTopic[] = [
+  { key: 'Technology & AI', labelEn: 'Technology & AI', labelFa: 'فناوری و هوش مصنوعی' },
+  { key: 'Career & Workplace', labelEn: 'Career & Workplace', labelFa: 'کار و محیط حرفه‌ای' },
+  { key: 'Travel & Culture', labelEn: 'Travel & Culture', labelFa: 'سفر و فرهنگ' },
+  { key: 'Health & Fitness', labelEn: 'Health & Fitness', labelFa: 'سلامت و تناسب' },
+  { key: 'Science & Climate', labelEn: 'Science & Climate', labelFa: 'علم و محیط زیست' },
+  { key: 'Cinema & Arts', labelEn: 'Cinema & Arts', labelFa: 'سینما و هنر' },
+  { key: 'Sports', labelEn: 'Sports', labelFa: 'ورزش' },
+  { key: 'Business & Finance', labelEn: 'Business & Finance', labelFa: 'کسب‌وکار و مالی' },
+];
+
 export interface JalaliDraftFields {
   readonly jy: string;
   readonly jm: string;
@@ -59,6 +76,8 @@ export function useOnboardingController() {
   const [deviceId, setDeviceId] = useState('local-desktop-device');
   const [existingProfile, setExistingProfile] = useState<UserProfileRecord | null>(null);
   const [selectedTrack, setSelectedTrack] = useState<SupportedExamId>('ielts_academic');
+  const [studyFocus, setStudyFocus] = useState<'exams' | 'coach' | 'both'>('both');
+  const [selectedTopics, setSelectedTopics] = useState<readonly string[]>([]);
   const [targetScore, setTargetScore] = useState<number>(
     EXAM_TRACK_SPECS.ielts_academic.targetScoreDefault,
   );
@@ -100,6 +119,7 @@ export function useOnboardingController() {
         const profile = profileRes.value;
         setExistingProfile(profile);
         setSelectedTrack(profile.examId);
+        if (profile.studyFocus) setStudyFocus(profile.studyFocus);
         setTargetScore(quantizeExamScore(profile.targetBand, profile.examId));
         setTargetDateSerial(profile.targetDateSerial);
         syncDateInputsFromSerial(profile.targetDateSerial);
@@ -209,6 +229,12 @@ export function useOnboardingController() {
     [deps.edition, jalaliDraft],
   );
 
+  const toggleTopic = useCallback((topicKey: string) => {
+    setSelectedTopics((prev) =>
+      prev.includes(topicKey) ? prev.filter((item) => item !== topicKey) : [...prev, topicKey],
+    );
+  }, []);
+
   const saveProfile = useCallback(
     async (markCompleted: boolean): Promise<boolean> => {
       if (dateError) {
@@ -220,6 +246,7 @@ export function useOnboardingController() {
         deviceId,
         examId: selectedTrack,
         examModule: selectedTrack === 'ielts_general' ? 'general_training' : 'academic',
+        studyFocus,
         targetBand: targetScore,
         targetDateSerial,
         onboardingCompleted: markCompleted ? true : (existingProfile?.onboardingCompleted ?? false),
@@ -230,6 +257,12 @@ export function useOnboardingController() {
         updatedAtMs: nowMs,
       };
       const res = await deps.attemptStore.saveUserProfile(record);
+      if (markCompleted && res.ok && selectedTopics.length > 0) {
+        void deps.linguistic.updateInterests({
+          pinTopics: [...selectedTopics],
+          muteTopics: [],
+        });
+      }
       setExistingProfile(record);
       setIsSaving(false);
       return res.ok;
@@ -238,9 +271,12 @@ export function useOnboardingController() {
       dateError,
       deps.attemptStore,
       deps.clock,
+      deps.linguistic,
       deviceId,
       existingProfile,
+      selectedTopics,
       selectedTrack,
+      studyFocus,
       session?.user?.email,
       session?.user?.isPro,
       session?.user?.userId,
@@ -255,6 +291,8 @@ export function useOnboardingController() {
     isLoading,
     isSaving,
     selectedTrack,
+    studyFocus,
+    selectedTopics,
     targetScore,
     targetDateSerial,
     gregorianInput,
@@ -264,6 +302,8 @@ export function useOnboardingController() {
     trackSpec: EXAM_TRACK_SPECS[selectedTrack],
     trackDescriptor: EXAM_DESCRIPTORS[selectedTrack],
     selectTrack,
+    selectStudyFocus: setStudyFocus,
+    toggleTopic,
     updateTargetScore,
     stepTargetScore,
     setExamDateDaysFromNow,

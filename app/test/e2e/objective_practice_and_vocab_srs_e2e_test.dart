@@ -20,7 +20,7 @@ void main() {
       final vocab = VocabProgressSettingsRobot(harness);
 
       shell.expectHomeVisible();
-      await shell.openTab(tester, 'Practice');
+      await shell.openTab(tester, 'Exams');
 
       await practice.selectPracticeMode(tester, examMode: false);
       await practice.openSetupForSkill(tester, 'Reading');
@@ -36,12 +36,12 @@ void main() {
       // Pop back out of Practice Setup -> Practice Hub shell
       final backBtns = find.byType(IconButton);
       if (backBtns.evaluate().isNotEmpty &&
-          find.text('Vocabulary').evaluate().isEmpty) {
+          find.text('Vocab').evaluate().isEmpty) {
         await harness.tapVisible(tester, backBtns.first);
         await harness.pumpFrames(tester, count: 4);
       }
 
-      await shell.openTab(tester, 'Vocabulary');
+      await shell.openTab(tester, 'Vocab');
       await vocab.inspectDetailAndReviewVocab(tester);
       harness.expectNoOverflow(tester);
 

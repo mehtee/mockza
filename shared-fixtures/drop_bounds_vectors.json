@@ -101,5 +101,43 @@
       "expectedOk": true,
       "expectedCode": null
     }
+  ],
+  "clozeCases": [
+    {
+      "id": "exact_match",
+      "input": "deliberate practice",
+      "expected": "deliberate practice",
+      "matches": true
+    },
+    {
+      "id": "case_punct_and_whitespace",
+      "input": "  \"Trade-off\", ",
+      "expected": "trade-off",
+      "matches": true
+    },
+    {
+      "id": "hyphen_vs_space",
+      "input": "trade off",
+      "expected": "trade-off",
+      "matches": true
+    },
+    {
+      "id": "simple_inflection",
+      "input": "accelerating",
+      "expected": "accelerate",
+      "matches": false
+    },
+    {
+      "id": "simple_stem_plural_ed",
+      "input": "bottlenecks!",
+      "expected": "bottleneck",
+      "matches": true
+    },
+    {
+      "id": "unrelated_mismatch",
+      "input": "passive listening",
+      "expected": "deliberate practice",
+      "matches": false
+    }
   ]
 }

@@ -106,6 +106,69 @@ export async function attachClosedLoopRoutes(
     const req = route.request();
     const pathname = new URL(req.url()).pathname;
 
+    if (pathname === '/v1/quota/me') {
+      await fulfillJson(route, {
+        isPro: true,
+        activePlanId: 'mockza_pro_monthly',
+        expiresAt: null,
+        source: 'dev_sandbox',
+        freeDiagnosticUsed: true,
+        dailySpeakingUsed: 0,
+        dailySpeakingLimit: 10,
+        dailyWritingUsed: 0,
+        dailyWritingLimit: 10,
+        monthlyUsed: 1,
+        monthlyLimit: 150,
+        dailyResetAt: '2026-11-22T00:00:00Z',
+        monthlyResetAt: '2026-12-01T00:00:00Z',
+        advancedQuota: {
+          isPro: true,
+          freeSampleUsed: false,
+          shifterRemainingToday: 9,
+          dropsRemainingToday: 9,
+          audioDropAllowed: true,
+          monthlyRemaining: 149,
+        },
+      });
+      return;
+    }
+
+    if (pathname === '/v1/missions/today/refresh') {
+      const body = (req.postDataJSON() ?? {}) as { focusTopic?: string };
+      await fulfillJson(route, {
+        missionId: '00000000-0000-4000-8800-000000000001',
+        edition: options.edition,
+        examTrack: 'ielts_academic',
+        missionDaySerial: 20770,
+        status: 'ready',
+        focusTopic: body.focusTopic || 'Science & Climate',
+        payload: {
+          estimatedSeconds: 600,
+          warmupCardIds: [],
+          forcedTargets: [
+            {
+              canonicalKey: 'grammar:conditionals',
+              phraseEn: 'Had engineers prioritized',
+              hintEn: 'Inverted third conditional clause.',
+              hintFa: isIrn ? 'ساختار شرطی وارونه نوع سوم.' : null,
+            },
+            {
+              canonicalKey: 'vocab:albeit',
+              phraseEn: 'albeit',
+              hintEn: 'Concessive linker for C1 nuance.',
+              hintFa: isIrn ? 'قید ربط تضاد برای ارتقای نمره.' : null,
+            },
+          ],
+          promptTitle: `${body.focusTopic || 'Climate'} Transfer Mission`,
+          promptTextEn: 'Argue the tradeoffs using both forced target structures.',
+          promptTextFa: null,
+          responseMode: 'writing',
+        },
+        evaluationResult: null,
+      });
+      return;
+    }
+
     if (pathname === '/v1/missions/today') {
       await fulfillJson(route, {
         missionId: '00000000-0000-4000-8800-000000000001',
@@ -306,14 +369,19 @@ export async function attachClosedLoopRoutes(
     }
 
     if (pathname === '/v1/drop/presign-media') {
+      const body = (req.postDataJSON() ?? {}) as { files?: Array<{ contentType: string }> };
+      const count = Math.max(1, body.files?.length ?? 1);
       await fulfillJson(route, {
-        items: [
-          {
-            objectKey: 'drops/e2e/item.webp',
-            uploadUrl: `${new URL(req.url()).origin}/v1/mock-s3-put`,
-          },
-        ],
+        items: Array.from({ length: count }, (_, idx) => ({
+          objectKey: `drops/e2e/item-${idx}.webp`,
+          uploadUrl: `${new URL(req.url()).origin}/v1/uploads/signed-put`,
+        })),
       });
+      return;
+    }
+
+    if (pathname === '/v1/uploads/signed-put') {
+      await route.fulfill({ status: 200, body: '' });
       return;
     }
 
@@ -335,6 +403,11 @@ export async function attachClosedLoopRoutes(
     }
 
     if (pathname === `/v1/drop/${dropItem['dropId']}`) {
+      if (req.method() === 'DELETE') {
+        drops.length = 0;
+        await fulfillJson(route, { deleted: true });
+        return;
+      }
       await fulfillJson(route, dropItem);
       return;
     }

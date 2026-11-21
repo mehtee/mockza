@@ -50,7 +50,55 @@ final class ShareViewController: UIViewController {
         provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { raw, _ in
           if let text = raw as? String {
             let bounded = String(text.prefix(15000))
-            defaults?.set(["kind": "text", "text": bounded], forKey: "pending_drop_payload")
+            defaults?.set(["kind": "text", "text": bounded, "mimeType": "text/plain"], forKey: "pending_drop_payload")
+            if let encoded = bounded.prefix(2000).addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+               let target = URL(string: "\(scheme)://drop?text=\(encoded)") {
+              _ = self.openHostUrl(target)
+            }
+          }
+          self.extensionContext?.completeRequest(returningItems: nil)
+        }
+        return
+      }
+      if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) ||
+         provider.hasItemConformingToTypeIdentifier(UTType.audio.identifier) {
+        let isAudio = provider.hasItemConformingToTypeIdentifier(UTType.audio.identifier)
+        let typeId = isAudio ? UTType.audio.identifier : UTType.image.identifier
+        let mimeHint = isAudio ? "audio/mp4" : "image/jpeg"
+        let maxCount = isAudio ? 1 : 4
+        let mediaProviders = attachments.filter { $0.hasItemConformingToTypeIdentifier(typeId) }.prefix(maxCount)
+        let group = DispatchGroup()
+        var stagedPaths: [String] = []
+        let syncQueue = DispatchQueue(label: "mockza.share.stage")
+        for mediaProvider in mediaProviders {
+          group.enter()
+          mediaProvider.loadItem(forTypeIdentifier: typeId, options: nil) { raw, _ in
+            defer { group.leave() }
+            if let srcUrl = raw as? URL,
+               let containerUrl = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupId) {
+              let stagingDir = containerUrl.appendingPathComponent("drop_staging", isDirectory: true)
+              try? FileManager.default.createDirectory(at: stagingDir, withIntermediateDirectories: true)
+              let ext = srcUrl.pathExtension.isEmpty ? (isAudio ? "m4a" : "jpg") : srcUrl.pathExtension
+              let destUrl = stagingDir.appendingPathComponent("\(UUID().uuidString).\(ext)")
+              if let attrs = try? FileManager.default.attributesOfItem(atPath: srcUrl.path),
+                 let fileSize = attrs[.size] as? NSNumber,
+                 fileSize.intValue <= self.maxMediaBytes {
+                try? FileManager.default.copyItem(at: srcUrl, to: destUrl)
+                syncQueue.sync { stagedPaths.append(destUrl.path) }
+              }
+            }
+          }
+        }
+        group.notify(queue: .main) {
+          if !stagedPaths.isEmpty {
+            defaults?.set([
+              "kind": isAudio ? "audio" : "image",
+              "files": stagedPaths,
+              "mimeType": mimeHint,
+            ], forKey: "pending_drop_payload")
+            if let target = URL(string: "\(scheme)://drop") {
+              _ = self.openHostUrl(target)
+            }
           }
           self.extensionContext?.completeRequest(returningItems: nil)
         }

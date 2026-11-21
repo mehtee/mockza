@@ -27,6 +27,7 @@ class HomeState {
     required this.recommendedTitle,
     required this.recommendedSubtitle,
     required this.recommendedRoute,
+    this.studyFocus = 'both',
     this.resumeSpeakingRoute,
     this.daysUntilExam,
     this.latestDiagnosticId,
@@ -60,6 +61,9 @@ class HomeState {
   /// Navigation route for recommendation card.
   final String recommendedRoute;
 
+  /// Learner study focus from onboarding/settings (`exams`, `coach`, or `both`).
+  final String studyFocus;
+
   /// Route to validated local Speaking recovery, when a session is pending.
   final String? resumeSpeakingRoute;
 
@@ -83,6 +87,7 @@ class HomeState {
     String? recommendedTitle,
     String? recommendedSubtitle,
     String? recommendedRoute,
+    String? studyFocus,
     String? resumeSpeakingRoute,
     bool clearResumeSpeakingRoute = false,
     int? daysUntilExam,
@@ -99,6 +104,7 @@ class HomeState {
     recommendedTitle: recommendedTitle ?? this.recommendedTitle,
     recommendedSubtitle: recommendedSubtitle ?? this.recommendedSubtitle,
     recommendedRoute: recommendedRoute ?? this.recommendedRoute,
+    studyFocus: studyFocus ?? this.studyFocus,
     resumeSpeakingRoute: clearResumeSpeakingRoute
         ? null
         : resumeSpeakingRoute ?? this.resumeSpeakingRoute,
@@ -167,6 +173,7 @@ class HomeNotifier extends Notifier<HomeState> {
           state = state.copyWith(
             track: track,
             targetBand: profile.targetBand,
+            studyFocus: profile.studyFocus,
             daysUntilExam: daysUntil,
             clearDaysUntilExam: profile.targetDateSerial == null,
           );
@@ -183,6 +190,7 @@ class HomeNotifier extends Notifier<HomeState> {
       state = state.copyWith(
         track: track,
         targetBand: profile.targetBand,
+        studyFocus: profile.studyFocus,
         daysUntilExam: daysUntil,
         clearDaysUntilExam: profile.targetDateSerial == null,
       );

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -331,7 +333,111 @@ class _GoalSetupStep extends ConsumerWidget {
                         onPressed: notifier.previousStep,
                       ),
                     ),
+                    const SizedBox(height: SpacingTokens.md),
+                    Text(
+                      AppLocalizations.of(context).learningModeLabel,
+                      style: typography.cardTitle,
+                    ),
                     const SizedBox(height: SpacingTokens.xs),
+                    Text(
+                      AppLocalizations.of(context).learningModeSectionSubtitle,
+                      style: typography.caption.copyWith(
+                        color: colors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: SpacingTokens.sm),
+                    for (final option
+                        in <({String key, String title, String subtitle})>[
+                          (
+                            key: 'both',
+                            title: AppLocalizations.of(
+                              context,
+                            ).learningModeBoth,
+                            subtitle: AppLocalizations.of(
+                              context,
+                            ).learningModeBothSubtitle,
+                          ),
+                          (
+                            key: 'exams',
+                            title: AppLocalizations.of(
+                              context,
+                            ).learningModeExams,
+                            subtitle: AppLocalizations.of(
+                              context,
+                            ).learningModeExamsSubtitle,
+                          ),
+                          (
+                            key: 'coach',
+                            title: AppLocalizations.of(
+                              context,
+                            ).learningModeCoach,
+                            subtitle: AppLocalizations.of(
+                              context,
+                            ).learningModeCoachSubtitle,
+                          ),
+                        ]) ...<Widget>[
+                      KeyedSubtree(
+                        key: ValueKey<String>(
+                          'onboarding_focus_${option.key}',
+                        ),
+                        child: _ExamCard(
+                          title: option.title,
+                          description: option.subtitle,
+                          isSelected: state.studyFocus == option.key,
+                          onTap: () => notifier.selectStudyFocus(option.key),
+                        ),
+                      ),
+                      const SizedBox(height: SpacingTokens.xs),
+                    ],
+                    const SizedBox(height: SpacingTokens.md),
+                    Text(
+                      isIran
+                          ? 'موضوعات مورد علاقه برای مربی هوشمند (اختیاری)'
+                          : 'Favorite topics for Smart Coach (optional)',
+                      style: typography.cardTitle,
+                    ),
+                    const SizedBox(height: SpacingTokens.xs),
+                    Text(
+                      isIran
+                          ? 'تمرین‌های ۱۰ دقیقه‌ای روزانه حول همین موضوعات ساخته می‌شوند.'
+                          : 'Daily 10-minute prompts adapt around the topics you tap.',
+                      style: typography.caption.copyWith(
+                        color: colors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: SpacingTokens.sm),
+                    Wrap(
+                      spacing: SpacingTokens.sm,
+                      runSpacing: SpacingTokens.xs,
+                      children:
+                          <(String, String)>[
+                                ('Technology & AI', 'فناوری و هوش مصنوعی'),
+                                ('Career & Workplace', 'کار و حرفه'),
+                                ('Travel & Culture', 'سفر و فرهنگ'),
+                                ('Health & Fitness', 'سلامت و ورزش'),
+                                ('Science & Climate', 'علم و محیط زیست'),
+                                ('Cinema & Arts', 'سینما و هنر'),
+                                ('Sports', 'ورزش'),
+                                ('Business & Finance', 'کسب‌وکار و مالی'),
+                              ]
+                              .map((entry) {
+                                final key = entry.$1;
+                                final label = isIran ? entry.$2 : entry.$1;
+                                final selected = state.selectedTopics.contains(
+                                  key,
+                                );
+                                return FilterChip(
+                                  key: ValueKey<String>(
+                                    'onboarding_topic_${key.toLowerCase().replaceAll(RegExp('[^a-z0-9]+'), '_')}',
+                                  ),
+                                  label: Text(label),
+                                  selected: selected,
+                                  onSelected: (_) => notifier.toggleTopic(key),
+                                );
+                              })
+                              .toList(growable: false),
+                    ),
+                    const SizedBox(height: SpacingTokens.lg),
                     Text(
                       isIran
                           ? 'نمره هدف خود را تعیین کنید'
@@ -538,7 +644,12 @@ class _GoalSetupStep extends ConsumerWidget {
                     final router = GoRouter.of(context);
                     final destination = await notifier.completeOnboarding();
                     if (destination != null) {
-                      router.go(destination);
+                      if (destination == AppRoutes.buildDailyMission()) {
+                        router.go(AppRoutes.coach);
+                        unawaited(router.push(destination));
+                      } else {
+                        router.go(destination);
+                      }
                     }
                   },
           ),

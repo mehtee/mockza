@@ -301,3 +301,39 @@ export function validateBoundedAudioInput(params: {
   }
   return { ok: true };
 }
+
+function normalizeClozeText(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/['’`]/g, '')
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function stripSimpleEnglishInflection(token: string): string {
+  if (token.length >= 6 && token.endsWith('ing')) return token.slice(0, -3);
+  if (token.length >= 5 && token.endsWith('ed')) return token.slice(0, -2);
+  if (token.length >= 5 && token.endsWith('es')) return token.slice(0, -2);
+  if (token.length >= 5 && token.endsWith('s')) return token.slice(0, -1);
+  return token;
+}
+
+/**
+ * Tolerant paraphrasing/cloze answer check shared across Web and Flutter:
+ * ignores case, outer/repeated punctuation, hyphens, and minor English inflections.
+ */
+export function checkClozeAnswer(input: string, expected: string): boolean {
+  const normIn = normalizeClozeText(input);
+  const normExp = normalizeClozeText(expected);
+  if (!normIn || !normExp) return false;
+  if (normIn === normExp) return true;
+  if (normIn.replace(/[-\s]+/g, ' ') === normExp.replace(/[-\s]+/g, ' ')) {
+    return true;
+  }
+  const inWords = normIn.split(/[\s-]+/).map(stripSimpleEnglishInflection);
+  const expWords = normExp.split(/[\s-]+/).map(stripSimpleEnglishInflection);
+  if (inWords.length !== expWords.length) return false;
+  return inWords.every((w, i) => w === expWords[i]);
+}

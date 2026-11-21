@@ -4,6 +4,11 @@ import CONTENT from "./sample-content.mjs";
 const ICONS = { book:"▤", audio:"≋", pen:"✎", mic:"◉", route:"⌁", clock:"◷", bookmark:"♧", chart:"▥" };
 const ROUTES = {
   diagnostic: "/app/diagnostic/intro?track=ielts_academic",
+  welcome: "/app/welcome",
+  coach: "/app/coach",
+  mission: "/app/mission/today",
+  shifter: "/app/register-shifter",
+  drop: "/app/drop",
   practice: "/app/practice",
   mock: "/app/practice/full-mock",
   drills: "/app/practice/drills",
@@ -341,21 +346,21 @@ export function renderLanding(irn) {
   }
 
   function landingResources() {
-    const practise = [
-      [L("Full mocks", "شبیه‌ساز کامل"), L("Practise four sections in order, with timed practice and breaks.", "چهار بخش را به‌ترتیب و با زمان‌سنج و استراحت تمرین کن."), "mock", "clock"],
-      [L("Short drills", "تمرین‌های کوتاه"), L("Use a few minutes for one skill or question type.", "چند دقیقه روی یک مهارت یا نوع سؤال کار کن."), "drills", "route"],
-      [L("Vocabulary review", "مرور واژگان"), L("Save words in context and review them when they are due.", "واژه را در جمله ذخیره کن و در زمان مرور به آن برگرد."), "vocabulary", "bookmark"]
+    const exams = [
+      [L("Full timed exams", "شبیه‌ساز کامل آزمون"), L("Practise all four IELTS, TOEFL, PTE, or DET sections in test timing.", "چهار بخش آیلتس، تافل، پی‌تی‌ای یا دولینگو را با زمان‌بندی واقعی تمرین کن."), "mock", "clock"],
+      [L("Skill drills & mocks", "تمرین مهارتی و نمونه‌سؤال"), L("Focus on one Listening, Reading, Writing, or Speaking task with AI grading.", "روی یک بخش شنیداری، خواندن، نوشتن یا صحبت کردن با نمره‌دهی هوش مصنوعی کار کن."), "practice", "route"],
+      [L("Score & study review", "مرور و تحلیل پیشرفت"), L("Compare past attempts, inspect mistakes, and estimate band conversions.", "تلاش‌های قبلی را مقایسه کن، اشتباهاتت را ببین و معادل نمره را بسنج."), "progress", "chart"]
     ];
-    const reference = [
-      [L("Model answers", "پاسخ‌های نمونه"), L("Compare openings and structures in Writing and Speaking.", "آغاز و ساختار پاسخ‌های نوشتن و صحبت کردن را مقایسه کن."), "library", "pen"],
-      [L("Score calculators", "محاسبهٔ نمره"), L("Check a band conversion or explore a subscore.", "تبدیل نمره یا زیرنمره‌ها را بررسی کن."), "calculators", "chart"],
-      [L("Practice history", "تاریخچهٔ تمرین"), L("Reopen a review and compare two attempts.", "مرور قبلی را باز کن و دو تلاش را مقایسه کن."), "progress", "book"]
+    const coach = [
+      [L("Today's 10-Min Coach", "مربی ۱۰ دقیقه‌ای امروز"), L("One daily mission built from your weak spots, due words, and favorite topics.", "یک تمرین روزانه بر اساس نقاط ضعف، واژگان سررسید و موضوعات مورد علاقه‌ات."), "mission", "bookmark"],
+      [L("Upgrade My Speaking", "ارتقای لحن و سطح گفتار"), L("Speak or type casually and compare Everyday, Workplace, and Band 8+ rewrites.", "جمله‌ات را بگو یا بنویس و نسخه روزمره، کاری و نمره ۸+ را با تلفظ مقایسه کن."), "shifter", "audio"],
+      [L("Learn From Anything", "ساخت تمرین از هر محتوا"), L("Turn any article link, photo, note, or clip into a 2-minute quiz and flashcards.", "هر لینک مقاله، عکس صفحه، متن یا صدا را به آزمونک ۲ دقیقه‌ای و فلش‌کارت تبدیل کن."), "drop", "book"]
     ];
     return `<section class="wrap landing-resources" id="study-tools" aria-labelledby="resources-title">
-      ${landingLead(L("Study tools", "ابزارهای مطالعه"), L("Keep going between attempts.", "بین تلاش‌ها هم ادامه بده."), "", "resources-title")}
+      ${landingLead(L("Two ways to improve", "دو مسیر مکمل برای پیشرفت"), L("Mock Exams + Smart AI Coach.", "آزمون‌های آزمایشی + مربی هوشمند."), L("Measure your exam readiness under timing, then fix everyday grammar and speaking habits in 10 minutes a day.", "با شبیه‌ساز آمادگی آزمون خودت را بسنج و با مربی هوشمند در ۱۰ دقیقه روزانه اشکالات گفتار و گرامر را برطرف کن."), "resources-title")}
       <div class="resource-columns">
-        ${resourceList(L("Make time to practise", "برای تمرین وقت بگذار"), practise)}
-        ${resourceList(L("Plan and review", "برنامه‌ریزی و مرور"), reference)}
+        ${resourceList(L("1 · Timed Mock Exams", "۱ · آزمون‌های آزمایشی استاندارد"), exams)}
+        ${resourceList(L("2 · Smart AI Coach", "۲ · مربی هوشمند روزانه"), coach)}
       </div>
     </section>`;
   }

@@ -234,7 +234,7 @@ export function registerJobRoutes(
       });
 
       let iterations = 0;
-      const maxIterations = 30;
+      const maxIterations = 90;
 
       while (!aborted && iterations < maxIterations) {
         iterations += 1;

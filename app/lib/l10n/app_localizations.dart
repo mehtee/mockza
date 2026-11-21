@@ -197,13 +197,19 @@ abstract class AppLocalizations {
   /// No description provided for @navPractice.
   ///
   /// In en, this message translates to:
-  /// **'Practice'**
+  /// **'Exams'**
   String get navPractice;
+
+  /// No description provided for @navSmartCoach.
+  ///
+  /// In en, this message translates to:
+  /// **'Coach'**
+  String get navSmartCoach;
 
   /// No description provided for @navVocabulary.
   ///
   /// In en, this message translates to:
-  /// **'Vocabulary'**
+  /// **'Vocab'**
   String get navVocabulary;
 
   /// No description provided for @navProgress.
@@ -211,6 +217,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Progress'**
   String get navProgress;
+
+  /// No description provided for @smartCoachTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Coach'**
+  String get smartCoachTitle;
+
+  /// No description provided for @smartCoachSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily personalized practice: fix weak spots, upgrade your speaking, and turn any real-world content into a quick drill.'**
+  String get smartCoachSubtitle;
+
+  /// No description provided for @learningModeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'How would you like to study?'**
+  String get learningModeLabel;
+
+  /// No description provided for @learningModeSectionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your focus — you can always switch or use both tabs anytime.'**
+  String get learningModeSectionSubtitle;
+
+  /// No description provided for @learningModeExams.
+  ///
+  /// In en, this message translates to:
+  /// **'Mock Exams Only'**
+  String get learningModeExams;
+
+  /// No description provided for @learningModeExamsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Timed practice tests and score estimates across Reading, Listening, Writing, and Speaking.'**
+  String get learningModeExamsSubtitle;
+
+  /// No description provided for @learningModeCoach.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Coach Only'**
+  String get learningModeCoach;
+
+  /// No description provided for @learningModeCoachSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'10-minute daily coaching, speaking upgrades, and turning articles/audio into quick drills.'**
+  String get learningModeCoachSubtitle;
+
+  /// No description provided for @learningModeBoth.
+  ///
+  /// In en, this message translates to:
+  /// **'Both — Complete Prep (Recommended)'**
+  String get learningModeBoth;
+
+  /// No description provided for @learningModeBothSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Combine timed Mock Exams with daily Smart Coach habits to boost your score faster.'**
+  String get learningModeBothSubtitle;
 
   /// No description provided for @settingsTitle.
   ///
@@ -481,6 +547,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Send Verified Score to Navia'**
   String get naviaHandoffTitle;
+
+  /// No description provided for @missionCardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s 10-Min Coach'**
+  String get missionCardTitle;
+
+  /// No description provided for @missionCardSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Targets your real mistakes and due vocabulary inside topics you enjoy.'**
+  String get missionCardSubtitle;
+
+  /// No description provided for @missionStartAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Start 10-Min Session'**
+  String get missionStartAction;
+
+  /// No description provided for @dailyMissionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s 10-Min Coach'**
+  String get dailyMissionTitle;
+
+  /// No description provided for @linguisticGraphTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'My Weak Spots'**
+  String get linguisticGraphTitle;
+
+  /// No description provided for @activeBottlenecksLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Recurring Weak Spots'**
+  String get activeBottlenecksLabel;
+
+  /// No description provided for @targetStructuresLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Mastered Expressions'**
+  String get targetStructuresLabel;
+
+  /// No description provided for @pinnedInterestsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorite Topics'**
+  String get pinnedInterestsLabel;
+
+  /// No description provided for @pinTopicAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Topic'**
+  String get pinTopicAction;
+
+  /// No description provided for @registerShifterTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade My Speaking'**
+  String get registerShifterTitle;
+
+  /// No description provided for @registerShifterShortTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade Speaking'**
+  String get registerShifterShortTitle;
+
+  /// No description provided for @dropAnythingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Learn From Anything'**
+  String get dropAnythingTitle;
+
+  /// No description provided for @dropDrillTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'2-Min Study Quiz'**
+  String get dropDrillTitle;
+
+  /// No description provided for @saveToSm2.
+  ///
+  /// In en, this message translates to:
+  /// **'Save to Vocab Deck'**
+  String get saveToSm2;
+
+  /// No description provided for @savedToSm2.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to Vocab Deck'**
+  String get savedToSm2;
+
+  /// No description provided for @recentDropsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved Study Materials'**
+  String get recentDropsLabel;
 }
 
 class _AppLocalizationsDelegate

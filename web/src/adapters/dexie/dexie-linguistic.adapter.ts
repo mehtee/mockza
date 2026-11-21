@@ -20,7 +20,7 @@ export class DexieLinguisticCache {
       ...snapshot.targetStructures,
       ...snapshot.interestTopics,
     ];
-    await this.db.linguisticNodes.where('edition').equals(edition).delete();
+    await this.db.linguisticNodes.filter((r) => r.edition === edition).delete();
     if (allNodes.length > 0) {
       await this.db.linguisticNodes.bulkPut(
         allNodes.map((n) => ({
@@ -46,7 +46,7 @@ export class DexieLinguisticCache {
   }
 
   async readCachedGraph(edition: EditionCode): Promise<LinguisticGraphSnapshot> {
-    const rows = await this.db.linguisticNodes.where('edition').equals(edition).toArray();
+    const rows = await this.db.linguisticNodes.filter((r) => r.edition === edition).toArray();
     const mapDto = (r: (typeof rows)[number]) => ({
       nodeId: r.nodeId,
       edition: r.edition,
@@ -85,6 +85,36 @@ export class DexieLinguisticCache {
     });
   }
 
+  async readCachedDailyMission(
+    edition: EditionCode,
+    missionDaySerial: number,
+  ): Promise<DailyMissionSnapshot | null> {
+    const rows = await this.db.dailyMissions
+      .where('[missionDaySerial+edition]')
+      .equals([missionDaySerial, edition])
+      .toArray();
+    const row = rows[0];
+    if (!row) return null;
+    try {
+      const payload = JSON.parse(row.payloadJson) as DailyMissionSnapshot['payload'];
+      const evaluationResult = row.resultJson
+        ? (JSON.parse(row.resultJson) as DailyMissionSnapshot['evaluationResult'])
+        : null;
+      return {
+        missionId: row.missionId,
+        edition: row.edition,
+        examTrack: row.examTrack,
+        missionDaySerial: row.missionDaySerial,
+        status: row.status,
+        focusTopic: row.focusTopic,
+        payload,
+        evaluationResult,
+      };
+    } catch {
+      return null;
+    }
+  }
+
   async cacheDropItem(item: DroppedContentItem): Promise<void> {
     await this.db.droppedContents.put({
       dropId: item.dropId,
@@ -98,5 +128,59 @@ export class DexieLinguisticCache {
       completedAtMs: null,
       createdAtMs: Date.parse(item.createdAt) || Date.now(),
     });
+  }
+
+  async deleteCachedDrop(dropId: string): Promise<void> {
+    await this.db.droppedContents.delete(dropId);
+  }
+
+  async readCachedDropHistory(edition: EditionCode): Promise<DroppedContentItem[]> {
+    const rows = await this.db.droppedContents
+      .orderBy('createdAtMs')
+      .reverse()
+      .filter((r) => r.edition === edition)
+      .limit(20)
+      .toArray();
+    return rows.flatMap((row) => {
+      try {
+        return [
+          {
+            dropId: row.dropId,
+            edition: row.edition,
+            inputKind: row.inputKind,
+            sourceDomainOrLabel: row.sourceLabel,
+            title: row.title,
+            cefrEstimate: row.cefrEstimate,
+            detectedTopics: [],
+            extractedPhrases: JSON.parse(row.extractedPhrasesJson) as DroppedContentItem['extractedPhrases'],
+            drillPayload: JSON.parse(row.drillPayloadJson) as DroppedContentItem['drillPayload'],
+            createdAt: new Date(row.createdAtMs).toISOString(),
+          },
+        ];
+      } catch {
+        return [];
+      }
+    });
+  }
+
+  async readCachedDropById(dropId: string): Promise<DroppedContentItem | null> {
+    const row = await this.db.droppedContents.get(dropId);
+    if (!row) return null;
+    try {
+      return {
+        dropId: row.dropId,
+        edition: row.edition,
+        inputKind: row.inputKind,
+        sourceDomainOrLabel: row.sourceLabel,
+        title: row.title,
+        cefrEstimate: row.cefrEstimate,
+        detectedTopics: [],
+        extractedPhrases: JSON.parse(row.extractedPhrasesJson) as DroppedContentItem['extractedPhrases'],
+        drillPayload: JSON.parse(row.drillPayloadJson) as DroppedContentItem['drillPayload'],
+        createdAt: new Date(row.createdAtMs).toISOString(),
+      };
+    } catch {
+      return null;
+    }
   }
 }

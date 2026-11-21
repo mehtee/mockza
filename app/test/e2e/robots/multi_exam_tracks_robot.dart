@@ -41,7 +41,7 @@ final class MultiExamTracksRobot {
   Future<void> runToeflIbtJourney(WidgetTester tester) async {
     expect(find.text('Target 5.0'), findsOneWidget);
 
-    await shell.openTab(tester, 'Practice');
+    await shell.openTab(tester, 'Exams');
     await practice.openSimulator(tester, 'Reading Simulator');
 
     final qTab = find.textContaining('Questions (');
@@ -97,7 +97,7 @@ final class MultiExamTracksRobot {
   Future<void> runPteAcademicJourney(WidgetTester tester) async {
     expect(find.text('Target 65'), findsOneWidget);
 
-    await shell.openTab(tester, 'Practice');
+    await shell.openTab(tester, 'Exams');
     await practice.openSimulator(tester, 'Reading Simulator');
 
     final qTab = find.textContaining('Questions (');
@@ -168,7 +168,7 @@ final class MultiExamTracksRobot {
   Future<void> runDetJourney(WidgetTester tester) async {
     expect(find.text('Target 125'), findsOneWidget);
 
-    await shell.openTab(tester, 'Practice');
+    await shell.openTab(tester, 'Exams');
     await practice.openSimulator(tester, 'Reading Simulator');
 
     final qTab = find.textContaining('Questions (');
@@ -247,13 +247,13 @@ final class MultiExamTracksRobot {
     await harness.tapVisible(tester, find.text('Duolingo English Test').last);
     await harness.pumpFrames(tester, count: 4);
 
-    await shell.openTab(tester, 'Practice');
+    await shell.openTab(tester, 'Exams');
     harness.expectNoOverflow(tester);
   }
 
   Future<void> _returnToPracticeHub(WidgetTester tester) async {
     await harness.scrollToAndTap(tester, find.text('Practice Again'));
     await harness.pumpFrames(tester, count: 6);
-    await shell.openTab(tester, 'Practice');
+    await shell.openTab(tester, 'Exams');
   }
 }

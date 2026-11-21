@@ -7,6 +7,7 @@ import type {
   DropPresignMediaResponseSchema,
   DroppedContentResponseSchema,
   LinguisticGraphResponseSchema,
+  RefreshDailyMissionRequestSchema,
   RegisterShifterRequestSchema,
   RegisterShifterResultSchema,
   UpdateGraphInterestsRequestSchema,
@@ -28,6 +29,7 @@ export type LinguisticGraphSnapshot = (typeof LinguisticGraphResponseSchema)['_o
 export type UpdateGraphInterestsInput = (typeof UpdateGraphInterestsRequestSchema)['_output'];
 export type DailyMissionSnapshot = (typeof DailyMissionResponseSchema)['_output'];
 export type CompleteDailyMissionInput = (typeof CompleteDailyMissionRequestSchema)['_output'];
+export type RefreshDailyMissionInput = (typeof RefreshDailyMissionRequestSchema)['_output'];
 export type RegisterShifterInput = (typeof RegisterShifterRequestSchema)['_output'];
 export type RegisterShifterResult = (typeof RegisterShifterResultSchema)['_output'];
 export type VerifyRepeatAloudInput = (typeof VerifyRepeatAloudRequestSchema)['_output'];
@@ -37,6 +39,15 @@ export type DropPresignMediaResponse = (typeof DropPresignMediaResponseSchema)['
 export type DropIngestInput = (typeof DropIngestRequestSchema)['_output'];
 export type DroppedContentItem = (typeof DroppedContentResponseSchema)['_output'];
 export type DropHistoryPage = (typeof DropHistoryResponseSchema)['_output'];
+
+export type DropMediaContentType =
+  | 'image/png'
+  | 'image/jpeg'
+  | 'image/webp'
+  | 'audio/mp4'
+  | 'audio/mpeg'
+  | 'audio/wav'
+  | 'audio/ogg';
 
 export type LinguisticGatewayError =
   | NetworkError
@@ -55,13 +66,28 @@ export interface ILinguisticGateway {
     readonly examTrack?: string;
     readonly dueWords?: readonly string[];
   }): Promise<Result<DailyMissionSnapshot, LinguisticGatewayError>>;
+  refreshTodayMission(
+    input: RefreshDailyMissionInput,
+  ): Promise<Result<DailyMissionSnapshot, LinguisticGatewayError>>;
   completeMission(
     missionId: string,
     input: CompleteDailyMissionInput,
   ): Promise<Result<DailyMissionSnapshot, LinguisticGatewayError>>;
+  completeMissionWithClip(
+    missionId: string,
+    params: {
+      readonly clip: RecordedClip;
+      readonly usedTargetKeys?: readonly string[];
+    },
+  ): Promise<Result<DailyMissionSnapshot, LinguisticGatewayError>>;
 
   shiftRegisterFromClip(params: {
     readonly clip: RecordedClip;
+    readonly examTrack: string;
+    readonly topicHint?: string;
+  }): Promise<Result<{ readonly jobId: string }, LinguisticGatewayError>>;
+  shiftRegisterFromText(params: {
+    readonly text: string;
     readonly examTrack: string;
     readonly topicHint?: string;
   }): Promise<Result<{ readonly jobId: string }, LinguisticGatewayError>>;
@@ -80,18 +106,20 @@ export interface ILinguisticGateway {
     readonly mediaKind: 'image' | 'audio';
     readonly index: number;
     readonly bytes: Uint8Array;
-    readonly contentType:
-      | 'image/png'
-      | 'image/jpeg'
-      | 'image/webp'
-      | 'audio/mp4'
-      | 'audio/mpeg'
-      | 'audio/wav'
-      | 'audio/ogg';
+    readonly contentType: DropMediaContentType;
   }): Promise<Result<{ readonly objectKey: string }, LinguisticGatewayError>>;
+  uploadDropMediaBatch(params: {
+    readonly dropId: string;
+    readonly mediaKind: 'image' | 'audio';
+    readonly files: ReadonlyArray<{
+      readonly bytes: Uint8Array;
+      readonly contentType: DropMediaContentType;
+    }>;
+  }): Promise<Result<{ readonly objectKeys: readonly string[] }, LinguisticGatewayError>>;
   ingestDrop(input: DropIngestInput): Promise<Result<{ readonly jobId: string }, LinguisticGatewayError>>;
   getDropHistory(cursor?: string): Promise<Result<DropHistoryPage, LinguisticGatewayError>>;
   getDropById(dropId: string): Promise<Result<DroppedContentItem, LinguisticGatewayError>>;
+  deleteDrop(dropId: string): Promise<Result<void, LinguisticGatewayError>>;
   pollAdvancedJob<T = unknown>(
     jobId: string,
   ): Promise<

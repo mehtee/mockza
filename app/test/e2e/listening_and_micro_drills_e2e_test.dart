@@ -16,7 +16,7 @@ void main() {
       final shell = ShellAndHomeRobot(harness);
       final practice = PracticeAndSimsRobot(harness);
 
-      await shell.openTab(tester, 'Practice');
+      await shell.openTab(tester, 'Exams');
       await practice.selectPracticeMode(tester, examMode: false);
       await practice.openSimulator(tester, 'Listening Simulator');
       await practice.completeListeningSim(
@@ -28,7 +28,7 @@ void main() {
       // Return to Practice Hub and complete seeded Micro-Drill workout
       await harness.scrollToAndTap(tester, find.text('Practice Again'));
       await harness.pumpFrames(tester, count: 6);
-      await shell.openTab(tester, 'Practice');
+      await shell.openTab(tester, 'Exams');
       await practice.completeMicroDrill(tester);
       harness.expectNoOverflow(tester);
 

@@ -20,6 +20,8 @@ class OnboardingState {
     required this.targetDays,
     required this.wantDiagnostic,
     required this.isSaving,
+    this.studyFocus = 'both',
+    this.selectedTopics = const <String>[],
     this.targetDateSerial,
     this.errorMessage,
   });
@@ -29,6 +31,12 @@ class OnboardingState {
 
   /// Selected exam track.
   final ExamTrack selectedTrack;
+
+  /// Learner study focus from onboarding screening (`exams`, `coach`, or `both`).
+  final String studyFocus;
+
+  /// Optional 1-tap starter interest topics pinned for Smart Coach prompts.
+  final List<String> selectedTopics;
 
   /// Selected target score / band (e.g. 7.5 for IELTS, 65 for PTE).
   final double targetBand;
@@ -66,6 +74,8 @@ class OnboardingState {
   OnboardingState copyWith({
     int? step,
     ExamTrack? selectedTrack,
+    String? studyFocus,
+    List<String>? selectedTopics,
     double? targetBand,
     int? targetDays,
     bool? clearTargetDays = false,
@@ -78,6 +88,8 @@ class OnboardingState {
   }) => OnboardingState(
     step: step ?? this.step,
     selectedTrack: selectedTrack ?? this.selectedTrack,
+    studyFocus: studyFocus ?? this.studyFocus,
+    selectedTopics: selectedTopics ?? this.selectedTopics,
     targetBand: targetBand ?? this.targetBand,
     targetDays: (clearTargetDays ?? false)
         ? null
@@ -145,6 +157,26 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
     );
   }
 
+  /// Updates the learner's preferred focus (`exams`, `coach`, or `both`).
+  void selectStudyFocus(String focus) {
+    state = state.copyWith(
+      studyFocus: focus,
+      wantDiagnostic: focus != 'coach',
+      clearError: true,
+    );
+  }
+
+  /// Toggles an optional Smart Coach starter interest topic.
+  void toggleTopic(String topicKey) {
+    final current = List<String>.from(state.selectedTopics);
+    if (current.contains(topicKey)) {
+      current.remove(topicKey);
+    } else {
+      current.add(topicKey);
+    }
+    state = state.copyWith(selectedTopics: current, clearError: true);
+  }
+
   /// Toggles diagnostic test preference.
   void toggleDiagnostic({required bool want}) {
     state = state.copyWith(wantDiagnostic: want);
@@ -188,6 +220,7 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
         targetBand: state.targetBand,
         examModule: state.examModule,
         examId: state.selectedTrack.id,
+        studyFocus: state.studyFocus,
         targetDateSerial: resolvedTargetSerial,
         clearTargetDate: resolvedTargetSerial == null,
       );
@@ -198,11 +231,16 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       // so the UI transitions immediately without waiting on IndexedDB/SQLite writes.
       final authSession = ref.read(authSessionServiceProvider);
       final contentSync = ref.read(contentSyncServiceProvider);
+      final linguisticGateway = ref.read(linguisticGatewayProvider);
+      final topicsToPin = List<String>.from(state.selectedTopics);
       unawaited(
         Future<void>.delayed(const Duration(milliseconds: 250), () async {
           try {
             await authSession.ensureAuthenticated();
             await contentSync.syncAllCatalogData();
+            if (topicsToPin.isNotEmpty) {
+              await linguisticGateway.updateInterests(pinTopics: topicsToPin);
+            }
           } on Object {
             // Sync continues silently on home / reconnect.
           }
@@ -211,6 +249,8 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
 
       final destination = state.wantDiagnostic
           ? AppRoutes.buildDiagnosticIntro(examId: state.selectedTrack.id)
+          : state.studyFocus == 'coach'
+          ? AppRoutes.buildDailyMission()
           : AppRoutes.home;
       state = state.copyWith(isSaving: false);
       return destination;

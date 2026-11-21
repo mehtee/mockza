@@ -1,6 +1,8 @@
-import { Volume2, BookmarkPlus, ArrowUpRight, CheckCircle2 } from 'lucide-react';
+import { BookmarkPlus, ArrowUpRight, CheckCircle2, Volume2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import type { RegisterShifterResult } from '@/gateways/linguistic.gateway';
+import { isSpeechPlaybackSupported, speakEnglishPhrase, stopEnglishSpeech } from '@/components/speech-tts';
 
 export interface RegisterGearLadderCardProps {
   readonly result: RegisterShifterResult;
@@ -17,9 +19,9 @@ const GEAR_STYLES: ReadonlyArray<{
   labelFa: string;
   badgeVar: string;
 }> = [
-  { gear: 0, labelEn: 'Gear 0 · Casual', labelFa: 'دنده ۰ · دوستانه', badgeVar: 'var(--mz-color-gear-casual)' },
-  { gear: 1, labelEn: 'Gear 1 · Workplace', labelFa: 'دنده ۱ · محیط کار', badgeVar: 'var(--mz-color-gear-work)' },
-  { gear: 2, labelEn: 'Gear 2 · Academic 8.5', labelFa: 'دنده ۲ · آکادمیک ۸.۵', badgeVar: 'var(--mz-color-gear-academic)' },
+  { gear: 0, labelEn: 'Everyday · Casual', labelFa: 'گفتار روزمره (دوستانه)', badgeVar: 'var(--mz-color-gear-casual)' },
+  { gear: 1, labelEn: 'Professional · Work', labelFa: 'رسمی (محیط کار)', badgeVar: 'var(--mz-color-gear-work)' },
+  { gear: 2, labelEn: 'Exam Style (Band 8+)', labelFa: 'آکادمیک آزمون (نمره ۸+)', badgeVar: 'var(--mz-color-gear-academic)' },
 ];
 
 export function RegisterGearLadderCard({
@@ -30,6 +32,9 @@ export function RegisterGearLadderCard({
   onSavePhraseToDeck,
   savedPhrases = [],
 }: RegisterGearLadderCardProps) {
+  const [speakingRate, setSpeakingRate] = useState<0.8 | 1.0 | null>(null);
+  const canSpeak = isSpeechPlaybackSupported();
+
   const activeSentence =
     selectedGear === 0
       ? result.gears.casual
@@ -38,6 +43,30 @@ export function RegisterGearLadderCard({
         : result.gears.academic;
 
   const activeGearMeta = GEAR_STYLES[selectedGear]!;
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const tag = (event.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (event.key === '1') onSelectGear(0);
+      if (event.key === '2') onSelectGear(1);
+      if (event.key === '3') onSelectGear(2);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      stopEnglishSpeech();
+    };
+  }, [onSelectGear]);
+
+  const handleListen = (rate: 0.8 | 1.0) => {
+    speakEnglishPhrase(activeSentence, {
+      rate,
+      onStart: () => setSpeakingRate(rate),
+      onEnd: () => setSpeakingRate(null),
+      onError: () => setSpeakingRate(null),
+    });
+  };
 
   return (
     <section
@@ -79,17 +108,49 @@ export function RegisterGearLadderCard({
 
       {/* Output Sentence inside Strict LTR Exam Boundary */}
       <div className="mt-4 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised p-4">
-        <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <span
             className="inline-flex items-center gap-1.5 rounded-[var(--mz-radius-pill)] px-2.5 py-0.5 text-[11px] font-semibold text-white"
             style={{ backgroundColor: activeGearMeta.badgeVar }}
           >
             {isRtl ? activeGearMeta.labelFa : activeGearMeta.labelEn}
           </span>
-          <span className="inline-flex items-center gap-1 text-[11px] text-text-secondary">
-            <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />
-            {isRtl ? 'نسخه هدف برای تکرار شفاهی' : 'Target Register Output'}
-          </span>
+          <div className="flex items-center gap-1.5">
+            {canSpeak ? (
+              <>
+                <button
+                  type="button"
+                  data-testid="gear-listen-1x"
+                  onClick={() => handleListen(1.0)}
+                  className={`inline-flex h-7 items-center gap-1 rounded-[var(--mz-radius-compact)] border px-2 text-[11px] font-semibold transition-colors ${
+                    speakingRate === 1.0
+                      ? 'border-primary bg-primary text-on-primary'
+                      : 'border-border-subtle bg-canvas text-text-primary hover:border-primary'
+                  }`}
+                >
+                  <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{isRtl ? 'گوش دادن ۱.۰x' : 'Listen 1.0x'}</span>
+                </button>
+                <button
+                  type="button"
+                  data-testid="gear-listen-08x"
+                  onClick={() => handleListen(0.8)}
+                  className={`inline-flex h-7 items-center rounded-[var(--mz-radius-compact)] border px-2 text-[11px] font-semibold transition-colors ${
+                    speakingRate === 0.8
+                      ? 'border-primary bg-primary text-on-primary'
+                      : 'border-border-subtle bg-canvas text-text-secondary hover:border-primary hover:text-text-primary'
+                  }`}
+                >
+                  0.8x
+                </button>
+              </>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[11px] text-text-secondary">
+                <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />
+                {isRtl ? 'نسخه هدف برای تکرار شفاهی' : 'Target Register Output'}
+              </span>
+            )}
+          </div>
         </div>
 
         <LtrExamBoundary className="font-editorial text-xl leading-relaxed text-text-primary">
@@ -141,11 +202,11 @@ export function RegisterGearLadderCard({
                       <span>
                         {isSaved
                           ? isRtl
-                            ? 'در دِک SM-2 ذخیره شد'
-                            : 'Saved to SM-2 Deck'
+                            ? 'در دفترچه واژگان ذخیره شد'
+                            : 'Saved to Vocab Deck'
                           : isRtl
-                            ? 'ذخیره در دِک SM-2'
-                            : 'Save to SM-2 Deck'}
+                            ? 'ذخیره در دفترچه واژگان'
+                            : 'Save to Vocab Deck'}
                       </span>
                     </button>
                   ) : null}

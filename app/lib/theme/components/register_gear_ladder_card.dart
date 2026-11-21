@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/services/linguistic_gateway.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
@@ -7,6 +11,7 @@ import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
+import 'package:mockza/theme/components/mz_toast.dart';
 import 'package:mockza/theme/primitives.dart';
 
 /// Shared 3-Gear Register Ladder card (`Casual` -> `Workplace` -> `Academic Band 8.5`)
@@ -49,14 +54,14 @@ class RegisterGearLadderCard extends StatelessWidget {
 
     final labels = isRtl
         ? const <String>[
-            'دنده ۰ · دوستانه',
-            'دنده ۱ · محیط کار',
-            'دنده ۲ · آکادمیک ۸.۵',
+            'گفتار روزمره (دوستانه)',
+            'رسمی (محیط کار)',
+            'آکادمیک آزمون (نمره ۸+)',
           ]
         : const <String>[
-            'Gear 0 · Casual',
-            'Gear 1 · Workplace',
-            'Gear 2 · Academic 8.5',
+            'Everyday · Casual',
+            'Professional · Work',
+            'Exam Style (Band 8+)',
           ];
 
     final gearColors = <Color>[
@@ -103,11 +108,40 @@ class RegisterGearLadderCard extends StatelessWidget {
               borderRadius: shapes.compactRadius,
               border: Border.all(color: colors.borderSubtle),
             ),
-            child: LtrExamBoundary(
-              child: Text(
-                activeSentence,
-                style: typography.cardTitle.copyWith(color: colors.textPrimary),
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                LtrExamBoundary(
+                  child: Text(
+                    activeSentence,
+                    style: typography.cardTitle.copyWith(
+                      color: colors.textPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: SpacingTokens.xs),
+                Row(
+                  children: <Widget>[
+                    ActionChip(
+                      avatar: const AppIcon(LucideGlyph.check, size: 14),
+                      label: Text(isRtl ? 'کپی جمله' : 'Copy line'),
+                      onPressed: () {
+                        unawaited(
+                          Clipboard.setData(
+                            ClipboardData(text: activeSentence),
+                          ),
+                        );
+                        showMzToast(
+                          context,
+                          message: isRtl
+                              ? 'جمله کپی شد'
+                              : 'Copied upgraded sentence',
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
           if (result.highlights.isNotEmpty) ...<Widget>[
@@ -175,8 +209,8 @@ class RegisterGearLadderCard extends StatelessWidget {
                           alignment: AlignmentDirectional.centerStart,
                           child: SecondaryButton(
                             label: isSaved
-                                ? (isRtl ? 'ذخیره شد' : 'Saved to SM-2')
-                                : (isRtl ? 'ذخیره در دِک' : 'Save to SM-2'),
+                                ? AppLocalizations.of(context).savedToSm2
+                                : AppLocalizations.of(context).saveToSm2,
                             glyph: isSaved
                                 ? LucideGlyph.checkCircle2
                                 : LucideGlyph.bookmarkPlus,

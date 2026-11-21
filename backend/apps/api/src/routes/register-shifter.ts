@@ -108,29 +108,30 @@ export function registerShifterRoutes(
     }
     const accountKey = c.get('accountKey') ?? deviceId;
 
-    if (
-      body.durationSeconds < SHIFTER_MIN_AUDIO_SECONDS ||
-      body.durationSeconds > SHIFTER_MAX_AUDIO_SECONDS
-    ) {
-      return c.json(
-        {
-          code: 'validation_error' as const,
-          message: `Register Shifter clip must be ${SHIFTER_MIN_AUDIO_SECONDS}..${SHIFTER_MAX_AUDIO_SECONDS} seconds.`,
-          requestId: c.get('requestId'),
-        },
-        400,
-      );
-    }
+    const isTextMode = Boolean(body.rawText && !body.objectKey);
+    if (!isTextMode) {
+      const dur = body.durationSeconds ?? 0;
+      if (dur < SHIFTER_MIN_AUDIO_SECONDS || dur > SHIFTER_MAX_AUDIO_SECONDS) {
+        return c.json(
+          {
+            code: 'validation_error' as const,
+            message: `Speaking clip must be ${SHIFTER_MIN_AUDIO_SECONDS}..${SHIFTER_MAX_AUDIO_SECONDS} seconds.`,
+            requestId: c.get('requestId'),
+          },
+          400,
+        );
+      }
 
-    if (!body.objectKey.startsWith(`users/${deviceId}/`)) {
-      return c.json(
-        {
-          code: 'validation_error' as const,
-          message: 'Audio objectKey does not belong to authenticated device.',
-          requestId: c.get('requestId'),
-        },
-        400,
-      );
+      if (!body.objectKey || !body.objectKey.startsWith(`users/${deviceId}/`)) {
+        return c.json(
+          {
+            code: 'validation_error' as const,
+            message: 'Audio objectKey does not belong to authenticated device.',
+            requestId: c.get('requestId'),
+          },
+          400,
+        );
+      }
     }
 
     if (isQueueReady && !isQueueReady()) {
@@ -154,10 +155,11 @@ export function registerShifterRoutes(
       accountKey,
       deviceId,
       edition: env.EDITION,
-      objectKey: body.objectKey,
+      ...(body.objectKey ? { objectKey: body.objectKey } : {}),
+      ...(body.rawText ? { rawText: body.rawText } : {}),
       examTrack: body.examTrack,
       topicHint: body.topicHint,
-      durationSeconds: body.durationSeconds,
+      durationSeconds: body.durationSeconds ?? 15,
       executionGeneration,
     };
 
@@ -242,6 +244,10 @@ export function registerShifterRoutes(
         description: 'Verification outcome from Gemini Decision System 1.',
         content: { 'application/json': { schema: VerifyRepeatAloudResponseSchema } },
       },
+      400: {
+        description: 'Invalid request or unowned objectKey.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
       401: {
         description: 'Unauthorized.',
         content: { 'application/json': { schema: ApiErrorSchema } },
@@ -269,6 +275,20 @@ export function registerShifterRoutes(
     const { runId } = c.req.param();
     const body = c.req.valid('json');
 
+    if (!body.objectKey.startsWith(`users/${deviceId}/`)) {
+      return c.json(
+        {
+          code: 'validation_error' as const,
+          message: 'Repeat-aloud audio objectKey does not belong to authenticated device.',
+          requestId: c.get('requestId'),
+        },
+        400,
+      );
+    }
+
+    let expectedSentence = body.expectedSentence;
+    let targetPhrases = body.targetPhrases;
+
     if (db) {
       const [job] = await db
         .select()
@@ -276,7 +296,7 @@ export function registerShifterRoutes(
         .where(eq(evaluationJobs.jobId, runId))
         .limit(1);
 
-      if (!job) {
+      if (!job || job.taskType !== 'register_shifter') {
         return c.json(
           {
             code: 'not_found' as const,
@@ -296,24 +316,31 @@ export function registerShifterRoutes(
           403,
         );
       }
+      const storedResult = job.resultJson as
+        | { repeatAloudTarget?: { targetSentence?: string; targetPhrases?: string[] } }
+        | null;
+      if (storedResult?.repeatAloudTarget?.targetSentence) {
+        expectedSentence = storedResult.repeatAloudTarget.targetSentence;
+      }
+      if (storedResult?.repeatAloudTarget?.targetPhrases?.length) {
+        targetPhrases = storedResult.repeatAloudTarget.targetPhrases;
+      }
     }
 
     let preparedAudio: { base64Data: string; format: 'm4a' | 'mp3' | 'wav' } | undefined;
-    if (body.objectKey.startsWith(`users/${deviceId}/`)) {
-      try {
-        const obj = await internalS3.send(
-          new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: body.objectKey }),
-        );
-        if (obj.Body) {
-          const buf = await bufferAudioStream(obj.Body as NodeJS.ReadableStream);
-          preparedAudio = await prepareAudioForModel(buf, body.objectKey, {
-            maxDurationSeconds: 20,
-          });
-        }
-      } catch {
-        if (!env.ALLOW_DEMO_EVALUATOR && env.OPENROUTER_API_KEY) {
-          throw new DomainError('upload_not_found', 'Could not read repeat-aloud audio object.', 400);
-        }
+    try {
+      const obj = await internalS3.send(
+        new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: body.objectKey }),
+      );
+      if (obj.Body) {
+        const buf = await bufferAudioStream(obj.Body as NodeJS.ReadableStream);
+        preparedAudio = await prepareAudioForModel(buf, body.objectKey, {
+          maxDurationSeconds: 20,
+        });
+      }
+    } catch {
+      if (!env.ALLOW_DEMO_EVALUATOR && env.OPENROUTER_API_KEY) {
+        throw new DomainError('upload_not_found', 'Could not read repeat-aloud audio object.', 400);
       }
     }
 
@@ -321,11 +348,11 @@ export function registerShifterRoutes(
       {
         runId,
         gearLevel: body.gearLevel,
-        expectedSentence: body.expectedSentence,
-        targetPhrases: body.targetPhrases,
+        expectedSentence,
+        targetPhrases,
         base64AudioData: preparedAudio?.base64Data,
         audioFormat: preparedAudio?.format,
-        spokenTextFallback: body.expectedSentence,
+        spokenTextFallback: preparedAudio ? undefined : expectedSentence,
       },
       {
         allowDemoEvaluator: env.ALLOW_DEMO_EVALUATOR || !env.OPENROUTER_API_KEY,

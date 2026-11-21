@@ -38,14 +38,18 @@ void main() {
       final shell = ShellAndHomeRobot(harness);
       final robot = VocabProgressSettingsRobot(harness);
 
-      // Compact phone 360x640 overflow sweep across all 4 bottom tabs
+      // Compact phone 360x640 overflow sweep across all 5 bottom tabs
       shell.expectHomeVisible();
       harness.expectNoOverflow(tester);
 
-      await shell.openTab(tester, 'Practice');
+      await shell.openTab(tester, 'Exams');
       harness.expectNoOverflow(tester);
 
-      await shell.openTab(tester, 'Vocabulary');
+      await shell.openTab(tester, 'Coach');
+      expect(find.text('Smart Coach'), findsWidgets);
+      harness.expectNoOverflow(tester);
+
+      await shell.openTab(tester, 'Vocab');
       harness.expectNoOverflow(tester);
 
       await shell.openTab(tester, 'Progress');

@@ -9,6 +9,7 @@ import 'package:mockza/features/drop_anything/presentation/drop_drill_screen.dar
 import 'package:mockza/features/drop_anything/presentation/drop_hub_screen.dart';
 import 'package:mockza/features/evaluation_review/presentation/evaluation_review_screen.dart';
 import 'package:mockza/features/home/presentation/home_screen.dart';
+import 'package:mockza/features/linguistic_mission/presentation/coach_hub_screen.dart';
 import 'package:mockza/features/linguistic_mission/presentation/daily_mission_screen.dart';
 import 'package:mockza/features/linguistic_mission/presentation/linguistic_graph_screen.dart';
 import 'package:mockza/features/listening_sim/presentation/listening_sim_screen.dart';
@@ -33,6 +34,7 @@ import 'package:mockza/features/writing_sim/presentation/writing_sim_screen.dart
 import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/providers.dart';
 import 'package:mockza/routing/routes.dart';
+import 'package:mockza/services/native/share_intent_bridge.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_typography.dart';
@@ -151,6 +153,14 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: AppRoutes.practice,
                 builder: (context, state) => const PracticeHubScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: AppRoutes.coach,
+                builder: (context, state) => const CoachHubScreen(),
               ),
             ],
           ),
@@ -340,10 +350,22 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.dropIngest,
-        builder: (context, state) => DropHubScreen(
-          initialUrl: state.uri.queryParameters['url'],
-          initialText: state.uri.queryParameters['text'],
-        ),
+        builder: (context, state) {
+          final extra = state.extra;
+          final payload = extra is InboundSharePayload ? extra : null;
+          final textParam =
+              payload?.textOrUrl ?? state.uri.queryParameters['text'];
+          final urlParam = (payload != null && payload.kind == 'url')
+              ? payload.textOrUrl
+              : state.uri.queryParameters['url'];
+          return DropHubScreen(
+            initialUrl: urlParam,
+            initialText: (payload?.kind == 'url') ? null : textParam,
+            initialFiles: payload?.filePaths ?? const <String>[],
+            initialMimeType: payload?.mimeType,
+            initialTab: state.uri.queryParameters['tab'],
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.dropDrill,

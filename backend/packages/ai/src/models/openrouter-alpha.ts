@@ -228,6 +228,9 @@ function stripJsonCodeFences(raw: string): string {
  * Dual-System AI client routing System 1 calls to `/api/alpha/decisions` and `/api/alpha/extractions`
  * with sliding-window circuit breakers and automatic fallback to calibrated GA models (`ADR-ADV-002`).
  */
+const sharedDecisionBreaker = new SlidingWindowCircuitBreaker();
+const sharedExtractionBreaker = new SlidingWindowCircuitBreaker();
+
 export class OpenRouterAlphaClient {
   private readonly apiKey: string;
   private readonly alphaBaseUrl: string;
@@ -252,8 +255,8 @@ export class OpenRouterAlphaClient {
         baseUrl: options.gaBaseUrl,
         timeoutMs: 20_000,
       });
-    this.decisionBreaker = options.decisionBreaker ?? new SlidingWindowCircuitBreaker();
-    this.extractionBreaker = options.extractionBreaker ?? new SlidingWindowCircuitBreaker();
+    this.decisionBreaker = options.decisionBreaker ?? sharedDecisionBreaker;
+    this.extractionBreaker = options.extractionBreaker ?? sharedExtractionBreaker;
     this.fetchFn = options.fetchFn ?? fetch;
   }
 

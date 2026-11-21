@@ -511,6 +511,54 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
                 </MzCard>
               ) : null}
 
+              {/* Exam-to-Coach Bridge */}
+              {(() => {
+                const weakest = evaluation.criteria.slice().sort((a, b) => a.band - b.band)[0] ?? null;
+                const isIrn = deps.edition === 'irn';
+                return (
+                  <MzCard variant="default" data-testid="eval-coach-bridge-card">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-start gap-2 text-xs">
+                        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                        <div>
+                          <p className="font-bold text-text-primary">
+                            {isIrn
+                              ? 'تبدیل نقاط ضعف این آزمون به تمرین روزانه'
+                              : 'Turn this exam feedback into daily habits'}
+                          </p>
+                          <p className="mt-0.5 text-text-secondary">
+                            {weakest
+                              ? isIrn
+                                ? `پایین‌ترین معیار شما: ${weakest.label} (${weakest.band}). با مربی ۱۰ دقیقه‌ای یا ارتقای جملات دقیقاً همین بخش را تقویت کنید.`
+                                : `Lowest area: ${weakest.label} (${weakest.band}). Lock in stronger phrasing in 10 minutes.`
+                              : isIrn
+                                ? 'نقاط ضعف این پاسخ به بخش نقاط ضعف مربی هوشمند اضافه شد.'
+                                : 'Practice targeted upgrades in Smart Coach based on this attempt.'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Link
+                          to="/mission/$missionId"
+                          params={{ missionId: 'today' }}
+                          data-testid="eval-bridge-coach-cta"
+                          className="inline-flex h-8 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
+                        >
+                          {isIrn ? 'اصلاح در مربی ۱۰ دقیقه‌ای' : "Fix in Today's 10-Min Coach"}
+                        </Link>
+                        <Link
+                          to="/register-shifter"
+                          data-testid="eval-bridge-shifter-cta"
+                          className="inline-flex h-8 items-center rounded-[var(--mz-radius-compact)] border border-border-strong px-3 text-xs font-semibold text-primary hover:bg-surface-hover"
+                        >
+                          {isIrn ? 'ارتقای جملات ضعیف' : 'Upgrade Weak Sentences'}
+                        </Link>
+                      </div>
+                    </div>
+                  </MzCard>
+                );
+              })()}
+
               {/* Verified Partner Handoff Card (IRN edition only) */}
               {deps.edition === 'irn' && import.meta.env.PUBLIC_EDITION !== 'glb' ? (
                 <MzCard variant="hero" data-testid="ecosystem-handoff-card">

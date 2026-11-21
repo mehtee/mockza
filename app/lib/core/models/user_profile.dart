@@ -11,6 +11,7 @@ class UserProfile {
     required this.examModule,
     required this.isPro,
     this.examId = 'ielts_academic',
+    this.studyFocus = 'both',
     this.targetDateSerial,
     this.onboardingCompleted = false,
     this.freeDiagnosticUsed = false,
@@ -33,6 +34,9 @@ class UserProfile {
 
   /// Active exam identifier (`ielts_academic`, `ielts_general`, `pte_academic`, etc.).
   final String examId;
+
+  /// Learner preferred focus (`exams`, `coach`, or `both`).
+  final String studyFocus;
 
   /// Optional exam target date serial.
   final int? targetDateSerial;

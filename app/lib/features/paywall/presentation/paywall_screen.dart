@@ -211,7 +211,7 @@ class PaywallScreen extends ConsumerWidget {
           ),
           _buildAllowanceBullet(
             context,
-            isIran ? 'ماهانه ۱۵۰ ارزیابی هوشمند' : '150 evaluations / month',
+            isIran ? 'ماهانه ۱۲۰ ارزیابی هوشمند' : '150 evaluations / month',
           ),
           _buildAllowanceBullet(
             context,

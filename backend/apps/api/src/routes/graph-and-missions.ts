@@ -2,11 +2,12 @@ import { randomUUID } from 'node:crypto';
 import { GetObjectCommand, type S3Client } from '@aws-sdk/client-s3';
 import { createRoute, type OpenAPIHono, z } from '@hono/zod-openapi';
 import {
+  buildCuratedStarterMission,
+  evaluateMissionResponseGraph,
   planDailyMissionDemoOnly,
   planDailyMissionGraph,
   prepareAudioForModel,
   bufferAudioStream,
-  OpenRouterAlphaClient,
   updateLinguisticGraphSignals,
 } from '@mockza/ai';
 import type { AppEnv } from '@mockza/config';
@@ -15,6 +16,7 @@ import {
   CompleteDailyMissionRequestSchema,
   DailyMissionResponseSchema,
   LinguisticGraphResponseSchema,
+  RefreshDailyMissionRequestSchema,
   UpdateGraphInterestsRequestSchema,
 } from '@mockza/contracts';
 import {
@@ -25,7 +27,10 @@ import {
   updateGraphInterestPreferences,
   upsertLinguisticGraphSignals,
 } from '@mockza/db';
-import { rankTopMissionTargets } from '@mockza/domain';
+import {
+  rankTopMissionTargets,
+  slugifyTopicCanonicalKey,
+} from '@mockza/domain';
 import { createAudioS3Client } from '@mockza/storage';
 import { and, eq } from 'drizzle-orm';
 import { createDeviceAuthMiddleware } from '../middleware/auth.js';
@@ -79,6 +84,7 @@ export function registerGraphAndMissionRoutes(
   const internalS3 = s3Client ?? createAudioS3Client(env);
 
   const memoryMissions = new Map<string, z.infer<typeof DailyMissionResponseSchema>>();
+  const dailyRefreshCounts = new Map<string, number>();
 
   app.use('/v1/graph/*', async (c, next) => {
     if (!env.ENABLE_LINGUISTIC_GRAPH) {
@@ -207,7 +213,7 @@ export function registerGraphAndMissionRoutes(
             nodeId: randomUUID(),
             edition: env.EDITION,
             nodeKind: 'interest_topic',
-            canonicalKey: `topic:${topic.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`,
+            canonicalKey: slugifyTopicCanonicalKey(topic),
             displayLabelEn: topic,
             displayLabelFa: topic,
             masteryScoreMilli: 500,
@@ -367,30 +373,44 @@ export function registerGraphAndMissionRoutes(
         word,
       }));
 
-    const synthesized = await planDailyMissionGraph(
-      {
+    let synthesized;
+    const isColdStartUser = graph.bottlenecks.length === 0 && graph.targetStructures.length === 0;
+    if (isColdStartUser) {
+      synthesized = buildCuratedStarterMission({
         edition: env.EDITION,
         examTrack,
         focusTopic,
         bottlenecks,
         dueCards: parsedDueWords,
-      },
-      {
-        allowDemoEvaluator: env.ALLOW_DEMO_EVALUATOR || !env.OPENROUTER_API_KEY,
-        routingTier: 'flex',
-      },
-    ).catch((err) => {
-      if (env.NODE_ENV !== 'production') {
-        return planDailyMissionDemoOnly({
+      });
+    } else {
+      synthesized = await Promise.race([
+        planDailyMissionGraph(
+          {
+            edition: env.EDITION,
+            examTrack,
+            focusTopic,
+            bottlenecks,
+            dueCards: parsedDueWords,
+          },
+          {
+            allowDemoEvaluator: env.ALLOW_DEMO_EVALUATOR || !env.OPENROUTER_API_KEY,
+            routingTier: 'flex',
+          },
+        ),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('mission_synthesis_timeout')), 10_000),
+        ),
+      ]).catch(() =>
+        buildCuratedStarterMission({
           edition: env.EDITION,
           examTrack,
           focusTopic,
           bottlenecks,
           dueCards: parsedDueWords,
-        });
-      }
-      throw err;
-    });
+        }),
+      );
+    }
 
     const missionId = randomUUID();
     const targetKeys = synthesized.payload.forcedTargets.map((t) => t.canonicalKey);
@@ -568,7 +588,17 @@ export function registerGraphAndMissionRoutes(
 
     let sampleText = body.responseText ?? '';
     let preparedAudio: { base64Data: string; format: 'm4a' | 'mp3' | 'wav' } | undefined;
-    if (!sampleText && body.audioObjectKey && s3Client) {
+    if (!sampleText && body.audioObjectKey) {
+      if (!body.audioObjectKey.startsWith(`users/${deviceId}/`)) {
+        return c.json(
+          {
+            code: 'validation_error' as const,
+            message: 'Audio objectKey does not belong to authenticated device.',
+            requestId: c.get('requestId'),
+          },
+          400,
+        );
+      }
       const obj = await internalS3.send(
         new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: body.audioObjectKey }),
       );
@@ -581,78 +611,53 @@ export function registerGraphAndMissionRoutes(
       }
     }
 
-    let matchedTargets: string[] = [];
-    let clarityScore = 4;
-
-    if (env.OPENROUTER_API_KEY && (sampleText || preparedAudio)) {
-      try {
-        const alpha = new OpenRouterAlphaClient({ apiKey: env.OPENROUTER_API_KEY });
-        const checkRes = await alpha.callDecisionsApi({
+    let evaluationResult: z.infer<typeof DailyMissionResponseSchema>['evaluationResult'];
+    try {
+      evaluationResult = await evaluateMissionResponseGraph(
+        {
+          edition: env.EDITION,
+          examTrack: missionRow?.examTrack ?? memMission?.examTrack ?? 'ielts_academic',
+          focusTopic: missionRow?.focusTopic ?? memMission?.focusTopic ?? 'General',
+          forcedTargets: forcedTargets.map((f) => ({ phraseEn: f.phraseEn })),
+          responseText: sampleText && !sampleText.startsWith('Spoken mission submission') ? sampleText : undefined,
+          base64AudioData: preparedAudio?.base64Data,
+          audioFormat: preparedAudio?.format,
+        },
+        {
+          allowDemoEvaluator: env.ALLOW_DEMO_EVALUATOR || !env.OPENROUTER_API_KEY,
           routingTier: 'standard',
-          messages: [
-            {
-              role: 'system',
-              content: 'Evaluate daily mission response against forced linguistic targets.',
-            },
-            preparedAudio
-              ? {
-                  role: 'user',
-                  content: [
-                    { type: 'text', text: `Targets: ${targetPhrases.join(', ')}` },
-                    {
-                      type: 'input_audio',
-                      input_audio: { data: preparedAudio.base64Data, format: preparedAudio.format },
-                    },
-                  ],
-                }
-              : {
-                  role: 'user',
-                  content: `Targets: ${targetPhrases.join(', ')}\nLearner response:\n${sampleText}`,
-                },
-          ],
-          questions: [
-            ...targetPhrases.map((phrase, idx) => ({
-              id: `target_${idx}`,
-              kind: 'noul' as const,
-              prompt: `Did the learner meaningfully incorporate "${phrase}" or an equivalent target clause?`,
-            })),
-            {
-              id: 'clarity_1_to_5',
-              kind: 'score' as const,
-              prompt: 'Rate clarity and natural cohesion from 1 to 5.',
-              minScore: 1,
-              maxScore: 5,
-            },
-          ],
-        });
-        matchedTargets = targetPhrases.filter(
-          (_p, idx) => checkRes.outcomes[`target_${idx}`]?.boolValue === true,
-        );
-        clarityScore = checkRes.outcomes['clarity_1_to_5']?.scoreValue ?? 4;
-      } catch {
-        const lower = sampleText.toLowerCase();
-        matchedTargets = targetPhrases.filter((p) => lower.includes(p.toLowerCase()));
-      }
-    } else {
+        },
+      );
+    } catch {
       const lower = sampleText.toLowerCase();
-      matchedTargets = targetPhrases.filter((p) => lower.includes(p.toLowerCase()));
-      clarityScore = matchedTargets.length > 0 ? 5 : 4;
+      const matched = targetPhrases.filter((p) => {
+        const core = p.toLowerCase().replace(/\.\.\./g, '').trim().split(/\s+/).slice(0, 2).join(' ');
+        return core.length >= 3 && lower.includes(core);
+      });
+      const missed = targetPhrases.filter((p) => !matched.includes(p));
+      evaluationResult = {
+        matchedTargets: matched,
+        missedTargets: missed,
+        feedbackEn:
+          matched.length > 0
+            ? `Great transfer! Integrated ${matched.join(', ')} directly in context.`
+            : 'Submitted! Try recycling one target expression explicitly in your opening sentence next time.',
+        feedbackFa:
+          env.EDITION === 'irn'
+            ? matched.length > 0
+              ? `عالی بود! ساختار هدف (${matched.join('، ')}) را به‌درستی در پاسخ به کار بردید.`
+              : 'پاسخ ثبت شد؛ در تمرین بعدی سعی کنید هر دو ساختار هدف را صریح‌تر در جمله اول بیاورید.'
+            : null,
+        clarityScore1To5: matched.length > 0 ? 5 : 4,
+        transcriptEn: sampleText || null,
+        inlineUpgrades: [],
+        modelRewriteEn: null,
+      };
     }
 
-    const evaluationResult = {
-      matchedTargets,
-      feedbackEn:
-        matchedTargets.length > 0
-          ? `Great transfer! Integrated ${matchedTargets.join(', ')} directly in context.`
-          : 'Submitted! Try recycling one forced target explicitly in your opening clause next time.',
-      feedbackFa:
-        env.EDITION === 'irn'
-          ? matchedTargets.length > 0
-            ? `عالی بود! ساختار هدف (${matchedTargets.join('، ')}) را به‌درستی در پاسخ به کار بردید.`
-            : 'پاسخ ثبت شد؛ در مأموریت بعدی سعی کنید هر دو ساختار هدف را صریح‌تر در جمله اول بیاورید.'
-          : null,
-      clarityScore1To5: clarityScore,
-    };
+    const effectiveSampleForGraph =
+      evaluationResult.transcriptEn?.trim() ||
+      (sampleText && !sampleText.startsWith('Spoken mission submission') ? sampleText : '');
 
     if (db && missionRow) {
       await db
@@ -664,27 +669,32 @@ export function registerGraphAndMissionRoutes(
         })
         .where(eq(dailyMissions.missionId, missionId));
 
-      try {
-        const graphOut = await updateLinguisticGraphSignals(
-          {
-            edition: env.EDITION,
-            sourceKind: 'mission',
-            textSample: sampleText || `Mission completed: ${missionRow.focusTopic}`,
-            dueTargetPhrases: matchedTargets,
-            topicHint: missionRow.focusTopic,
-          },
-          { allowDemoEvaluator: true },
-        );
-        await upsertLinguisticGraphSignals({
-          db,
-          accountKey,
-          edition: env.EDITION,
-          sourceKind: 'mission',
-          sourceRefId: missionId,
-          signals: graphOut.signals,
-        });
-      } catch {
-        // Non-blocking graph update
+      if (effectiveSampleForGraph.length >= 10) {
+        // Non-blocking background graph update so HTTP 200 returns without delay.
+        void (async () => {
+          try {
+            const graphOut = await updateLinguisticGraphSignals(
+              {
+                edition: env.EDITION,
+                sourceKind: 'mission',
+                textSample: effectiveSampleForGraph,
+                dueTargetPhrases: evaluationResult.matchedTargets,
+                topicHint: missionRow.focusTopic,
+              },
+              { allowDemoEvaluator: env.ALLOW_DEMO_EVALUATOR || !env.OPENROUTER_API_KEY },
+            );
+            await upsertLinguisticGraphSignals({
+              db,
+              accountKey,
+              edition: env.EDITION,
+              sourceKind: 'mission',
+              sourceRefId: missionId,
+              signals: graphOut.signals,
+            });
+          } catch {
+            // Non-blocking graph update
+          }
+        })();
       }
 
       return c.json(
@@ -709,5 +719,176 @@ export function registerGraphAndMissionRoutes(
     });
     memoryMissions.set(`${accountKey}:${env.EDITION}:${updatedMem.missionDaySerial}`, updatedMem);
     return c.json(updatedMem, 200);
+  });
+
+  const refreshTodayMissionRoute = createRoute({
+    method: 'post',
+    path: '/v1/missions/today/refresh',
+    request: {
+      body: {
+        required: true,
+        content: { 'application/json': { schema: RefreshDailyMissionRequestSchema } },
+      },
+    },
+    responses: {
+      200: {
+        description: "Updates today's uncompleted Daily Coach session to a newly picked topic (max 2/day).",
+        content: { 'application/json': { schema: DailyMissionResponseSchema } },
+      },
+      401: {
+        description: 'Unauthorized.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
+      429: {
+        description: 'Daily topic refresh limit (2/day) reached.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
+    },
+  });
+
+  app.openapi(refreshTodayMissionRoute, async (c) => {
+    const deviceId = c.get('deviceId');
+    if (!deviceId) {
+      return c.json(
+        { code: 'unauthorized' as const, message: 'Auth required', requestId: c.get('requestId') },
+        401,
+      );
+    }
+    const accountKey = c.get('accountKey') ?? deviceId;
+    const { focusTopic, examTrack } = c.req.valid('json');
+    const daySerial = getUtcDaySerial();
+    const refreshKey = `${accountKey}:${env.EDITION}:${daySerial}`;
+    const usedRefreshes = dailyRefreshCounts.get(refreshKey) ?? 0;
+    if (usedRefreshes >= 2) {
+      return c.json(
+        {
+          code: 'quota_exceeded' as const,
+          message: 'You can switch today’s Coach topic up to 2 times per day.',
+          requestId: c.get('requestId'),
+        },
+        429,
+      );
+    }
+    dailyRefreshCounts.set(refreshKey, usedRefreshes + 1);
+
+    const synthesized = buildCuratedStarterMission({
+      edition: env.EDITION,
+      examTrack,
+      focusTopic,
+      bottlenecks: [],
+      dueCards: [],
+    });
+
+    if (db) {
+      await updateGraphInterestPreferences({
+        db,
+        accountKey,
+        edition: env.EDITION,
+        pinTopics: [focusTopic],
+        muteTopics: [],
+      }).catch(() => {});
+
+      const existingRows = await db
+        .select()
+        .from(dailyMissions)
+        .where(
+          and(
+            eq(dailyMissions.accountKey, accountKey),
+            eq(dailyMissions.edition, env.EDITION),
+            eq(dailyMissions.missionDaySerial, daySerial),
+          ),
+        )
+        .limit(1);
+
+      const existing = existingRows[0];
+      if (existing && existing.status === 'ready') {
+        await db
+          .update(dailyMissions)
+          .set({
+            focusTopic,
+            examTrack,
+            missionPayloadJson: synthesized.payload,
+            modelId: synthesized.modelId,
+            promptVersion: synthesized.promptVersion,
+          })
+          .where(eq(dailyMissions.missionId, existing.missionId));
+
+        return c.json(
+          DailyMissionResponseSchema.parse({
+            missionId: existing.missionId,
+            edition: env.EDITION,
+            examTrack,
+            missionDaySerial: daySerial,
+            status: 'ready',
+            focusTopic,
+            payload: synthesized.payload,
+            evaluationResult: null,
+          }),
+          200,
+        );
+      }
+
+      if (!existing) {
+        const missionId = randomUUID();
+        await db
+          .insert(dailyMissions)
+          .values({
+            missionId,
+            accountKey,
+            edition: env.EDITION,
+            examTrack,
+            missionDaySerial: daySerial,
+            status: 'ready',
+            targetNodeKeysJson: synthesized.payload.forcedTargets.map((t) => t.canonicalKey),
+            dueCardIdsJson: [],
+            focusTopic,
+            missionPayloadJson: synthesized.payload,
+            modelId: synthesized.modelId,
+            promptVersion: synthesized.promptVersion,
+          })
+          .onConflictDoNothing();
+
+        return c.json(
+          DailyMissionResponseSchema.parse({
+            missionId,
+            edition: env.EDITION,
+            examTrack,
+            missionDaySerial: daySerial,
+            status: 'ready',
+            focusTopic,
+            payload: synthesized.payload,
+            evaluationResult: null,
+          }),
+          200,
+        );
+      }
+
+      return c.json(
+        DailyMissionResponseSchema.parse({
+          missionId: existing.missionId,
+          edition: env.EDITION,
+          examTrack: existing.examTrack,
+          missionDaySerial: existing.missionDaySerial,
+          status: existing.status,
+          focusTopic: existing.focusTopic,
+          payload: existing.missionPayloadJson,
+          evaluationResult: existing.evaluationResultJson ?? null,
+        }),
+        200,
+      );
+    }
+
+    const dto = DailyMissionResponseSchema.parse({
+      missionId: randomUUID(),
+      edition: env.EDITION,
+      examTrack,
+      missionDaySerial: daySerial,
+      status: 'ready',
+      focusTopic,
+      payload: synthesized.payload,
+      evaluationResult: null,
+    });
+    memoryMissions.set(refreshKey, dto);
+    return c.json(dto, 200);
   });
 }

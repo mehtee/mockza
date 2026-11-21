@@ -107,6 +107,8 @@ export interface OutboxTransport {
   enqueueSpeakingEvaluation(payload: Record<string, unknown>): Promise<Result<{ readonly jobId: string }, SyncOutboxError>>;
   flagQuestion(payload: Record<string, unknown>): Promise<Result<void, SyncOutboxError>>;
   syncVocabLogs?(payload: Record<string, unknown>): Promise<Result<void, SyncOutboxError>>;
+  completeMission?(payload: Record<string, unknown>): Promise<Result<void, SyncOutboxError>>;
+  verifyRepeatAloud?(payload: Record<string, unknown>): Promise<Result<void, SyncOutboxError>>;
 }
 
 export type CatalogMediaForOutbox = Pick<
@@ -456,9 +458,35 @@ export class DexieOutboxAdapter implements ISyncOutboxGateway {
         return this.handleFailure(item, undefined, res.error);
       }
 
-      case 'mission.complete':
-      case 'shifter.repeat_check':
+      case 'mission.complete': {
+        const res = this.transport.completeMission
+          ? await this.transport.completeMission(payload)
+          : ok(undefined);
+        if (res.ok) {
+          await this.db.syncOutbox.delete(seq);
+          return { status: 'succeeded' };
+        }
+        return this.handleFailure(item, undefined, res.error);
+      }
+
+      case 'shifter.repeat_check': {
+        const res = this.transport.verifyRepeatAloud
+          ? await this.transport.verifyRepeatAloud(payload)
+          : ok(undefined);
+        if (res.ok) {
+          await this.db.syncOutbox.delete(seq);
+          return { status: 'succeeded' };
+        }
+        return this.handleFailure(item, undefined, res.error);
+      }
+
       case 'drop.drill_complete': {
+        const dropId = typeof payload['dropId'] === 'string' ? payload['dropId'] : '';
+        if (dropId) {
+          await this.db.droppedContents.update(dropId, {
+            completedAtMs: this.clock.nowMs(),
+          });
+        }
         await this.db.syncOutbox.delete(seq);
         return { status: 'succeeded' };
       }

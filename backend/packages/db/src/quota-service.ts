@@ -646,3 +646,92 @@ export async function reserveAdvancedQuotaAtomic(params: {
     return { allowed: true };
   });
 }
+
+/**
+ * Read-only snapshot of Register Shifter / Drop Anything quota eligibility for upfront UI
+ * and pre-upload validation without consuming quota (`Plan Phase 1 Step 3`).
+ */
+export async function getAdvancedQuotaSummary(params: {
+  db: DbOrTx;
+  accountKey: string;
+  deviceId: string;
+  edition?: 'glb' | 'irn';
+  feature?: 'register_shifter' | 'drop_text_image' | 'drop_audio';
+  now?: Date;
+}): Promise<{
+  isPro: boolean;
+  freeSampleUsed: boolean;
+  shifterRemainingToday: number;
+  dropsRemainingToday: number;
+  audioDropAllowed: boolean;
+  monthlyRemaining: number;
+  allowedForFeature: boolean;
+  reason?: string;
+}> {
+  const now = params.now ?? new Date();
+  const utcDay = getUtcDayString(now);
+  const status = await getAccountQuotaStatus({
+    db: params.db,
+    accountKey: params.accountKey,
+    deviceId: params.deviceId,
+    now,
+  });
+
+  const todayReservations = await params.db
+    .select({ skill: quotaReservations.skill })
+    .from(quotaReservations)
+    .where(
+      and(
+        eq(quotaReservations.accountKey, params.accountKey),
+        eq(quotaReservations.utcDay, utcDay),
+        sql`${quotaReservations.status} != 'refunded'`,
+      ),
+    );
+
+  let shifterUsedToday = 0;
+  let dropUsedToday = 0;
+  let dropAudioUsedToday = 0;
+  for (const r of todayReservations) {
+    if (r.skill === 'register_shifter') shifterUsedToday += 1;
+    if (r.skill === 'drop_text_image' || r.skill === 'drop_audio') dropUsedToday += 1;
+    if (r.skill === 'drop_audio') dropAudioUsedToday += 1;
+  }
+
+  let starterDropsUsedLifetime = 0;
+  if (!status.isPro) {
+    const lifetimeDrops = await params.db
+      .select({ reservationId: quotaReservations.reservationId })
+      .from(quotaReservations)
+      .where(
+        and(
+          eq(quotaReservations.accountKey, params.accountKey),
+          sql`${quotaReservations.skill} IN ('drop_text_image', 'drop_audio')`,
+          sql`${quotaReservations.status} != 'refunded'`,
+        ),
+      );
+    starterDropsUsedLifetime = lifetimeDrops.length;
+  }
+
+  const evalRes = evaluateAdvancedFeatureQuota({
+    feature: params.feature ?? 'drop_text_image',
+    isPro: status.isPro,
+    freeSampleUsed: starterDropsUsedLifetime > 0,
+    speakingUsedToday: status.speakingUsedToday,
+    shifterUsedToday,
+    dropsUsedToday: dropUsedToday,
+    audioDropsUsedToday: dropAudioUsedToday,
+    monthlyUsed: status.monthlyUsed,
+    edition: params.edition ?? 'glb',
+  });
+
+  return {
+    isPro: status.isPro,
+    freeSampleUsed: starterDropsUsedLifetime > 0,
+    shifterRemainingToday: evalRes.shifterRemaining,
+    dropsRemainingToday: evalRes.dropsRemaining,
+    audioDropAllowed: status.isPro && evalRes.dropsRemaining > 0 && evalRes.monthlyRemaining > 0,
+    monthlyRemaining: evalRes.monthlyRemaining,
+    allowedForFeature: evalRes.allowed,
+    reason: evalRes.reason,
+  };
+}

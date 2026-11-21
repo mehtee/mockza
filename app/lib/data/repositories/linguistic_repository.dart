@@ -6,7 +6,7 @@ import 'package:mockza/core/vocab/serial_day.dart';
 import 'package:mockza/data/db/app_database.dart';
 import 'package:mockza/services/linguistic_gateway.dart';
 
-/// Persists and reads offline Linguistic Graph, Daily Missions, and Dropped Contents in Drift v7.
+/// Persists and reads offline Linguistic Graph, Daily Missions, and Dropped Contents in Drift v8.
 final class LinguisticRepository {
   /// Creates a [LinguisticRepository].
   const new({
@@ -50,6 +50,8 @@ final class LinguisticRepository {
                 lastExampleEn: Value<String?>(node.lastExampleEn),
                 coachNoteEn: Value<String?>(node.coachNoteEn),
                 coachNoteFa: Value<String?>(node.coachNoteFa),
+                isPinned: Value<bool>(node.isPinned),
+                isMuted: Value<bool>(node.isMuted),
                 updatedAtUtcMs: nowMs,
               ),
             );
@@ -78,6 +80,8 @@ final class LinguisticRepository {
       lastExampleEn: row.lastExampleEn,
       coachNoteEn: row.coachNoteEn,
       coachNoteFa: row.coachNoteFa,
+      isPinned: row.isPinned,
+      isMuted: row.isMuted,
     );
     final totalEvidence = rows.fold<int>(0, (s, r) => s + r.evidenceCount);
     return LinguisticGraphSnapshot(
@@ -129,6 +133,14 @@ final class LinguisticRepository {
           'matchedTargets': mission.matchedTargets,
         },
     });
+    final evalResultJson =
+        (mission.feedbackEn != null || mission.feedbackFa != null)
+        ? jsonEncode(<String, Object?>{
+            'feedbackEn': mission.feedbackEn,
+            'feedbackFa': mission.feedbackFa,
+            'matchedTargets': mission.matchedTargets,
+          })
+        : null;
     await _db
         .into(_db.dailyMissions)
         .insertOnConflictUpdate(
@@ -139,6 +151,7 @@ final class LinguisticRepository {
             status: Value<String>(mission.status),
             focusTopic: mission.focusTopic,
             missionPayloadJson: payloadJson,
+            resultJson: Value<String?>(evalResultJson),
             updatedAtUtcMs: nowMs,
           ),
         );
@@ -156,7 +169,21 @@ final class LinguisticRepository {
     if (row == null) return null;
     final decoded = decodeJsonObjectSafe(row.missionPayloadJson);
     if (decoded.isEmpty) return null;
+    if (decoded['evaluationResult'] == null && row.resultJson != null) {
+      final evalDecoded = decodeJsonObjectSafe(row.resultJson!);
+      if (evalDecoded.isNotEmpty) {
+        decoded['evaluationResult'] = evalDecoded;
+      }
+    }
     return DailyMissionSnapshot.fromJson(decoded);
+  }
+
+  /// Marks a cached dropped drill item as completed locally.
+  Future<void> markDropCompleted(String dropId) async {
+    final nowMs = _clock.now().toUtc().millisecondsSinceEpoch;
+    await (_db.update(_db.droppedContents)
+          ..where((t) => t.dropId.equals(dropId)))
+        .write(DroppedContentsCompanion(completedAtUtcMs: Value<int?>(nowMs)));
   }
 
   /// Caches a dropped micro-drill item locally.

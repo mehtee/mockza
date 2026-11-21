@@ -48,6 +48,14 @@ export class FakeEvaluationAdapter implements IEvaluationGateway {
       monthlyLimit: 150,
       dailyResetAt: nowIso,
       monthlyResetAt: nowIso,
+      advancedQuota: {
+        isPro: true,
+        freeSampleUsed: false,
+        shifterRemainingToday: 10,
+        dropsRemainingToday: 10,
+        audioDropAllowed: true,
+        monthlyRemaining: 150,
+      },
       ...this.quotaOverride,
     });
   }

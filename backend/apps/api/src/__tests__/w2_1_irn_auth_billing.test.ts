@@ -366,17 +366,17 @@ describe('W2.1 Auth Slot Takeover, IRN OTP, Web Billing & Audio MIME', () => {
     const otpReq = await irnApp.request('/v1/auth/otp/request', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ phone }),
+      body: JSON.stringify({ phoneE164: phone }),
     });
     expect(otpReq.status).toBe(200);
-    const { devOtpCode } = (await otpReq.json()) as { devOtpCode: string };
+    const { devOtpHint } = (await otpReq.json()) as { devOtpHint: string };
 
     const otpVerify = await irnApp.request('/v1/auth/otp/verify', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        phone,
-        code: devOtpCode,
+        phoneE164: phone,
+        otpCode: devOtpHint,
         deviceId,
         deviceMeta: { slotKind: 'mobile', platform: 'android', appSurface: 'flutter_app' },
       }),
@@ -394,7 +394,7 @@ describe('W2.1 Auth Slot Takeover, IRN OTP, Web Billing & Audio MIME', () => {
         planId: 'mockza_pro_monthly',
         productId: 'mockza_pro_monthly',
         purchaseToken: `bazaar_tok_${randomUUID()}`,
-        packageName: 'ir.sanjia.app',
+        acceptedSingleDevicePerSlotTos: true,
       }),
     });
     expect(bazaarRes.status).toBe(200);
@@ -412,7 +412,7 @@ describe('W2.1 Auth Slot Takeover, IRN OTP, Web Billing & Audio MIME', () => {
         planId: 'mockza_quarterly',
         productId: 'mockza_quarterly',
         purchaseToken: `myket_tok_${randomUUID()}`,
-        packageName: 'ir.sanjia.app',
+        acceptedSingleDevicePerSlotTos: true,
       }),
     });
     expect(myketRes.status).toBe(200);

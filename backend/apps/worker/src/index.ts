@@ -141,6 +141,9 @@ export async function startWorker(): Promise<{ boss: PgBoss; stop: () => Promise
     connectionString: env.DATABASE_URL,
     max: env.WORKER_CONCURRENCY,
   });
+  boss.on('error', (err) => {
+    process.stderr.write(`pg-boss worker error: ${err.message}\n`);
+  });
 
   await boss.start();
 

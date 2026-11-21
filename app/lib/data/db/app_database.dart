@@ -35,7 +35,7 @@ class AppDatabase extends _$AppDatabase {
   new(super.e);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -100,6 +100,13 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(linguisticNodes);
         await m.createTable(dailyMissions);
         await m.createTable(droppedContents);
+      }
+      if (from >= 7 && from < 8) {
+        await m.addColumn(linguisticNodes, linguisticNodes.isPinned);
+        await m.addColumn(linguisticNodes, linguisticNodes.isMuted);
+      }
+      if (from < 9) {
+        await m.addColumn(userProfiles, userProfiles.studyFocus);
       }
     },
     beforeOpen: (details) async {

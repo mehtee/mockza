@@ -16,6 +16,9 @@ async function main(): Promise<void> {
   let boss: PgBoss | undefined;
   try {
     const candidate = new PgBoss(env.DATABASE_URL);
+    candidate.on('error', (err) => {
+      process.stderr.write(`pg-boss producer error: ${err.message}\n`);
+    });
     await candidate.start();
     boss = candidate;
   } catch (error) {

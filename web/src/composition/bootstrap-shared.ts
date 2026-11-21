@@ -49,7 +49,7 @@ export function createEditionDependencies(options: EditionBootstrapOptions): App
     (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost');
   const apiBaseUrl =
     options.apiBaseUrl ??
-    import.meta.env?.['PUBLIC_API_BASE_URL'] ??
+    import.meta.env.PUBLIC_API_BASE_URL ??
     (isLocalHost
       ? `${window.location.protocol}//${window.location.hostname}:45281`
       : options.defaultApiBaseUrl);
@@ -139,6 +139,8 @@ export function createEditionDependencies(options: EditionBootstrapOptions): App
     edition: options.edition,
     fetchFn: options.fetchFn,
     cache: new DexieLinguisticCache(db),
+    outbox: syncOutbox,
+    clock,
   });
   const telemetry = new HttpTelemetryAdapter({ apiClient, clock });
 

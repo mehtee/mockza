@@ -9,6 +9,9 @@ abstract final class AppRoutes {
   /// Bottom tab branch: Practice Hub (02_*, 03_*).
   static const String practice = '/practice';
 
+  /// Bottom tab branch: Smart Coach Hub (`/coach`).
+  static const String coach = '/coach';
+
   /// Bottom tab branch: Vocabulary SRS deck (16_*, 19_*).
   static const String vocabulary = '/vocabulary';
 
@@ -120,6 +123,15 @@ abstract final class AppRoutes {
 
   /// Builds a Drop drill path for [dropId].
   static String buildDropDrill(String dropId) => '/drop/drill/$dropId';
+
+  /// Builds a Drop composer path pre-selecting [tab] (`url`, `text`, `image`, or `audio`).
+  static String buildDropIngest({String? tab}) {
+    if (tab == null || tab.isEmpty) return dropIngest;
+    return Uri(
+      path: dropIngest,
+      queryParameters: <String, String>{'tab': tab},
+    ).toString();
+  }
 
   /// Builds a practice setup path for [skill].
   static String buildPracticeSetup(String skill) => '/practice/setup/$skill';

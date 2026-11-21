@@ -7,7 +7,6 @@ import {
 } from '@mockza/domain';
 import {
   Link,
-  Navigate,
   Outlet,
   type RouterHistory,
   createBrowserHistory,
@@ -15,11 +14,13 @@ import {
   createRoute,
   createRouter,
   useBlocker,
+  useNavigate,
   useRouterState,
 } from '@tanstack/react-router';
 import {
   BookOpen,
   Calendar,
+  Flame,
   Home,
   Layers,
   LogIn,
@@ -189,6 +190,11 @@ const compareAttemptsScreen = createPreloadableScreen(() =>
     default: m.CompareAttemptsScreen,
   })),
 );
+const coachHubScreen = createPreloadableScreen(() =>
+  import('@/spa/features/mission/CoachHubScreen').then((m) => ({
+    default: m.CoachHubScreen,
+  })),
+);
 const dailyMissionScreen = createPreloadableScreen(() =>
   import('@/spa/features/mission/DailyMissionScreen').then((m) => ({
     default: m.DailyMissionScreen,
@@ -273,6 +279,7 @@ const SettingsScreen = settingsScreen.Component;
 const VocabHubScreen = vocabHubScreen.Component;
 const VocabReviewScreen = vocabReviewScreen.Component;
 const VocabWordDetailScreen = vocabWordDetailScreen.Component;
+const CoachHubScreen = coachHubScreen.Component;
 const DailyMissionScreen = dailyMissionScreen.Component;
 const LinguisticGraphScreen = linguisticGraphScreen.Component;
 const RegisterShifterScreen = registerShifterScreen.Component;
@@ -282,6 +289,7 @@ const DropDrillScreen = dropDrillScreen.Component;
 export function preloadRouteForPathname(pathname: string): Promise<void> {
   const normalized = pathname.replace(/^\/app(?=\/|$)/, '').replace(/\/+$/, '') || '/home';
   if (normalized === '/' || normalized === '/home') return homeScreen.preload();
+  if (normalized === '/coach') return coachHubScreen.preload();
   if (normalized.startsWith('/mission/')) return dailyMissionScreen.preload();
   if (normalized === '/progress/graph') return linguisticGraphScreen.preload();
   if (normalized.startsWith('/register-shifter')) return registerShifterScreen.preload();
@@ -621,6 +629,7 @@ function AppRootLayout() {
       targetDateSerial: existing?.targetDateSerial ?? null,
       onboardingCompleted: existing?.onboardingCompleted ?? true,
       freeDiagnosticUsed: existing?.freeDiagnosticUsed ?? false,
+      studyFocus: existing?.studyFocus ?? 'both',
       linkedEmail: existing?.linkedEmail ?? null,
       appUserId: existing?.appUserId ?? null,
       isPro: existing?.isPro ?? false,
@@ -649,6 +658,7 @@ function AppRootLayout() {
   const navItems = [
     { to: '/home' as const, label: t('navHome'), Icon: Home, testId: 'nav-home-link' },
     { to: '/practice' as const, label: t('navPractice'), Icon: BookOpen, testId: 'nav-practice-link' },
+    { to: '/coach' as const, label: t('navSmartCoach'), Icon: Flame, testId: 'nav-coach-link' },
     { to: '/vocabulary' as const, label: t('navVocabulary'), Icon: Layers, testId: 'nav-vocab-link' },
     { to: '/progress' as const, label: t('navProgress'), Icon: TrendingUp, testId: 'nav-progress-link' },
     { to: '/paywall' as const, label: t('navProPlans'), Icon: Sparkles, testId: 'nav-paywall-link' },
@@ -934,10 +944,30 @@ const rootRoute = createRootRoute({
   notFoundComponent: NotFoundView,
 });
 
+function AppEntryGate() {
+  const deps = useOptionalDeps();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!deps) return;
+    let active = true;
+    void deps.attemptStore.getUserProfile().then((res) => {
+      if (!active) return;
+      const completed = res.ok && res.value?.onboardingCompleted === true;
+      void navigate({ to: completed ? '/home' : '/welcome', replace: true });
+    });
+    return () => {
+      active = false;
+    };
+  }, [deps, navigate]);
+
+  return null;
+}
+
 const appIndexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: () => <Navigate to="/home" replace />,
+  component: AppEntryGate,
 });
 
 const welcomeRoute = createRoute({
@@ -1209,6 +1239,12 @@ const paywallRoute = createRoute({
   },
 });
 
+const coachHubRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/coach',
+  component: CoachHubScreen,
+});
+
 const dailyMissionRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/mission/$missionId',
@@ -1242,7 +1278,19 @@ const registerShifterRunRoute = createRoute({
 const dropHubRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/drop',
-  component: DropHubScreen,
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { tab?: 'url' | 'text' | 'image' | 'audio' } => {
+    const t = search['tab'];
+    if (t === 'url' || t === 'text' || t === 'image' || t === 'audio') {
+      return { tab: t };
+    }
+    return {};
+  },
+  component: () => {
+    const { tab } = dropHubRoute.useSearch();
+    return <DropHubScreen initialTab={tab} />;
+  },
 });
 
 const dropDrillRoute = createRoute({
@@ -1265,6 +1313,7 @@ const routeTree = rootRoute.addChildren([
   diagnosticResultByIdRoute,
   loginRoute,
   homeRoute,
+  coachHubRoute,
   dailyMissionRoute,
   linguisticGraphRoute,
   registerShifterRoute,

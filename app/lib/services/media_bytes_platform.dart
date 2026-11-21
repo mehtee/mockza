@@ -4,6 +4,28 @@ import 'package:mockza/services/media_bytes_native.dart'
     if (dart.library.js_interop) 'package:mockza/services/media_bytes_web.dart'
     as platform;
 
+/// Selected local image or audio payload read from device/browser picker.
+typedef PickedLocalMedia = ({
+  String name,
+  String mimeType,
+  Uint8List bytes,
+});
+
+/// Picks 1..N local media files (e.g. `image/*` or `audio/*`) bounded by [maxFiles].
+Future<List<PickedLocalMedia>> pickLocalMediaFiles({
+  required String acceptMime,
+  bool allowMultiple = false,
+  int maxFiles = 4,
+}) => platform.pickLocalMediaFiles(
+  acceptMime: acceptMime,
+  allowMultiple: allowMultiple,
+  maxFiles: maxFiles,
+);
+
+/// Reads local bytes from an OS file path (Native) or IndexedDB/`blob:` ref (Web).
+Future<Uint8List?> readLocalFileBytes(String pathOrUrl) =>
+    platform.readRecordedAudioBytes(pathOrUrl);
+
 /// Result of attempting to durably persist a captured recording (`RR-07`).
 typedef PersistedAudioClipResult = ({
   String pathOrUrl,

@@ -49,6 +49,13 @@ class AppMotion extends ThemeExtension<AppMotion> {
   /// Compatibility getter for existing code.
   Duration get emphasisDuration => sheetDuration;
 
+  /// Fallback listening evidence preview duration when transcript timestamps are missing.
+  static const Duration listeningEvidenceFallbackPreview = Duration(seconds: 8);
+
+  /// Constructs a millisecond duration inside theme boundaries for audio cue offsets.
+  static Duration msDuration(int milliseconds) =>
+      Duration(milliseconds: milliseconds);
+
   /// Resolves [AppMotion] from [context], respecting prefers-reduced-motion.
   static AppMotion of(BuildContext context) {
     if (MediaQuery.disableAnimationsOf(context)) {

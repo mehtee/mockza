@@ -47,7 +47,7 @@ void main() {
   );
 
   testWidgets(
-    'mounts MockzaApp after onboarding, renders 4 bottom tabs, and opens Settings',
+    'mounts MockzaApp after onboarding, renders 5 bottom tabs, and opens Settings',
     (tester) async {
       final db = createTestDatabase();
 
@@ -83,13 +83,32 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.byType(NavigationBar), findsOneWidget);
-      expect(find.text('Home'), findsWidgets);
-      expect(find.text('Practice'), findsOneWidget);
-      expect(find.text('Vocabulary'), findsOneWidget);
-      expect(find.text('Progress'), findsOneWidget);
+      final navBar = find.byType(NavigationBar);
+      expect(navBar, findsOneWidget);
+      expect(
+        find.descendant(of: navBar, matching: find.text('Home')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: navBar, matching: find.text('Exams')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: navBar, matching: find.text('Coach')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: navBar, matching: find.text('Vocab')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: navBar, matching: find.text('Progress')),
+        findsOneWidget,
+      );
 
-      await tester.tap(find.text('Practice'));
+      await tester.tap(
+        find.descendant(of: navBar, matching: find.text('Exams')),
+      );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('Speaking Simulator'), findsOneWidget);

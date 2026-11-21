@@ -15,7 +15,7 @@ final class ShellAndHomeRobot {
     expect(find.text('Your study room'), findsOneWidget);
   }
 
-  /// Opens one of the 4 bottom tabs: `'Home'`, `'Practice'`, `'Vocabulary'`, `'Progress'`.
+  /// Opens one of the 5 bottom tabs: `'Home'`, `'Exams'`, `'Coach'`, `'Vocab'`, `'Progress'`.
   Future<void> openTab(WidgetTester tester, String tabLabel) async {
     await harness.tapVisible(tester, find.text(tabLabel).last);
     await harness.pumpFrames(tester, count: 6);

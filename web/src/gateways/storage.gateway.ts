@@ -37,6 +37,7 @@ export interface UserProfileRecord {
   readonly deviceId: string;
   readonly examId: SupportedExamId;
   readonly examModule: ExamModuleType;
+  readonly studyFocus?: 'exams' | 'coach' | 'both';
   readonly targetBand: number;
   readonly targetDateSerial: SerialDay | null;
   readonly onboardingCompleted: boolean;

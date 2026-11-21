@@ -79,8 +79,8 @@ describe('W6.2 Virtualized SM-2 Vocabulary Hub, Keyboard Review & Detail', () =>
     expect(renderedRows).toBeGreaterThan(0);
     expect(renderedRows).toBeLessThan(40);
 
-    // Filter Mistake-to-Deck -> shows only "mitigate"
-    fireEvent.click(screen.getByRole('tab', { name: 'Mistake-to-Deck' }));
+    // Filter My Saved Mistakes -> shows only "mitigate"
+    fireEvent.click(screen.getByRole('tab', { name: 'My Saved Mistakes' }));
     await waitFor(() => {
       expect(screen.getByTestId('vocab-row-mistake-1')).toBeTruthy();
     });

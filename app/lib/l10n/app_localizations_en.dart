@@ -61,13 +61,51 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navHome => 'Home';
 
   @override
-  String get navPractice => 'Practice';
+  String get navPractice => 'Exams';
 
   @override
-  String get navVocabulary => 'Vocabulary';
+  String get navSmartCoach => 'Coach';
+
+  @override
+  String get navVocabulary => 'Vocab';
 
   @override
   String get navProgress => 'Progress';
+
+  @override
+  String get smartCoachTitle => 'Smart Coach';
+
+  @override
+  String get smartCoachSubtitle =>
+      'Daily personalized practice: fix weak spots, upgrade your speaking, and turn any real-world content into a quick drill.';
+
+  @override
+  String get learningModeLabel => 'How would you like to study?';
+
+  @override
+  String get learningModeSectionSubtitle =>
+      'Choose your focus — you can always switch or use both tabs anytime.';
+
+  @override
+  String get learningModeExams => 'Mock Exams Only';
+
+  @override
+  String get learningModeExamsSubtitle =>
+      'Timed practice tests and score estimates across Reading, Listening, Writing, and Speaking.';
+
+  @override
+  String get learningModeCoach => 'Smart Coach Only';
+
+  @override
+  String get learningModeCoachSubtitle =>
+      '10-minute daily coaching, speaking upgrades, and turning articles/audio into quick drills.';
+
+  @override
+  String get learningModeBoth => 'Both — Complete Prep (Recommended)';
+
+  @override
+  String get learningModeBothSubtitle =>
+      'Combine timed Mock Exams with daily Smart Coach habits to boost your score faster.';
 
   @override
   String get settingsTitle => 'Settings';
@@ -205,4 +243,53 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get naviaHandoffTitle => 'Send Verified Score to Navia';
+
+  @override
+  String get missionCardTitle => 'Today\'s 10-Min Coach';
+
+  @override
+  String get missionCardSubtitle =>
+      'Targets your real mistakes and due vocabulary inside topics you enjoy.';
+
+  @override
+  String get missionStartAction => 'Start 10-Min Session';
+
+  @override
+  String get dailyMissionTitle => 'Today\'s 10-Min Coach';
+
+  @override
+  String get linguisticGraphTitle => 'My Weak Spots';
+
+  @override
+  String get activeBottlenecksLabel => 'Recurring Weak Spots';
+
+  @override
+  String get targetStructuresLabel => 'Mastered Expressions';
+
+  @override
+  String get pinnedInterestsLabel => 'Favorite Topics';
+
+  @override
+  String get pinTopicAction => 'Add Topic';
+
+  @override
+  String get registerShifterTitle => 'Upgrade My Speaking';
+
+  @override
+  String get registerShifterShortTitle => 'Upgrade Speaking';
+
+  @override
+  String get dropAnythingTitle => 'Learn From Anything';
+
+  @override
+  String get dropDrillTitle => '2-Min Study Quiz';
+
+  @override
+  String get saveToSm2 => 'Save to Vocab Deck';
+
+  @override
+  String get savedToSm2 => 'Saved to Vocab Deck';
+
+  @override
+  String get recentDropsLabel => 'Saved Study Materials';
 }

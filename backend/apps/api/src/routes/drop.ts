@@ -15,6 +15,7 @@ import {
   devices,
   droppedContents,
   evaluationJobs,
+  getAdvancedQuotaSummary,
   jobDispatchOutbox,
   type MockzaDb,
   reserveAdvancedQuotaAtomic,
@@ -31,6 +32,7 @@ import {
   createAudioS3Client,
   createDropMediaPresignUrl,
   createPublicSigningS3Client,
+  deleteAudioObjects,
   signUploadProxyParams,
   type SupportedDropMediaContentType,
 } from '@mockza/storage';
@@ -80,8 +82,16 @@ export function registerDropRoutes(
         description: 'Unauthorized.',
         content: { 'application/json': { schema: ApiErrorSchema } },
       },
+      402: {
+        description: 'Pro subscription required.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
       404: {
         description: 'Feature disabled.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
+      429: {
+        description: 'Daily or monthly drop quota exceeded.',
         content: { 'application/json': { schema: ApiErrorSchema } },
       },
     },
@@ -96,6 +106,7 @@ export function registerDropRoutes(
         401,
       );
     }
+    const accountKey = c.get('accountKey') ?? deviceId;
 
     if (body.mediaKind === 'audio' && !env.ENABLE_DROP_ANYTHING_AUDIO) {
       return c.json(
@@ -136,6 +147,40 @@ export function registerDropRoutes(
         );
       }
       uploadGeneration = dev.uploadGeneration;
+
+      const summary = await getAdvancedQuotaSummary({
+        db,
+        accountKey,
+        deviceId,
+        edition: env.EDITION,
+        feature: body.mediaKind === 'audio' ? 'drop_audio' : 'drop_text_image',
+      });
+      if (!summary.allowedForFeature) {
+        if (
+          summary.reason === 'pro_required_for_audio_drop' ||
+          summary.reason === 'free_sample_used'
+        ) {
+          return c.json(
+            {
+              code: 'entitlement_required' as const,
+              message:
+                summary.reason === 'pro_required_for_audio_drop'
+                  ? 'Upgrade to Pro to upload audio study materials.'
+                  : 'Free trial drop already used. Upgrade to Pro for daily drops.',
+              requestId: c.get('requestId'),
+            },
+            402,
+          );
+        }
+        return c.json(
+          {
+            code: 'quota_exceeded' as const,
+            message: `Daily or monthly study material limit reached (${summary.reason ?? 'limit'}).`,
+            requestId: c.get('requestId'),
+          },
+          429,
+        );
+      }
     }
 
     const expiresInSeconds = 300;
@@ -172,7 +217,7 @@ export function registerDropRoutes(
         });
         items.push({
           objectKey,
-          uploadUrl: `/v1/uploads/proxy?${qs.toString()}`,
+          uploadUrl: `/v1/uploads/signed-put?${qs.toString()}`,
           expiresInSeconds,
         });
       } else {
@@ -317,6 +362,18 @@ export function registerDropRoutes(
           400,
         );
       }
+      for (const objKey of body.imageObjectKeys ?? []) {
+        if (!objKey.startsWith(`users/${deviceId}/drops/`)) {
+          return c.json(
+            {
+              code: 'validation_error' as const,
+              message: 'Image objectKey does not belong to authenticated device drop prefix.',
+              requestId: c.get('requestId'),
+            },
+            400,
+          );
+        }
+      }
       const metaCheck = validateDropImagesMetadata(
         Array.from({ length: imgCount }, () => ({ contentType: 'image/png', byteLength: 1024 })),
       );
@@ -352,6 +409,16 @@ export function registerDropRoutes(
           {
             code: 'validation_error' as const,
             message: 'Provide audioObjectKey or audioUrl.',
+            requestId: c.get('requestId'),
+          },
+          400,
+        );
+      }
+      if (body.audioObjectKey && !body.audioObjectKey.startsWith(`users/${deviceId}/drops/`)) {
+        return c.json(
+          {
+            code: 'validation_error' as const,
+            message: 'Audio objectKey does not belong to authenticated device drop prefix.',
             requestId: c.get('requestId'),
           },
           400,
@@ -649,5 +716,81 @@ export function registerDropRoutes(
       }),
       200,
     );
+  });
+
+  const deleteDropRoute = createRoute({
+    method: 'delete',
+    path: '/v1/drop/{dropId}',
+    request: {
+      params: z.object({ dropId: z.string().uuid() }),
+    },
+    responses: {
+      200: {
+        description: 'Deletes a user dropped study item and purges stored media objects.',
+        content: {
+          'application/json': {
+            schema: z.object({ deleted: z.boolean(), dropId: z.string().uuid() }),
+          },
+        },
+      },
+      401: {
+        description: 'Unauthorized.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
+      404: {
+        description: 'Drop not found.',
+        content: { 'application/json': { schema: ApiErrorSchema } },
+      },
+    },
+  });
+
+  app.openapi(deleteDropRoute, async (c) => {
+    const deviceId = c.get('deviceId');
+    if (!deviceId) {
+      return c.json(
+        { code: 'unauthorized' as const, message: 'Auth required', requestId: c.get('requestId') },
+        401,
+      );
+    }
+    const accountKey = c.get('accountKey') ?? deviceId;
+    const { dropId } = c.req.param();
+    if (!db) {
+      return c.json(
+        { code: 'not_found' as const, message: 'Drop not found.', requestId: c.get('requestId') },
+        404,
+      );
+    }
+    const deleted = await db
+      .delete(droppedContents)
+      .where(
+        and(
+          eq(droppedContents.dropId, dropId),
+          eq(droppedContents.accountKey, accountKey),
+          eq(droppedContents.edition, env.EDITION),
+        ),
+      )
+      .returning({
+        dropId: droppedContents.dropId,
+        mediaKeys: droppedContents.mediaObjectKeysJson,
+      });
+
+    const removed = deleted[0];
+    if (!removed) {
+      return c.json(
+        { code: 'not_found' as const, message: 'Drop not found.', requestId: c.get('requestId') },
+        404,
+      );
+    }
+    const keys = Array.isArray(removed.mediaKeys)
+      ? removed.mediaKeys.filter((k): k is string => typeof k === 'string' && k.length > 0)
+      : [];
+    if (keys.length > 0) {
+      await deleteAudioObjects({
+        client: internalS3,
+        bucket: env.S3_BUCKET,
+        objectKeys: keys,
+      }).catch(() => {});
+    }
+    return c.json({ deleted: true, dropId: removed.dropId }, 200);
   });
 }

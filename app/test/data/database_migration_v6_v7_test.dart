@@ -95,10 +95,11 @@ void main() {
         final db = AppDatabase(NativeDatabase(dbFile));
         addTearDown(db.close);
 
-        // Verify v6 rows survived intact.
+        // Verify v6 rows survived intact with v9 defaults.
         final profiles = await db.select(db.userProfiles).get();
         expect(profiles, hasLength(1));
         expect(profiles.single.deviceId, 'dev-v6-1');
+        expect(profiles.single.studyFocus, 'both');
 
         final cards = await db.select(db.vocabCards).get();
         expect(cards, hasLength(1));
@@ -297,6 +298,66 @@ void main() {
         );
         expect(await repo.readTodayCachedMission(), isNull);
         expect(await repo.listCachedDrops(), isEmpty);
+      },
+    );
+
+    test(
+      'preserves isPinned and isMuted flags on linguistic_nodes across Drift v8 persistence',
+      () async {
+        final db = createTestDatabase();
+        addTearDown(db.close);
+        final clock = fixedTestClock();
+        final repo = LinguisticRepository(db: db, clock: clock);
+        final day = SerialDay.fromUtcDateTime(clock.now()).value;
+
+        await repo.cacheGraphSnapshot(
+          LinguisticGraphSnapshot(
+            bottlenecks: const <LinguisticNodeDto>[],
+            targetStructures: const <LinguisticNodeDto>[],
+            interestTopics: <LinguisticNodeDto>[
+              LinguisticNodeDto(
+                nodeId: 'pin-node-1',
+                edition: 'irn',
+                nodeKind: 'interest_topic',
+                canonicalKey: 'topic:cinema',
+                displayLabelEn: 'Cinema',
+                displayLabelFa: 'سینما',
+                masteryScoreMilli: 500,
+                signalWeightMilli: 750,
+                evidenceCount: 1,
+                lastSeenDaySerial: day,
+                isPinned: true,
+              ),
+              LinguisticNodeDto(
+                nodeId: 'mute-node-1',
+                edition: 'irn',
+                nodeKind: 'interest_topic',
+                canonicalKey: 'topic:finance',
+                displayLabelEn: 'Finance',
+                masteryScoreMilli: 400,
+                signalWeightMilli: 200,
+                evidenceCount: 1,
+                lastSeenDaySerial: day,
+                isMuted: true,
+              ),
+            ],
+            totalEvidenceCount: 2,
+          ),
+          edition: 'irn',
+        );
+
+        final loaded = await repo.readCachedGraphSnapshot(edition: 'irn');
+        expect(loaded.interestTopics, hasLength(2));
+        final cinema = loaded.interestTopics.firstWhere(
+          (n) => n.nodeId == 'pin-node-1',
+        );
+        final finance = loaded.interestTopics.firstWhere(
+          (n) => n.nodeId == 'mute-node-1',
+        );
+        expect(cinema.isPinned, isTrue);
+        expect(cinema.isMuted, isFalse);
+        expect(finance.isPinned, isFalse);
+        expect(finance.isMuted, isTrue);
       },
     );
   });

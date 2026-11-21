@@ -167,4 +167,126 @@ describe('Phase A2-A5: Closed-Loop API Routes (Graph, Missions, Register Shifter
     });
     expect(shiftRes.status).toBe(202);
   });
+
+  it('enforces drop objectKey prefix, repeat-aloud ownership prefix, and preserves Persian topic slugs', async () => {
+    const app = createApiApp(baseEnv);
+    const headers = await issueAuthHeaders(app);
+
+    const badDropKeyRes = await app.request('/v1/drop/ingest', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        inputKind: 'image',
+        imageObjectKeys: ['users/other-device/drops/1/img.png'],
+      }),
+    });
+    expect(badDropKeyRes.status).toBe(400);
+
+    const badRepeatRes = await app.request(
+      '/v1/register-shifter/22222222-2222-4222-8222-222222222222/verify-repeat',
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          objectKey: 'users/other-device/repeat.m4a',
+          gearLevel: 2,
+          expectedSentence: 'Albeit demanding, edge quantization scales cleanly.',
+          targetPhrases: ['albeit'],
+        }),
+      },
+    );
+    expect(badRepeatRes.status).toBe(400);
+
+    const faTopicRes = await app.request('/v1/graph/interests', {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ pinTopics: ['فوتبال', 'هوش مصنوعی'], muteTopics: [] }),
+    });
+    expect(faTopicRes.status).toBe(200);
+    const faBody = (await faTopicRes.json()) as {
+      interestTopics: Array<{ canonicalKey: string }>;
+    };
+    const keys = faBody.interestTopics.map((t) => t.canonicalKey);
+    expect(keys).toContain('topic:فوتبال');
+    expect(keys).toContain('topic:هوش_مصنوعی');
+  });
+
+  it('presigns multi-image batch with /v1/uploads/signed-put, accepts text Register Shifter, refreshes topic max 2/day & exposes advancedQuota', async () => {
+    const s3Stub = { send: async () => ({}) } as never;
+    const app = createApiApp(baseEnv, { s3Client: s3Stub });
+    const headers = await issueAuthHeaders(app);
+
+    const quotaRes = await app.request('/v1/quota/me', { headers });
+    expect(quotaRes.status).toBe(200);
+    const quota = (await quotaRes.json()) as {
+      advancedQuota?: { isPro: boolean; shifterRemainingToday: number; dropsRemainingToday: number };
+    };
+    expect(quota.advancedQuota).toBeDefined();
+    expect(quota.advancedQuota?.dropsRemainingToday).toBeGreaterThanOrEqual(1);
+
+    // Multi-file presign produces unique item-0 / item-1 keys and working /v1/uploads/signed-put URLs
+    const batchPresign = await app.request('/v1/drop/presign-media', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        dropId: '44444444-4444-4444-8444-444444444444',
+        mediaKind: 'image',
+        files: [
+          { contentType: 'image/png', byteLength: 512 },
+          { contentType: 'image/webp', byteLength: 768 },
+        ],
+      }),
+    });
+    expect(batchPresign.status).toBe(200);
+    const batchBody = (await batchPresign.json()) as {
+      items: Array<{ objectKey: string; uploadUrl: string }>;
+    };
+    expect(batchBody.items).toHaveLength(2);
+    expect(batchBody.items[0]?.objectKey).toContain('item-0.png');
+    expect(batchBody.items[1]?.objectKey).toContain('item-1.webp');
+    expect(batchBody.items[0]?.uploadUrl).toContain('/v1/uploads/signed-put?');
+
+    const putRes = await app.request(batchBody.items[0]!.uploadUrl, {
+      method: 'PUT',
+      headers: { 'content-type': 'image/png' },
+      body: new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    });
+    expect(putRes.status).toBe(200);
+
+    // Text-mode Register Shifter
+    const textShiftRes = await app.request('/v1/register-shifter/shift', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        inputMode: 'text',
+        rawText: 'Today I saw a really good movie with cool scenes about future technology.',
+        examTrack: 'ielts_academic',
+      }),
+    });
+    expect(textShiftRes.status).toBe(202);
+
+    // Daily Mission topic refresh capped at 2/day
+    const r1 = await app.request('/v1/missions/today/refresh', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ focusTopic: 'Football & Sports', examTrack: 'ielts_academic' }),
+    });
+    expect(r1.status).toBe(200);
+    const r1Body = (await r1.json()) as { focusTopic: string };
+    expect(r1Body.focusTopic).toBe('Football & Sports');
+
+    const r2 = await app.request('/v1/missions/today/refresh', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ focusTopic: 'Medicine & Health', examTrack: 'ielts_academic' }),
+    });
+    expect(r2.status).toBe(200);
+
+    const r3 = await app.request('/v1/missions/today/refresh', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ focusTopic: 'AI & Tech', examTrack: 'ielts_academic' }),
+    });
+    expect(r3.status).toBe(429);
+  });
 });

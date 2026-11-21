@@ -39,6 +39,7 @@ export interface SettingsControllerState {
   readonly deviceId: string;
   readonly userProfile: UserProfileRecord | null;
   readonly activeTrack: SupportedExamId;
+  readonly studyFocus: 'exams' | 'coach' | 'both';
   readonly targetScore: number;
   readonly appearance: AppearanceState;
   readonly activeDevices: readonly ActiveDeviceSlot[];
@@ -64,6 +65,7 @@ export interface SettingsControllerState {
 
 export interface SettingsControllerActions {
   readonly selectTrack: (track: SupportedExamId) => Promise<void>;
+  readonly setStudyFocus: (focus: 'exams' | 'coach' | 'both') => Promise<void>;
   readonly setTargetScore: (nextScore: number) => Promise<void>;
   readonly stepTargetScore: (delta: -1 | 1) => Promise<void>;
   readonly setThemeMode: (mode: ThemeModePreference) => Promise<void>;
@@ -211,6 +213,7 @@ export function useSettingsController(options?: {
   }, [loadDevices, session]);
 
   const activeTrack: SupportedExamId = userProfile?.examId ?? 'ielts_academic';
+  const studyFocus: 'exams' | 'coach' | 'both' = userProfile?.studyFocus ?? 'both';
   const targetScore = userProfile?.targetBand ?? EXAM_TRACK_SPECS[activeTrack].targetScoreDefault;
 
   const persistProfile = useCallback(
@@ -245,6 +248,13 @@ export function useSettingsController(options?: {
       });
     },
     [activeTrack, persistProfile, targetScore],
+  );
+
+  const setStudyFocus = useCallback(
+    async (focus: 'exams' | 'coach' | 'both') => {
+      await persistProfile({ studyFocus: focus });
+    },
+    [persistProfile],
   );
 
   const setTargetScore = useCallback(
@@ -502,6 +512,7 @@ export function useSettingsController(options?: {
     deviceId,
     userProfile,
     activeTrack,
+    studyFocus,
     targetScore,
     appearance,
     activeDevices,
@@ -524,6 +535,7 @@ export function useSettingsController(options?: {
     showDeleteModal,
     banner,
     selectTrack,
+    setStudyFocus,
     setTargetScore,
     stepTargetScore,
     setThemeMode,

@@ -30,10 +30,18 @@ export function clampMilli(value: number): number {
   return Math.max(0, Math.min(1000, Math.round(value)));
 }
 
-/**
- * Deterministic mastery EMA update bounded strictly to [0, 1000].
- * Shared identically across backend workers, Web SPA, and Flutter offline store.
- */
+/** Unicode-safe canonical key slugifier preserving Persian (`fa-IR`), Arabic & Latin topic labels (`TD-CL-14`). */
+export function slugifyTopicCanonicalKey(rawTopic: string): string {
+  const trimmed = rawTopic.trim();
+  const strippedPrefix = trimmed.startsWith('topic:') ? trimmed.slice('topic:'.length) : trimmed;
+  const slug = strippedPrefix
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '_')
+    .replace(/^_+|_+$/g, '');
+  return `topic:${slug || 'general'}`;
+}
+
+/** Deterministic mastery EMA update bounded strictly to [0, 1000]. */
 export function computeNextMasteryMilli(params: {
   currentMilli: number;
   polarity: EvidencePolarity;
@@ -84,8 +92,8 @@ export function rankTopMissionTargets(params: {
   maxInterests?: number;
   maxCards?: number;
 }): RankedMissionTargets {
-  const scoreFor = (n: LinguisticNodeSummary) =>
-    computeNodePriorityScore({ node: n, currentDaySerial: params.currentDaySerial });
+  const scoreFor = (node: LinguisticNodeSummary) =>
+    computeNodePriorityScore({ node, currentDaySerial: params.currentDaySerial });
 
   const byPriorityDesc = (a: LinguisticNodeSummary, b: LinguisticNodeSummary) => {
     const diff = scoreFor(b) - scoreFor(a);

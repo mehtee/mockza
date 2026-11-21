@@ -1,9 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mockza/core/config/edition_config.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/core/result/failure.dart';
+import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/providers.dart';
+import 'package:mockza/routing/routes.dart';
 import 'package:mockza/services/linguistic_gateway.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
@@ -12,7 +18,6 @@ import 'package:mockza/theme/components/linguistic_cards.dart';
 import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
-import 'package:mockza/theme/components/mz_chip.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
 import 'package:mockza/theme/primitives.dart';
 
@@ -25,6 +30,14 @@ class LinguisticGraphScreen extends ConsumerStatefulWidget {
   ConsumerState<LinguisticGraphScreen> createState() =>
       _LinguisticGraphScreenState();
 }
+
+const List<String> _kStarterTopics = <String>[
+  'Technology & AI',
+  'Career & Workplace',
+  'Travel & Culture',
+  'Science & Climate',
+  'Sports',
+];
 
 class _LinguisticGraphScreenState extends ConsumerState<LinguisticGraphScreen> {
   final TextEditingController _topicCtrl = TextEditingController();
@@ -72,17 +85,55 @@ class _LinguisticGraphScreenState extends ConsumerState<LinguisticGraphScreen> {
     );
   }
 
-  Future<void> _pinTopic() async {
-    final topic = _topicCtrl.text.trim();
+  Future<void> _pinTopic() => _pinTopicValue(_topicCtrl.text);
+
+  Future<void> _pinTopicValue(String rawTopic) async {
+    final topic = rawTopic.trim();
     if (topic.length < 2) return;
+    final edition = ref.read(editionConfigProvider).edition.code;
     final res = await ref
         .read(linguisticGatewayProvider)
         .updateInterests(pinTopics: <String>[topic]);
     if (!mounted) return;
-    res.when(
-      success: (snapshot) {
-        _topicCtrl.clear();
-        setState(() => _graph = snapshot);
+    await res.when(
+      success: (snapshot) async {
+        if (topic == _topicCtrl.text.trim()) _topicCtrl.clear();
+        await ref
+            .read(linguisticRepositoryProvider)
+            .cacheGraphSnapshot(snapshot, edition: edition);
+        if (mounted) setState(() => _graph = snapshot);
+      },
+      failure: (failure) async {
+        if (failure is NetworkFailure) {
+          await ref
+              .read(attemptRepositoryProvider)
+              .enqueueOutboxAction(
+                actionType: 'graph.update_interests',
+                payloadJson: jsonEncode(<String, Object?>{
+                  'pinTopics': <String>[topic],
+                  'muteTopics': const <String>[],
+                  'edition': edition,
+                }),
+              );
+          ref.read(outboxSyncServiceProvider).notifyWorkEnqueued();
+          if (topic == _topicCtrl.text.trim()) _topicCtrl.clear();
+        }
+      },
+    );
+  }
+
+  Future<void> _muteTopic(String canonicalKey) async {
+    final edition = ref.read(editionConfigProvider).edition.code;
+    final res = await ref
+        .read(linguisticGatewayProvider)
+        .updateInterests(muteTopics: <String>[canonicalKey]);
+    if (!mounted) return;
+    await res.when(
+      success: (snapshot) async {
+        await ref
+            .read(linguisticRepositoryProvider)
+            .cacheGraphSnapshot(snapshot, edition: edition);
+        if (mounted) setState(() => _graph = snapshot);
       },
       failure: (_) {},
     );
@@ -92,12 +143,17 @@ class _LinguisticGraphScreenState extends ConsumerState<LinguisticGraphScreen> {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
+    final l10n = AppLocalizations.of(context);
     final isRtl = ref.watch(editionConfigProvider).edition == AppEdition.iran;
     final g = _graph;
+    final bottleneckCount = g?.bottlenecks.length ?? 0;
+    final countLabel = isRtl
+        ? EdgeNumerals.toPersianDigits(bottleneckCount)
+        : '$bottleneckCount';
 
     return MzScaffold(
       appBar: AppBar(
-        title: Text(isRtl ? 'گراف زبانی و عادت‌ها' : 'Linguistic Graph'),
+        title: Text(l10n.linguisticGraphTitle),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -105,32 +161,86 @@ class _LinguisticGraphScreenState extends ConsumerState<LinguisticGraphScreen> {
               padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
               children: <Widget>[
                 Text(
-                  isRtl
-                      ? 'گلوگاه‌های فعال (${g?.bottlenecks.length ?? 0})'
-                      : 'Active Bottlenecks (${g?.bottlenecks.length ?? 0})',
+                  '${l10n.activeBottlenecksLabel} ($countLabel)',
                   style: typography.cardTitle.copyWith(
                     color: colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: SpacingTokens.sm),
-                Wrap(
-                  spacing: SpacingTokens.xs,
-                  runSpacing: SpacingTokens.xs,
-                  children: (g?.bottlenecks ?? const <LinguisticNodeDto>[])
-                      .map(
-                        (b) => BottleneckBadge(
-                          label: isRtl && b.displayLabelFa != null
-                              ? b.displayLabelFa!
-                              : b.displayLabelEn,
-                          masteryPercent: (b.masteryScoreMilli / 10).round(),
-                          isBottleneck: true,
+                if (bottleneckCount == 0)
+                  MzCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Text(
+                          isRtl
+                              ? 'هنوز خطای پرتکراری ثبت نشده است. با یک تمرین ۱۰ دقیقه‌ای یا ارتقای جمله، نقشه نقاط ضعف شما شکل می‌گیرد.'
+                              : 'No recurring weak spots recorded yet. Complete one 10-minute session or upgrade a spoken sentence to map your baseline.',
+                          style: typography.secondary.copyWith(
+                            color: colors.textSecondary,
+                          ),
                         ),
-                      )
-                      .toList(growable: false),
-                ),
+                        const SizedBox(height: SpacingTokens.sm),
+                        Wrap(
+                          spacing: SpacingTokens.xs,
+                          runSpacing: SpacingTokens.xs,
+                          children: <Widget>[
+                            SecondaryButton(
+                              label: isRtl
+                                  ? 'شروع مربی امروز'
+                                  : "Start Today's 10-Min Coach",
+                              glyph: LucideGlyph.flame,
+                              isFullWidth: false,
+                              onPressed: () =>
+                                  context.push(AppRoutes.buildDailyMission()),
+                            ),
+                            SecondaryButton(
+                              label: isRtl
+                                  ? 'ارتقای گفتار'
+                                  : 'Upgrade a Thought',
+                              glyph: LucideGlyph.slidersHorizontal,
+                              isFullWidth: false,
+                              onPressed: () =>
+                                  context.push(AppRoutes.registerShifter),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  )
+                else ...<Widget>[
+                  Wrap(
+                    spacing: SpacingTokens.xs,
+                    runSpacing: SpacingTokens.xs,
+                    children: (g?.bottlenecks ?? const <LinguisticNodeDto>[])
+                        .map(
+                          (b) => BottleneckBadge(
+                            label: isRtl && b.displayLabelFa != null
+                                ? b.displayLabelFa!
+                                : b.displayLabelEn,
+                            masteryPercent: (b.masteryScoreMilli / 10).round(),
+                            isBottleneck: true,
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                  const SizedBox(height: SpacingTokens.xs),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: SecondaryButton(
+                      label: isRtl
+                          ? 'رفع نقطه‌ضعف در مربی امروز'
+                          : 'Fix Weak Spots in 10-Min Coach',
+                      glyph: LucideGlyph.arrowRight,
+                      isFullWidth: false,
+                      onPressed: () =>
+                          context.push(AppRoutes.buildDailyMission()),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: SpacingTokens.lg),
                 Text(
-                  isRtl ? 'ساختارهای هدف' : 'Target Structures',
+                  l10n.targetStructuresLabel,
                   style: typography.cardTitle.copyWith(
                     color: colors.textPrimary,
                   ),
@@ -159,10 +269,39 @@ class _LinguisticGraphScreenState extends ConsumerState<LinguisticGraphScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
                       Text(
-                        isRtl ? 'علایق موضوعی شما' : 'Pinned Interest Topics',
+                        l10n.pinnedInterestsLabel,
                         style: typography.cardTitle.copyWith(
                           color: colors.textPrimary,
                         ),
+                      ),
+                      const SizedBox(height: SpacingTokens.sm),
+                      Wrap(
+                        spacing: SpacingTokens.xs,
+                        runSpacing: SpacingTokens.xs,
+                        children: _kStarterTopics
+                            .where(
+                              (s) =>
+                                  !(g?.interestTopics ??
+                                          const <LinguisticNodeDto>[])
+                                      .any(
+                                        (t) =>
+                                            !t.isMuted &&
+                                            t.displayLabelEn.toLowerCase() ==
+                                                s.toLowerCase(),
+                                      ),
+                            )
+                            .map(
+                              (topic) => ActionChip(
+                                avatar: const AppIcon(
+                                  LucideGlyph.plus,
+                                  size: 14,
+                                ),
+                                label: Text(topic),
+                                onPressed: () =>
+                                    unawaited(_pinTopicValue(topic)),
+                              ),
+                            )
+                            .toList(growable: false),
                       ),
                       const SizedBox(height: SpacingTokens.sm),
                       Wrap(
@@ -172,11 +311,16 @@ class _LinguisticGraphScreenState extends ConsumerState<LinguisticGraphScreen> {
                             (g?.interestTopics ?? const <LinguisticNodeDto>[])
                                 .where((t) => !t.isMuted)
                                 .map(
-                                  (t) => MzChip(
-                                    label: isRtl && t.displayLabelFa != null
-                                        ? t.displayLabelFa!
-                                        : t.displayLabelEn,
-                                    isSelected: t.isPinned,
+                                  (t) => InputChip(
+                                    label: Text(
+                                      isRtl && t.displayLabelFa != null
+                                          ? t.displayLabelFa!
+                                          : t.displayLabelEn,
+                                    ),
+                                    selected: t.isPinned,
+                                    onDeleted: () => unawaited(
+                                      _muteTopic(t.canonicalKey),
+                                    ),
                                   ),
                                 )
                                 .toList(growable: false),
@@ -197,7 +341,7 @@ class _LinguisticGraphScreenState extends ConsumerState<LinguisticGraphScreen> {
                           ),
                           const SizedBox(width: SpacingTokens.sm),
                           SecondaryButton(
-                            label: isRtl ? 'افزودن' : 'Pin',
+                            label: l10n.pinTopicAction,
                             glyph: LucideGlyph.plus,
                             isFullWidth: false,
                             onPressed: _pinTopic,

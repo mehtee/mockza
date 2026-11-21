@@ -178,6 +178,7 @@ export function useHomeController() {
   }, [deps.clock, deviceId]);
 
   const activeTrack: SupportedExamId = profile?.examId ?? 'ielts_academic';
+  const studyFocus: 'exams' | 'coach' | 'both' = profile?.studyFocus ?? 'both';
   const [resumableDraft, setResumableDraft] = useState<AttemptDraftRecord | null>(null);
   useEffect(() => {
     let mounted = true;
@@ -201,6 +202,7 @@ export function useHomeController() {
         deviceId: profile?.deviceId ?? deviceId,
         examId: nextTrack,
         examModule: nextTrack === 'ielts_general' ? 'general_training' : 'academic',
+        studyFocus,
         targetBand: nextTarget,
         targetDateSerial: profile?.targetDateSerial ?? null,
         onboardingCompleted: profile?.onboardingCompleted ?? true,
@@ -292,6 +294,7 @@ export function useHomeController() {
     resumableDraft: resumableDraft?.examId === activeTrack ? resumableDraft : null,
     isLoading,
     activeTrack,
+    studyFocus,
     trackSpec,
     descriptor,
     targetScore,

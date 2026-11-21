@@ -1,6 +1,7 @@
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
+import 'package:mockza/services/native/native_media_picker_channel.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -113,4 +114,44 @@ Future<bool> clearAllCachedMediaAndClips() async {
     allCleared = false;
   }
   return allCleared;
+}
+
+/// Opens native Android/iOS document/photo picker via platform channel and reads bytes.
+Future<List<({String name, String mimeType, Uint8List bytes})>>
+pickLocalMediaFiles({
+  required String acceptMime,
+  bool allowMultiple = false,
+  int maxFiles = 4,
+}) async {
+  final paths = await NativeMediaPickerChannel.pickMediaPaths(
+    acceptMime: acceptMime,
+    allowMultiple: allowMultiple,
+    maxFiles: maxFiles,
+  );
+  if (paths.isEmpty) {
+    return const <({String name, String mimeType, Uint8List bytes})>[];
+  }
+  final picked = <({String name, String mimeType, Uint8List bytes})>[];
+  for (final rawPath in paths.take(maxFiles)) {
+    final file = File(rawPath);
+    if (!file.existsSync()) continue;
+    final bytes = await file.readAsBytes();
+    if (bytes.isEmpty) continue;
+    final ext = p.extension(rawPath).toLowerCase();
+    final mime = switch (ext) {
+      '.png' => 'image/png',
+      '.webp' => 'image/webp',
+      '.mp3' => 'audio/mpeg',
+      '.ogg' => 'audio/ogg',
+      '.wav' => 'audio/wav',
+      '.m4a' || '.mp4' => 'audio/mp4',
+      _ => acceptMime.startsWith('audio/') ? 'audio/mp4' : 'image/jpeg',
+    };
+    picked.add((
+      name: p.basename(rawPath),
+      mimeType: mime,
+      bytes: bytes,
+    ));
+  }
+  return picked;
 }

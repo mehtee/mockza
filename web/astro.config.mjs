@@ -5,6 +5,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
 
 const edition = process.env.PUBLIC_EDITION === 'irn' ? 'irn' : 'glb';
+const publicApiBaseUrl = process.env.PUBLIC_API_BASE_URL;
 const outDir =
   process.env.ASTRO_OUT_DIR || (edition === 'irn' ? './dist-irn' : './dist-glb');
 const site = edition === 'irn' ? 'https://sanjia.ir' : 'https://mockza.com';
@@ -30,6 +31,9 @@ export default defineConfig({
     },
     define: {
       'import.meta.env.PUBLIC_EDITION': JSON.stringify(edition),
+      ...(publicApiBaseUrl !== undefined
+        ? { 'import.meta.env.PUBLIC_API_BASE_URL': JSON.stringify(publicApiBaseUrl) }
+        : {}),
     },
     resolve: {
       alias: {

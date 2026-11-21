@@ -162,6 +162,18 @@ class $UserProfilesTable extends UserProfiles
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _studyFocusMeta = const VerificationMeta(
+    'studyFocus',
+  );
+  @override
+  late final GeneratedColumn<String> studyFocus = GeneratedColumn<String>(
+    'study_focus',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('both'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     createdAt,
@@ -177,6 +189,7 @@ class $UserProfilesTable extends UserProfiles
     linkedEmail,
     appUserId,
     isPro,
+    studyFocus,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -286,6 +299,12 @@ class $UserProfilesTable extends UserProfiles
         isPro.isAcceptableOrUnknown(data['is_pro']!, _isProMeta),
       );
     }
+    if (data.containsKey('study_focus')) {
+      context.handle(
+        _studyFocusMeta,
+        studyFocus.isAcceptableOrUnknown(data['study_focus']!, _studyFocusMeta),
+      );
+    }
     return context;
   }
 
@@ -347,6 +366,10 @@ class $UserProfilesTable extends UserProfiles
         DriftSqlType.bool,
         data['${effectivePrefix}is_pro'],
       )!,
+      studyFocus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}study_focus'],
+      )!,
     );
   }
 
@@ -395,6 +418,9 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
 
   /// Cached entitlement status mirrored from billing verification.
   final bool isPro;
+
+  /// Learner study focus from onboarding screening (`exams`, `coach`, or `both`).
+  final String studyFocus;
   const UserProfileRow({
     required this.createdAt,
     required this.updatedAt,
@@ -409,6 +435,7 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
     this.linkedEmail,
     this.appUserId,
     required this.isPro,
+    required this.studyFocus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -432,6 +459,7 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
       map['app_user_id'] = Variable<String>(appUserId);
     }
     map['is_pro'] = Variable<bool>(isPro);
+    map['study_focus'] = Variable<String>(studyFocus);
     return map;
   }
 
@@ -456,6 +484,7 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
           ? const Value.absent()
           : Value(appUserId),
       isPro: Value(isPro),
+      studyFocus: Value(studyFocus),
     );
   }
 
@@ -480,6 +509,7 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
       linkedEmail: serializer.fromJson<String?>(json['linkedEmail']),
       appUserId: serializer.fromJson<String?>(json['appUserId']),
       isPro: serializer.fromJson<bool>(json['isPro']),
+      studyFocus: serializer.fromJson<String>(json['studyFocus']),
     );
   }
   @override
@@ -499,6 +529,7 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
       'linkedEmail': serializer.toJson<String?>(linkedEmail),
       'appUserId': serializer.toJson<String?>(appUserId),
       'isPro': serializer.toJson<bool>(isPro),
+      'studyFocus': serializer.toJson<String>(studyFocus),
     };
   }
 
@@ -516,6 +547,7 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
     Value<String?> linkedEmail = const Value.absent(),
     Value<String?> appUserId = const Value.absent(),
     bool? isPro,
+    String? studyFocus,
   }) => UserProfileRow(
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -532,6 +564,7 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
     linkedEmail: linkedEmail.present ? linkedEmail.value : this.linkedEmail,
     appUserId: appUserId.present ? appUserId.value : this.appUserId,
     isPro: isPro ?? this.isPro,
+    studyFocus: studyFocus ?? this.studyFocus,
   );
   UserProfileRow copyWithCompanion(UserProfilesCompanion data) {
     return UserProfileRow(
@@ -560,6 +593,9 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
           : this.linkedEmail,
       appUserId: data.appUserId.present ? data.appUserId.value : this.appUserId,
       isPro: data.isPro.present ? data.isPro.value : this.isPro,
+      studyFocus: data.studyFocus.present
+          ? data.studyFocus.value
+          : this.studyFocus,
     );
   }
 
@@ -578,7 +614,8 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
           ..write('themeMode: $themeMode, ')
           ..write('linkedEmail: $linkedEmail, ')
           ..write('appUserId: $appUserId, ')
-          ..write('isPro: $isPro')
+          ..write('isPro: $isPro, ')
+          ..write('studyFocus: $studyFocus')
           ..write(')'))
         .toString();
   }
@@ -598,6 +635,7 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
     linkedEmail,
     appUserId,
     isPro,
+    studyFocus,
   );
   @override
   bool operator ==(Object other) =>
@@ -615,7 +653,8 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
           other.themeMode == this.themeMode &&
           other.linkedEmail == this.linkedEmail &&
           other.appUserId == this.appUserId &&
-          other.isPro == this.isPro);
+          other.isPro == this.isPro &&
+          other.studyFocus == this.studyFocus);
 }
 
 class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
@@ -632,6 +671,7 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
   final Value<String?> linkedEmail;
   final Value<String?> appUserId;
   final Value<bool> isPro;
+  final Value<String> studyFocus;
   final Value<int> rowid;
   const UserProfilesCompanion({
     this.createdAt = const Value.absent(),
@@ -647,6 +687,7 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
     this.linkedEmail = const Value.absent(),
     this.appUserId = const Value.absent(),
     this.isPro = const Value.absent(),
+    this.studyFocus = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   UserProfilesCompanion.insert({
@@ -663,6 +704,7 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
     this.linkedEmail = const Value.absent(),
     this.appUserId = const Value.absent(),
     this.isPro = const Value.absent(),
+    this.studyFocus = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : createdAt = Value(createdAt),
        updatedAt = Value(updatedAt),
@@ -681,6 +723,7 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
     Expression<String>? linkedEmail,
     Expression<String>? appUserId,
     Expression<bool>? isPro,
+    Expression<String>? studyFocus,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -699,6 +742,7 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
       if (linkedEmail != null) 'linked_email': linkedEmail,
       if (appUserId != null) 'app_user_id': appUserId,
       if (isPro != null) 'is_pro': isPro,
+      if (studyFocus != null) 'study_focus': studyFocus,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -717,6 +761,7 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
     Value<String?>? linkedEmail,
     Value<String?>? appUserId,
     Value<bool>? isPro,
+    Value<String>? studyFocus,
     Value<int>? rowid,
   }) {
     return UserProfilesCompanion(
@@ -733,6 +778,7 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
       linkedEmail: linkedEmail ?? this.linkedEmail,
       appUserId: appUserId ?? this.appUserId,
       isPro: isPro ?? this.isPro,
+      studyFocus: studyFocus ?? this.studyFocus,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -779,6 +825,9 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
     if (isPro.present) {
       map['is_pro'] = Variable<bool>(isPro.value);
     }
+    if (studyFocus.present) {
+      map['study_focus'] = Variable<String>(studyFocus.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -801,6 +850,7 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
           ..write('linkedEmail: $linkedEmail, ')
           ..write('appUserId: $appUserId, ')
           ..write('isPro: $isPro, ')
+          ..write('studyFocus: $studyFocus, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -9427,6 +9477,36 @@ class $LinguisticNodesTable extends LinguisticNodes
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _isPinnedMeta = const VerificationMeta(
+    'isPinned',
+  );
+  @override
+  late final GeneratedColumn<bool> isPinned = GeneratedColumn<bool>(
+    'is_pinned',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_pinned" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isMutedMeta = const VerificationMeta(
+    'isMuted',
+  );
+  @override
+  late final GeneratedColumn<bool> isMuted = GeneratedColumn<bool>(
+    'is_muted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_muted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _updatedAtUtcMsMeta = const VerificationMeta(
     'updatedAtUtcMs',
   );
@@ -9453,6 +9533,8 @@ class $LinguisticNodesTable extends LinguisticNodes
     lastExampleEn,
     coachNoteEn,
     coachNoteFa,
+    isPinned,
+    isMuted,
     updatedAtUtcMs,
   ];
   @override
@@ -9585,6 +9667,18 @@ class $LinguisticNodesTable extends LinguisticNodes
         ),
       );
     }
+    if (data.containsKey('is_pinned')) {
+      context.handle(
+        _isPinnedMeta,
+        isPinned.isAcceptableOrUnknown(data['is_pinned']!, _isPinnedMeta),
+      );
+    }
+    if (data.containsKey('is_muted')) {
+      context.handle(
+        _isMutedMeta,
+        isMuted.isAcceptableOrUnknown(data['is_muted']!, _isMutedMeta),
+      );
+    }
     if (data.containsKey('updated_at_utc_ms')) {
       context.handle(
         _updatedAtUtcMsMeta,
@@ -9657,6 +9751,14 @@ class $LinguisticNodesTable extends LinguisticNodes
         DriftSqlType.string,
         data['${effectivePrefix}coach_note_fa'],
       ),
+      isPinned: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_pinned'],
+      )!,
+      isMuted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_muted'],
+      )!,
       updatedAtUtcMs: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}updated_at_utc_ms'],
@@ -9672,19 +9774,52 @@ class $LinguisticNodesTable extends LinguisticNodes
 
 class LinguisticNodeRow extends DataClass
     implements Insertable<LinguisticNodeRow> {
+  /// Node primary UUID.
   final String nodeId;
+
+  /// Edition isolation tag (`glb` or `irn`).
   final String edition;
+
+  /// Node kind (`bottleneck`, `target_structure`, or `interest_topic`).
   final String nodeKind;
+
+  /// Canonical classifier key.
   final String canonicalKey;
+
+  /// English label.
   final String displayLabelEn;
+
+  /// Optional Persian label (`irn`).
   final String? displayLabelFa;
+
+  /// Mastery progress milliscore `[0..1000]`.
   final int masteryScoreMilli;
+
+  /// Decayed mission priority weight `[0..1000]`.
   final int signalWeightMilli;
+
+  /// Total recorded observation count.
   final int evidenceCount;
+
+  /// UTC SerialDay of last signal.
   final int lastSeenDaySerial;
+
+  /// Latest short learner excerpt.
   final String? lastExampleEn;
+
+  /// English coaching guidance.
   final String? coachNoteEn;
+
+  /// Persian coaching guidance (`irn`).
   final String? coachNoteFa;
+
+  /// Whether topic interest node is pinned by user.
+  final bool isPinned;
+
+  /// Whether topic interest node is muted/hidden by user.
+  final bool isMuted;
+
+  /// Last UTC update epoch millis.
   final int updatedAtUtcMs;
   const LinguisticNodeRow({
     required this.nodeId,
@@ -9700,6 +9835,8 @@ class LinguisticNodeRow extends DataClass
     this.lastExampleEn,
     this.coachNoteEn,
     this.coachNoteFa,
+    required this.isPinned,
+    required this.isMuted,
     required this.updatedAtUtcMs,
   });
   @override
@@ -9726,6 +9863,8 @@ class LinguisticNodeRow extends DataClass
     if (!nullToAbsent || coachNoteFa != null) {
       map['coach_note_fa'] = Variable<String>(coachNoteFa);
     }
+    map['is_pinned'] = Variable<bool>(isPinned);
+    map['is_muted'] = Variable<bool>(isMuted);
     map['updated_at_utc_ms'] = Variable<int>(updatedAtUtcMs);
     return map;
   }
@@ -9753,6 +9892,8 @@ class LinguisticNodeRow extends DataClass
       coachNoteFa: coachNoteFa == null && nullToAbsent
           ? const Value.absent()
           : Value(coachNoteFa),
+      isPinned: Value(isPinned),
+      isMuted: Value(isMuted),
       updatedAtUtcMs: Value(updatedAtUtcMs),
     );
   }
@@ -9776,6 +9917,8 @@ class LinguisticNodeRow extends DataClass
       lastExampleEn: serializer.fromJson<String?>(json['lastExampleEn']),
       coachNoteEn: serializer.fromJson<String?>(json['coachNoteEn']),
       coachNoteFa: serializer.fromJson<String?>(json['coachNoteFa']),
+      isPinned: serializer.fromJson<bool>(json['isPinned']),
+      isMuted: serializer.fromJson<bool>(json['isMuted']),
       updatedAtUtcMs: serializer.fromJson<int>(json['updatedAtUtcMs']),
     );
   }
@@ -9796,6 +9939,8 @@ class LinguisticNodeRow extends DataClass
       'lastExampleEn': serializer.toJson<String?>(lastExampleEn),
       'coachNoteEn': serializer.toJson<String?>(coachNoteEn),
       'coachNoteFa': serializer.toJson<String?>(coachNoteFa),
+      'isPinned': serializer.toJson<bool>(isPinned),
+      'isMuted': serializer.toJson<bool>(isMuted),
       'updatedAtUtcMs': serializer.toJson<int>(updatedAtUtcMs),
     };
   }
@@ -9814,6 +9959,8 @@ class LinguisticNodeRow extends DataClass
     Value<String?> lastExampleEn = const Value.absent(),
     Value<String?> coachNoteEn = const Value.absent(),
     Value<String?> coachNoteFa = const Value.absent(),
+    bool? isPinned,
+    bool? isMuted,
     int? updatedAtUtcMs,
   }) => LinguisticNodeRow(
     nodeId: nodeId ?? this.nodeId,
@@ -9833,6 +9980,8 @@ class LinguisticNodeRow extends DataClass
         : this.lastExampleEn,
     coachNoteEn: coachNoteEn.present ? coachNoteEn.value : this.coachNoteEn,
     coachNoteFa: coachNoteFa.present ? coachNoteFa.value : this.coachNoteFa,
+    isPinned: isPinned ?? this.isPinned,
+    isMuted: isMuted ?? this.isMuted,
     updatedAtUtcMs: updatedAtUtcMs ?? this.updatedAtUtcMs,
   );
   LinguisticNodeRow copyWithCompanion(LinguisticNodesCompanion data) {
@@ -9870,6 +10019,8 @@ class LinguisticNodeRow extends DataClass
       coachNoteFa: data.coachNoteFa.present
           ? data.coachNoteFa.value
           : this.coachNoteFa,
+      isPinned: data.isPinned.present ? data.isPinned.value : this.isPinned,
+      isMuted: data.isMuted.present ? data.isMuted.value : this.isMuted,
       updatedAtUtcMs: data.updatedAtUtcMs.present
           ? data.updatedAtUtcMs.value
           : this.updatedAtUtcMs,
@@ -9892,6 +10043,8 @@ class LinguisticNodeRow extends DataClass
           ..write('lastExampleEn: $lastExampleEn, ')
           ..write('coachNoteEn: $coachNoteEn, ')
           ..write('coachNoteFa: $coachNoteFa, ')
+          ..write('isPinned: $isPinned, ')
+          ..write('isMuted: $isMuted, ')
           ..write('updatedAtUtcMs: $updatedAtUtcMs')
           ..write(')'))
         .toString();
@@ -9912,6 +10065,8 @@ class LinguisticNodeRow extends DataClass
     lastExampleEn,
     coachNoteEn,
     coachNoteFa,
+    isPinned,
+    isMuted,
     updatedAtUtcMs,
   );
   @override
@@ -9931,6 +10086,8 @@ class LinguisticNodeRow extends DataClass
           other.lastExampleEn == this.lastExampleEn &&
           other.coachNoteEn == this.coachNoteEn &&
           other.coachNoteFa == this.coachNoteFa &&
+          other.isPinned == this.isPinned &&
+          other.isMuted == this.isMuted &&
           other.updatedAtUtcMs == this.updatedAtUtcMs);
 }
 
@@ -9948,6 +10105,8 @@ class LinguisticNodesCompanion extends UpdateCompanion<LinguisticNodeRow> {
   final Value<String?> lastExampleEn;
   final Value<String?> coachNoteEn;
   final Value<String?> coachNoteFa;
+  final Value<bool> isPinned;
+  final Value<bool> isMuted;
   final Value<int> updatedAtUtcMs;
   final Value<int> rowid;
   const LinguisticNodesCompanion({
@@ -9964,6 +10123,8 @@ class LinguisticNodesCompanion extends UpdateCompanion<LinguisticNodeRow> {
     this.lastExampleEn = const Value.absent(),
     this.coachNoteEn = const Value.absent(),
     this.coachNoteFa = const Value.absent(),
+    this.isPinned = const Value.absent(),
+    this.isMuted = const Value.absent(),
     this.updatedAtUtcMs = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -9981,6 +10142,8 @@ class LinguisticNodesCompanion extends UpdateCompanion<LinguisticNodeRow> {
     this.lastExampleEn = const Value.absent(),
     this.coachNoteEn = const Value.absent(),
     this.coachNoteFa = const Value.absent(),
+    this.isPinned = const Value.absent(),
+    this.isMuted = const Value.absent(),
     required int updatedAtUtcMs,
     this.rowid = const Value.absent(),
   }) : nodeId = Value(nodeId),
@@ -10003,6 +10166,8 @@ class LinguisticNodesCompanion extends UpdateCompanion<LinguisticNodeRow> {
     Expression<String>? lastExampleEn,
     Expression<String>? coachNoteEn,
     Expression<String>? coachNoteFa,
+    Expression<bool>? isPinned,
+    Expression<bool>? isMuted,
     Expression<int>? updatedAtUtcMs,
     Expression<int>? rowid,
   }) {
@@ -10020,6 +10185,8 @@ class LinguisticNodesCompanion extends UpdateCompanion<LinguisticNodeRow> {
       if (lastExampleEn != null) 'last_example_en': lastExampleEn,
       if (coachNoteEn != null) 'coach_note_en': coachNoteEn,
       if (coachNoteFa != null) 'coach_note_fa': coachNoteFa,
+      if (isPinned != null) 'is_pinned': isPinned,
+      if (isMuted != null) 'is_muted': isMuted,
       if (updatedAtUtcMs != null) 'updated_at_utc_ms': updatedAtUtcMs,
       if (rowid != null) 'rowid': rowid,
     });
@@ -10039,6 +10206,8 @@ class LinguisticNodesCompanion extends UpdateCompanion<LinguisticNodeRow> {
     Value<String?>? lastExampleEn,
     Value<String?>? coachNoteEn,
     Value<String?>? coachNoteFa,
+    Value<bool>? isPinned,
+    Value<bool>? isMuted,
     Value<int>? updatedAtUtcMs,
     Value<int>? rowid,
   }) {
@@ -10056,6 +10225,8 @@ class LinguisticNodesCompanion extends UpdateCompanion<LinguisticNodeRow> {
       lastExampleEn: lastExampleEn ?? this.lastExampleEn,
       coachNoteEn: coachNoteEn ?? this.coachNoteEn,
       coachNoteFa: coachNoteFa ?? this.coachNoteFa,
+      isPinned: isPinned ?? this.isPinned,
+      isMuted: isMuted ?? this.isMuted,
       updatedAtUtcMs: updatedAtUtcMs ?? this.updatedAtUtcMs,
       rowid: rowid ?? this.rowid,
     );
@@ -10103,6 +10274,12 @@ class LinguisticNodesCompanion extends UpdateCompanion<LinguisticNodeRow> {
     if (coachNoteFa.present) {
       map['coach_note_fa'] = Variable<String>(coachNoteFa.value);
     }
+    if (isPinned.present) {
+      map['is_pinned'] = Variable<bool>(isPinned.value);
+    }
+    if (isMuted.present) {
+      map['is_muted'] = Variable<bool>(isMuted.value);
+    }
     if (updatedAtUtcMs.present) {
       map['updated_at_utc_ms'] = Variable<int>(updatedAtUtcMs.value);
     }
@@ -10128,6 +10305,8 @@ class LinguisticNodesCompanion extends UpdateCompanion<LinguisticNodeRow> {
           ..write('lastExampleEn: $lastExampleEn, ')
           ..write('coachNoteEn: $coachNoteEn, ')
           ..write('coachNoteFa: $coachNoteFa, ')
+          ..write('isPinned: $isPinned, ')
+          ..write('isMuted: $isMuted, ')
           ..write('updatedAtUtcMs: $updatedAtUtcMs, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -10370,13 +10549,28 @@ class $DailyMissionsTable extends DailyMissions
 }
 
 class DailyMissionRow extends DataClass implements Insertable<DailyMissionRow> {
+  /// Mission primary UUID.
   final String missionId;
+
+  /// UTC SerialDay index.
   final int missionDaySerial;
+
+  /// Target exam track identifier.
   final String examTrack;
+
+  /// Completion status (`ready`, `in_progress`, `completed`, `skipped`).
   final String status;
+
+  /// Topic theme for this mission.
   final String focusTopic;
+
+  /// Full mission payload JSON.
   final String missionPayloadJson;
+
+  /// Optional evaluation feedback JSON.
   final String? resultJson;
+
+  /// Last UTC update epoch millis.
   final int updatedAtUtcMs;
   const DailyMissionRow({
     required this.missionId,
@@ -10962,15 +11156,34 @@ class $DroppedContentsTable extends DroppedContents
 
 class DroppedContentRow extends DataClass
     implements Insertable<DroppedContentRow> {
+  /// Drop primary UUID.
   final String dropId;
+
+  /// Input kind (`text_url`, `text`, `image`, or `audio`).
   final String inputKind;
+
+  /// Extracted title.
   final String title;
+
+  /// Domain or custom source label.
   final String sourceLabel;
+
+  /// Estimated CEFR band.
   final String cefrEstimate;
+
+  /// Serialized JSON list of extracted idioms/phrases.
   final String extractedPhrasesJson;
+
+  /// Serialized JSON 2-minute micro-drill payload.
   final String drillPayloadJson;
+
+  /// Optional relative preview image path.
   final String? localPreviewPath;
+
+  /// Completion timestamp UTC millis.
   final int? completedAtUtcMs;
+
+  /// Creation timestamp UTC millis.
   final int createdAtUtcMs;
   const DroppedContentRow({
     required this.dropId,
@@ -11423,6 +11636,7 @@ typedef $$UserProfilesTableCreateCompanionBuilder =
       Value<String?> linkedEmail,
       Value<String?> appUserId,
       Value<bool> isPro,
+      Value<String> studyFocus,
       Value<int> rowid,
     });
 typedef $$UserProfilesTableUpdateCompanionBuilder =
@@ -11440,6 +11654,7 @@ typedef $$UserProfilesTableUpdateCompanionBuilder =
       Value<String?> linkedEmail,
       Value<String?> appUserId,
       Value<bool> isPro,
+      Value<String> studyFocus,
       Value<int> rowid,
     });
 
@@ -11514,6 +11729,11 @@ class $$UserProfilesTableFilterComposer
 
   ColumnFilters<bool> get isPro => $composableBuilder(
     column: $table.isPro,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get studyFocus => $composableBuilder(
+    column: $table.studyFocus,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -11591,6 +11811,11 @@ class $$UserProfilesTableOrderingComposer
     column: $table.isPro,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get studyFocus => $composableBuilder(
+    column: $table.studyFocus,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$UserProfilesTableAnnotationComposer
@@ -11652,6 +11877,11 @@ class $$UserProfilesTableAnnotationComposer
 
   GeneratedColumn<bool> get isPro =>
       $composableBuilder(column: $table.isPro, builder: (column) => column);
+
+  GeneratedColumn<String> get studyFocus => $composableBuilder(
+    column: $table.studyFocus,
+    builder: (column) => column,
+  );
 }
 
 class $$UserProfilesTableTableManager
@@ -11698,6 +11928,7 @@ class $$UserProfilesTableTableManager
                 Value<String?> linkedEmail = const Value.absent(),
                 Value<String?> appUserId = const Value.absent(),
                 Value<bool> isPro = const Value.absent(),
+                Value<String> studyFocus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => UserProfilesCompanion(
                 createdAt: createdAt,
@@ -11713,6 +11944,7 @@ class $$UserProfilesTableTableManager
                 linkedEmail: linkedEmail,
                 appUserId: appUserId,
                 isPro: isPro,
+                studyFocus: studyFocus,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -11730,6 +11962,7 @@ class $$UserProfilesTableTableManager
                 Value<String?> linkedEmail = const Value.absent(),
                 Value<String?> appUserId = const Value.absent(),
                 Value<bool> isPro = const Value.absent(),
+                Value<String> studyFocus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => UserProfilesCompanion.insert(
                 createdAt: createdAt,
@@ -11745,6 +11978,7 @@ class $$UserProfilesTableTableManager
                 linkedEmail: linkedEmail,
                 appUserId: appUserId,
                 isPro: isPro,
+                studyFocus: studyFocus,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -16539,6 +16773,8 @@ typedef $$LinguisticNodesTableCreateCompanionBuilder =
       Value<String?> lastExampleEn,
       Value<String?> coachNoteEn,
       Value<String?> coachNoteFa,
+      Value<bool> isPinned,
+      Value<bool> isMuted,
       required int updatedAtUtcMs,
       Value<int> rowid,
     });
@@ -16557,6 +16793,8 @@ typedef $$LinguisticNodesTableUpdateCompanionBuilder =
       Value<String?> lastExampleEn,
       Value<String?> coachNoteEn,
       Value<String?> coachNoteFa,
+      Value<bool> isPinned,
+      Value<bool> isMuted,
       Value<int> updatedAtUtcMs,
       Value<int> rowid,
     });
@@ -16632,6 +16870,16 @@ class $$LinguisticNodesTableFilterComposer
 
   ColumnFilters<String> get coachNoteFa => $composableBuilder(
     column: $table.coachNoteFa,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isPinned => $composableBuilder(
+    column: $table.isPinned,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isMuted => $composableBuilder(
+    column: $table.isMuted,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -16715,6 +16963,16 @@ class $$LinguisticNodesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isPinned => $composableBuilder(
+    column: $table.isPinned,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isMuted => $composableBuilder(
+    column: $table.isMuted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get updatedAtUtcMs => $composableBuilder(
     column: $table.updatedAtUtcMs,
     builder: (column) => ColumnOrderings(column),
@@ -16789,6 +17047,12 @@ class $$LinguisticNodesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get isPinned =>
+      $composableBuilder(column: $table.isPinned, builder: (column) => column);
+
+  GeneratedColumn<bool> get isMuted =>
+      $composableBuilder(column: $table.isMuted, builder: (column) => column);
+
   GeneratedColumn<int> get updatedAtUtcMs => $composableBuilder(
     column: $table.updatedAtUtcMs,
     builder: (column) => column,
@@ -16845,6 +17109,8 @@ class $$LinguisticNodesTableTableManager
                 Value<String?> lastExampleEn = const Value.absent(),
                 Value<String?> coachNoteEn = const Value.absent(),
                 Value<String?> coachNoteFa = const Value.absent(),
+                Value<bool> isPinned = const Value.absent(),
+                Value<bool> isMuted = const Value.absent(),
                 Value<int> updatedAtUtcMs = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LinguisticNodesCompanion(
@@ -16861,6 +17127,8 @@ class $$LinguisticNodesTableTableManager
                 lastExampleEn: lastExampleEn,
                 coachNoteEn: coachNoteEn,
                 coachNoteFa: coachNoteFa,
+                isPinned: isPinned,
+                isMuted: isMuted,
                 updatedAtUtcMs: updatedAtUtcMs,
                 rowid: rowid,
               ),
@@ -16879,6 +17147,8 @@ class $$LinguisticNodesTableTableManager
                 Value<String?> lastExampleEn = const Value.absent(),
                 Value<String?> coachNoteEn = const Value.absent(),
                 Value<String?> coachNoteFa = const Value.absent(),
+                Value<bool> isPinned = const Value.absent(),
+                Value<bool> isMuted = const Value.absent(),
                 required int updatedAtUtcMs,
                 Value<int> rowid = const Value.absent(),
               }) => LinguisticNodesCompanion.insert(
@@ -16895,6 +17165,8 @@ class $$LinguisticNodesTableTableManager
                 lastExampleEn: lastExampleEn,
                 coachNoteEn: coachNoteEn,
                 coachNoteFa: coachNoteFa,
+                isPinned: isPinned,
+                isMuted: isMuted,
                 updatedAtUtcMs: updatedAtUtcMs,
                 rowid: rowid,
               ),

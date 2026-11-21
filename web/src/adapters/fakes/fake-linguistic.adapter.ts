@@ -4,17 +4,19 @@ import type {
   DailyMissionSnapshot,
   DropHistoryPage,
   DropIngestInput,
+  DropMediaContentType,
   DroppedContentItem,
   ILinguisticGateway,
   LinguisticGatewayError,
   LinguisticGraphSnapshot,
+  RefreshDailyMissionInput,
   RegisterShifterResult,
   UpdateGraphInterestsInput,
   VerifyRepeatAloudResponse,
 } from '@/gateways/linguistic.gateway';
 import { err, ok, type Result } from '@/gateways/result';
 import type { EditionCode } from '@/edition/edition-config';
-import { validateDropUrlPreFlight } from '@mockza/domain';
+import { slugifyTopicCanonicalKey, validateDropUrlPreFlight } from '@mockza/domain';
 
 export class FakeLinguisticAdapter implements ILinguisticGateway {
   private readonly edition: EditionCode;
@@ -168,8 +170,8 @@ export class FakeLinguisticAdapter implements ILinguisticGateway {
     input: UpdateGraphInterestsInput,
   ): Promise<Result<LinguisticGraphSnapshot, LinguisticGatewayError>> {
     for (const raw of input.pinTopics) {
-      const slug = raw.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-      const existing = this.graph.interestTopics.find((t) => t.canonicalKey === `topic:${slug}`);
+      const canonicalKey = slugifyTopicCanonicalKey(raw);
+      const existing = this.graph.interestTopics.find((t) => t.canonicalKey === canonicalKey);
       if (existing) {
         existing.isPinned = true;
         existing.isMuted = false;
@@ -178,7 +180,7 @@ export class FakeLinguisticAdapter implements ILinguisticGateway {
           nodeId: `10000000-0000-4000-8000-000000000${this.graph.interestTopics.length + 10}`,
           edition: this.edition,
           nodeKind: 'interest_topic',
-          canonicalKey: `topic:${slug}`,
+          canonicalKey,
           displayLabelEn: raw,
           displayLabelFa: raw,
           masteryScoreMilli: 500,
@@ -206,29 +208,93 @@ export class FakeLinguisticAdapter implements ILinguisticGateway {
     return ok(structuredClone(this.mission));
   }
 
+  async refreshTodayMission(
+    input: RefreshDailyMissionInput,
+  ): Promise<Result<DailyMissionSnapshot, LinguisticGatewayError>> {
+    this.mission = {
+      ...this.mission,
+      examTrack: input.examTrack,
+      focusTopic: input.focusTopic,
+      status: 'ready',
+      payload: {
+        ...this.mission.payload,
+        promptTitle: `10-Min ${input.focusTopic} Mission`,
+        promptTextEn: `In 4–6 crisp sentences about ${input.focusTopic}, apply both target structures naturally.`,
+      },
+      evaluationResult: null,
+    };
+    return ok(structuredClone(this.mission));
+  }
+
   async completeMission(
     _missionId: string,
     input: CompleteDailyMissionInput,
   ): Promise<Result<DailyMissionSnapshot, LinguisticGatewayError>> {
-    const text = (input.responseText ?? '').toLowerCase();
+    const raw = input.responseText ?? 'Were companies to adopt clear workflows, outcomes improve, albeit gradually.';
+    const lower = raw.toLowerCase();
     const matchedTargets = this.mission.payload.forcedTargets
-      .filter((t) => text.includes(t.phraseEn.split(' ')[0]!.toLowerCase()))
+      .filter((t) => lower.includes(t.phraseEn.split(' ')[0]!.toLowerCase()))
       .map((t) => t.phraseEn);
+    const missedTargets = this.mission.payload.forcedTargets
+      .map((t) => t.phraseEn)
+      .filter((p) => !matchedTargets.includes(p));
     this.mission = {
       ...this.mission,
       status: 'completed',
       evaluationResult: {
         matchedTargets,
-        feedbackEn: 'Mission recorded and transferred into your Linguistic Graph.',
-        feedbackFa: this.edition === 'irn' ? 'مأموریت ثبت شد و گراف زبانی شما به‌روز شد.' : null,
+        missedTargets,
+        transcriptEn: input.audioObjectKey ? raw : undefined,
+        feedbackEn:
+          matchedTargets.length > 0
+            ? 'Great transfer of target structures. Tightening one collocation raises Lexical Resource further.'
+            : 'Clear response; weave in at least one target structure like "albeit" for Band 8+ range.',
+        feedbackFa:
+          this.edition === 'irn'
+            ? 'بازخورد اختصاصی ثبت شد و پیشرفت شما به نمودار نقاط ضعف اضافه شد.'
+            : null,
         clarityScore1To5: matchedTargets.length > 0 ? 5 : 4,
+        inlineUpgrades: [
+          {
+            original: raw.slice(0, Math.min(28, raw.length)) || 'good workflows',
+            improved: 'streamlined workflows, albeit complex',
+            whyEn: 'Replaces everyday wording with concise concession and C1 verb collocation.',
+          },
+        ],
+        modelRewriteEn:
+          'Were companies to adopt transparent AI review workflows, productivity gains would accelerate, albeit alongside higher expectations for critical judgment.',
       },
     };
     return ok(structuredClone(this.mission));
   }
 
+  async completeMissionWithClip(
+    missionId: string,
+    params: {
+      readonly clip: RecordedClip;
+      readonly usedTargetKeys?: readonly string[];
+    },
+  ): Promise<Result<DailyMissionSnapshot, LinguisticGatewayError>> {
+    return this.completeMission(missionId, {
+      audioObjectKey: `users/fake-device/missions/${missionId}/spoken.m4a`,
+      ...(params.usedTargetKeys?.length ? { usedTargetKeys: [...params.usedTargetKeys] } : {}),
+    });
+  }
+
   async shiftRegisterFromClip(params: {
     readonly clip: RecordedClip;
+    readonly examTrack: string;
+    readonly topicHint?: string;
+  }): Promise<Result<{ readonly jobId: string }, LinguisticGatewayError>> {
+    return this.shiftRegisterFromText({
+      text: 'Today I watched a really good tech film and it was super interesting.',
+      examTrack: params.examTrack,
+      topicHint: params.topicHint,
+    });
+  }
+
+  async shiftRegisterFromText(params: {
+    readonly text: string;
     readonly examTrack: string;
     readonly topicHint?: string;
   }): Promise<Result<{ readonly jobId: string }, LinguisticGatewayError>> {
@@ -238,9 +304,9 @@ export class FakeLinguisticAdapter implements ILinguisticGateway {
     const res: RegisterShifterResult = {
       runId: jobId,
       examTrack: params.examTrack,
-      sourceTranscript: 'Today I watched a really good tech film and it was super interesting.',
+      sourceTranscript: params.text.trim(),
       gears: {
-        casual: 'Today I watched a really good tech film and it was super interesting.',
+        casual: params.text.trim(),
         workplace:
           'I watched a compelling technology documentary today that sparked great ideas for our team.',
         academic:
@@ -291,6 +357,21 @@ export class FakeLinguisticAdapter implements ILinguisticGateway {
   }): Promise<Result<{ readonly objectKey: string }, LinguisticGatewayError>> {
     return ok({
       objectKey: `users/fake-device/drops/${params.dropId}/item-${params.index}.png`,
+    });
+  }
+
+  async uploadDropMediaBatch(params: {
+    readonly dropId: string;
+    readonly mediaKind: 'image' | 'audio';
+    readonly files: ReadonlyArray<{
+      readonly bytes: Uint8Array;
+      readonly contentType: DropMediaContentType;
+    }>;
+  }): Promise<Result<{ readonly objectKeys: readonly string[] }, LinguisticGatewayError>> {
+    return ok({
+      objectKeys: params.files.map(
+        (_f, idx) => `users/fake-device/drops/${params.dropId}/item-${idx}.png`,
+      ),
     });
   }
 
@@ -365,6 +446,11 @@ export class FakeLinguisticAdapter implements ILinguisticGateway {
       return err({ kind: 'unexpected', message: 'Drop not found' });
     }
     return ok(structuredClone(item));
+  }
+
+  async deleteDrop(dropId: string): Promise<Result<void, LinguisticGatewayError>> {
+    this.drops.delete(dropId);
+    return ok(undefined);
   }
 
   async pollAdvancedJob<T>(jobId: string) {

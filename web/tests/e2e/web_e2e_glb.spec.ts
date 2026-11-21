@@ -235,7 +235,7 @@ test.describe('Mockza Desktop Web (GLB) E2E Robot Journeys (Web-E2E 1..7)', () =
     await expect(page.getByTestId('objective-result-screen')).toBeVisible();
     await expect(page.getByTestId('objective-result-band')).toContainText('9.0');
 
-    await page.getByRole('link', { name: 'Practice' }).click();
+    await page.getByTestId('nav-practice-link').click();
     await expect(page.getByTestId('practice-catalog-screen')).toBeVisible();
     await page.getByTestId('launch-pack-ielts-writing-seed-01').click();
     await expect(page.getByTestId('writing-simulator-screen')).toBeVisible();

@@ -169,6 +169,89 @@ class ForcedTargetDto {
   final String? hintFa;
 }
 
+/// Inline upgrade suggestion returned in Daily Mission critique.
+@immutable
+class MissionInlineUpgradeDto {
+  /// Creates a [MissionInlineUpgradeDto].
+  const new({
+    required this.original,
+    required this.upgraded,
+    required this.whyEn,
+  });
+
+  /// Parses JSON map.
+  factory fromJson(Map<String, Object?> json) => MissionInlineUpgradeDto(
+    original: '${json['original'] ?? ''}',
+    upgraded: '${json['improved'] ?? json['upgraded'] ?? ''}',
+    whyEn: '${json['whyEn'] ?? ''}',
+  );
+
+  /// Learner phrase that can be strengthened.
+  final String original;
+
+  /// Higher-band replacement.
+  final String upgraded;
+
+  /// Concise explanation.
+  final String whyEn;
+}
+
+/// Server-reported Smart Coach quota summary from `/v1/quota/me`.
+@immutable
+class AdvancedQuotaDto {
+  /// Creates an [AdvancedQuotaDto].
+  const new({
+    required this.isPro,
+    required this.freeSampleUsed,
+    required this.shifterRemainingToday,
+    required this.dropsRemainingToday,
+    required this.audioDropAllowed,
+    required this.monthlyRemaining,
+  });
+
+  /// Parses `advancedQuota` JSON block.
+  factory fromJson(Map<String, Object?> json) => AdvancedQuotaDto(
+    isPro: json['isPro'] == true,
+    freeSampleUsed: json['freeSampleUsed'] == true,
+    shifterRemainingToday:
+        (json['shifterRemainingToday'] as num?)?.toInt() ?? 0,
+    dropsRemainingToday: (json['dropsRemainingToday'] as num?)?.toInt() ?? 0,
+    audioDropAllowed: json['audioDropAllowed'] == true,
+    monthlyRemaining: (json['monthlyRemaining'] as num?)?.toInt() ?? 0,
+  );
+
+  /// Whether user currently has Pro entitlement.
+  final bool isPro;
+
+  /// Whether free users already consumed their one lifetime trial sample.
+  final bool freeSampleUsed;
+
+  /// Remaining Register Shifter runs today.
+  final int shifterRemainingToday;
+
+  /// Remaining Drop Anything runs today.
+  final int dropsRemainingToday;
+
+  /// Whether Audio drop uploads are unlocked.
+  final bool audioDropAllowed;
+
+  /// Remaining monthly pooled AI actions.
+  final int monthlyRemaining;
+}
+
+/// Staged file payload for single-batch Drop media presign + upload.
+@immutable
+class DropMediaUploadItem {
+  /// Creates a [DropMediaUploadItem].
+  const new({required this.bytes, required this.contentType});
+
+  /// File byte buffer.
+  final Uint8List bytes;
+
+  /// IANA MIME content-type matching backend schema.
+  final String contentType;
+}
+
 /// Daily 10-Min Transfer Mission snapshot.
 @immutable
 class DailyMissionSnapshot {
@@ -187,6 +270,11 @@ class DailyMissionSnapshot {
     this.feedbackEn,
     this.feedbackFa,
     this.matchedTargets = const <String>[],
+    this.missedTargets = const <String>[],
+    this.clarityScore1To5,
+    this.transcriptEn,
+    this.inlineUpgrades = const <MissionInlineUpgradeDto>[],
+    this.modelRewriteEn,
   });
 
   /// Parses API JSON payload.
@@ -215,6 +303,18 @@ class DailyMissionSnapshot {
           ((eval?['matchedTargets'] as List<Object?>?) ?? const <Object?>[])
               .map((e) => '$e')
               .toList(growable: false),
+      missedTargets:
+          ((eval?['missedTargets'] as List<Object?>?) ?? const <Object?>[])
+              .map((e) => '$e')
+              .toList(growable: false),
+      clarityScore1To5: (eval?['clarityScore1To5'] as num?)?.toInt(),
+      transcriptEn: eval?['transcriptEn'] as String?,
+      inlineUpgrades:
+          ((eval?['inlineUpgrades'] as List<Object?>?) ?? const <Object?>[])
+              .whereType<Map<String, Object?>>()
+              .map(MissionInlineUpgradeDto.fromJson)
+              .toList(growable: false),
+      modelRewriteEn: eval?['modelRewriteEn'] as String?,
     );
   }
 
@@ -256,6 +356,21 @@ class DailyMissionSnapshot {
 
   /// Matched target strings after completion.
   final List<String> matchedTargets;
+
+  /// Missed target structures highlighted for follow-up.
+  final List<String> missedTargets;
+
+  /// Overall clarity & naturalness score `1..5`.
+  final int? clarityScore1To5;
+
+  /// Spoken mission transcription returned from backend Whisper/STT pass.
+  final String? transcriptEn;
+
+  /// Phrase-level rewrite upgrades suggested in critique.
+  final List<MissionInlineUpgradeDto> inlineUpgrades;
+
+  /// Full C1/Band 8+ model rewrite incorporating targets.
+  final String? modelRewriteEn;
 }
 
 /// Shift highlight entry for Register Shifter.
@@ -421,6 +536,8 @@ class DroppedContentDto {
     required this.clozeAnswer,
     required this.shadowingPrompt,
     required this.createdAtIso,
+    this.comprehensionExplanationEn,
+    this.comprehensionExplanationFa,
   });
 
   /// Parses API JSON payload.
@@ -450,6 +567,10 @@ class DroppedContentDto {
       clozeAnswer: '${drill['clozeAnswer'] ?? ''}',
       shadowingPrompt: '${drill['shadowingPrompt'] ?? ''}',
       createdAtIso: '${json['createdAt'] ?? ''}',
+      comprehensionExplanationEn:
+          drill['comprehensionExplanationEn'] as String?,
+      comprehensionExplanationFa:
+          drill['comprehensionExplanationFa'] as String?,
     );
   }
 
@@ -491,10 +612,19 @@ class DroppedContentDto {
 
   /// Creation timestamp ISO string.
   final String createdAtIso;
+
+  /// English comprehension rationale.
+  final String? comprehensionExplanationEn;
+
+  /// Persian comprehension rationale (`irn`).
+  final String? comprehensionExplanationFa;
 }
 
 /// Abstract gateway for Closed-Loop Linguistic Graph, Daily Missions, Register Shifter, and Drop Anything.
 abstract interface class LinguisticGateway {
+  /// Fetches Smart Coach quota breakdown from `/v1/quota/me`.
+  Future<Result<AdvancedQuotaDto?, Failure>> fetchAdvancedQuota();
+
   /// Fetches `/v1/graph/me`.
   Future<Result<LinguisticGraphSnapshot, Failure>> getMyGraph();
 
@@ -510,17 +640,39 @@ abstract interface class LinguisticGateway {
     List<String> dueWords = const <String>[],
   });
 
+  /// Refreshes today's mission around a selected [focusTopic] (`POST /v1/missions/today/refresh`).
+  Future<Result<DailyMissionSnapshot, Failure>> refreshTodayMission({
+    required String focusTopic,
+    String examTrack = 'ielts_academic',
+  });
+
   /// Completes a Daily Mission via `POST /v1/missions/:missionId/complete`.
   Future<Result<DailyMissionSnapshot, Failure>> completeMission({
     required String missionId,
     required String responseText,
+    List<String> usedTargetKeys = const <String>[],
   });
 
-  /// Starts a Register Shifter job and returns jobId.
+  /// Uploads a spoken mission response and completes via `POST /v1/missions/:missionId/complete`.
+  Future<Result<DailyMissionSnapshot, Failure>> completeMissionWithAudio({
+    required String missionId,
+    required Uint8List audioBytes,
+    required String mimeType,
+    List<String> usedTargetKeys = const <String>[],
+  });
+
+  /// Starts a Register Shifter audio job and returns jobId.
   Future<Result<String, Failure>> enqueueRegisterShift({
     required String objectKey,
     required String examTrack,
     required double durationSeconds,
+    String? topicHint,
+  });
+
+  /// Starts a Register Shifter text-mode job and returns jobId without microphone input.
+  Future<Result<String, Failure>> enqueueRegisterShiftFromText({
+    required String rawText,
+    required String examTrack,
     String? topicHint,
   });
 
@@ -542,6 +694,13 @@ abstract interface class LinguisticGateway {
     required Uint8List bytes,
   });
 
+  /// Requests ONE presign call for multiple files and uploads them without API auth headers.
+  Future<Result<List<String>, Failure>> uploadDropMediaBatch({
+    required String dropId,
+    required String mediaKind,
+    required List<DropMediaUploadItem> files,
+  });
+
   /// Enqueues `POST /v1/drop/ingest` returning jobId.
   Future<Result<String, Failure>> enqueueDropIngest({
     required String inputKind,
@@ -559,9 +718,15 @@ abstract interface class LinguisticGateway {
   /// Fetches single drop by ID.
   Future<Result<DroppedContentDto, Failure>> getDropById(String dropId);
 
+  /// Permanently removes a saved study drop and its media (`DELETE /v1/drop/:dropId`).
+  Future<Result<void, Failure>> deleteDrop(String dropId);
+
   /// Polls `GET /v1/jobs/:jobId` for advanced job completion.
   Future<
-    Result<({String status, Map<String, Object?>? advancedResult}), Failure>
+    Result<
+      ({String status, String? stage, Map<String, Object?>? advancedResult}),
+      Failure
+    >
   >
   pollAdvancedJob(String jobId);
 }
@@ -572,6 +737,26 @@ final class HttpLinguisticGateway implements LinguisticGateway {
   const new(this._dio);
 
   final Dio _dio;
+
+  static const Duration _aiRouteTimeout = Duration(
+    microseconds: 35 * Duration.microsecondsPerSecond,
+  );
+
+  @override
+  Future<Result<AdvancedQuotaDto?, Failure>> fetchAdvancedQuota() async {
+    try {
+      final res = await _dio.get<Map<String, Object?>>('/v1/quota/me');
+      final adv = res.data?['advancedQuota'];
+      if (adv is Map<String, Object?>) {
+        return Ok<AdvancedQuotaDto?, Failure>(AdvancedQuotaDto.fromJson(adv));
+      }
+      return const Ok<AdvancedQuotaDto?, Failure>(null);
+    } on DioException catch (e) {
+      return Err<AdvancedQuotaDto?, Failure>(
+        _mapDioFailure(e, 'Failed to load quota'),
+      );
+    }
+  }
 
   Failure _mapDioFailure(DioException e, String fallback) {
     final code = e.response?.statusCode ?? 0;
@@ -648,14 +833,43 @@ final class HttpLinguisticGateway implements LinguisticGateway {
   }
 
   @override
+  Future<Result<DailyMissionSnapshot, Failure>> refreshTodayMission({
+    required String focusTopic,
+    String examTrack = 'ielts_academic',
+  }) async {
+    try {
+      final res = await _dio.post<Map<String, Object?>>(
+        '/v1/missions/today/refresh',
+        data: <String, Object?>{
+          'focusTopic': focusTopic,
+          'examTrack': examTrack,
+        },
+        options: Options(receiveTimeout: _aiRouteTimeout),
+      );
+      return Ok<DailyMissionSnapshot, Failure>(
+        DailyMissionSnapshot.fromJson(res.data ?? const <String, Object?>{}),
+      );
+    } on DioException catch (e) {
+      return Err<DailyMissionSnapshot, Failure>(
+        _mapDioFailure(e, 'Failed to refresh mission'),
+      );
+    }
+  }
+
+  @override
   Future<Result<DailyMissionSnapshot, Failure>> completeMission({
     required String missionId,
     required String responseText,
+    List<String> usedTargetKeys = const <String>[],
   }) async {
     try {
       final res = await _dio.post<Map<String, Object?>>(
         '/v1/missions/$missionId/complete',
-        data: <String, Object?>{'responseText': responseText},
+        data: <String, Object?>{
+          'responseText': responseText,
+          if (usedTargetKeys.isNotEmpty) 'usedTargetKeys': usedTargetKeys,
+        },
+        options: Options(receiveTimeout: _aiRouteTimeout),
       );
       return Ok<DailyMissionSnapshot, Failure>(
         DailyMissionSnapshot.fromJson(res.data ?? const <String, Object?>{}),
@@ -663,6 +877,59 @@ final class HttpLinguisticGateway implements LinguisticGateway {
     } on DioException catch (e) {
       return Err<DailyMissionSnapshot, Failure>(
         _mapDioFailure(e, 'Failed to complete daily mission'),
+      );
+    }
+  }
+
+  @override
+  Future<Result<DailyMissionSnapshot, Failure>> completeMissionWithAudio({
+    required String missionId,
+    required Uint8List audioBytes,
+    required String mimeType,
+    List<String> usedTargetKeys = const <String>[],
+  }) async {
+    try {
+      final presign = await _dio.post<Map<String, Object?>>(
+        '/v1/uploads/presign',
+        data: <String, Object?>{
+          'attemptId': missionId,
+          'partIndex': 3,
+          'byteLength': audioBytes.length,
+          'contentType': mimeType,
+        },
+      );
+      final uploadUrl = '${presign.data?['uploadUrl'] ?? ''}';
+      final objectKey = '${presign.data?['objectKey'] ?? ''}';
+      if (uploadUrl.isEmpty || objectKey.isEmpty) {
+        return const Err<DailyMissionSnapshot, Failure>(
+          NetworkFailure('Presign missing audio slot.'),
+        );
+      }
+      await _dio.put<void>(
+        uploadUrl,
+        data: Stream<List<int>>.fromIterable(<List<int>>[audioBytes]),
+        options: Options(
+          extra: const <String, Object?>{'_skipAuth': true},
+          headers: <String, Object?>{
+            'Content-Type': mimeType,
+            'Content-Length': audioBytes.length,
+          },
+        ),
+      );
+      final res = await _dio.post<Map<String, Object?>>(
+        '/v1/missions/$missionId/complete',
+        data: <String, Object?>{
+          'audioObjectKey': objectKey,
+          if (usedTargetKeys.isNotEmpty) 'usedTargetKeys': usedTargetKeys,
+        },
+        options: Options(receiveTimeout: _aiRouteTimeout),
+      );
+      return Ok<DailyMissionSnapshot, Failure>(
+        DailyMissionSnapshot.fromJson(res.data ?? const <String, Object?>{}),
+      );
+    } on DioException catch (e) {
+      return Err<DailyMissionSnapshot, Failure>(
+        _mapDioFailure(e, 'Failed to complete spoken mission'),
       );
     }
   }
@@ -679,9 +946,37 @@ final class HttpLinguisticGateway implements LinguisticGateway {
       final res = await _dio.post<Map<String, Object?>>(
         '/v1/register-shifter/shift',
         data: <String, Object?>{
+          'inputMode': 'audio',
           'objectKey': objectKey,
           'examTrack': examTrack,
           'durationSeconds': durationSeconds,
+          'topicHint': ?(trimmedHint != null && trimmedHint.isNotEmpty
+              ? trimmedHint
+              : null),
+        },
+      );
+      return Ok<String, Failure>('${res.data?['jobId'] ?? ''}');
+    } on DioException catch (e) {
+      return Err<String, Failure>(
+        _mapDioFailure(e, 'Failed to start Register Shifter'),
+      );
+    }
+  }
+
+  @override
+  Future<Result<String, Failure>> enqueueRegisterShiftFromText({
+    required String rawText,
+    required String examTrack,
+    String? topicHint,
+  }) async {
+    try {
+      final trimmedHint = topicHint?.trim();
+      final res = await _dio.post<Map<String, Object?>>(
+        '/v1/register-shifter/shift',
+        data: <String, Object?>{
+          'inputMode': 'text',
+          'rawText': rawText.trim(),
+          'examTrack': examTrack,
           'topicHint': ?(trimmedHint != null && trimmedHint.isNotEmpty
               ? trimmedHint
               : null),
@@ -713,6 +1008,7 @@ final class HttpLinguisticGateway implements LinguisticGateway {
           'expectedSentence': expectedSentence,
           'targetPhrases': targetPhrases,
         },
+        options: Options(receiveTimeout: _aiRouteTimeout),
       );
       final data = res.data ?? const <String, Object?>{};
       return Ok<({int fluencyScore, List<String> matchedTargets}), Failure>((
@@ -736,45 +1032,83 @@ final class HttpLinguisticGateway implements LinguisticGateway {
     required String contentType,
     required Uint8List bytes,
   }) async {
+    final batch = await uploadDropMediaBatch(
+      dropId: dropId,
+      mediaKind: mediaKind,
+      files: <DropMediaUploadItem>[
+        DropMediaUploadItem(bytes: bytes, contentType: contentType),
+      ],
+    );
+    switch (batch) {
+      case Ok<List<String>, Failure>(value: final keys):
+        return keys.isNotEmpty
+            ? Ok<String, Failure>(keys.first)
+            : const Err<String, Failure>(
+                NetworkFailure('Presign missing upload slot.'),
+              );
+      case Err<List<String>, Failure>(:final failure):
+        return Err<String, Failure>(failure);
+    }
+  }
+
+  @override
+  Future<Result<List<String>, Failure>> uploadDropMediaBatch({
+    required String dropId,
+    required String mediaKind,
+    required List<DropMediaUploadItem> files,
+  }) async {
     try {
       final presignRes = await _dio.post<Map<String, Object?>>(
         '/v1/drop/presign-media',
         data: <String, Object?>{
           'dropId': dropId,
           'mediaKind': mediaKind,
-          'files': <Map<String, Object?>>[
-            <String, Object?>{
-              'contentType': contentType,
-              'byteLength': bytes.length,
-            },
-          ],
+          'files': files
+              .map(
+                (f) => <String, Object?>{
+                  'contentType': f.contentType,
+                  'byteLength': f.bytes.length,
+                },
+              )
+              .toList(growable: false),
         },
       );
       final items =
           (presignRes.data?['items'] as List<Object?>?) ?? const <Object?>[];
-      final first = items.isNotEmpty && items.first is Map<String, Object?>
-          ? items.first! as Map<String, Object?>
-          : null;
-      if (first == null) {
-        return const Err<String, Failure>(
-          NetworkFailure('Presign missing upload slot.'),
+      if (items.length != files.length) {
+        return const Err<List<String>, Failure>(
+          NetworkFailure('Presign count mismatch for uploaded files.'),
         );
       }
-      final uploadUrl = '${first['uploadUrl'] ?? ''}';
-      final objectKey = '${first['objectKey'] ?? ''}';
-      await _dio.put<void>(
-        uploadUrl,
-        data: Stream<List<int>>.fromIterable(<List<int>>[bytes]),
-        options: Options(
-          headers: <String, Object?>{
-            'Content-Type': contentType,
-            'Content-Length': bytes.length,
-          },
-        ),
-      );
-      return Ok<String, Failure>(objectKey);
+      final uploadedKeys = <String>[];
+      for (var i = 0; i < files.length; i += 1) {
+        final rawSlot = items[i];
+        if (rawSlot is! Map<String, Object?>) {
+          return const Err<List<String>, Failure>(
+            NetworkFailure('Invalid presign upload slot.'),
+          );
+        }
+        final uploadUrl = '${rawSlot['uploadUrl'] ?? ''}';
+        final objectKey = '${rawSlot['objectKey'] ?? ''}';
+        final file = files[i];
+        await _dio.put<void>(
+          uploadUrl,
+          data: Stream<List<int>>.fromIterable(<List<int>>[file.bytes]),
+          options: Options(
+            extra: const <String, Object?>{'_skipAuth': true},
+            headers: <String, Object?>{
+              'Content-Type': file.contentType,
+              'Content-Length': file.bytes.length,
+            },
+          ),
+        );
+        uploadedKeys.add(objectKey);
+      }
+      return Ok<List<String>, Failure>(uploadedKeys);
     } on DioException catch (e) {
-      return Err<String, Failure>(_mapDioFailure(e, 'Media upload failed'));
+      return Err<List<String>, Failure>(
+        _mapDioFailure(e, 'Media upload failed'),
+      );
     }
   }
 
@@ -840,8 +1174,21 @@ final class HttpLinguisticGateway implements LinguisticGateway {
   }
 
   @override
+  Future<Result<void, Failure>> deleteDrop(String dropId) async {
+    try {
+      await _dio.delete<void>('/v1/drop/$dropId');
+      return const Ok<void, Failure>(null);
+    } on DioException catch (e) {
+      return Err<void, Failure>(_mapDioFailure(e, 'Failed to delete item'));
+    }
+  }
+
+  @override
   Future<
-    Result<({String status, Map<String, Object?>? advancedResult}), Failure>
+    Result<
+      ({String status, String? stage, Map<String, Object?>? advancedResult}),
+      Failure
+    >
   >
   pollAdvancedJob(String jobId) async {
     try {
@@ -851,19 +1198,85 @@ final class HttpLinguisticGateway implements LinguisticGateway {
           data['advancedResult'] as Map<String, Object?>? ??
           data['result'] as Map<String, Object?>?;
       return Ok<
-        ({String status, Map<String, Object?>? advancedResult}),
+        ({String status, String? stage, Map<String, Object?>? advancedResult}),
         Failure
       >((
         status: '${data['status'] ?? 'queued'}',
+        stage: data['stage'] as String?,
         advancedResult: adv,
       ));
     } on DioException catch (e) {
       return Err<
-        ({String status, Map<String, Object?>? advancedResult}),
+        ({String status, String? stage, Map<String, Object?>? advancedResult}),
         Failure
       >(_mapDioFailure(e, 'Failed to poll job status'));
     }
   }
+}
+
+/// Polls an async Register Shifter or Drop job with progressive backoff up to [timeout].
+Future<Result<T, Failure>> watchAdvancedJobUntilDone<T>(
+  LinguisticGateway gateway, {
+  required String jobId,
+  required T Function(Map<String, Object?> json) parseResult,
+  void Function(String stage)? onStage,
+  bool Function()? isCancelled,
+  Duration timeout = const Duration(
+    microseconds: 90 * Duration.microsecondsPerSecond,
+  ),
+}) async {
+  final sw = Stopwatch()..start();
+  String? lastStage;
+
+  while (sw.elapsed < timeout) {
+    if (isCancelled?.call() ?? false) {
+      return Err<T, Failure>(const ValidationFailure('Cancelled'));
+    }
+    final poll = await gateway.pollAdvancedJob(jobId);
+    if (poll case Err(:final failure)) {
+      return Err<T, Failure>(failure);
+    }
+    final data =
+        (poll
+                as Ok<
+                  ({
+                    String status,
+                    String? stage,
+                    Map<String, Object?>? advancedResult,
+                  }),
+                  Failure
+                >)
+            .value;
+    if (data.stage != null && data.stage != lastStage) {
+      lastStage = data.stage;
+      onStage?.call(data.stage!);
+    }
+    if (data.status == 'completed' && data.advancedResult != null) {
+      return Ok<T, Failure>(parseResult(data.advancedResult!));
+    }
+    if (data.status == 'failed') {
+      return Err<T, Failure>(
+        NetworkFailure(
+          lastStage != null
+              ? 'Processing failed during $lastStage.'
+              : 'Processing failed. Please try again.',
+        ),
+      );
+    }
+    final elapsedMs = sw.elapsedMilliseconds;
+    final delayMs = elapsedMs < 5000
+        ? 800
+        : elapsedMs < 20000
+        ? 1500
+        : 2500;
+    await Future<void>.delayed(Duration(milliseconds: delayMs));
+  }
+
+  return Err<T, Failure>(
+    const NetworkFailure(
+      'Timed out waiting for AI analysis. Check history shortly.',
+    ),
+  );
 }
 
 /// Decodes raw JSON strings stored in Drift cleanly.

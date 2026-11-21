@@ -14,6 +14,7 @@ import 'package:mockza/core/formatting/jalali_edge_formatter.dart';
 import 'package:mockza/core/vocab/serial_day.dart';
 import 'package:mockza/features/settings/presentation/settings_notifier.dart';
 import 'package:mockza/features/settings/presentation/settings_providers.dart';
+import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/routing/routes.dart';
 import 'package:mockza/routing/safe_pop.dart';
 import 'package:mockza/theme/app_colors.dart';
@@ -62,6 +63,13 @@ class SettingsScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
+            _buildSectionHeader(
+              context,
+              isIran ? 'مسیر مطالعه و تمرین' : 'Learning Focus',
+            ),
+            const SizedBox(height: SpacingTokens.sm),
+            _buildStudyFocusCard(context, state, notifier),
+            const SizedBox(height: SpacingTokens.xl),
             _buildSectionHeader(
               context,
               isIran ? 'تنظیمات آزمون و هدف' : 'Exam Calibration',
@@ -289,6 +297,48 @@ class SettingsScreen extends ConsumerWidget {
                 child: Text(isIran ? 'تغییر تاریخ' : 'Set Date'),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStudyFocusCard(
+    BuildContext context,
+    SettingsState state,
+    SettingsNotifier notifier,
+  ) {
+    final l10n = AppLocalizations.of(context);
+    final colors = AppColors.of(context);
+    final typography = AppTypography.of(context);
+    final options = <({String key, String label})>[
+      (key: 'both', label: l10n.learningModeBoth),
+      (key: 'exams', label: l10n.learningModeExams),
+      (key: 'coach', label: l10n.learningModeCoach),
+    ];
+    return MzCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Text(
+            l10n.learningModeSectionSubtitle,
+            style: typography.caption.copyWith(color: colors.textSecondary),
+          ),
+          const SizedBox(height: SpacingTokens.sm),
+          Wrap(
+            spacing: SpacingTokens.xs,
+            runSpacing: SpacingTokens.xs,
+            children: options
+                .map((opt) {
+                  final selected = state.studyFocus == opt.key;
+                  return ChoiceChip(
+                    key: ValueKey<String>('settings_focus_${opt.key}'),
+                    label: Text(opt.label),
+                    selected: selected,
+                    onSelected: (_) => notifier.setStudyFocus(opt.key),
+                  );
+                })
+                .toList(growable: false),
           ),
         ],
       ),

@@ -40,6 +40,9 @@ class UserProfiles extends Table with AuditColumns {
   /// Cached entitlement status mirrored from billing verification.
   BoolColumn get isPro => boolean().withDefault(const Constant(false))();
 
+  /// Learner study focus from onboarding screening (`exams`, `coach`, or `both`).
+  TextColumn get studyFocus => text().withDefault(const Constant('both'))();
+
   @override
   Set<Column<Object>> get primaryKey => {deviceId};
 }
@@ -528,6 +531,12 @@ class LinguisticNodes extends Table {
 
   /// Persian coaching guidance (`irn`).
   TextColumn get coachNoteFa => text().nullable()();
+
+  /// Whether topic interest node is pinned by user.
+  BoolColumn get isPinned => boolean().withDefault(const Constant(false))();
+
+  /// Whether topic interest node is muted/hidden by user.
+  BoolColumn get isMuted => boolean().withDefault(const Constant(false))();
 
   /// Last UTC update epoch millis.
   IntColumn get updatedAtUtcMs => integer()();

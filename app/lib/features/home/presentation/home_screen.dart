@@ -173,44 +173,107 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: SpacingTokens.md),
 
-                RecommendationCard(
-                  ctaLabel: resumeRoute != null
-                      ? l10n.homeResumeAttempt
-                      : needsLevelCheck
-                      ? l10n.homeCheckLevel
-                      : l10n.studyStart,
-                  title: resumeRoute != null
-                      ? l10n.speakingSimTitle
-                      : needsLevelCheck
-                      ? l10n.homeCheckLevel
-                      : state.recommendedTitle,
-                  subtitle: resumeRoute != null
-                      ? l10n.homeResumeDescription
-                      : needsLevelCheck
-                      ? l10n.homeLevelCheckDescription
-                      : state.recommendedSubtitle,
-                  onTapStart: () => context.push(
-                    resumeRoute ??
-                        (needsLevelCheck
-                            ? diagnosticRoute
-                            : state.recommendedRoute),
-                  ),
+                Wrap(
+                  spacing: SpacingTokens.xs,
+                  runSpacing: SpacingTokens.xs,
+                  children: <Widget>[
+                    MzChip(
+                      label: l10n.navPractice,
+                      isSelected: state.studyFocus != 'coach',
+                      onTap: () => context.go(AppRoutes.practice),
+                    ),
+                    MzChip(
+                      label: l10n.navSmartCoach,
+                      isSelected: state.studyFocus == 'coach',
+                      onTap: () => context.go(AppRoutes.coach),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: SpacingTokens.sm),
-                SecondaryButton(
-                  label: l10n.homePractiseSkill,
-                  glyph: LucideGlyph.circlePlay,
-                  onPressed: () => context.go(AppRoutes.practice),
-                ),
-                const SizedBox(height: SpacingTokens.md),
-                MissionProgressCard(
-                  isRtl: isIran,
-                  onStartMission: () =>
-                      context.push(AppRoutes.buildDailyMission()),
-                  onOpenRegisterShifter: () =>
-                      context.push(AppRoutes.registerShifter),
-                  onOpenDropAnything: () => context.push(AppRoutes.dropIngest),
-                ),
+
+                if (state.studyFocus == 'coach') ...<Widget>[
+                  MissionProgressCard(
+                    isRtl: isIran,
+                    onStartMission: () =>
+                        context.push(AppRoutes.buildDailyMission()),
+                    onOpenRegisterShifter: () =>
+                        context.push(AppRoutes.registerShifter),
+                    onOpenDropAnything: () =>
+                        context.push(AppRoutes.dropIngest),
+                    onOpenCoachHub: () => context.go(AppRoutes.coach),
+                  ),
+                  const SizedBox(height: SpacingTokens.md),
+                  RecommendationCard(
+                    ctaLabel: resumeRoute != null
+                        ? l10n.homeResumeAttempt
+                        : needsLevelCheck
+                        ? l10n.homeCheckLevel
+                        : l10n.studyStart,
+                    title: resumeRoute != null
+                        ? l10n.speakingSimTitle
+                        : needsLevelCheck
+                        ? l10n.homeCheckLevel
+                        : state.recommendedTitle,
+                    subtitle: resumeRoute != null
+                        ? l10n.homeResumeDescription
+                        : needsLevelCheck
+                        ? l10n.homeLevelCheckDescription
+                        : state.recommendedSubtitle,
+                    onTapStart: () => context.push(
+                      resumeRoute ??
+                          (needsLevelCheck
+                              ? diagnosticRoute
+                              : state.recommendedRoute),
+                    ),
+                  ),
+                  const SizedBox(height: SpacingTokens.sm),
+                  SecondaryButton(
+                    label: l10n.homePractiseSkill,
+                    glyph: LucideGlyph.circlePlay,
+                    onPressed: () => context.go(AppRoutes.practice),
+                  ),
+                ] else ...<Widget>[
+                  RecommendationCard(
+                    ctaLabel: resumeRoute != null
+                        ? l10n.homeResumeAttempt
+                        : needsLevelCheck
+                        ? l10n.homeCheckLevel
+                        : l10n.studyStart,
+                    title: resumeRoute != null
+                        ? l10n.speakingSimTitle
+                        : needsLevelCheck
+                        ? l10n.homeCheckLevel
+                        : state.recommendedTitle,
+                    subtitle: resumeRoute != null
+                        ? l10n.homeResumeDescription
+                        : needsLevelCheck
+                        ? l10n.homeLevelCheckDescription
+                        : state.recommendedSubtitle,
+                    onTapStart: () => context.push(
+                      resumeRoute ??
+                          (needsLevelCheck
+                              ? diagnosticRoute
+                              : state.recommendedRoute),
+                    ),
+                  ),
+                  const SizedBox(height: SpacingTokens.sm),
+                  SecondaryButton(
+                    label: l10n.homePractiseSkill,
+                    glyph: LucideGlyph.circlePlay,
+                    onPressed: () => context.go(AppRoutes.practice),
+                  ),
+                  const SizedBox(height: SpacingTokens.md),
+                  MissionProgressCard(
+                    isRtl: isIran,
+                    onStartMission: () =>
+                        context.push(AppRoutes.buildDailyMission()),
+                    onOpenRegisterShifter: () =>
+                        context.push(AppRoutes.registerShifter),
+                    onOpenDropAnything: () =>
+                        context.push(AppRoutes.dropIngest),
+                    onOpenCoachHub: () => context.go(AppRoutes.coach),
+                  ),
+                ],
                 const SizedBox(height: SpacingTokens.lg),
 
                 // Metric Hero Card

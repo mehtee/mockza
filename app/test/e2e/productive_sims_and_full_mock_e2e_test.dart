@@ -17,7 +17,7 @@ void main() {
       final practice = PracticeAndSimsRobot(harness);
 
       // 1. Writing Simulator -> submit -> AI Rubric Review
-      await shell.openTab(tester, 'Practice');
+      await shell.openTab(tester, 'Exams');
       await practice.selectPracticeMode(tester, examMode: false);
       await practice.openSimulator(tester, 'Writing Simulator');
       await practice.completeWritingSimToAiReview(tester);
@@ -26,7 +26,7 @@ void main() {
       // Return to Practice Hub for Speaking Simulator
       await harness.scrollToAndTap(tester, find.text('Practice Again'));
       await harness.pumpFrames(tester, count: 6);
-      await shell.openTab(tester, 'Practice');
+      await shell.openTab(tester, 'Exams');
       await practice.openSimulator(tester, 'Speaking Simulator');
       await practice.completeSpeakingSimToAiReview(tester);
       harness.expectNoOverflow(tester);
@@ -34,7 +34,7 @@ void main() {
       // Return to Practice Hub and open Full Mock 5-stage planner
       await harness.scrollToAndTap(tester, find.text('Practice Again'));
       await harness.pumpFrames(tester, count: 6);
-      await shell.openTab(tester, 'Practice');
+      await shell.openTab(tester, 'Exams');
       await practice.openAndVerifyFullMockPlanner(tester);
       harness.expectNoOverflow(tester);
 

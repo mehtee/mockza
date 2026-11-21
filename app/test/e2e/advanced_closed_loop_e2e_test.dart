@@ -78,6 +78,24 @@ void _attachClosedLoopApiMock(E2eAppHarness harness, {required bool isRtl}) {
             Response<void>(requestOptions: options, statusCode: 200),
           );
         }
+        if (path == '/v1/quota/me') {
+          return handler.resolve(
+            Response<Map<String, Object?>>(
+              requestOptions: options,
+              statusCode: 200,
+              data: <String, Object?>{
+                'advancedQuota': <String, Object?>{
+                  'isPro': true,
+                  'freeSampleUsed': false,
+                  'shifterRemainingToday': 9,
+                  'dropsRemainingToday': 9,
+                  'audioDropAllowed': true,
+                  'monthlyRemaining': 149,
+                },
+              },
+            ),
+          );
+        }
         if (path == '/v1/missions/today') {
           return handler.resolve(
             Response<Map<String, Object?>>(
@@ -299,9 +317,12 @@ void main() {
 
       await harness.mountApp(tester, surfaceSize: const Size(412, 915));
 
-      // 1. Home renders MissionProgressCard and opens Daily Mission.
-      await harness.scrollToAndTap(tester, find.text('Start 10-Min Mission'));
-      expect(find.text('10-Min Daily Mission'), findsOneWidget);
+      // 1. Home renders MissionProgressCard (Today's 10-Min Coach) and opens Daily Mission.
+      await harness.scrollToAndTap(
+        tester,
+        find.text('Start 10-Min Session'),
+      );
+      expect(find.text("Today's 10-Min Coach"), findsOneWidget);
       expect(find.text('Tactical AI & Football Transfer'), findsOneWidget);
 
       await tester.enterText(
@@ -317,8 +338,8 @@ void main() {
         findsOneWidget,
       );
 
-      // 2. Navigate to Linguistic Graph from Daily Mission AppBar.
-      await tester.tap(find.byTooltip('Linguistic Graph'));
+      // 2. Navigate to My Weak Spots from Daily Mission AppBar.
+      await tester.tap(find.byTooltip('My Weak Spots'));
       await harness.pumpFrames(tester);
       expect(
         find.textContaining('Overuses generic "good/bad"'),
@@ -331,8 +352,8 @@ void main() {
       await tester.pageBack();
       await harness.pumpFrames(tester);
 
-      // 3. Open Register Shifter from Home, record, stop, inspect gears & verify repeat.
-      await harness.scrollToAndTap(tester, find.text('Register Shifter'));
+      // 3. Open Upgrade My Speaking from Home, record, stop, inspect gears & verify repeat.
+      await harness.scrollToAndTap(tester, find.text('Upgrade Speaking'));
       await tester.tap(
         find.byKey(const ValueKey<String>('shifter_record_btn')),
       );
@@ -349,15 +370,22 @@ void main() {
         findsOneWidget,
       );
 
-      await harness.scrollToAndTap(tester, find.text('Gear 0 · Casual'));
+      await harness.scrollToAndTap(tester, find.text('Everyday · Casual'));
       expect(
         find.text('This movie was really good and had cool tech scenes.'),
         findsOneWidget,
       );
 
-      await harness.scrollToAndTap(tester, find.text('Save to SM-2').first);
-      expect(find.text('Saved to SM-2'), findsOneWidget);
+      await harness.scrollToAndTap(
+        tester,
+        find.text('Save to Vocab Deck').first,
+      );
+      expect(find.text('Saved to Vocab Deck'), findsOneWidget);
 
+      await harness.scrollToAndTap(
+        tester,
+        find.byKey(const ValueKey<String>('shifter_verify_repeat_btn')),
+      );
       await harness.scrollToAndTap(
         tester,
         find.byKey(const ValueKey<String>('shifter_verify_repeat_btn')),
@@ -370,8 +398,8 @@ void main() {
       await tester.pageBack();
       await harness.pumpFrames(tester);
 
-      // 4. Open Drop Anything, test blocked YouTube URL preflight, then submit text snippet.
-      await harness.scrollToAndTap(tester, find.text('Drop Anything'));
+      // 4. Open Learn From Anything, test blocked YouTube URL preflight, then submit text snippet.
+      await harness.scrollToAndTap(tester, find.text('Learn From Anything'));
       await tester.enterText(
         find.byKey(const ValueKey<String>('drop_url_field')),
         'https://youtube.com/watch?v=dQw4w9WgXcQ',
@@ -397,13 +425,33 @@ void main() {
       );
       await harness.pumpFrames(tester, count: 6);
 
-      // Lands on 2-Min Micro-Drill screen with LtrExamBoundary & 1-tap SM-2 capture.
+      // Lands on 2-Min Micro-Drill screen with LtrExamBoundary, 1-tap Vocab Deck capture, MCQ & Cloze recall.
       expect(find.text('Why Tactical Pressing Wins Matches'), findsOneWidget);
       await harness.scrollToAndTap(
         tester,
         find.byKey(const ValueKey<String>('save_drop_albeit')),
       );
-      expect(find.text('Saved to SM-2'), findsOneWidget);
+      expect(find.text('Saved to Vocab Deck'), findsOneWidget);
+      await harness.scrollToAndTap(
+        tester,
+        find.text('Significant physical fatigue in late minutes'),
+      );
+      expect(
+        find.byKey(const ValueKey<String>('drop_mcq_feedback')),
+        findsOneWidget,
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('drop_cloze_field')),
+        'albeit',
+      );
+      await harness.scrollToAndTap(
+        tester,
+        find.byKey(const ValueKey<String>('drop_cloze_check_btn')),
+      );
+      expect(
+        find.byKey(const ValueKey<String>('drop_cloze_feedback')),
+        findsOneWidget,
+      );
     },
   );
 
@@ -419,9 +467,12 @@ void main() {
 
       await harness.mountApp(tester, surfaceSize: const Size(430, 900));
 
-      expect(find.text('مأموریت ۱۰ دقیقه‌ای امروز'), findsOneWidget);
-      await harness.scrollToAndTap(tester, find.text('شروع مأموریت روزانه'));
-      expect(find.text('مأموریت روزانه ۱۰ دقیقه‌ای'), findsOneWidget);
+      expect(find.text('مربی ۱۰ دقیقه‌ای امروز'), findsOneWidget);
+      await harness.scrollToAndTap(
+        tester,
+        find.text('شروع تمرین ۱۰ دقیقه‌ای'),
+      );
+      expect(find.text('مربی ۱۰ دقیقه‌ای امروز'), findsOneWidget);
       expect(
         Directionality.of(
           tester.element(
@@ -450,6 +501,49 @@ void main() {
       expect(received, hasLength(1));
       expect(received.single.kind, 'url');
       expect(received.single.textOrUrl, 'https://arxiv.org/abs/2501.00001');
+    },
+  );
+
+  testWidgets(
+    'E2E 9: Onboarding Exams vs Smart Coach screening prioritizes Home and opens dedicated Coach tab',
+    (tester) async {
+      final harness = E2eAppHarness.create();
+      addTearDown(() => harness.dispose(tester));
+      _attachClosedLoopApiMock(harness, isRtl: false);
+
+      await harness.mountApp(tester, surfaceSize: const Size(412, 915));
+
+      // Step 0: Advance from Welcome to Goal Setup & Screening.
+      await harness.scrollToAndTap(tester, find.text('Continue'));
+
+      // Step 1: Select Smart Coach focus card + 1-tap topic chip and complete onboarding.
+      await harness.scrollToAndTap(
+        tester,
+        find.byKey(const ValueKey<String>('onboarding_focus_coach')),
+      );
+      await harness.scrollToAndTap(
+        tester,
+        find.byKey(const ValueKey<String>('onboarding_topic_technology_ai')),
+      );
+      await harness.scrollToAndTap(tester, find.text('Get Started'));
+      await harness.pumpFrames(tester, count: 6);
+
+      // Launches directly into Today's 10-Min Coach, with CoachHubScreen + NavigationBar on back.
+      expect(
+        find.byKey(const ValueKey<String>('mission_response_field')),
+        findsOneWidget,
+      );
+      await tester.pageBack();
+      await harness.pumpFrames(tester, count: 6);
+      expect(
+        find.byKey(const ValueKey<String>('coach_start_daily_btn')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('coach_upgrade_speaking_tile')),
+        findsOneWidget,
+      );
+      harness.expectNoOverflow(tester);
     },
   );
 }
