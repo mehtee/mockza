@@ -485,3 +485,120 @@ export const billingOrders = pgTable(
     index('idx_billing_orders_device').on(table.deviceId, table.createdAt),
   ],
 );
+
+export const linguisticNodes = pgTable(
+  'linguistic_nodes',
+  {
+    nodeId: uuid('node_id').primaryKey(),
+    accountKey: text('account_key').notNull(),
+    edition: text('edition').notNull(),
+    nodeKind: text('node_kind').notNull(), // 'bottleneck' | 'target_structure' | 'interest_topic'
+    canonicalKey: text('canonical_key').notNull(),
+    displayLabelEn: text('display_label_en').notNull(),
+    displayLabelFa: text('display_label_fa'),
+    masteryScoreMilli: integer('mastery_score_milli').default(400).notNull(),
+    signalWeightMilli: integer('signal_weight_milli').default(500).notNull(),
+    evidenceCount: integer('evidence_count').default(1).notNull(),
+    firstSeenDaySerial: integer('first_seen_day_serial').notNull(),
+    lastSeenDaySerial: integer('last_seen_day_serial').notNull(),
+    lastExampleEn: text('last_example_en'),
+    coachNoteEn: text('coach_note_en'),
+    coachNoteFa: text('coach_note_fa'),
+    isPinned: boolean('is_pinned').default(false).notNull(),
+    isMuted: boolean('is_muted').default(false).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('idx_linguistic_nodes_unique').on(
+      table.accountKey,
+      table.edition,
+      table.nodeKind,
+      table.canonicalKey,
+    ),
+    index('idx_linguistic_nodes_account').on(table.accountKey, table.edition, table.nodeKind),
+  ],
+);
+
+export const linguisticEvidenceEvents = pgTable(
+  'linguistic_evidence_events',
+  {
+    eventId: uuid('event_id').primaryKey(),
+    accountKey: text('account_key').notNull(),
+    edition: text('edition').notNull(),
+    nodeId: uuid('node_id')
+      .notNull()
+      .references(() => linguisticNodes.nodeId, { onDelete: 'cascade' }),
+    sourceKind: text('source_kind').notNull(), // 'writing' | 'speaking' | 'diagnostic' | 'register_shifter' | 'drop_anything' | 'mission'
+    sourceRefId: text('source_ref_id').notNull(),
+    observedPolarity: text('observed_polarity').notNull(), // 'gap_observed' | 'target_used' | 'interest_matched'
+    excerptText: text('excerpt_text'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('idx_linguistic_events_account_created').on(
+      table.accountKey,
+      table.edition,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const dailyMissions = pgTable(
+  'daily_missions',
+  {
+    missionId: uuid('mission_id').primaryKey(),
+    accountKey: text('account_key').notNull(),
+    edition: text('edition').notNull(),
+    examTrack: text('exam_track').default('ielts_academic').notNull(),
+    missionDaySerial: integer('mission_day_serial').notNull(),
+    status: text('status').default('ready').notNull(), // 'ready' | 'in_progress' | 'completed' | 'skipped'
+    targetNodeKeysJson: jsonb('target_node_keys_json').$type<string[]>().default([]).notNull(),
+    dueCardIdsJson: jsonb('due_card_ids_json').$type<string[]>().default([]).notNull(),
+    focusTopic: text('focus_topic').notNull(),
+    missionPayloadJson: jsonb('mission_payload_json').$type<Record<string, unknown>>().notNull(),
+    evaluationResultJson: jsonb('evaluation_result_json').$type<Record<string, unknown>>(),
+    modelId: text('model_id').notNull(),
+    promptVersion: text('prompt_version').notNull(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('idx_daily_missions_account_day').on(
+      table.accountKey,
+      table.edition,
+      table.missionDaySerial,
+    ),
+  ],
+);
+
+export const droppedContents = pgTable(
+  'dropped_contents',
+  {
+    dropId: uuid('drop_id').primaryKey(),
+    accountKey: text('account_key').notNull(),
+    edition: text('edition').notNull(),
+    inputKind: text('input_kind').notNull(), // 'text_url' | 'text' | 'image' | 'audio'
+    sourceRefHash: text('source_ref_hash').notNull(),
+    sourceDomainOrLabel: text('source_domain_or_label').notNull(),
+    title: text('title').notNull(),
+    cefrEstimate: text('cefr_estimate').default('B2').notNull(),
+    detectedTopicsJson: jsonb('detected_topics_json').$type<string[]>().default([]).notNull(),
+    extractedPhrasesJson: jsonb('extracted_phrases_json')
+      .$type<Array<Record<string, unknown>>>()
+      .default([])
+      .notNull(),
+    drillPayloadJson: jsonb('drill_payload_json').$type<Record<string, unknown>>().notNull(),
+    mediaObjectKeysJson: jsonb('media_object_keys_json').$type<string[]>().default([]).notNull(),
+    mediaPurgedAt: timestamp('media_purged_at', { withTimezone: true }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('idx_dropped_contents_account_created').on(
+      table.accountKey,
+      table.edition,
+      table.createdAt,
+    ),
+    index('idx_dropped_contents_expires').on(table.expiresAt),
+  ],
+);

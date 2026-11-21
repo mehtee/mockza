@@ -39,8 +39,9 @@ COPY pubspec.yaml pubspec.lock l10n.yaml analysis_options.yaml ./
 COPY lib/l10n ./lib/l10n
 RUN flutter pub get
 
-# Stage 3: Copy application source and ensure l10n codegen is up to date
+# Stage 3: Copy application source, bundled fonts/assets, and ensure l10n codegen is up to date
 FROM deps AS source
+COPY assets ./assets
 COPY lib ./lib
 COPY test ./test
 COPY web ./web
@@ -56,6 +57,12 @@ FROM source AS web-builder
 ARG MOCKZA_EDITION=global
 ARG MOCKZA_API_BASE_URL=
 RUN TARGET_FILE="lib/main_${MOCKZA_EDITION}.dart"; \
+    if [ "${MOCKZA_EDITION}" = "iran" ]; then \
+      cp web/index.iran.html web/index.html && \
+      cp web/manifest.iran.json web/manifest.json && \
+      cp web/flutter_bootstrap.iran.js web/flutter_bootstrap.js && \
+      cp web/favicon.iran.png web/favicon.png; \
+    fi && \
     flutter build web --release \
       -t "$TARGET_FILE" \
       --no-wasm-dry-run \

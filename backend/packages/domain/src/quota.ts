@@ -154,3 +154,151 @@ export function hasRemainingQuota(params: {
     skill: params.skill,
   }).allowed;
 }
+
+export const PRO_DAILY_SHIFTER_QUOTA = 5;
+export const PRO_DAILY_DROP_QUOTA = 5;
+export const PRO_DAILY_DROP_AUDIO_QUOTA = 3;
+
+export type AdvancedQuotaFeature = 'register_shifter' | 'drop_text_image' | 'drop_audio';
+
+export interface AdvancedQuotaParams {
+  feature: AdvancedQuotaFeature;
+  isPro: boolean;
+  freeSampleUsed: boolean;
+  speakingUsedToday: number;
+  shifterUsedToday: number;
+  dropsUsedToday: number;
+  audioDropsUsedToday: number;
+  monthlyUsed: number;
+  edition: 'glb' | 'irn';
+}
+
+export interface AdvancedQuotaResult {
+  allowed: boolean;
+  reason?:
+    | 'free_sample_used'
+    | 'pro_required_for_audio_drop'
+    | 'daily_shifter_quota_exceeded'
+    | 'daily_speaking_quota_exceeded'
+    | 'daily_drop_quota_exceeded'
+    | 'daily_audio_drop_quota_exceeded'
+    | 'monthly_quota_exceeded';
+  shifterRemaining: number;
+  dropsRemaining: number;
+  monthlyRemaining: number;
+}
+
+/**
+ * Evaluates Register Shifter & Drop Anything allowances preserving 10+10/day
+ * and 150/mo (GLB) / 120/mo (IRN) unit-economics ceilings (advanced_plan.md Sec. 2.5).
+ */
+export function evaluateAdvancedFeatureQuota(
+  params: AdvancedQuotaParams,
+): AdvancedQuotaResult {
+  const monthlyCap = params.edition === 'irn' ? 120 : PRO_MONTHLY_TOTAL_QUOTA;
+  const monthlyRemaining = Math.max(0, monthlyCap - params.monthlyUsed);
+
+  if (!params.isPro) {
+    if (params.feature === 'drop_audio') {
+      return {
+        allowed: false,
+        reason: 'pro_required_for_audio_drop',
+        shifterRemaining: 0,
+        dropsRemaining: 0,
+        monthlyRemaining: 0,
+      };
+    }
+    const allowed = !params.freeSampleUsed;
+    return {
+      allowed,
+      reason: allowed ? undefined : 'free_sample_used',
+      shifterRemaining: params.feature === 'register_shifter' && allowed ? 1 : 0,
+      dropsRemaining: params.feature === 'drop_text_image' && allowed ? 1 : 0,
+      monthlyRemaining: allowed ? 1 : 0,
+    };
+  }
+
+  const shifterRemaining = Math.max(
+    0,
+    Math.min(
+      PRO_DAILY_SHIFTER_QUOTA - params.shifterUsedToday,
+      PRO_DAILY_SPEAKING_QUOTA - params.speakingUsedToday,
+    ),
+  );
+  const dropsRemaining = Math.max(0, PRO_DAILY_DROP_QUOTA - params.dropsUsedToday);
+
+  if (monthlyRemaining <= 0) {
+    return {
+      allowed: false,
+      reason: 'monthly_quota_exceeded',
+      shifterRemaining,
+      dropsRemaining,
+      monthlyRemaining: 0,
+    };
+  }
+
+  if (params.feature === 'register_shifter') {
+    if (params.speakingUsedToday >= PRO_DAILY_SPEAKING_QUOTA) {
+      return {
+        allowed: false,
+        reason: 'daily_speaking_quota_exceeded',
+        shifterRemaining: 0,
+        dropsRemaining,
+        monthlyRemaining,
+      };
+    }
+    if (params.shifterUsedToday >= PRO_DAILY_SHIFTER_QUOTA) {
+      return {
+        allowed: false,
+        reason: 'daily_shifter_quota_exceeded',
+        shifterRemaining: 0,
+        dropsRemaining,
+        monthlyRemaining,
+      };
+    }
+    return {
+      allowed: true,
+      shifterRemaining,
+      dropsRemaining,
+      monthlyRemaining,
+    };
+  }
+
+  if (params.dropsUsedToday >= PRO_DAILY_DROP_QUOTA) {
+    return {
+      allowed: false,
+      reason: 'daily_drop_quota_exceeded',
+      shifterRemaining,
+      dropsRemaining: 0,
+      monthlyRemaining,
+    };
+  }
+
+  if (params.feature === 'drop_audio') {
+    if (params.speakingUsedToday >= PRO_DAILY_SPEAKING_QUOTA) {
+      return {
+        allowed: false,
+        reason: 'daily_speaking_quota_exceeded',
+        shifterRemaining,
+        dropsRemaining,
+        monthlyRemaining,
+      };
+    }
+    if (params.audioDropsUsedToday >= PRO_DAILY_DROP_AUDIO_QUOTA) {
+      return {
+        allowed: false,
+        reason: 'daily_audio_drop_quota_exceeded',
+        shifterRemaining,
+        dropsRemaining,
+        monthlyRemaining,
+      };
+    }
+  }
+
+  return {
+    allowed: true,
+    shifterRemaining,
+    dropsRemaining,
+    monthlyRemaining,
+  };
+}

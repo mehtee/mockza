@@ -63,6 +63,13 @@ export const ApiErrorCodeSchema = z.enum([
   'billing_unavailable',
   'provider_not_configured',
   'erasure_incomplete',
+  'feature_disabled',
+  'UNSUPPORTED_DROP_SOURCE',
+  'SSRF_BLOCKED_HOST',
+  'INVALID_DROP_URL',
+  'INVALID_DROP_TEXT',
+  'INVALID_DROP_IMAGE',
+  'DROP_AUDIO_TOO_LONG',
   'not_found',
   'internal_error',
 ]);
@@ -552,6 +559,7 @@ export const JobStatusResponseSchema = z
     ]),
     stage: z.string().optional(),
     result: EvaluationOutputSchema.optional(),
+    advancedResult: z.record(z.string(), z.unknown()).optional(),
     errorCode: z.string().optional(),
     quotaRefunded: z.boolean().optional(),
     createdAt: z.string(),
@@ -588,6 +596,15 @@ export const ZarinpalVerifySchema = z
     status: z.string().trim().min(1).max(16).optional(),
   })
   .openapi('ZarinpalVerify');
+
+export const IranStoreVerifySchema = z
+  .object({
+    planId: z.string().min(1).max(64),
+    productId: z.string().min(1).max(128),
+    purchaseToken: z.string().trim().min(4).max(512),
+    acceptedSingleDevicePerSlotTos: z.literal(true),
+  })
+  .openapi('IranStoreVerify');
 
 export const GlbCheckoutRequestSchema = z
   .object({
@@ -1037,3 +1054,257 @@ export const DiagnosticSessionResponseSchema = z
     }),
   })
   .openapi('DiagnosticSessionResponse');
+
+// ============================================================================
+// Phase A0-A5 Closed-Loop Linguistic Engine Contracts
+// ============================================================================
+
+export const LinguisticNodeKindSchema = z.enum([
+  'bottleneck',
+  'target_structure',
+  'interest_topic',
+]);
+
+export const LinguisticNodeDtoSchema = z
+  .object({
+    nodeId: z.string().uuid(),
+    edition: z.enum(['glb', 'irn']),
+    nodeKind: LinguisticNodeKindSchema,
+    canonicalKey: z.string().min(1).max(128),
+    displayLabelEn: z.string().min(1).max(160),
+    displayLabelFa: z.string().max(160).nullable().optional(),
+    masteryScoreMilli: z.number().int().min(0).max(1000),
+    signalWeightMilli: z.number().int().min(0).max(1000),
+    evidenceCount: z.number().int().nonnegative(),
+    lastSeenDaySerial: z.number().int().nonnegative(),
+    lastExampleEn: z.string().max(300).nullable().optional(),
+    coachNoteEn: z.string().max(400).nullable().optional(),
+    coachNoteFa: z.string().max(400).nullable().optional(),
+    isPinned: z.boolean().default(false),
+    isMuted: z.boolean().default(false),
+  })
+  .openapi('LinguisticNodeDto');
+
+export const LinguisticGraphResponseSchema = z
+  .object({
+    bottlenecks: z.array(LinguisticNodeDtoSchema),
+    targetStructures: z.array(LinguisticNodeDtoSchema),
+    interestTopics: z.array(LinguisticNodeDtoSchema),
+    totalEvidenceCount: z.number().int().nonnegative(),
+  })
+  .openapi('LinguisticGraphResponse');
+
+export const UpdateGraphInterestsRequestSchema = z
+  .object({
+    pinTopics: z.array(z.string().trim().min(2).max(80)).max(10).default([]),
+    muteTopics: z.array(z.string().trim().min(2).max(80)).max(20).default([]),
+  })
+  .openapi('UpdateGraphInterestsRequest');
+
+export const DailyMissionPayloadSchema = z.object({
+  estimatedSeconds: z.number().int().min(60).max(900).default(600),
+  warmupCardIds: z.array(z.string()).max(5),
+  forcedTargets: z.array(
+    z.object({
+      canonicalKey: z.string(),
+      phraseEn: z.string(),
+      hintEn: z.string(),
+      hintFa: z.string().nullable().optional(),
+    }),
+  ),
+  promptTitle: z.string(),
+  promptTextEn: z.string(),
+  promptTextFa: z.string().nullable().optional(),
+  responseMode: z.enum(['writing', 'speaking']),
+});
+
+export const DailyMissionResponseSchema = z
+  .object({
+    missionId: z.string().uuid(),
+    edition: z.enum(['glb', 'irn']),
+    examTrack: z.string(),
+    missionDaySerial: z.number().int(),
+    status: z.enum(['ready', 'in_progress', 'completed', 'skipped']),
+    focusTopic: z.string(),
+    payload: DailyMissionPayloadSchema,
+    evaluationResult: z
+      .object({
+        matchedTargets: z.array(z.string()),
+        feedbackEn: z.string(),
+        feedbackFa: z.string().nullable().optional(),
+        clarityScore1To5: z.number().int().min(1).max(5),
+      })
+      .nullable()
+      .optional(),
+  })
+  .openapi('DailyMissionResponse');
+
+export const CompleteDailyMissionRequestSchema = z
+  .object({
+    responseText: z.string().trim().min(10).max(4000).optional(),
+    audioObjectKey: z.string().min(5).max(500).optional(),
+  })
+  .openapi('CompleteDailyMissionRequest');
+
+export const RegisterShifterRequestSchema = z
+  .object({
+    objectKey: z.string().min(5).max(500),
+    examTrack: z.string().default('ielts_academic'),
+    topicHint: z.string().max(120).optional(),
+    durationSeconds: z.number().min(5).max(45),
+  })
+  .openapi('RegisterShifterRequest');
+
+export const RegisterShiftHighlightSchema = z.object({
+  casualPhrase: z.string(),
+  upgradedPhrase: z.string(),
+  targetGear: z.enum(['workplace', 'academic']),
+  whyEn: z.string(),
+  whyFa: z.string().nullable().optional(),
+});
+
+export const RegisterShifterResultSchema = z
+  .object({
+    runId: z.string().uuid(),
+    examTrack: z.string(),
+    sourceTranscript: z.string(),
+    gears: z.object({
+      casual: z.string(),
+      workplace: z.string(),
+      academic: z.string(),
+    }),
+    shiftHighlights: z.array(RegisterShiftHighlightSchema).max(4),
+    repeatAloudTarget: z.object({
+      gearLevel: z.union([z.literal(1), z.literal(2)]),
+      targetSentence: z.string(),
+      targetPhrases: z.array(z.string()).min(1).max(4),
+    }),
+  })
+  .openapi('RegisterShifterResult');
+
+export const VerifyRepeatAloudRequestSchema = z
+  .object({
+    objectKey: z.string().min(5).max(500),
+    gearLevel: z.union([z.literal(1), z.literal(2)]),
+    expectedSentence: z.string().min(3).max(500),
+    targetPhrases: z.array(z.string().min(1).max(120)).min(1).max(4),
+  })
+  .openapi('VerifyRepeatAloudRequest');
+
+export const VerifyRepeatAloudResponseSchema = z
+  .object({
+    runId: z.string().uuid(),
+    matchedTargets: z.array(z.string()),
+    meaningPreserved: z.boolean(),
+    fluencyScore1To5: z.number().int().min(1).max(5),
+    graphUpdated: z.boolean(),
+  })
+  .openapi('VerifyRepeatAloudResponse');
+
+export const DropInputKindSchema = z.enum(['text_url', 'text', 'image', 'audio']);
+
+export const DropPresignMediaRequestSchema = z
+  .object({
+    dropId: z.string().uuid(),
+    mediaKind: z.enum(['image', 'audio']),
+    files: z
+      .array(
+        z.object({
+          contentType: z.enum([
+            'image/png',
+            'image/jpeg',
+            'image/webp',
+            'audio/mp4',
+            'audio/mpeg',
+            'audio/wav',
+            'audio/ogg',
+            'audio/webm',
+          ]),
+          byteLength: z.number().int().positive().max(5 * 1024 * 1024),
+        }),
+      )
+      .min(1)
+      .max(4),
+  })
+  .openapi('DropPresignMediaRequest');
+
+export const DropPresignMediaResponseSchema = z
+  .object({
+    dropId: z.string().uuid(),
+    items: z.array(
+      z.object({
+        objectKey: z.string(),
+        uploadUrl: z.string(),
+        expiresInSeconds: z.number().int(),
+      }),
+    ),
+  })
+  .openapi('DropPresignMediaResponse');
+
+export const DropIngestRequestSchema = z
+  .discriminatedUnion('inputKind', [
+    z.object({
+      inputKind: z.literal('text_url'),
+      sourceUrl: z.string().url().max(2048),
+      examTrack: z.string().default('ielts_academic'),
+    }),
+    z.object({
+      inputKind: z.literal('text'),
+      rawText: z.string().min(40).max(15_000),
+      sourceLabel: z.string().max(160).optional(),
+      examTrack: z.string().default('ielts_academic'),
+    }),
+    z.object({
+      inputKind: z.literal('image'),
+      imageObjectKeys: z.array(z.string().min(5).max(500)).min(1).max(4).optional(),
+      imageUrls: z.array(z.string().url().max(2048)).min(1).max(4).optional(),
+      examTrack: z.string().default('ielts_academic'),
+    }),
+    z.object({
+      inputKind: z.literal('audio'),
+      audioObjectKey: z.string().min(5).max(500).optional(),
+      audioUrl: z.string().url().max(2048).optional(),
+      durationSeconds: z.number().positive().max(180),
+      examTrack: z.string().default('ielts_academic'),
+    }),
+  ])
+  .openapi('DropIngestRequest');
+
+export const DroppedPhraseDtoSchema = z.object({
+  headword: z.string(),
+  ipa: z.string().nullable().optional(),
+  definitionEn: z.string(),
+  glossFa: z.string().nullable().optional(),
+  exampleSentence: z.string(),
+  startUtf16: z.number().int().nonnegative().nullable().optional(),
+  endUtf16: z.number().int().nonnegative().nullable().optional(),
+});
+
+export const DroppedContentResponseSchema = z
+  .object({
+    dropId: z.string().uuid(),
+    edition: z.enum(['glb', 'irn']),
+    inputKind: DropInputKindSchema,
+    sourceDomainOrLabel: z.string(),
+    title: z.string(),
+    cefrEstimate: z.string(),
+    detectedTopics: z.array(z.string()),
+    extractedPhrases: z.array(DroppedPhraseDtoSchema),
+    drillPayload: z.object({
+      comprehensionPrompt: z.string(),
+      comprehensionOptions: z.array(z.string()).min(2).max(4),
+      correctOptionIndex: z.number().int().nonnegative(),
+      clozeSentence: z.string(),
+      clozeAnswer: z.string(),
+      shadowingPrompt: z.string(),
+    }),
+    createdAt: z.string(),
+  })
+  .openapi('DroppedContentResponse');
+
+export const DropHistoryResponseSchema = z
+  .object({
+    items: z.array(DroppedContentResponseSchema),
+    nextCursor: z.string().nullable(),
+  })
+  .openapi('DropHistoryResponse');

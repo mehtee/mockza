@@ -11,6 +11,7 @@ import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/empty_state.dart';
+import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
@@ -146,22 +147,29 @@ class VocabWordDetailScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: SpacingTokens.md),
-          Text(
-            card.headword,
-            style: typography.sectionHeading.copyWith(
-              color: colors.textPrimary,
+          LtrExamBoundary(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  card.headword,
+                  style: typography.sectionHeading.copyWith(
+                    color: colors.textPrimary,
+                  ),
+                ),
+                if (card.ipa != null) ...<Widget>[
+                  const SizedBox(height: SpacingTokens.xs),
+                  Text(
+                    card.ipa!,
+                    style: typography.body.copyWith(
+                      color: colors.textSecondary,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
-          if (card.ipa != null) ...<Widget>[
-            const SizedBox(height: SpacingTokens.xs),
-            Text(
-              card.ipa!,
-              style: typography.body.copyWith(
-                color: colors.textSecondary,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -179,12 +187,25 @@ class VocabWordDetailScreen extends ConsumerWidget {
             'Definition',
             style: typography.caption.copyWith(color: colors.textSecondary),
           ),
+          if (card.glossFa != null &&
+              card.glossFa!.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(height: SpacingTokens.xs),
+            Text(
+              card.glossFa!.trim(),
+              style: typography.cardTitle.copyWith(
+                color: colors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
           const SizedBox(height: SpacingTokens.xs),
-          Text(
-            card.definition,
-            style: typography.body.copyWith(
-              color: colors.textPrimary,
-              height: 1.45,
+          LtrExamBoundary(
+            child: Text(
+              card.definition,
+              style: typography.body.copyWith(
+                color: colors.textPrimary,
+                height: 1.45,
+              ),
             ),
           ),
         ],
@@ -205,12 +226,14 @@ class VocabWordDetailScreen extends ConsumerWidget {
             style: typography.caption.copyWith(color: colors.textSecondary),
           ),
           const SizedBox(height: SpacingTokens.xs),
-          Text(
-            '"${card.contextSentence!}"',
-            style: typography.body.copyWith(
-              color: colors.textPrimary,
-              fontStyle: FontStyle.italic,
-              height: 1.45,
+          LtrExamBoundary(
+            child: Text(
+              '"${card.contextSentence!}"',
+              style: typography.body.copyWith(
+                color: colors.textPrimary,
+                fontStyle: FontStyle.italic,
+                height: 1.45,
+              ),
             ),
           ),
         ],

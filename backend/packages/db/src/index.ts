@@ -1,4 +1,5 @@
 export * from './client.js';
+export * from './linguistic-graph-store.js';
 export * from './quota-service.js';
 export * from './schema.js';
 export * from './seed.js';

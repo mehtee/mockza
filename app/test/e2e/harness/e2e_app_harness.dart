@@ -885,6 +885,7 @@ final class E2eAppHarness {
   /// Creates a fresh hermetic [E2eAppHarness] ready for mounting [MockzaApp].
   factory create({
     AppearanceSettings initialAppearance = const AppearanceSettings(),
+    EditionConfig editionConfig = EditionConfig.globalDefault,
   }) {
     final db = createTestDatabase();
     final clock = E2eMutableClock();
@@ -903,7 +904,7 @@ final class E2eAppHarness {
         });
     final recorder = E2eAudioRecorderGateway(tempDir);
     final player = FakeAudioPlayerGateway();
-    const crashLog = DeveloperCrashLog(AppEdition.global);
+    final crashLog = DeveloperCrashLog(editionConfig.edition);
     final adapter = OfflineE2eHttpAdapter();
     final dio = Dio(BaseOptions(baseUrl: 'https://e2e.mockza.local'))
       ..httpClientAdapter = adapter;
@@ -915,7 +916,7 @@ final class E2eAppHarness {
     );
     late final ProviderContainer container;
     final authSessionService = AuthSessionService(
-      config: EditionConfig.globalDefault,
+      config: editionConfig,
       identity: identityService,
       clock: clock.asClock(),
       crashLog: crashLog,
@@ -937,7 +938,7 @@ final class E2eAppHarness {
     container = ProviderContainer(
       retry: (count, error) => null,
       overrides: [
-        editionConfigProvider.overrideWithValue(EditionConfig.globalDefault),
+        editionConfigProvider.overrideWithValue(editionConfig),
         clockProvider.overrideWithValue(clock.asClock()),
         appDatabaseProvider.overrideWithValue(db),
         entropySourceProvider.overrideWithValue(entropy),

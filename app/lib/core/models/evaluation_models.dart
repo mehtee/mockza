@@ -124,6 +124,7 @@ class VocabUpgrade {
     required this.upgraded,
     required this.definition,
     required this.collocation,
+    this.glossFa,
   });
 
   /// Student's original basic word or phrase.
@@ -137,6 +138,9 @@ class VocabUpgrade {
 
   /// High-frequency IELTS collocation example.
   final String collocation;
+
+  /// Optional concise Persian translation/gloss emitted in `IRN` (`Sanjia`) evaluations.
+  final String? glossFa;
 }
 
 /// Targeted micro-drill recommendation derived from evaluation weaknesses.

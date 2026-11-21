@@ -3,17 +3,22 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/exams/exam_descriptor.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/features/home/presentation/home_providers.dart';
 import 'package:mockza/l10n/app_localizations.dart';
+import 'package:mockza/providers.dart';
 import 'package:mockza/routing/routes.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/brand_header.dart';
 import 'package:mockza/theme/components/icon_well.dart';
+import 'package:mockza/theme/components/linguistic_cards.dart';
+import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/metric_hero.dart';
 import 'package:mockza/theme/components/mz_bottom_sheet.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
@@ -98,9 +103,12 @@ class HomeScreen extends ConsumerWidget {
         })
         .toList(growable: false);
 
+    final edition = ref.watch(editionConfigProvider).edition;
+    final isIran = edition == AppEdition.iran;
     final descriptor = ExamDescriptor.forTrack(state.track);
-    final targetChipText =
-        'Target ${state.track.formatScore(state.targetBand)}';
+    final targetChipText = isIran
+        ? 'هدف ${state.track.formatScore(state.targetBand)}'
+        : 'Target ${state.track.formatScore(state.targetBand)}';
     final insights = state.estimatedSummary.overallBand != null
         ? descriptor.buildScoreInsights(
             overallScore: state.estimatedSummary.overallBand!,
@@ -144,7 +152,9 @@ class HomeScreen extends ConsumerWidget {
                         const SizedBox(height: SpacingTokens.xs),
                         Text(
                           state.daysUntilExam != null
-                              ? '${state.daysUntilExam} days until your exam'
+                              ? (isIran
+                                    ? '${EdgeNumerals.formatChromeNumber(state.daysUntilExam!, edition)} روز تا تاریخ آزمون'
+                                    : '${state.daysUntilExam} days until your exam')
                               : l10n.homeStudyRoomDescription,
                           style: typography.secondary.copyWith(
                             color: colors.textSecondary,
@@ -152,9 +162,12 @@ class HomeScreen extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    MzChip(
-                      label: targetChipText,
-                      variant: MzChipVariant.target,
+                    LtrExamBoundary(
+                      useLatinFont: !isIran,
+                      child: MzChip(
+                        label: targetChipText,
+                        variant: MzChipVariant.target,
+                      ),
                     ),
                   ],
                 ),
@@ -188,6 +201,15 @@ class HomeScreen extends ConsumerWidget {
                   label: l10n.homePractiseSkill,
                   glyph: LucideGlyph.circlePlay,
                   onPressed: () => context.go(AppRoutes.practice),
+                ),
+                const SizedBox(height: SpacingTokens.md),
+                MissionProgressCard(
+                  isRtl: isIran,
+                  onStartMission: () =>
+                      context.push(AppRoutes.buildDailyMission()),
+                  onOpenRegisterShifter: () =>
+                      context.push(AppRoutes.registerShifter),
+                  onOpenDropAnything: () => context.push(AppRoutes.dropIngest),
                 ),
                 const SizedBox(height: SpacingTokens.lg),
 

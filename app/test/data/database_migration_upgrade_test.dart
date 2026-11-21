@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:mockza/data/db/app_database.dart';
 import 'package:sqlite3/sqlite3.dart' as sqlite;
@@ -639,6 +640,115 @@ void main() {
       expect(diag, isNotNull);
       expect(diag!.diagId, 'diag-v5-test');
       expect(diag.mode, 'standard');
+    });
+
+    test('upgrades v5 SQLite database to v6 adding vocab_cards.gloss_fa and preserving cards', () async {
+      final tempDir = await Directory.systemTemp.createTemp('mockza_mig_v5_');
+      addTearDown(() => tempDir.delete(recursive: true));
+      final dbFile = File('${tempDir.path}/mockza_v5.sqlite');
+
+      final rawDb = sqlite.sqlite3.open(dbFile.path)
+        ..execute('''
+        CREATE TABLE user_profiles (
+          device_id TEXT NOT NULL PRIMARY KEY,
+          exam_id TEXT NOT NULL DEFAULT 'ielts_academic',
+          target_band REAL NOT NULL DEFAULT 7.0,
+          exam_module TEXT NOT NULL DEFAULT 'academic',
+          target_date_serial INTEGER NULL,
+          onboarding_completed INTEGER NOT NULL DEFAULT 0,
+          free_diagnostic_used INTEGER NOT NULL DEFAULT 0,
+          theme_mode TEXT NOT NULL DEFAULT 'system',
+          linked_email TEXT NULL,
+          app_user_id TEXT NULL,
+          is_pro INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+        CREATE TABLE exam_attempts (
+          attempt_id TEXT NOT NULL PRIMARY KEY,
+          pack_id TEXT NOT NULL,
+          skill TEXT NOT NULL,
+          exam_id TEXT NOT NULL DEFAULT 'ielts_academic',
+          status TEXT NOT NULL,
+          remote_job_id TEXT NULL,
+          submission_json TEXT NOT NULL,
+          evaluation_json TEXT NULL,
+          overall_band REAL NULL,
+          error_code TEXT NULL,
+          started_at_utc_ms INTEGER NULL,
+          completed_at_utc_ms INTEGER NULL,
+          duration_seconds INTEGER NOT NULL DEFAULT 0,
+          used_study_mode INTEGER NOT NULL DEFAULT 0,
+          question_count INTEGER NOT NULL DEFAULT 0,
+          is_calibrated_full_pack INTEGER NOT NULL DEFAULT 1,
+          content_version TEXT NULL,
+          mock_session_id TEXT NULL,
+          mock_stage_key TEXT NULL,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+        CREATE TABLE vocab_cards (
+          card_id TEXT NOT NULL PRIMARY KEY,
+          headword TEXT NOT NULL,
+          ipa TEXT NULL,
+          definition TEXT NOT NULL,
+          topic_tag TEXT NOT NULL,
+          repetitions INTEGER NOT NULL DEFAULT 0,
+          interval_days INTEGER NOT NULL DEFAULT 0,
+          ease_factor REAL NOT NULL DEFAULT 2.5,
+          ease_factor_milli INTEGER NOT NULL DEFAULT 2500,
+          due_day INTEGER NOT NULL,
+          due_day_serial INTEGER NOT NULL DEFAULT 0,
+          context_sentence TEXT NULL,
+          paraphrase_hints_json TEXT NULL,
+          usage_note TEXT NULL,
+          source_skill TEXT NULL,
+          source_attempt_id TEXT NULL,
+          source_ref_label TEXT NULL,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+      ''');
+
+      const ts = 1763294400;
+      rawDb
+        ..execute(
+          "INSERT INTO vocab_cards (card_id, headword, definition, topic_tag, due_day, due_day_serial, created_at, updated_at) VALUES ('card-v5-1', 'mitigate', 'make less severe', 'environment', 20000, 20000, $ts, $ts);",
+        )
+        ..execute('PRAGMA user_version = 5;')
+        ..close();
+
+      final db = AppDatabase(NativeDatabase(dbFile));
+      addTearDown(db.close);
+
+      final cards = await db.select(db.vocabCards).get();
+      expect(cards, hasLength(1));
+      expect(cards.single.cardId, 'card-v5-1');
+      expect(cards.single.headword, 'mitigate');
+      expect(cards.single.glossFa, isNull);
+
+      final now = DateTime.fromMillisecondsSinceEpoch(ts * 1000, isUtc: true);
+      await db.vocabDao.upsertSyncedCardsPreservingSchedule(
+        <VocabCardsCompanion>[
+          VocabCardsCompanion.insert(
+            cardId: 'card-v6-1',
+            headword: 'ubiquitous',
+            definition: 'present everywhere',
+            glossFa: const Value('همه‌جا حاضر، فراگیر'),
+            topicTag: 'technology',
+            dueDay: 20000,
+            dueDaySerial: const Value(20000),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        ],
+      );
+      final updated = await db.select(db.vocabCards).get();
+      expect(updated, hasLength(2));
+      expect(
+        updated.firstWhere((c) => c.cardId == 'card-v6-1').glossFa,
+        'همه‌جا حاضر، فراگیر',
+      );
     });
   });
 }

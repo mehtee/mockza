@@ -189,6 +189,31 @@ const compareAttemptsScreen = createPreloadableScreen(() =>
     default: m.CompareAttemptsScreen,
   })),
 );
+const dailyMissionScreen = createPreloadableScreen(() =>
+  import('@/spa/features/mission/DailyMissionScreen').then((m) => ({
+    default: m.DailyMissionScreen,
+  })),
+);
+const linguisticGraphScreen = createPreloadableScreen(() =>
+  import('@/spa/features/mission/LinguisticGraphScreen').then((m) => ({
+    default: m.LinguisticGraphScreen,
+  })),
+);
+const registerShifterScreen = createPreloadableScreen(() =>
+  import('@/spa/features/register-shifter/RegisterShifterScreen').then((m) => ({
+    default: m.RegisterShifterScreen,
+  })),
+);
+const dropHubScreen = createPreloadableScreen(() =>
+  import('@/spa/features/drop/DropHubScreen').then((m) => ({
+    default: m.DropHubScreen,
+  })),
+);
+const dropDrillScreen = createPreloadableScreen(() =>
+  import('@/spa/features/drop/DropDrillScreen').then((m) => ({
+    default: m.DropDrillScreen,
+  })),
+);
 const progressScreen = createPreloadableScreen(() =>
   import('@/spa/features/progress/ProgressScreen').then((m) => ({ default: m.ProgressScreen })),
 );
@@ -248,10 +273,20 @@ const SettingsScreen = settingsScreen.Component;
 const VocabHubScreen = vocabHubScreen.Component;
 const VocabReviewScreen = vocabReviewScreen.Component;
 const VocabWordDetailScreen = vocabWordDetailScreen.Component;
+const DailyMissionScreen = dailyMissionScreen.Component;
+const LinguisticGraphScreen = linguisticGraphScreen.Component;
+const RegisterShifterScreen = registerShifterScreen.Component;
+const DropHubScreen = dropHubScreen.Component;
+const DropDrillScreen = dropDrillScreen.Component;
 
 export function preloadRouteForPathname(pathname: string): Promise<void> {
   const normalized = pathname.replace(/^\/app(?=\/|$)/, '').replace(/\/+$/, '') || '/home';
   if (normalized === '/' || normalized === '/home') return homeScreen.preload();
+  if (normalized.startsWith('/mission/')) return dailyMissionScreen.preload();
+  if (normalized === '/progress/graph') return linguisticGraphScreen.preload();
+  if (normalized.startsWith('/register-shifter')) return registerShifterScreen.preload();
+  if (normalized === '/drop') return dropHubScreen.preload();
+  if (normalized.startsWith('/drop/drill/')) return dropDrillScreen.preload();
   if (normalized === '/practice') return practiceCatalogScreen.preload();
   if (normalized === '/practice/drills') return microDrillsScreen.preload();
   if (normalized.startsWith('/practice/full-mock')) return fullMockOrchestratorScreen.preload();
@@ -1174,6 +1209,51 @@ const paywallRoute = createRoute({
   },
 });
 
+const dailyMissionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/mission/$missionId',
+  component: () => {
+    const { missionId } = dailyMissionRoute.useParams();
+    return <DailyMissionScreen missionId={missionId} />;
+  },
+});
+
+const linguisticGraphRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/progress/graph',
+  component: LinguisticGraphScreen,
+});
+
+const registerShifterRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/register-shifter',
+  component: () => <RegisterShifterScreen />,
+});
+
+const registerShifterRunRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/register-shifter/$runId',
+  component: () => {
+    const { runId } = registerShifterRunRoute.useParams();
+    return <RegisterShifterScreen runId={runId} />;
+  },
+});
+
+const dropHubRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/drop',
+  component: DropHubScreen,
+});
+
+const dropDrillRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/drop/drill/$dropId',
+  component: () => {
+    const { dropId } = dropDrillRoute.useParams();
+    return <DropDrillScreen dropId={dropId} />;
+  },
+});
+
 const routeTree = rootRoute.addChildren([
   appIndexRoute,
   welcomeRoute,
@@ -1185,6 +1265,12 @@ const routeTree = rootRoute.addChildren([
   diagnosticResultByIdRoute,
   loginRoute,
   homeRoute,
+  dailyMissionRoute,
+  linguisticGraphRoute,
+  registerShifterRoute,
+  registerShifterRunRoute,
+  dropHubRoute,
+  dropDrillRoute,
   practiceRoute,
   readingSessionRoute,
   listeningSessionRoute,

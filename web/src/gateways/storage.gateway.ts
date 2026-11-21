@@ -234,7 +234,7 @@ export interface VocabCardRecord {
   readonly definition: string;
   readonly glossFa: string | null;
   readonly topicTag: string;
-  readonly sourceKind: 'seeded' | 'mistake_to_deck';
+  readonly sourceKind: 'seeded' | 'mistake_to_deck' | 'register_shifter' | 'drop_anything';
   readonly tags: readonly string[];
   readonly contextSentence: string | null;
   readonly paraphraseHints: readonly string[];
@@ -286,9 +286,62 @@ export type SyncOutboxActionType =
   | 'evaluate_writing'
   | 'evaluate_speaking'
   | 'flag_question'
-  | 'sync_log';
+  | 'sync_log'
+  | 'mission.complete'
+  | 'shifter.repeat_check'
+  | 'drop.drill_complete';
 
-export type SyncOutboxEntityKind = 'attempt' | 'flag' | 'vocab_log';
+export type SyncOutboxEntityKind =
+  | 'attempt'
+  | 'flag'
+  | 'vocab_log'
+  | 'daily_mission'
+  | 'register_shifter'
+  | 'dropped_content';
+
+export interface LinguisticNodeRecord {
+  readonly nodeId: string;
+  readonly edition: AppEditionCode;
+  readonly nodeKind: 'bottleneck' | 'target_structure' | 'interest_topic';
+  readonly canonicalKey: string;
+  readonly displayLabelEn: string;
+  readonly displayLabelFa: string | null;
+  readonly masteryScoreMilli: number;
+  readonly signalWeightMilli: number;
+  readonly evidenceCount: number;
+  readonly lastSeenDaySerial: number;
+  readonly lastExampleEn: string | null;
+  readonly coachNoteEn: string | null;
+  readonly coachNoteFa: string | null;
+  readonly isPinned: boolean;
+  readonly isMuted: boolean;
+  readonly updatedAtMs: number;
+}
+
+export interface DailyMissionRecord {
+  readonly missionId: string;
+  readonly missionDaySerial: number;
+  readonly edition: AppEditionCode;
+  readonly examTrack: SupportedExamId;
+  readonly status: 'ready' | 'in_progress' | 'completed' | 'skipped';
+  readonly focusTopic: string;
+  readonly payloadJson: string;
+  readonly resultJson: string | null;
+  readonly updatedAtMs: number;
+}
+
+export interface DroppedContentRecord {
+  readonly dropId: string;
+  readonly inputKind: 'text_url' | 'text' | 'image' | 'audio';
+  readonly edition: AppEditionCode;
+  readonly title: string;
+  readonly sourceLabel: string;
+  readonly cefrEstimate: string;
+  readonly extractedPhrasesJson: string;
+  readonly drillPayloadJson: string;
+  readonly completedAtMs: number | null;
+  readonly createdAtMs: number;
+}
 
 export interface SyncOutboxItem {
   readonly seq?: number;
@@ -459,7 +512,7 @@ export interface VocabCardWithSrs {
 
 export interface VocabCardFilter {
   readonly examId?: SupportedExamId;
-  readonly sourceKind?: 'seeded' | 'mistake_to_deck';
+  readonly sourceKind?: 'seeded' | 'mistake_to_deck' | 'register_shifter' | 'drop_anything';
   readonly topicTag?: string;
   readonly tag?: string;
   readonly searchQuery?: string;

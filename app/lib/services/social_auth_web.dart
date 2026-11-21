@@ -40,7 +40,7 @@ performPlatformOidcSignIn({
           'nonce': nonce,
         },
       ),
-      AuthProviderType.email => null,
+      AuthProviderType.email || AuthProviderType.smsOtp => null,
     };
     if (authUrl == null) {
       return const Err(ValidationFailure('Unsupported Web OAuth provider.'));

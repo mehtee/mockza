@@ -127,6 +127,7 @@ class _VocabReviewScreenState extends ConsumerState<VocabReviewScreen> {
           VocabFlipCard(
             headword: card.headword,
             definition: card.definition,
+            glossFa: card.glossFa,
             isRevealed: isRevealed,
             onTapFlip: notifier.toggleReveal,
             onSelectRating: (quality) {

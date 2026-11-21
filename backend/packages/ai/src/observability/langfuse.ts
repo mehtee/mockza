@@ -18,9 +18,27 @@ export function maskPiiText(input: string): string {
     .replace(PHONE_REGEX, '[REDACTED_PHONE]');
 }
 
-/** Recursively scrubs PII from input/output telemetry payloads. */
+const SENSITIVE_CONTENT_KEYS = new Set([
+  'droppedtext',
+  'sourceurl',
+  'sourcetext',
+  'rawtext',
+  'imagebase64',
+  'imagedata',
+  'image_url',
+  'imageurls',
+  'mediaurl',
+  'transcript',
+  'audio',
+  'audiodata',
+]);
+
+/** Recursively scrubs PII and private dropped/audio content from input/output telemetry payloads. */
 export function maskPiiObject<T>(obj: T): T {
   if (typeof obj === 'string') {
+    if (obj.startsWith('data:image/') || obj.startsWith('data:audio/')) {
+      return '[MEDIA_DATA_URI_REDACTED]' as unknown as T;
+    }
     // If large base64 string
     if (obj.length > 200 && /^[A-Za-z0-9+/=\r\n]+$/.test(obj.slice(0, 100))) {
       return '[BASE64_DATA_REDACTED]' as unknown as T;
@@ -33,8 +51,15 @@ export function maskPiiObject<T>(obj: T): T {
   if (obj && typeof obj === 'object') {
     const sanitized: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(obj)) {
-      if (key.toLowerCase().includes('audio') && typeof val === 'string' && val.length > 50) {
+      const normalizedKey = key.toLowerCase();
+      if (normalizedKey.includes('audio') && typeof val === 'string' && val.length > 50) {
         sanitized[key] = '[AUDIO_BLOB_REDACTED]';
+      } else if (
+        SENSITIVE_CONTENT_KEYS.has(normalizedKey) &&
+        typeof val === 'string' &&
+        val.length > 80
+      ) {
+        sanitized[key] = '[PRIVATE_CONTENT_REDACTED]';
       } else {
         sanitized[key] = maskPiiObject(val);
       }

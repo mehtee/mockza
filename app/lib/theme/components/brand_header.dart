@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:mockza/core/config/brand_identity.dart';
+import 'package:mockza/core/config/edition_config.dart';
+import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
+import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/primitives.dart';
 import 'package:mockza/theme/responsive_layout.dart';
 
 /// Top identity area from design.md Sec. 4.1 & 4.3.
-/// Features the custom gradient "M" wordmark, product title, compact exam selector pill,
-/// and top-right settings button with tight-screen (`320dp`) overflow protection.
+/// Features edition-aware brand wordmark ([MockzaMark] / [SanjiaMark]),
+/// product title, compact exam selector pill, and top-right settings button
+/// with tight-screen (`320dp`) overflow protection.
 class BrandHeader extends StatelessWidget {
   /// Creates a [BrandHeader].
   const new({
@@ -18,10 +23,11 @@ class BrandHeader extends StatelessWidget {
     this.onTapExamSelector,
     this.onTapSettings,
     this.showSettings = true,
+    this.edition,
     super.key,
   });
 
-  /// Optional custom page title. If null, displays "Mockza".
+  /// Optional custom page title. If null, displays active edition brand name.
   final String? title;
 
   /// Optional secondary subtitle.
@@ -39,12 +45,31 @@ class BrandHeader extends StatelessWidget {
   /// Whether to display the settings button at top right.
   final bool showSettings;
 
+  /// Optional edition override (`global` Mockza vs `iran` Sanjia).
+  final AppEdition? edition;
+
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     final shapes = AppShapes.of(context);
     final typography = AppTypography.of(context);
     final isTight = MzResponsive.isTightPhoneOf(context);
+    final isFa = Localizations.maybeLocaleOf(context)?.languageCode == 'fa';
+    final resolvedEdition =
+        edition ?? (isFa ? AppEdition.iran : AppEdition.global);
+    final brandLabel = resolvedEdition == AppEdition.iran
+        ? BrandIdentity.iran.localizedName(persian: isFa)
+        : (Localizations.of<AppLocalizations>(
+                context,
+                AppLocalizations,
+              )?.appTitle ??
+              BrandIdentity.global.brandNameEn);
+    final settingsTooltip =
+        Localizations.of<AppLocalizations>(
+          context,
+          AppLocalizations,
+        )?.settingsTitle ??
+        'Settings';
 
     if (title != null) {
       return Column(
@@ -64,7 +89,7 @@ class BrandHeader extends StatelessWidget {
               ),
               if (showSettings && onTapSettings != null)
                 IconButton(
-                  tooltip: 'Settings',
+                  tooltip: settingsTooltip,
                   onPressed: onTapSettings,
                   icon: AppIcon(
                     LucideGlyph.settings,
@@ -95,14 +120,17 @@ class BrandHeader extends StatelessWidget {
       ),
       child: Row(
         children: <Widget>[
-          MockzaMark(size: isTight ? 24 : 26),
+          EditionBrandMark(
+            size: isTight ? 24 : 26,
+            isIran: resolvedEdition == AppEdition.iran,
+          ),
           const SizedBox(width: SpacingTokens.sm),
           if (!isTight) ...<Widget>[
             Text(
-              'Mockza',
+              brandLabel,
               style: typography.cardTitle.copyWith(
                 fontWeight: FontWeight.w700,
-                letterSpacing: -0.4,
+                letterSpacing: isFa ? null : -0.4,
               ),
             ),
             const SizedBox(width: SpacingTokens.sm),
@@ -128,27 +156,29 @@ class BrandHeader extends StatelessWidget {
                         width: shapes.strokeWidth,
                       ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Flexible(
-                          child: Text(
-                            selectedExam,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: typography.caption.copyWith(
-                              color: colors.textPrimary,
-                              fontWeight: FontWeight.w600,
+                    child: LtrExamBoundary(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Flexible(
+                            child: Text(
+                              selectedExam,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: typography.caption.copyWith(
+                                color: colors.textPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: SpacingTokens.xs),
-                        AppIcon(
-                          LucideGlyph.chevronDown,
-                          size: 14,
-                          color: colors.textSecondary,
-                        ),
-                      ],
+                          const SizedBox(width: SpacingTokens.xs),
+                          AppIcon(
+                            LucideGlyph.chevronDown,
+                            size: 14,
+                            color: colors.textSecondary,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -157,7 +187,7 @@ class BrandHeader extends StatelessWidget {
           ),
           if (showSettings && onTapSettings != null)
             IconButton(
-              tooltip: 'Settings',
+              tooltip: settingsTooltip,
               onPressed: onTapSettings,
               icon: AppIcon(
                 LucideGlyph.settings,

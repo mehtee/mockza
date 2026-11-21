@@ -5,6 +5,7 @@ import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
+import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/primitives.dart';
 
@@ -766,16 +767,20 @@ class _MzControlledAnswerFieldState extends State<MzControlledAnswerField> {
       padding: const EdgeInsetsDirectional.symmetric(
         horizontal: SpacingTokens.sm,
       ),
-      child: TextField(
-        controller: _controller,
-        focusNode: _focusNode,
-        style: typography.body,
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          hintText: widget.hint,
-          hintStyle: typography.secondary.copyWith(color: colors.textTertiary),
+      child: LtrExamBoundary(
+        child: TextField(
+          controller: _controller,
+          focusNode: _focusNode,
+          style: typography.body,
+          decoration: InputDecoration(
+            border: InputBorder.none,
+            hintText: widget.hint,
+            hintStyle: typography.secondary.copyWith(
+              color: colors.textTertiary,
+            ),
+          ),
+          onChanged: widget.onChanged,
         ),
-        onChanged: widget.onChanged,
       ),
     );
   }

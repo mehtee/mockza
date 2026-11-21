@@ -553,6 +553,7 @@ final class HttpGradingGateway implements GradingGateway {
               (paraphrases.isNotEmpty ? paraphrases.first : 'generic phrase'),
           upgraded: (m['upgraded'] as String?) ?? (m['term'] as String?) ?? '',
           definition: m['definition'] as String? ?? '',
+          glossFa: m['glossFa'] as String?,
           collocation:
               (m['collocation'] as String?) ??
               (m['contextSentence'] as String?) ??

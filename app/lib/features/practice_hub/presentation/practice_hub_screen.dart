@@ -8,6 +8,7 @@ import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/data/repositories/exam_catalog_repository.dart';
 import 'package:mockza/features/practice_hub/presentation/practice_hub_providers.dart';
+import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/routing/routes.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
@@ -43,6 +44,8 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
     final shapes = AppShapes.of(context);
+    final l10n = AppLocalizations.of(context);
+    final isFa = Localizations.localeOf(context).languageCode == 'fa';
 
     final allPacks = packsAsync.asData?.value ?? const <InstalledExamPack>[];
     final profile = ref.watch(practiceProfileProvider).asData?.value;
@@ -83,10 +86,10 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Text('Practice Hub', style: typography.headline),
+                      Text(l10n.practiceHubTitle, style: typography.headline),
                       const SizedBox(height: SpacingTokens.xs),
                       Text(
-                        'Offline exam library • Sync & download packs',
+                        l10n.practiceHubSubtitle,
                         style: typography.secondary.copyWith(
                           color: colors.textSecondary,
                         ),
@@ -140,8 +143,8 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                     children: <Widget>[
                       Expanded(
                         child: _ModeTogglePill(
-                          label: 'Exam Mode',
-                          subtitle: 'Timed',
+                          label: l10n.practiceModeExam,
+                          subtitle: isFa ? 'زمان‌دار' : 'Timed',
                           isSelected: _isExamMode,
                           onTap: () => setState(() => _isExamMode = true),
                         ),
@@ -149,8 +152,10 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                       const SizedBox(width: SpacingTokens.xs),
                       Expanded(
                         child: _ModeTogglePill(
-                          label: 'Study Mode',
-                          subtitle: 'Untimed & hints',
+                          label: l10n.practiceModeStudy,
+                          subtitle: isFa
+                              ? 'بدون زمان + راهنما'
+                              : 'Untimed & hints',
                           isSelected: !_isExamMode,
                           onTap: () => setState(() => _isExamMode = false),
                         ),

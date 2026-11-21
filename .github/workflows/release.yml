@@ -104,6 +104,7 @@ jobs:
             --target="$TARGET" \
             --dart-define="MOCKZA_API_BASE_URL=$MOCKZA_API_BASE_URL" \
             --dart-define="REVENUECAT_PUBLIC_KEY=${REVENUECAT_PUBLIC_KEY:-}" \
+            --dart-define="IRN_BILLING_CHANNEL=${IRN_BILLING_CHANNEL:-zarinpal}" \
             --build-name="$BUILD_NAME" \
             --build-number="$BUILD_NUMBER"
 

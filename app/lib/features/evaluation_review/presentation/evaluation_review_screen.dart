@@ -1295,6 +1295,7 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
                                     cardId: cardId,
                                     headword: up.upgraded,
                                     definition: up.definition,
+                                    glossFa: up.glossFa,
                                     topicTag: state.skill.name,
                                     contextSentence: up.collocation,
                                     usageNote: 'Upgraded from "${up.original}"',
@@ -1323,6 +1324,17 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: SpacingTokens.xs),
+                  if (up.glossFa != null &&
+                      up.glossFa!.trim().isNotEmpty) ...<Widget>[
+                    Text(
+                      up.glossFa!.trim(),
+                      style: typography.body.copyWith(
+                        color: colors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: SpacingTokens.xs),
+                  ],
                   Text(up.definition, style: typography.body),
                   if (up.collocation.isNotEmpty) ...<Widget>[
                     const SizedBox(height: SpacingTokens.xs),

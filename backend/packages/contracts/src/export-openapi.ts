@@ -183,6 +183,123 @@ export function buildContractDocument(): Record<string, unknown> {
         },
       },
     }),
+    createRoute({
+      method: 'get',
+      path: '/v1/graph/me',
+      summary: 'Get persistent Linguistic Graph bottlenecks, structures, and interest topics',
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.LinguisticGraphResponseSchema } },
+          description: 'Linguistic graph snapshot',
+        },
+      },
+    }),
+    createRoute({
+      method: 'patch',
+      path: '/v1/graph/interests',
+      summary: 'Pin or mute personal interest topics in the Linguistic Graph',
+      request: {
+        body: { content: { 'application/json': { schema: schemas.UpdateGraphInterestsRequestSchema } } },
+      },
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.LinguisticGraphResponseSchema } },
+          description: 'Updated Linguistic graph snapshot',
+        },
+      },
+    }),
+    createRoute({
+      method: 'get',
+      path: '/v1/missions/today',
+      summary: 'Lazily fetch or generate today Daily 10-Min Mission',
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.DailyMissionResponseSchema } },
+          description: 'Today Daily Mission',
+        },
+      },
+    }),
+    createRoute({
+      method: 'post',
+      path: '/v1/missions/{missionId}/complete',
+      summary: 'Submit Daily 10-Min Mission response and verify forced target structures',
+      request: {
+        body: { content: { 'application/json': { schema: schemas.CompleteDailyMissionRequestSchema } } },
+      },
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.DailyMissionResponseSchema } },
+          description: 'Completed mission with verification feedback',
+        },
+      },
+    }),
+    createRoute({
+      method: 'post',
+      path: '/v1/register-shifter/shift',
+      summary: 'Shift spoken voice reflection into 3 calibrated registers (Casual, Workplace, Academic)',
+      request: {
+        body: { content: { 'application/json': { schema: schemas.RegisterShifterRequestSchema } } },
+      },
+      responses: {
+        202: {
+          content: { 'application/json': { schema: schemas.JobEnqueueResponseSchema } },
+          description: 'Queued Register Shifter job',
+        },
+      },
+    }),
+    createRoute({
+      method: 'post',
+      path: '/v1/register-shifter/{runId}/verify-repeat',
+      summary: 'Verify spoken repeat-aloud muscle-memory attempt with System 1 decision probe',
+      request: {
+        body: { content: { 'application/json': { schema: schemas.VerifyRepeatAloudRequestSchema } } },
+      },
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.VerifyRepeatAloudResponseSchema } },
+          description: 'Repeat-aloud verification result',
+        },
+      },
+    }),
+    createRoute({
+      method: 'post',
+      path: '/v1/drop/presign-media',
+      summary: 'Issue bounded presigned PUT URLs for private Drop Anything image or audio assets',
+      request: {
+        body: { content: { 'application/json': { schema: schemas.DropPresignMediaRequestSchema } } },
+      },
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.DropPresignMediaResponseSchema } },
+          description: 'Presigned media upload targets',
+        },
+      },
+    }),
+    createRoute({
+      method: 'post',
+      path: '/v1/drop/ingest',
+      summary: 'Ingest personal URL, text snippet, image/screenshot, or bounded audio into a 2-min drill',
+      request: {
+        body: { content: { 'application/json': { schema: schemas.DropIngestRequestSchema } } },
+      },
+      responses: {
+        202: {
+          content: { 'application/json': { schema: schemas.JobEnqueueResponseSchema } },
+          description: 'Queued Drop Anything ingestion job',
+        },
+      },
+    }),
+    createRoute({
+      method: 'get',
+      path: '/v1/drop/history',
+      summary: 'List private user-dropped items scoped to account and edition',
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.DropHistoryResponseSchema } },
+          description: 'Paginated drop history',
+        },
+      },
+    }),
   ];
 
   for (const r of authRoutesRegistry) {

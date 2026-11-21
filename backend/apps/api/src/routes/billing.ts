@@ -6,6 +6,7 @@ import {
   EntitlementSnapshotSchema,
   GlbCheckoutRequestSchema,
   GlbVerifyRequestSchema,
+  IranStoreVerifySchema,
   ZarinpalRequestSchema,
   ZarinpalVerifySchema,
 } from '@mockza/contracts';
@@ -55,6 +56,32 @@ export function registerWebBillingRoutes(
     }
     await next();
   });
+  app.use('/v1/billing/bazaar/*', async (c, next) => {
+    if (env.EDITION !== 'irn') {
+      return c.json(
+        {
+          code: 'edition_forbidden',
+          message: 'Cafe Bazaar billing is only available in the IRN (Sanjia) edition.',
+          requestId: c.get('requestId'),
+        },
+        403,
+      );
+    }
+    await next();
+  });
+  app.use('/v1/billing/myket/*', async (c, next) => {
+    if (env.EDITION !== 'irn') {
+      return c.json(
+        {
+          code: 'edition_forbidden',
+          message: 'Myket billing is only available in the IRN (Sanjia) edition.',
+          requestId: c.get('requestId'),
+        },
+        403,
+      );
+    }
+    await next();
+  });
   app.use('/v1/billing/glb/*', async (c, next) => {
     if (env.EDITION !== 'glb') {
       return c.json(
@@ -69,6 +96,8 @@ export function registerWebBillingRoutes(
     await next();
   });
   app.use('/v1/billing/zarinpal/*', authMiddleware);
+  app.use('/v1/billing/bazaar/*', authMiddleware);
+  app.use('/v1/billing/myket/*', authMiddleware);
   app.use('/v1/billing/glb/*', authMiddleware);
 
   function mapBillingError(c: Context<{ Variables: RequestVariables }>, err: unknown): Response {
@@ -214,6 +243,64 @@ export function registerWebBillingRoutes(
       return mapBillingError(c, err);
     }
   });
+
+  // POST /v1/billing/bazaar/verify & POST /v1/billing/myket/verify (IRN Android stores)
+  for (const storeProvider of ['bazaar', 'myket'] as const) {
+    app.post(`/v1/billing/${storeProvider}/verify`, async (c) => {
+      if (env.EDITION !== 'irn') {
+        return c.json(
+          {
+            code: 'edition_forbidden',
+            message: `${storeProvider} billing is only available in the IRN (Sanjia) edition.`,
+            requestId: c.get('requestId'),
+          },
+          403,
+        );
+      }
+      const caller = requireCallerContext(c);
+      if (caller instanceof Response) return caller;
+
+      let raw: unknown;
+      try {
+        raw = await c.req.json();
+      } catch {
+        return c.json(
+          {
+            code: 'validation_error',
+            message: `Valid JSON ${storeProvider} verification payload required.`,
+            requestId: c.get('requestId'),
+          },
+          400,
+        );
+      }
+
+      const parsed = IranStoreVerifySchema.safeParse(raw);
+      if (!parsed.success) {
+        return c.json(
+          {
+            code: 'validation_error',
+            message: 'Accept the 1+1 slot policy and pass valid planId, productId, and purchaseToken.',
+            requestId: c.get('requestId'),
+          },
+          400,
+        );
+      }
+
+      try {
+        const snapshot = await service.verifyIranStorePurchase({
+          userId: caller.userId,
+          deviceId: caller.deviceId,
+          provider: storeProvider,
+          planId: parsed.data.planId,
+          productId: parsed.data.productId,
+          purchaseToken: parsed.data.purchaseToken,
+        });
+        return c.json(EntitlementSnapshotSchema.parse(snapshot), 200);
+      } catch (err) {
+        return mapBillingError(c, err);
+      }
+    });
+  }
 
   // POST /v1/billing/glb/checkout (GLB edition only)
   app.post('/v1/billing/glb/checkout', async (c) => {

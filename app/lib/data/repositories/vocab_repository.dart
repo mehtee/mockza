@@ -16,6 +16,7 @@ class VocabDeckCard {
     required this.definition,
     required this.topicTag,
     required this.schedule,
+    this.glossFa,
     this.contextSentence,
     this.usageNote,
     this.sourceSkill,
@@ -33,6 +34,9 @@ class VocabDeckCard {
 
   /// Definition + usage note.
   final String definition;
+
+  /// Optional concise Persian meaning/gloss (`IRN` Sanjia edition).
+  final String? glossFa;
 
   /// Topic grouping (`environment`, `work`, `health`, etc.).
   final String topicTag;
@@ -77,6 +81,7 @@ final class VocabRepository {
                   headword: row.headword,
                   ipa: row.ipa,
                   definition: row.definition,
+                  glossFa: row.glossFa,
                   topicTag: row.topicTag,
                   contextSentence: row.contextSentence,
                   usageNote: row.usageNote,
@@ -122,6 +127,7 @@ final class VocabRepository {
           headword: row.headword,
           ipa: row.ipa,
           definition: row.definition,
+          glossFa: row.glossFa,
           topicTag: row.topicTag,
           contextSentence: row.contextSentence,
           usageNote: row.usageNote,
@@ -148,6 +154,7 @@ final class VocabRepository {
             headword: (c['headword'] as String?) ?? '',
             ipa: Value(c['ipa'] as String?),
             definition: (c['definition'] as String?) ?? '',
+            glossFa: Value(c['glossFa'] as String?),
             topicTag: (c['topicTag'] as String?) ?? 'academic',
             contextSentence: Value(c['contextSentence'] as String?),
             easeFactorMilli: Value(
@@ -199,6 +206,7 @@ final class VocabRepository {
     required String headword,
     required String definition,
     required String topicTag,
+    String? glossFa,
     String? ipa,
     String? contextSentence,
     String? usageNote,
@@ -216,6 +224,7 @@ final class VocabRepository {
         headword: headword,
         ipa: Value(ipa ?? existing?.ipa),
         definition: definition,
+        glossFa: Value(glossFa ?? existing?.glossFa),
         topicTag: topicTag,
         repetitions: Value(existing?.repetitions ?? 0),
         intervalDays: Value(existing?.intervalDays ?? 0),

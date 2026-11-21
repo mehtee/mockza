@@ -4,8 +4,8 @@ import {
   type ListObjectsV2CommandOutput,
   type S3Client,
 } from '@aws-sdk/client-s3';
-import { audioAssets, erasureRequests, type MockzaDb } from '@mockza/db';
-import { and, eq, inArray, isNull, lte } from 'drizzle-orm';
+import { audioAssets, droppedContents, erasureRequests, type MockzaDb } from '@mockza/db';
+import { and, eq, inArray, isNotNull, isNull, lte } from 'drizzle-orm';
 
 export interface DeleteObjectsBatchResult {
   deletedKeys: string[];
@@ -170,6 +170,84 @@ export async function batchPurgeExpiredAudioAssets(params: {
   }
 
   return batchResult.deletedKeys.length;
+}
+
+/** Batch purges expired uploaded Drop Anything media objects from S3 and marks rows mediaPurgedAt. */
+export async function batchPurgeExpiredDropMedia(params: {
+  client: S3Client;
+  bucket: string;
+  db: MockzaDb;
+  batchSize?: number;
+  now?: Date;
+}): Promise<number> {
+  const now = params.now ?? new Date();
+  const limit = params.batchSize ?? 500;
+
+  const expiredDrops = await params.db
+    .select({
+      dropId: droppedContents.dropId,
+      mediaObjectKeysJson: droppedContents.mediaObjectKeysJson,
+    })
+    .from(droppedContents)
+    .where(
+      and(
+        isNotNull(droppedContents.expiresAt),
+        lte(droppedContents.expiresAt, now),
+        isNull(droppedContents.mediaPurgedAt),
+      ),
+    )
+    .limit(limit);
+
+  if (expiredDrops.length === 0) {
+    return 0;
+  }
+
+  const allKeys: string[] = [];
+  const dropIdsWithNoKeys: string[] = [];
+  for (const row of expiredDrops) {
+    const keys = Array.isArray(row.mediaObjectKeysJson)
+      ? row.mediaObjectKeysJson.filter((k): k is string => typeof k === 'string' && k.length > 0)
+      : [];
+    if (keys.length === 0) {
+      dropIdsWithNoKeys.push(row.dropId);
+    } else {
+      allKeys.push(...keys);
+    }
+  }
+
+  let deletedCount = 0;
+  if (allKeys.length > 0) {
+    const res = await deleteAudioObjectsDetailed({
+      client: params.client,
+      bucket: params.bucket,
+      objectKeys: allKeys,
+    });
+    const deletedSet = new Set(res.deletedKeys);
+    deletedCount = res.deletedKeys.length;
+
+    const completedDropIds = expiredDrops
+      .filter((row) => {
+        const keys = Array.isArray(row.mediaObjectKeysJson) ? row.mediaObjectKeysJson : [];
+        return keys.length > 0 && keys.every((k) => deletedSet.has(k));
+      })
+      .map((row) => row.dropId);
+
+    if (completedDropIds.length > 0) {
+      await params.db
+        .update(droppedContents)
+        .set({ mediaPurgedAt: now })
+        .where(inArray(droppedContents.dropId, completedDropIds));
+    }
+  }
+
+  if (dropIdsWithNoKeys.length > 0) {
+    await params.db
+      .update(droppedContents)
+      .set({ mediaPurgedAt: now })
+      .where(inArray(droppedContents.dropId, dropIdsWithNoKeys));
+  }
+
+  return deletedCount;
 }
 
 /** Retries any pending or partial account erasure object cleanups recorded by DELETE /v1/account. */

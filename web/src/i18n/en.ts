@@ -628,4 +628,12 @@ export const enMessages = {
   evalPendingBgReadyToast: 'Your AI evaluation report is ready!',
   detSubscoresTitle: 'DET 4 Subscores (10–160)',
   fullMockScorecardTitle: 'Consolidated Full Mock Scorecard',
+  navDailyMission: 'Daily Mission',
+  navRegisterShifter: 'Register Shifter',
+  navDropAnything: 'Drop Anything',
+  navLinguisticGraph: 'Linguistic Graph',
+  homeDailyMissionTitle: '10-Min Daily Transfer Mission',
+  homeDailyMissionStartCta: 'Start 10-Min Mission',
+  homeRegisterShifterCta: 'Register Shifter (30s)',
+  homeDropAnythingCta: 'Drop Anything',
 } as const satisfies Record<string, string>;

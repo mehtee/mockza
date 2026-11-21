@@ -239,7 +239,13 @@
         "amberBg",
         "dangerBg",
         "blueBg",
-        "violetBg"
+        "violetBg",
+        "gearCasual",
+        "gearWork",
+        "gearAcademic",
+        "gapObserved",
+        "structureMastered",
+        "interestTag"
       ],
       "properties": {
         "background": { "$ref": "#/$defs/hexColor" },
@@ -269,7 +275,13 @@
         "amberBg": { "$ref": "#/$defs/hexColor" },
         "dangerBg": { "$ref": "#/$defs/hexColor" },
         "blueBg": { "$ref": "#/$defs/hexColor" },
-        "violetBg": { "$ref": "#/$defs/hexColor" }
+        "violetBg": { "$ref": "#/$defs/hexColor" },
+        "gearCasual": { "$ref": "#/$defs/hexColor" },
+        "gearWork": { "$ref": "#/$defs/hexColor" },
+        "gearAcademic": { "$ref": "#/$defs/hexColor" },
+        "gapObserved": { "$ref": "#/$defs/hexColor" },
+        "structureMastered": { "$ref": "#/$defs/hexColor" },
+        "interestTag": { "$ref": "#/$defs/hexColor" }
       }
     },
     "modePalette": {

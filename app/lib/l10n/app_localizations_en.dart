@@ -168,4 +168,41 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get readingPassagesLabel => 'Reading Passages';
+
+  @override
+  String get authTitleSignIn => 'Sign In';
+
+  @override
+  String get authTitleSignUp => 'Create Account';
+
+  @override
+  String get authSmsPhoneLabel => 'Iran Mobile Number';
+
+  @override
+  String get authSendOtp => 'Send SMS Verification Code';
+
+  @override
+  String get authVerifyOtp => 'Verify & Sign In';
+
+  @override
+  String get practiceHubTitle => 'Practice Hub';
+
+  @override
+  String get practiceHubSubtitle =>
+      'Offline exam library · Sync & download packs';
+
+  @override
+  String get vocabularyTitle => 'Vocabulary Deck';
+
+  @override
+  String get progressTitle => 'Progress & Analytics';
+
+  @override
+  String get targetDateLabel => 'Target Exam Date';
+
+  @override
+  String get jalaliPickerTitle => 'Select Exam Date (Jalali)';
+
+  @override
+  String get naviaHandoffTitle => 'Send Verified Score to Navia';
 }

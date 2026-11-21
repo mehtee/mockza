@@ -267,6 +267,9 @@ class VocabCards extends Table with AuditColumns {
   /// Learner definition and band-8 context example.
   TextColumn get definition => text()();
 
+  /// Optional concise Persian translation/gloss (`IRN` Sanjia edition).
+  TextColumn get glossFa => text().nullable()();
+
   /// Topic tag (`environment`, `technology`, `education`, etc.).
   TextColumn get topicTag => text()();
 
@@ -480,4 +483,124 @@ class DiagnosticSessions extends Table with AuditColumns {
 
   @override
   Set<Column<Object>> get primaryKey => {diagId};
+}
+
+/// Persistent Linguistic Graph nodes tracking bottlenecks, target structures, and topic affinities.
+@DataClassName('LinguisticNodeRow')
+class LinguisticNodes extends Table {
+  /// Node primary UUID.
+  TextColumn get nodeId => text()();
+
+  /// Edition isolation tag (`glb` or `irn`).
+  TextColumn get edition => text().withDefault(const Constant('glb'))();
+
+  /// Node kind (`bottleneck`, `target_structure`, or `interest_topic`).
+  TextColumn get nodeKind => text()();
+
+  /// Canonical classifier key.
+  TextColumn get canonicalKey => text()();
+
+  /// English label.
+  TextColumn get displayLabelEn => text()();
+
+  /// Optional Persian label (`irn`).
+  TextColumn get displayLabelFa => text().nullable()();
+
+  /// Mastery progress milliscore `[0..1000]`.
+  IntColumn get masteryScoreMilli =>
+      integer().withDefault(const Constant(400))();
+
+  /// Decayed mission priority weight `[0..1000]`.
+  IntColumn get signalWeightMilli =>
+      integer().withDefault(const Constant(500))();
+
+  /// Total recorded observation count.
+  IntColumn get evidenceCount => integer().withDefault(const Constant(1))();
+
+  /// UTC SerialDay of last signal.
+  IntColumn get lastSeenDaySerial => integer()();
+
+  /// Latest short learner excerpt.
+  TextColumn get lastExampleEn => text().nullable()();
+
+  /// English coaching guidance.
+  TextColumn get coachNoteEn => text().nullable()();
+
+  /// Persian coaching guidance (`irn`).
+  TextColumn get coachNoteFa => text().nullable()();
+
+  /// Last UTC update epoch millis.
+  IntColumn get updatedAtUtcMs => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {nodeId};
+}
+
+/// Cached Daily 10-Minute Mission synchronized per UTC serial day.
+@DataClassName('DailyMissionRow')
+class DailyMissions extends Table {
+  /// Mission primary UUID.
+  TextColumn get missionId => text()();
+
+  /// UTC SerialDay index.
+  IntColumn get missionDaySerial => integer()();
+
+  /// Target exam track identifier.
+  TextColumn get examTrack =>
+      text().withDefault(const Constant('ielts_academic'))();
+
+  /// Completion status (`ready`, `in_progress`, `completed`, `skipped`).
+  TextColumn get status => text().withDefault(const Constant('ready'))();
+
+  /// Topic theme for this mission.
+  TextColumn get focusTopic => text()();
+
+  /// Full mission payload JSON.
+  TextColumn get missionPayloadJson => text()();
+
+  /// Optional evaluation feedback JSON.
+  TextColumn get resultJson => text().nullable()();
+
+  /// Last UTC update epoch millis.
+  IntColumn get updatedAtUtcMs => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {missionId};
+}
+
+/// Private user-dropped articles/images/bounded-audio micro-drills.
+@DataClassName('DroppedContentRow')
+class DroppedContents extends Table {
+  /// Drop primary UUID.
+  TextColumn get dropId => text()();
+
+  /// Input kind (`text_url`, `text`, `image`, or `audio`).
+  TextColumn get inputKind => text()();
+
+  /// Extracted title.
+  TextColumn get title => text()();
+
+  /// Domain or custom source label.
+  TextColumn get sourceLabel => text()();
+
+  /// Estimated CEFR band.
+  TextColumn get cefrEstimate => text().withDefault(const Constant('B2'))();
+
+  /// Serialized JSON list of extracted idioms/phrases.
+  TextColumn get extractedPhrasesJson => text()();
+
+  /// Serialized JSON 2-minute micro-drill payload.
+  TextColumn get drillPayloadJson => text()();
+
+  /// Optional relative preview image path.
+  TextColumn get localPreviewPath => text().nullable()();
+
+  /// Completion timestamp UTC millis.
+  IntColumn get completedAtUtcMs => integer().nullable()();
+
+  /// Creation timestamp UTC millis.
+  IntColumn get createdAtUtcMs => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {dropId};
 }

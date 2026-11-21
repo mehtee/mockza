@@ -84,7 +84,7 @@ export interface MemoryBillingOrder {
   userId: string | null;
   deviceId: string;
   edition: 'glb' | 'irn';
-  provider: 'zarinpal' | 'stripe' | 'dev_sandbox';
+  provider: 'zarinpal' | 'bazaar' | 'myket' | 'stripe' | 'dev_sandbox';
   planId: string;
   currency: 'IRR' | 'USD';
   amountMinor: number;
@@ -114,6 +114,14 @@ export interface WebBillingService {
     deviceId: string;
     authority: string;
     status?: string;
+  }): Promise<EntitlementSnapshot>;
+  verifyIranStorePurchase(params: {
+    userId: string | null;
+    deviceId: string;
+    provider: 'bazaar' | 'myket';
+    planId: string;
+    productId: string;
+    purchaseToken: string;
   }): Promise<EntitlementSnapshot>;
   createGlbCheckout(params: {
     userId: string | null;
@@ -163,7 +171,7 @@ export function createWebBillingService(
     userId: string | null;
     deviceId: string;
     planId: string;
-    provider: 'zarinpal' | 'stripe' | 'dev_sandbox';
+    provider: 'zarinpal' | 'bazaar' | 'myket' | 'stripe' | 'dev_sandbox';
     durationDays: number;
     acceptedDevicePolicyAt: Date;
   }): Promise<EntitlementSnapshot> {
@@ -692,6 +700,92 @@ export function createWebBillingService(
         );
       }
       return { portalUrl: fallbackUrl };
+    },
+
+    async verifyIranStorePurchase({
+      userId,
+      deviceId,
+      provider,
+      planId,
+      productId,
+      purchaseToken,
+    }) {
+      const plan = WEB_BILLING_PLANS[planId];
+      if (!plan) {
+        throw new WebBillingError('validation_error', `Unknown planId: ${planId}`, 400);
+      }
+
+      const secret =
+        provider === 'bazaar' ? env.CAFEBAZAAR_SECRET.trim() : env.MYKET_SECRET.trim();
+      const authority = `${provider}:${purchaseToken.slice(0, 96)}`;
+      const existing = await findOrderByAuthority(authority);
+      if (existing?.status === 'verified') {
+        return {
+          isPro: true,
+          activePlanId: existing.planId,
+          expiresAt: existing.verifiedAt
+            ? new Date(existing.verifiedAt.getTime() + plan.durationDays * 86_400_000).toISOString()
+            : null,
+          source: provider,
+          freeDiagnosticUsed: false,
+        };
+      }
+
+      if (secret.length > 0) {
+        const verifyUrl =
+          provider === 'bazaar'
+            ? `https://pardakht.cafebazaar.ir/devapi/v2/api/validate/ir.sanjia.app/inapp/${encodeURIComponent(productId)}/purchases/${encodeURIComponent(purchaseToken)}/`
+            : `https://developer.myket.ir/api/applications/ir.sanjia.app/purchases/products/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(purchaseToken)}`;
+        const res = await fetchFn(verifyUrl, {
+          method: 'GET',
+          headers:
+            provider === 'bazaar'
+              ? { 'CAFEBAZAAR-PISHKHAN-API-SECRET': secret, accept: 'application/json' }
+              : { 'X-Access-Token': secret, accept: 'application/json' },
+        });
+        if (!res.ok) {
+          throw new WebBillingError(
+            'billing_unavailable',
+            `${provider} purchase receipt verification failed.`,
+            502,
+          );
+        }
+      } else if (!isSandboxBillingAllowed()) {
+        throw new WebBillingError(
+          'provider_not_configured',
+          `${provider} store secret is not configured.`,
+          503,
+        );
+      }
+
+      const now = new Date();
+      if (!existing) {
+        await saveOrder({
+          orderId: randomUUID(),
+          userId,
+          deviceId,
+          edition: 'irn',
+          provider,
+          planId,
+          currency: 'IRR',
+          amountMinor: plan.irrMinorRials,
+          authority,
+          refId: productId,
+          status: 'verified',
+          acceptedDevicePolicyAt: now,
+          createdAt: now,
+          verifiedAt: now,
+        });
+      }
+
+      return grantProEntitlement({
+        userId,
+        deviceId,
+        planId,
+        provider,
+        durationDays: plan.durationDays,
+        acceptedDevicePolicyAt: now,
+      });
     },
   };
 }

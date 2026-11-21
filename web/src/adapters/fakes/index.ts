@@ -4,6 +4,7 @@ export { FakeBillingAdapter, type FakeBillingAdapterOptions } from './fake-billi
 export { FakeCatalogAdapter, type FakeCatalogAdapterOptions } from './fake-catalog.adapter';
 export { FakeDiagnosticAdapter } from './fake-diagnostic.adapter';
 export { FakeEvaluationAdapter } from './fake-evaluation.adapter';
+export { FakeLinguisticAdapter } from './fake-linguistic.adapter';
 export { DEFAULT_FAKE_CLOCK_MS, FakeClock } from './fake-clock';
 export { FakeStorageAdapter, type FakeStorageAdapterOptions } from './fake-storage.adapter';
 export { FakeTelemetryAdapter, type RecordedTelemetryError, type RecordedTelemetryEvent } from './fake-telemetry.adapter';

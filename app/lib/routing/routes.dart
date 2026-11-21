@@ -24,6 +24,9 @@ abstract final class AppRoutes {
   /// Pushed Pro Paywall route.
   static const String paywall = '/paywall';
 
+  /// Zarinpal redirect verification callback route (`/billing/callback`).
+  static const String billingCallback = '/billing/callback';
+
   /// Account sign-in / registration route.
   static const String auth = '/auth';
 
@@ -87,7 +90,36 @@ abstract final class AppRoutes {
   /// Complete paginated attempt history (`/progress/attempts`).
   static const String progressAttempts = '/progress/attempts';
 
+  /// Persistent Linguistic Graph habit & interest explorer (`/progress/graph`).
+  static const String linguisticGraph = '/progress/graph';
+
+  /// Closed-loop 10-Min Daily Mission runner (`/mission/:missionId`).
+  static const String dailyMission = '/mission/:missionId';
+
+  /// 3-Gear Register Shifter screen (`/register-shifter`).
+  static const String registerShifter = '/register-shifter';
+
+  /// Parameterized Register Shifter run (`/register-shifter/:runId`).
+  static const String registerShifterRun = '/register-shifter/:runId';
+
+  /// Bounded Drop Anything composer (`/drop`).
+  static const String dropIngest = '/drop';
+
+  /// Drop Anything 2-min micro-drill runner (`/drop/drill/:dropId`).
+  static const String dropDrill = '/drop/drill/:dropId';
+
   // --- Parameterized Path Builders ---
+
+  /// Builds a Daily Mission path.
+  static String buildDailyMission([String missionId = 'today']) =>
+      '/mission/$missionId';
+
+  /// Builds a Register Shifter run path.
+  static String buildRegisterShifterRun(String runId) =>
+      '/register-shifter/$runId';
+
+  /// Builds a Drop drill path for [dropId].
+  static String buildDropDrill(String dropId) => '/drop/drill/$dropId';
 
   /// Builds a practice setup path for [skill].
   static String buildPracticeSetup(String skill) => '/practice/setup/$skill';

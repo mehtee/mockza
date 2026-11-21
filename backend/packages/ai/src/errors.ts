@@ -1,6 +1,8 @@
 export type EvaluationModelErrorCode =
   | 'model_unavailable'
   | 'audio_missing'
+  | 'audio_too_long'
+  | 'image_invalid'
   | 'model_invalid_output'
   | 'upstream_rate_limited'
   | 'upstream_timeout';

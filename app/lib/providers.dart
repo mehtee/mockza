@@ -9,6 +9,7 @@ import 'package:mockza/data/db/app_database.dart';
 import 'package:mockza/data/db/connection.dart';
 import 'package:mockza/data/repositories/attempt_repository.dart';
 import 'package:mockza/data/repositories/exam_catalog_repository.dart';
+import 'package:mockza/data/repositories/linguistic_repository.dart';
 import 'package:mockza/data/repositories/profile_repository.dart';
 import 'package:mockza/data/repositories/progress_repository.dart';
 import 'package:mockza/data/repositories/vocab_repository.dart';
@@ -23,7 +24,9 @@ import 'package:mockza/services/crash_log.dart';
 import 'package:mockza/services/diagnostic_gateway.dart';
 import 'package:mockza/services/entropy_source.dart';
 import 'package:mockza/services/grading_gateway.dart';
+import 'package:mockza/services/linguistic_gateway.dart';
 import 'package:mockza/services/native/platform_audio_channel.dart';
+import 'package:mockza/services/native/share_intent_bridge.dart';
 import 'package:mockza/services/network/dio_client.dart';
 import 'package:mockza/services/outbox_sync_service.dart';
 import 'package:mockza/services/secure_identity_service.dart';
@@ -252,13 +255,36 @@ final Provider<BillingGateway> billingGatewayProvider =
             return res.valueOrNull;
           },
         ),
-        AppEdition.iran => const IranBillingGateway(),
+        AppEdition.iran => IranBillingGateway(dio: ref.watch(dioProvider)),
       };
     });
 
 /// Quarantined OS audio session method channel provider.
 final Provider<PlatformAudioChannel> platformAudioChannelProvider =
     Provider<PlatformAudioChannel>((ref) => const PlatformAudioChannel());
+
+/// Quarantined OS Share Sheet bridge provider (`ADR-ADV-007`).
+final Provider<ShareIntentBridge> shareIntentBridgeProvider =
+    Provider<ShareIntentBridge>((ref) {
+      final bridge = ShareIntentBridge();
+      ref.onDispose(() => unawaited(bridge.dispose()));
+      return bridge;
+    });
+
+/// Closed-Loop Linguistic Graph, Daily Mission, Register Shifter, and Drop Anything gateway.
+final Provider<LinguisticGateway> linguisticGatewayProvider =
+    Provider<LinguisticGateway>(
+      (ref) => HttpLinguisticGateway(ref.watch(dioProvider)),
+    );
+
+/// Drift offline repository for Linguistic Graph, Daily Missions, and Drops.
+final Provider<LinguisticRepository> linguisticRepositoryProvider =
+    Provider<LinguisticRepository>(
+      (ref) => LinguisticRepository(
+        db: ref.watch(appDatabaseProvider),
+        clock: ref.watch(clockProvider),
+      ),
+    );
 
 /// Preloaded [AppearanceSettings] injected during `bootstrap`.
 final Provider<AppearanceSettings> initialAppearanceSettingsProvider =

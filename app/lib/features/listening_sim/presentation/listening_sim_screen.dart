@@ -15,6 +15,7 @@ import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/audio_player_bar.dart';
 import 'package:mockza/theme/components/exam_exit_guard.dart';
 import 'package:mockza/theme/components/exam_question_controls.dart';
+import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
@@ -251,24 +252,28 @@ class _ListeningSimScreenState extends ConsumerState<ListeningSimScreen> {
                       ),
                     )
                   : state.showTranscript && !state.isExamMode
-                  ? _SyncedTranscriptView(
-                      entries: state.transcriptEntries,
-                      currentPosition: state.currentPosition,
-                      onTapSeekMs: (ms) => unawaited(
-                        notifier.seek(Duration(microseconds: ms * 1000)),
+                  ? LtrExamBoundary(
+                      child: _SyncedTranscriptView(
+                        entries: state.transcriptEntries,
+                        currentPosition: state.currentPosition,
+                        onTapSeekMs: (ms) => unawaited(
+                          notifier.seek(Duration(microseconds: ms * 1000)),
+                        ),
                       ),
                     )
-                  : _QuestionsFormView(
-                      section: activeSection,
-                      answers: state.answers,
-                      focusedMode: _focusedMode,
-                      activeQuestionNumber: _focusedQuestionNumber,
-                      onToggleFocusedMode: (val) =>
-                          setState(() => _focusedMode = val),
-                      onSelectQuestionNumber: (numVal) =>
-                          setState(() => _focusedQuestionNumber = numVal),
-                      onAnswer: notifier.setAnswer,
-                      onToggleMulti: notifier.toggleMultiAnswer,
+                  : LtrExamBoundary(
+                      child: _QuestionsFormView(
+                        section: activeSection,
+                        answers: state.answers,
+                        focusedMode: _focusedMode,
+                        activeQuestionNumber: _focusedQuestionNumber,
+                        onToggleFocusedMode: (val) =>
+                            setState(() => _focusedMode = val),
+                        onSelectQuestionNumber: (numVal) =>
+                            setState(() => _focusedQuestionNumber = numVal),
+                        onAnswer: notifier.setAnswer,
+                        onToggleMulti: notifier.toggleMultiAnswer,
+                      ),
                     ),
             ),
 

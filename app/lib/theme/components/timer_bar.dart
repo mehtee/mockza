@@ -90,11 +90,14 @@ class TimerBar extends StatelessWidget {
               color: isUrgent ? colors.error : colors.textSecondary,
             ),
             const SizedBox(width: SpacingTokens.sm),
-            Text(
-              timeString,
-              style: typography.timerMono.copyWith(
-                color: isUrgent ? colors.error : colors.textPrimary,
-                fontSize: 18,
+            Directionality(
+              textDirection: TextDirection.ltr,
+              child: Text(
+                timeString,
+                style: typography.timerMono.copyWith(
+                  color: isUrgent ? colors.error : colors.textPrimary,
+                  fontSize: 18,
+                ),
               ),
             ),
             const SizedBox(width: SpacingTokens.sm),

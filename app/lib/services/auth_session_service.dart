@@ -4,6 +4,7 @@ import 'package:clock/clock.dart';
 import 'package:dio/dio.dart';
 import 'package:mockza/core/auth/auth_models.dart';
 import 'package:mockza/core/config/edition_config.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
 import 'package:mockza/core/result/failure.dart';
 import 'package:mockza/core/result/result.dart';
 import 'package:mockza/services/crash_log.dart';
@@ -207,6 +208,44 @@ final class AuthSessionService {
         'displayName': displayName.trim(),
     },
     fallbackMessage: 'Account registration failed.',
+  );
+
+  /// Requests a 6-digit SMS OTP challenge for an Iranian mobile number (`IRN` edition only).
+  Future<Result<({int retryAfterSec, String? devOtpHint}), Failure>>
+  requestSmsOtp({required String phoneE164}) async {
+    try {
+      final res = await _authDio.post<Map<String, Object?>>(
+        '/v1/auth/otp/request',
+        data: <String, Object?>{'phoneE164': phoneE164},
+      );
+      final data = res.data ?? const <String, Object?>{};
+      return Ok((
+        retryAfterSec: (data['retryAfterSec'] as num?)?.toInt() ?? 60,
+        devOtpHint: data['devOtpHint'] as String?,
+      ));
+    } on DioException catch (e) {
+      return Err(
+        _mapDioFailure(
+          e,
+          fallbackMessage: 'ارسال کد تایید پیامکی ناموفق بود.',
+        ),
+      );
+    } on Object catch (e) {
+      return Err(UnexpectedFailure('OTP request error: $e'));
+    }
+  }
+
+  /// Verifies a `+98` SMS OTP code (`POST /v1/auth/otp/verify`) and claims the caller's device slot.
+  Future<Result<AuthSessionResult, Failure>> verifySmsOtp({
+    required String phoneE164,
+    required String otpCode,
+  }) => _submitAuthCredential(
+    path: '/v1/auth/otp/verify',
+    payload: <String, Object?>{
+      'phoneE164': phoneE164,
+      'otpCode': EdgeNumerals.toAsciiDigits(otpCode).trim(),
+    },
+    fallbackMessage: 'کد تایید نامعتبر یا منقضی است.',
   );
 
   /// Signs in with email & password under strict `1 mobile + 1 desktop_web` enforcement.

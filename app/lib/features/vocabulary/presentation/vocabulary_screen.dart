@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockza/core/config/edition_config.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
 import 'package:mockza/data/repositories/vocab_repository.dart';
 import 'package:mockza/features/vocabulary/presentation/vocabulary_providers.dart';
 import 'package:mockza/providers.dart';
@@ -12,6 +14,7 @@ import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/brand_header.dart';
+import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
@@ -31,6 +34,8 @@ class VocabularyScreen extends ConsumerWidget {
     final allCardsAsync = ref.watch(allVocabCardsProvider);
     final filter = ref.watch(vocabFilterProvider);
     final searchQuery = ref.watch(vocabSearchQueryProvider);
+    final edition = ref.watch(editionConfigProvider).edition;
+    final isIran = edition == AppEdition.iran;
 
     final isInitialLoading =
         (dueCardsAsync.isLoading && !dueCardsAsync.hasValue) ||
@@ -67,7 +72,7 @@ class VocabularyScreen extends ConsumerWidget {
         slivers: <Widget>[
           SliverToBoxAdapter(
             child: BrandHeader(
-              title: 'Vocabulary Deck',
+              title: isIran ? 'دفترچه واژگان' : 'Vocabulary Deck',
               onTapSettings: () => context.push(AppRoutes.settings),
             ),
           ),
@@ -93,11 +98,14 @@ class VocabularyScreen extends ConsumerWidget {
                       ref,
                       dueCount: dueCards.length,
                       totalCount: allCards.length,
+                      edition: edition,
                     ),
                   ],
                   const SizedBox(height: SpacingTokens.lg),
                   Text(
-                    'Your Retention Progress',
+                    isIran
+                        ? 'پیشرفت تثبیت در حافظه'
+                        : 'Your Retention Progress',
                     style: typography.cardTitle.copyWith(
                       color: colors.textPrimary,
                     ),
@@ -115,7 +123,9 @@ class VocabularyScreen extends ConsumerWidget {
                     children: <Widget>[
                       Expanded(
                         child: Text(
-                          'Saved Words & Phrases',
+                          isIran
+                              ? 'واژگان و عبارات ذخیره‌شده'
+                              : 'Saved Words & Phrases',
                           style: typography.cardTitle.copyWith(
                             color: colors.textPrimary,
                           ),
@@ -123,7 +133,9 @@ class VocabularyScreen extends ConsumerWidget {
                       ),
                       const SizedBox(width: SpacingTokens.sm),
                       Text(
-                        '${filteredCards.length} saved',
+                        isIran
+                            ? '${EdgeNumerals.formatChromeNumber(filteredCards.length, edition)} واژه'
+                            : '${filteredCards.length} saved',
                         style: typography.caption.copyWith(
                           color: colors.textSecondary,
                         ),
@@ -139,7 +151,7 @@ class VocabularyScreen extends ConsumerWidget {
                     _buildEmptyState(context)
                   else
                     ...filteredCards.map(
-                      (card) => _buildCardTile(context, card),
+                      (card) => _buildCardTile(context, card, isIran: isIran),
                     ),
                   const SizedBox(height: SpacingTokens.xxl),
                 ],
@@ -156,9 +168,11 @@ class VocabularyScreen extends ConsumerWidget {
     WidgetRef ref, {
     required int dueCount,
     required int totalCount,
+    required AppEdition edition,
   }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
+    final isIran = edition == AppEdition.iran;
 
     final String headingText;
     final String bodyText;
@@ -172,27 +186,39 @@ class VocabularyScreen extends ConsumerWidget {
       final sessionCount = selectedBatchSize == null
           ? dueCount
           : (dueCount < selectedBatchSize ? dueCount : selectedBatchSize);
-      headingText = '$dueCount words due for review';
-      bodyText =
-          'Review a focused batch of $sessionCount cards today to lock collocations into long-term memory.';
-      ctaLabel = 'Start Review ($sessionCount)';
+      headingText = isIran
+          ? '${EdgeNumerals.formatChromeNumber(dueCount, edition)} واژه آماده مرور'
+          : '$dueCount words due for review';
+      bodyText = isIran
+          ? 'مرور یک بسته ${EdgeNumerals.formatChromeNumber(sessionCount, edition)} تایی برای تثبیت هم‌آواها در حافظه بلندمدت.'
+          : 'Review a focused batch of $sessionCount cards today to lock collocations into long-term memory.';
+      ctaLabel = isIran
+          ? 'شروع مرور (${EdgeNumerals.formatChromeNumber(sessionCount, edition)})'
+          : 'Start Review ($sessionCount)';
       onTapCta = () =>
           context.push('${AppRoutes.vocabReview}?limit=$limitQuery');
     } else if (totalCount > 0) {
       final sessionCount = selectedBatchSize == null
           ? totalCount
           : (totalCount < selectedBatchSize ? totalCount : selectedBatchSize);
-      headingText = 'All caught up for today!';
-      bodyText =
-          'Practice a $sessionCount-card ahead batch or return tomorrow for your next interval.';
-      ctaLabel = 'Review Ahead ($sessionCount)';
+      headingText = isIran
+          ? 'مرورهای امروز کامل شد!'
+          : 'All caught up for today!';
+      bodyText = isIran
+          ? 'می‌توانید یک بسته ${EdgeNumerals.formatChromeNumber(sessionCount, edition)} تایی پیش‌خوانی را مرور کنید یا فردا برگردید.'
+          : 'Practice a $sessionCount-card ahead batch or return tomorrow for your next interval.';
+      ctaLabel = isIran
+          ? 'مرور زودتر از موعد (${EdgeNumerals.formatChromeNumber(sessionCount, edition)})'
+          : 'Review Ahead ($sessionCount)';
       onTapCta = () => context.push(
         '${AppRoutes.vocabReview}?mode=ahead&limit=$limitQuery',
       );
     } else {
-      headingText = 'Vocabulary deck empty';
-      bodyText = 'Sync starter collocations from the server or save upgrades from your evaluations.';
-      ctaLabel = 'Sync Vocabulary';
+      headingText = isIran ? 'دِک واژگان خالی است' : 'Vocabulary deck empty';
+      bodyText = isIran
+          ? 'واژگان پایه را همگام‌سازی کنید یا اصطلاحات ارتقایافته را از بازخوردها ذخیره نمایید.'
+          : 'Sync starter collocations from the server or save upgrades from your evaluations.';
+      ctaLabel = isIran ? 'همگام‌سازی واژگان' : 'Sync Vocabulary';
       onTapCta = () => unawaited(
         ref
             .read(contentSyncServiceProvider)
@@ -423,7 +449,11 @@ class VocabularyScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildCardTile(BuildContext context, VocabDeckCard card) {
+  Widget _buildCardTile(
+    BuildContext context,
+    VocabDeckCard card, {
+    required bool isIran,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
     final shapes = AppShapes.of(context);
@@ -444,42 +474,61 @@ class VocabularyScreen extends ConsumerWidget {
             children: <Widget>[
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
-                    Wrap(
-                      spacing: SpacingTokens.sm,
-                      runSpacing: SpacingTokens.xs,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: <Widget>[
-                        Text(
-                          card.headword,
-                          style: typography.cardTitle.copyWith(
-                            color: colors.textPrimary,
-                          ),
-                        ),
-                        if (card.ipa != null)
+                    LtrExamBoundary(
+                      child: Wrap(
+                        spacing: SpacingTokens.sm,
+                        runSpacing: SpacingTokens.xs,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: <Widget>[
                           Text(
-                            card.ipa!,
-                            style: typography.caption.copyWith(
-                              color: colors.textSecondary,
+                            card.headword,
+                            style: typography.cardTitle.copyWith(
+                              color: colors.textPrimary,
                             ),
                           ),
-                      ],
+                          if (card.ipa != null)
+                            Text(
+                              card.ipa!,
+                              style: typography.caption.copyWith(
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
+                    if (isIran &&
+                        card.glossFa != null &&
+                        card.glossFa!.trim().isNotEmpty) ...<Widget>[
+                      const SizedBox(height: SpacingTokens.xs),
+                      Text(
+                        card.glossFa!,
+                        style: typography.secondary.copyWith(
+                          color: colors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: SpacingTokens.xs),
-                    Text(
-                      card.definition,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: typography.body.copyWith(
-                        color: colors.textSecondary,
+                    LtrExamBoundary(
+                      child: Text(
+                        card.definition,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: typography.body.copyWith(
+                          color: colors.textSecondary,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: SpacingTokens.md),
-              const AppIcon(LucideGlyph.chevronRight, size: 18),
+              AppIcon(
+                isIran ? LucideGlyph.chevronLeft : LucideGlyph.chevronRight,
+                size: 18,
+              ),
             ],
           ),
         ),

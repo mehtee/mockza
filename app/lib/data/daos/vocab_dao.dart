@@ -66,6 +66,7 @@ class VocabDao extends DatabaseAccessor<AppDatabase> with _$VocabDaoMixin {
             headword: card.headword,
             ipa: card.ipa,
             definition: card.definition,
+            glossFa: card.glossFa,
             topicTag: card.topicTag,
             contextSentence: card.contextSentence,
             updatedAt: card.updatedAt,

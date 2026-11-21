@@ -20,6 +20,7 @@ import {
 import { and, eq, isNull, lt, notInArray, or } from 'drizzle-orm';
 import { JOB_LEASE_DURATION_MS, startEvaluationLeaseRenewal } from './evaluation-lease.js';
 import type { WorkerRetryContext } from './grade-writing.js';
+import { recordPostEvaluationLinguisticSignals } from './record-linguistic-signals.js';
 
 export const SPEAKING_JOB_QUEUE = 'evaluation.speaking';
 
@@ -221,6 +222,21 @@ export async function handleGradeSpeakingJob(
           }
         }
       });
+
+      const spokenTranscript =
+        'transcriptSegments' in result && Array.isArray(result.transcriptSegments)
+          ? result.transcriptSegments.map((seg) => seg.text).join(' ')
+          : '';
+      if (spokenTranscript.trim().length > 0) {
+        await recordPostEvaluationLinguisticSignals({
+          db,
+          jobId: payload.jobId,
+          edition: effectiveEdition,
+          sourceKind: isDiagnosticTask ? 'diagnostic' : 'speaking',
+          sourceRefId: payload.attemptId,
+          textSample: spokenTranscript,
+        });
+      }
     }
 
     return (isDiagnosticTask ? null : result) as SpeakingGraphOutput | null;

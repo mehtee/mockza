@@ -193,6 +193,47 @@ export function HomeScreen() {
         </div>
       </MzCard>
 
+      {/* Closed-Loop Daily 10-Min Transfer Mission + Signature Tools (ADR-ADV-007 priority) */}
+      <MzCard variant="default" data-testid="home-daily-mission-card">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
+              <Flame className="h-3.5 w-3.5" aria-hidden="true" />
+              {t('homeDailyMissionTitle')}
+            </p>
+            <p className="mt-1 text-xs text-text-secondary">
+              {deps.edition === 'irn'
+                ? 'تمرین هدفمند ۱۰ دقیقه‌ای بر اساس گلوگاه‌های واقعی، واژگان SM-2 و موضوعات دلخواه شما'
+                : 'Closed-loop 10-minute transfer drill blending active bottlenecks, due SM-2 cards, and favorite topics.'}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to="/mission/$missionId"
+              params={{ missionId: 'today' }}
+              data-testid="home-daily-mission-cta"
+              className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3.5 text-xs font-semibold text-on-primary"
+            >
+              {t('homeDailyMissionStartCta')}
+            </Link>
+            <Link
+              to="/register-shifter"
+              data-testid="home-register-shifter-cta"
+              className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] border border-border-strong px-3 text-xs font-semibold text-primary hover:bg-surface-hover"
+            >
+              {t('homeRegisterShifterCta')}
+            </Link>
+            <Link
+              to="/drop"
+              data-testid="home-drop-anything-cta"
+              className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 text-xs font-semibold text-text-primary hover:bg-surface-hover"
+            >
+              {t('homeDropAnythingCta')}
+            </Link>
+          </div>
+        </div>
+      </MzCard>
+
       {/* Instant Track Switcher Strip */}
       <div
         role="radiogroup"

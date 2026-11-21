@@ -5,6 +5,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:clock/clock.dart';
+import 'package:mockza/core/advanced/drop_input_policy.dart';
+import 'package:mockza/core/advanced/linguistic_graph_math.dart';
+import 'package:mockza/core/advanced/quota_rules.dart';
 import 'package:mockza/core/diagnostic/diagnostic_budget.dart';
 import 'package:mockza/core/diagnostic/diagnostic_models.dart';
 import 'package:mockza/core/diagnostic/diagnostic_router.dart';
@@ -1063,6 +1066,147 @@ void main() {
         nowMs += 50000;
         expect(tracker.currentRemaining(), 0);
         expect(tracker.isExpired, isTrue);
+      });
+    });
+
+    group('7. Closed-Loop Linguistic Graph & Drop Bounds Parity', () {
+      final graphFixtures = _asMap(
+        jsonDecode(
+          File(
+            '$fixturesDir/linguistic_graph_vectors.json',
+          ).readAsStringSync(),
+        ),
+      );
+      final dropFixtures = _asMap(
+        jsonDecode(
+          File('$fixturesDir/drop_bounds_vectors.json').readAsStringSync(),
+        ),
+      );
+
+      for (final raw in _asList(graphFixtures['masteryUpdates'])) {
+        final v = _asMap(raw);
+        test('computeNextMasteryMilli [${_asString(v['id'])}]', () {
+          expect(
+            LinguisticGraphMath.computeNextMasteryMilli(
+              currentMilli: _asInt(v['currentMilli']),
+              polarity: EvidencePolarity.fromWire(_asString(v['polarity'])),
+              evidenceCount: _asInt(v['evidenceCount']),
+            ),
+            _asInt(v['expectedMilli']),
+          );
+        });
+      }
+
+      test('rankTopMissionTargets matches TS priority parity', () {
+        final r = _asMap(graphFixtures['rankMissionTargets']);
+        final nodes = _asList(r['nodes'])
+            .map((raw) {
+              final n = _asMap(raw);
+              return LinguisticNodeSummary(
+                nodeId: _asString(n['nodeId']),
+                nodeKind: LinguisticNodeKind.fromWire(_asString(n['nodeKind'])),
+                canonicalKey: _asString(n['canonicalKey']),
+                masteryScoreMilli: _asInt(n['masteryScoreMilli']),
+                signalWeightMilli: _asInt(n['signalWeightMilli']),
+                evidenceCount: _asInt(n['evidenceCount']),
+                lastSeenDaySerial: _asInt(n['lastSeenDaySerial']),
+              );
+            })
+            .toList(growable: false);
+
+        final ranked = LinguisticGraphMath.rankTopMissionTargets(
+          nodes: nodes,
+          dueCardIds: _asList(r['dueCardIds']).map(_asString).toList(),
+          currentDaySerial: _asInt(r['currentDaySerial']),
+        );
+        final exp = _asMap(r['expected']);
+        expect(
+          ranked.bottlenecks.map((b) => b.canonicalKey).toList(),
+          _asList(exp['bottleneckKeys']).map(_asString).toList(),
+        );
+        expect(
+          ranked.targetStructures.map((t) => t.canonicalKey).toList(),
+          _asList(exp['targetKeys']).map(_asString).toList(),
+        );
+        expect(
+          ranked.interestTopics.map((i) => i.canonicalKey).toList(),
+          _asList(exp['interestKeys']).map(_asString).toList(),
+        );
+        expect(
+          ranked.suggestedCardIds,
+          _asList(exp['suggestedCardIds']).map(_asString).toList(),
+        );
+      });
+
+      for (final raw in _asList(graphFixtures['utf16Spans'])) {
+        final v = _asMap(raw);
+        test('normalizeUtf16Span [${_asString(v['id'])}]', () {
+          final res = LinguisticGraphMath.normalizeUtf16Span(
+            _asString(v['sourceText']),
+            _asInt(v['rawStart']),
+            _asInt(v['rawEnd']),
+          );
+          expect(res.startUtf16, _asInt(v['expectedStart']));
+          expect(res.endUtf16, _asInt(v['expectedEnd']));
+          expect(res.excerpt, _asString(v['expectedExcerpt']));
+        });
+      }
+
+      for (final raw in _asList(dropFixtures['urlCases'])) {
+        final v = _asMap(raw);
+        test(
+          'DropInputPolicy.validateUrlPreFlight [${_asString(v['id'])}]',
+          () {
+            final res = DropInputPolicy.validateUrlPreFlight(
+              _asString(v['url']),
+              allowHttpInDev: _asBool(v['allowHttpInDev']),
+            );
+            expect(res.ok, _asBool(v['expectedOk']));
+            expect(res.code, _asNullableString(v['expectedCode']));
+          },
+        );
+      }
+
+      for (final raw in _asList(dropFixtures['textCases'])) {
+        final v = _asMap(raw);
+        test('DropInputPolicy.validateTextSnippet [${_asString(v['id'])}]', () {
+          final res = DropInputPolicy.validateTextSnippet(_asString(v['text']));
+          expect(res.ok, _asBool(v['expectedOk']));
+          expect(res.code, _asNullableString(v['expectedCode']));
+        });
+      }
+
+      for (final raw in _asList(dropFixtures['audioCases'])) {
+        final v = _asMap(raw);
+        test(
+          'DropInputPolicy.validateBoundedAudio [${_asString(v['id'])}]',
+          () {
+            final res = DropInputPolicy.validateBoundedAudio(
+              isShifter: _asString(v['mode']) == 'shifter',
+              contentType: _asString(v['contentType']),
+              byteLength: _asInt(v['byteLength']),
+              durationSeconds: _asInt(v['durationSeconds']),
+            );
+            expect(res.ok, _asBool(v['expectedOk']));
+            expect(res.code, _asNullableString(v['expectedCode']));
+          },
+        );
+      }
+
+      test('AdvancedQuotaRules enforces IRN 120/mo vs GLB 150/mo parity', () {
+        final freeAudio = AdvancedQuotaRules.evaluate(
+          feature: AdvancedQuotaFeature.dropAudio,
+          isPro: false,
+          freeSampleUsed: false,
+          speakingUsedToday: 0,
+          shifterUsedToday: 0,
+          dropsUsedToday: 0,
+          audioDropsUsedToday: 0,
+          monthlyUsed: 0,
+          editionCode: 'irn',
+        );
+        expect(freeAudio.allowed, isFalse);
+        expect(freeAudio.reason, 'pro_required_for_audio_drop');
       });
     });
   });

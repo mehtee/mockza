@@ -19,6 +19,10 @@ class AuthState {
     this.providers = AuthProvidersCatalog.fallback,
     this.errorMessage,
     this.slotConflict,
+    this.otpPhoneE164,
+    this.otpSent = false,
+    this.otpRetryAfterSec = 0,
+    this.devOtpHint,
   });
 
   /// `true` when displaying Create Account form; `false` for Sign In.
@@ -39,6 +43,18 @@ class AuthState {
   /// Non-null when backend rejected sign-in with `409 device_slot_limit_reached`.
   final OccupyingDeviceConflict? slotConflict;
 
+  /// Canonical `+989XXXXXXXXX` phone number awaiting SMS OTP entry (`IRN` edition).
+  final String? otpPhoneE164;
+
+  /// Whether an SMS OTP code was dispatched for [otpPhoneE164].
+  final bool otpSent;
+
+  /// Server cooldown before re-requesting an SMS OTP code.
+  final int otpRetryAfterSec;
+
+  /// Optional sandbox OTP code preview exposed only in dev mode.
+  final String? devOtpHint;
+
   /// Returns an updated copy of [AuthState].
   AuthState copyWith({
     bool? isSignUp,
@@ -49,6 +65,11 @@ class AuthState {
     bool clearErrorMessage = false,
     OccupyingDeviceConflict? slotConflict,
     bool clearSlotConflict = false,
+    String? otpPhoneE164,
+    bool? otpSent,
+    int? otpRetryAfterSec,
+    String? devOtpHint,
+    bool clearOtpState = false,
   }) => AuthState(
     isSignUp: isSignUp ?? this.isSignUp,
     isLoadingProviders: isLoadingProviders ?? this.isLoadingProviders,
@@ -60,6 +81,12 @@ class AuthState {
     slotConflict: clearSlotConflict
         ? null
         : (slotConflict ?? this.slotConflict),
+    otpPhoneE164: clearOtpState ? null : (otpPhoneE164 ?? this.otpPhoneE164),
+    otpSent: !clearOtpState && (otpSent ?? this.otpSent),
+    otpRetryAfterSec: clearOtpState
+        ? 0
+        : (otpRetryAfterSec ?? this.otpRetryAfterSec),
+    devOtpHint: clearOtpState ? null : (devOtpHint ?? this.devOtpHint),
   );
 }
 
@@ -161,6 +188,97 @@ class AuthNotifier extends Notifier<AuthState> {
             password: password,
           );
 
+    if (_isDisposed) return false;
+
+    switch (res) {
+      case Ok<AuthSessionResult, Failure>(:final value):
+        await _applyAuthenticatedBundle(value);
+        return true;
+      case Err<AuthSessionResult, Failure>(:final failure):
+        _applyFailure(failure);
+        return false;
+    }
+  }
+
+  /// Clears current SMS OTP challenge so user can edit their phone number.
+  void resetOtpChallenge() {
+    state = state.copyWith(
+      clearOtpState: true,
+      clearErrorMessage: true,
+      clearSlotConflict: true,
+    );
+  }
+
+  /// Requests an Iranian `+98` SMS OTP code (`POST /v1/auth/otp/request`).
+  Future<bool> requestSmsOtp({required String rawPhone}) async {
+    final normalized = normalizeIranPhoneToE164(rawPhone);
+    if (normalized == null) {
+      state = state.copyWith(
+        errorMessage: 'شماره موبایل معتبر وارد کنید (مثلاً 09123456789).',
+        clearSlotConflict: true,
+      );
+      return false;
+    }
+
+    state = state.copyWith(
+      isSubmitting: true,
+      clearErrorMessage: true,
+      clearSlotConflict: true,
+    );
+
+    final res = await ref
+        .read(authSessionServiceProvider)
+        .requestSmsOtp(phoneE164: normalized);
+    if (_isDisposed) return false;
+
+    switch (res) {
+      case Ok<({int retryAfterSec, String? devOtpHint}), Failure>(:final value):
+        state = state.copyWith(
+          isSubmitting: false,
+          otpPhoneE164: normalized,
+          otpSent: true,
+          otpRetryAfterSec: value.retryAfterSec,
+          devOtpHint: value.devOtpHint,
+        );
+        return true;
+      case Err<({int retryAfterSec, String? devOtpHint}), Failure>(
+        :final failure,
+      ):
+        _applyFailure(failure);
+        return false;
+    }
+  }
+
+  /// Verifies the SMS OTP code (`POST /v1/auth/otp/verify`) and activates the session.
+  Future<bool> verifySmsOtp({
+    required String rawPhone,
+    required String otpCode,
+  }) async {
+    final normalized = state.otpPhoneE164 ?? normalizeIranPhoneToE164(rawPhone);
+    if (normalized == null) {
+      state = state.copyWith(
+        errorMessage: 'شماره موبایل معتبر وارد کنید.',
+        clearSlotConflict: true,
+      );
+      return false;
+    }
+    if (otpCode.trim().length < 4) {
+      state = state.copyWith(
+        errorMessage: 'کد تایید پیامکی را کامل وارد کنید.',
+        clearSlotConflict: true,
+      );
+      return false;
+    }
+
+    state = state.copyWith(
+      isSubmitting: true,
+      clearErrorMessage: true,
+      clearSlotConflict: true,
+    );
+
+    final res = await ref
+        .read(authSessionServiceProvider)
+        .verifySmsOtp(phoneE164: normalized, otpCode: otpCode);
     if (_isDisposed) return false;
 
     switch (res) {

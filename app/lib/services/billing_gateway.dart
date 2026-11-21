@@ -1,7 +1,11 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
 import 'package:mockza/core/result/failure.dart';
 import 'package:mockza/core/result/result.dart';
+import 'package:mockza/services/external_link_platform.dart';
+import 'package:mockza/services/native/iran_iap_channel.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 /// Store offering package model.
@@ -220,54 +224,302 @@ final class RevenueCatBillingGateway implements BillingGateway {
   }
 }
 
-/// Iran flavor [BillingGateway] adapter targeting CafeBazaar / Myket in-app billing.
+/// Compile-time IRN store channel (`zarinpal`, `bazaar`, or `myket`).
+const String kIrnBillingChannel = String.fromEnvironment(
+  'IRN_BILLING_CHANNEL',
+  defaultValue: 'zarinpal',
+);
+
+/// Iran flavor [BillingGateway] supporting:
+/// - **Zarinpal** (`POST /v1/billing/zarinpal/request` + `/verify`) on Flutter Web PWA & Direct APK
+/// - **Cafe Bazaar / Myket** (`IranIapChannel` + `/v1/billing/{bazaar,myket}/verify`) on Android store builds
 final class IranBillingGateway implements BillingGateway {
-  /// Creates an [IranBillingGateway].
-  const new();
+  /// Creates an [IranBillingGateway]. Optional HTTP client enables live API checkout & verification.
+  const new({
+    this._dio,
+    IranIapChannel? storeChannel,
+    this._channelOverride,
+  }) : _storeChannel = storeChannel ?? const IranIapChannel();
 
-  static const List<StorePackage> _iranPackages = <StorePackage>[
-    StorePackage(
-      identifier: 'mockza_cram_weekly',
-      title: 'گذرنامه فشرده ۷ روزه',
-      description: 'ارزیابی نامحدود اسپیکینگ و رایتینگ با هوش مصنوعی (۷ روز).',
-      priceString: '۱۹۹,۰۰۰ تومان',
-      periodDuration: '1 week',
-    ),
-    StorePackage(
-      identifier: 'mockza_pro_monthly',
-      title: 'اشتراک ماهانه پرو',
-      description: 'تحلیل نامحدود، توضیحات هوشمند ریدینگ و لیسنینگ.',
-      priceString: '۳۹۰,۰۰۰ تومان',
-      periodDuration: '1 month',
-    ),
-    StorePackage(
-      identifier: 'mockza_quarterly',
-      title: 'بسته سه‌ماهه آمادگی کامل',
-      description: 'صرفه‌جویی ویژه برای دوره آمادگی ۹۰ روزه.',
-      priceString: '۸۹۰,۰۰۰ تومان',
-      periodDuration: '3 months',
-    ),
-  ];
+  final Dio? _dio;
+  final IranIapChannel _storeChannel;
+  final String? _channelOverride;
+
+  static const List<
+    ({
+      String id,
+      int amountRial,
+      String title,
+      String description,
+      String period,
+    })
+  >
+  _iranPlanSpecs =
+      <
+        ({
+          String id,
+          int amountRial,
+          String title,
+          String description,
+          String period,
+        })
+      >[
+        (
+          id: 'mockza_cram_weekly',
+          amountRial: 1990000,
+          title: 'گذرنامه فشرده ۷ روزه',
+          description:
+              'ارزیابی هوشمند اسپیکینگ و رایتینگ با هوش مصنوعی (۷ روز).',
+          period: '1 week',
+        ),
+        (
+          id: 'mockza_pro_monthly',
+          amountRial: 3900000,
+          title: 'اشتراک ماهانه پرو',
+          description: 'تحلیل هوشمند روزانه (۱۰+۱۰ در روز)، توضیحات ریدینگ و لیسنینگ و واژگان نامحدود.',
+          period: '1 month',
+        ),
+        (
+          id: 'mockza_quarterly',
+          amountRial: 8900000,
+          title: 'بسته سه‌ماهه آمادگی کامل',
+          description: 'بیشترین صرفه‌جویی برای دوره آمادگی ۹۰ روزه اپلای.',
+          period: '3 months',
+        ),
+      ];
+
+  static final List<StorePackage> _iranPackages = _iranPlanSpecs
+      .map(
+        (p) => StorePackage(
+          identifier: p.id,
+          title: p.title,
+          description: p.description,
+          priceString: EdgeNumerals.formatTomanFromRial(p.amountRial),
+          periodDuration: p.period,
+        ),
+      )
+      .toList(growable: false);
+
+  String get _effectiveChannel {
+    if (kIsWeb) return 'zarinpal';
+    final raw = (_channelOverride ?? kIrnBillingChannel).trim().toLowerCase();
+    return switch (raw) {
+      'bazaar' || 'myket' => raw,
+      _ => 'zarinpal',
+    };
+  }
 
   @override
-  Future<Result<bool, Failure>> checkProEntitlement() async => const Ok(false);
+  Future<Result<bool, Failure>> checkProEntitlement() async {
+    final dio = _dio;
+    if (dio == null) return const Ok(false);
+    try {
+      final res = await dio.get<Map<String, Object?>>('/v1/account/me');
+      final data = res.data;
+      if (data == null) return const Ok(false);
+      final user = data['user'] as Map<String, Object?>?;
+      final ent = data['entitlement'] as Map<String, Object?>?;
+      final isPro = (ent?['isPro'] == true) || (user?['isPro'] == true);
+      return Ok(isPro);
+    } on Object {
+      return const Ok(false);
+    }
+  }
 
   @override
-  Future<Result<bool, Failure>> restorePurchases() async => const Err(
-    ValidationFailure(
-      'بازیابی خرید در نسخه ایران نیازمند نصب کافه‌بازار یا مایکت روی اندروید است.',
-    ),
-  );
+  Future<Result<bool, Failure>> restorePurchases() async {
+    final channel = _effectiveChannel;
+    if ((channel == 'bazaar' || channel == 'myket') &&
+        !kIsWeb &&
+        _dio != null) {
+      final latestRes = await _storeChannel.queryLatestPurchase(store: channel);
+      if (latestRes case Ok(:final value) when value != null) {
+        final matchedPlan = _iranPlanSpecs
+            .where((p) => p.id == value.productId)
+            .firstOrNull;
+        if (matchedPlan != null) {
+          return await _verifyStoreReceipt(
+            store: channel,
+            planId: matchedPlan.id,
+            productId: value.productId,
+            purchaseToken: value.purchaseToken,
+          );
+        }
+      }
+    }
+
+    final dio = _dio;
+    if (dio == null) {
+      return const Err(
+        ValidationFailure(
+          'بازیابی اشتراک در نسخه آفلاین ممکن نیست؛ ابتدا وارد حساب کاربری خود شوید.',
+        ),
+      );
+    }
+    return await checkProEntitlement();
+  }
 
   @override
   Future<Result<List<StorePackage>, Failure>> fetchOfferings() async =>
-      const Ok(_iranPackages);
+      Ok(_iranPackages);
 
   @override
-  Future<Result<bool, Failure>> purchasePackage(String packageId) async =>
-      const Err(
+  Future<Result<bool, Failure>> purchasePackage(String packageId) async {
+    final dio = _dio;
+    if (dio == null) {
+      return const Err(
         ValidationFailure(
-          'پرداخت درون‌برنامه‌ای در نسخه اندروید کافه‌بازار یا مایکت فعال است.',
+          'اتصال سرور برای ثبت پرداخت در دسترس نیست.',
         ),
       );
+    }
+
+    final plan = _iranPlanSpecs.where((p) => p.id == packageId).firstOrNull;
+    if (plan == null) {
+      return const Err(ValidationFailure('طرح انتخاب‌شده معتبر نیست.'));
+    }
+
+    final channel = _effectiveChannel;
+    if (channel == 'bazaar' || channel == 'myket') {
+      final iapRes = await _storeChannel.launchPurchase(
+        store: channel,
+        productId: plan.id,
+      );
+      switch (iapRes) {
+        case Err<({String purchaseToken, String productId}), Failure>(
+          :final failure,
+        ):
+          return Err(failure);
+        case Ok<({String purchaseToken, String productId}), Failure>(
+          :final value,
+        ):
+          return await _verifyStoreReceipt(
+            store: channel,
+            planId: plan.id,
+            productId: value.productId,
+            purchaseToken: value.purchaseToken,
+          );
+      }
+    }
+
+    final origin = currentWebOriginImpl();
+    final returnUrl = (origin != null && origin.isNotEmpty)
+        ? '$origin/billing/callback'
+        : 'sanjia://billing/callback';
+
+    try {
+      final res = await dio.post<Map<String, Object?>>(
+        '/v1/billing/zarinpal/request',
+        data: <String, Object?>{
+          'planId': plan.id,
+          'amountRial': plan.amountRial,
+          'acceptedSingleDevicePerSlotTos': true,
+          'returnUrl': returnUrl,
+        },
+      );
+      final data = res.data ?? const <String, Object?>{};
+      final activated = data['activatedSession'] as Map<String, Object?>?;
+      if (activated?['isPro'] == true) {
+        return const Ok(true);
+      }
+      final redirectUrl =
+          (data['redirectUrl'] as String?) ?? (data['paymentUrl'] as String?);
+      final authority = data['authority'] as String?;
+
+      if (redirectUrl == null || redirectUrl.isEmpty) {
+        return const Err(
+          NetworkFailure('لینک انتقال به درگاه زرین‌پال از سرور دریافت نشد.'),
+        );
+      }
+
+      // In local/staging sandbox mode, backend returns our own returnUrl directly with Authority=...&Status=OK.
+      final parsedUri = Uri.tryParse(redirectUrl);
+      if (parsedUri != null &&
+          (parsedUri.path.endsWith('/billing/callback') ||
+              parsedUri.scheme == 'sanjia') &&
+          authority != null &&
+          authority.isNotEmpty) {
+        return await verifyZarinpalCallback(
+          authority: parsedUri.queryParameters['Authority'] ?? authority,
+          status: parsedUri.queryParameters['Status'] ?? 'OK',
+        );
+      }
+
+      final launchRes = await openExternalUrlImpl(
+        redirectUrl,
+        replaceCurrentTab: kIsWeb,
+      );
+      if (launchRes case Err<void, Failure>(:final failure)) {
+        return Err(failure);
+      }
+      return const Ok(false);
+    } on DioException catch (e) {
+      return Err(_mapBillingDioError(e, 'شروع پرداخت زرین‌پال ناموفق بود.'));
+    } on Object catch (e) {
+      return Err(NetworkFailure('خطای پرداخت زرین‌پال: $e'));
+    }
+  }
+
+  /// Confirms a returned Zarinpal transaction strictly server-side (`POST /v1/billing/zarinpal/verify`).
+  Future<Result<bool, Failure>> verifyZarinpalCallback({
+    required String authority,
+    String? status,
+  }) async {
+    final dio = _dio;
+    if (dio == null) {
+      return const Err(
+        ValidationFailure('اتصال سرور برای تایید پرداخت در دسترس نیست.'),
+      );
+    }
+    try {
+      final res = await dio.post<Map<String, Object?>>(
+        '/v1/billing/zarinpal/verify',
+        data: <String, Object?>{
+          'authority': authority,
+          if (status != null && status.isNotEmpty) 'status': status,
+        },
+      );
+      return Ok(res.data?['isPro'] == true);
+    } on DioException catch (e) {
+      return Err(_mapBillingDioError(e, 'تایید تراکنش زرین‌پال ناموفق بود.'));
+    } on Object catch (e) {
+      return Err(NetworkFailure('خطا در تایید پرداخت: $e'));
+    }
+  }
+
+  Future<Result<bool, Failure>> _verifyStoreReceipt({
+    required String store,
+    required String planId,
+    required String productId,
+    required String purchaseToken,
+  }) async {
+    final dio = _dio!;
+    try {
+      final res = await dio.post<Map<String, Object?>>(
+        '/v1/billing/$store/verify',
+        data: <String, Object?>{
+          'planId': planId,
+          'productId': productId,
+          'purchaseToken': purchaseToken,
+          'acceptedSingleDevicePerSlotTos': true,
+        },
+      );
+      return Ok(res.data?['isPro'] == true);
+    } on DioException catch (e) {
+      return Err(_mapBillingDioError(e, 'تایید خرید از فروشگاه ناموفق بود.'));
+    } on Object catch (e) {
+      return Err(NetworkFailure('خطا در تایید خرید فروشگاه: $e'));
+    }
+  }
+
+  Failure _mapBillingDioError(DioException e, String fallback) {
+    final body = e.response?.data;
+    final msg = body is Map<Object?, Object?>
+        ? body['message'] as String?
+        : null;
+    if (msg != null && msg.trim().isNotEmpty) {
+      return ValidationFailure(msg);
+    }
+    return NetworkFailure(fallback, statusCode: e.response?.statusCode);
+  }
 }

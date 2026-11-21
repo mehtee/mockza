@@ -10,11 +10,15 @@ import {
 import {
   accountLinks,
   audioAssets,
+  dailyMissions,
   dailyQuotaUsage,
   devices,
+  droppedContents,
   entitlements,
   erasureRequests,
   evaluationJobs,
+  linguisticEvidenceEvents,
+  linguisticNodes,
   type MockzaDb,
   monthlyQuotaUsage,
   questionFlags,
@@ -299,6 +303,14 @@ export function registerAccountRoutes(
           receiptTokenHash,
         });
 
+        await tx
+          .delete(linguisticEvidenceEvents)
+          .where(inArray(linguisticEvidenceEvents.accountKey, accountKeys));
+        await tx
+          .delete(linguisticNodes)
+          .where(inArray(linguisticNodes.accountKey, accountKeys));
+        await tx.delete(dailyMissions).where(inArray(dailyMissions.accountKey, accountKeys));
+        await tx.delete(droppedContents).where(inArray(droppedContents.accountKey, accountKeys));
         await tx.delete(questionFlags).where(inArray(questionFlags.deviceId, affectedDeviceIds));
         await tx.delete(audioAssets).where(inArray(audioAssets.deviceId, affectedDeviceIds));
         await tx

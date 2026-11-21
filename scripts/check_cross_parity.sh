@@ -17,6 +17,8 @@ const files = [
   "diagnostic_router_vectors.json",
   "sm2_scheduler_vectors.json",
   "study_metrics_vectors.json",
+  "linguistic_graph_vectors.json",
+  "drop_bounds_vectors.json",
 ];
 
 for (const f of files) {
@@ -34,6 +36,8 @@ const scorer = load("objective_scorer_vectors.json");
 const diag = load("diagnostic_router_vectors.json");
 const sm2 = load("sm2_scheduler_vectors.json");
 const metrics = load("study_metrics_vectors.json");
+const graphV = load("linguistic_graph_vectors.json");
+const dropV = load("drop_bounds_vectors.json");
 
 const counts = {
   exam_specs_vectors:
@@ -67,6 +71,10 @@ const counts = {
     metrics.calculateSkillMetrics.length +
     metrics.calculateCurrentStreak.length +
     metrics.calculateStudyWeek.length,
+  linguistic_graph_vectors:
+    graphV.masteryUpdates.length + 1 + graphV.utf16Spans.length,
+  drop_bounds_vectors:
+    dropV.urlCases.length + dropV.textCases.length + dropV.audioCases.length,
 };
 
 const total = Object.values(counts).reduce((a, b) => a + b, 0);

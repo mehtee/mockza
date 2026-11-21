@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/exams/exam_descriptor.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/exams/study_metrics_calculator.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/core/formatting/jalali_edge_formatter.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/core/vocab/serial_day.dart';
 import 'package:mockza/data/repositories/attempt_repository.dart';
 import 'package:mockza/data/repositories/progress_repository.dart';
 import 'package:mockza/features/progress/presentation/progress_providers.dart';
+import 'package:mockza/features/progress/presentation/widgets/navia_handoff_card.dart';
 import 'package:mockza/providers.dart';
 import 'package:mockza/routing/routes.dart';
 import 'package:mockza/theme/app_colors.dart';
@@ -16,6 +20,7 @@ import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/brand_header.dart';
+import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
@@ -37,6 +42,8 @@ class ProgressScreen extends ConsumerWidget {
     final logsAsync = ref.watch(recentDailyStudyLogsProvider);
     final profileAsync = ref.watch(progressProfileProvider);
     final timeframe = ref.watch(timeframeProvider);
+    final edition = ref.watch(editionConfigProvider).edition;
+    final isIran = edition == AppEdition.iran;
 
     final attempts = attemptsAsync.asData?.value ?? const <AttemptSummary>[];
     final dailyLogs = logsAsync.asData?.value ?? const <DailyStudySummary>[];
@@ -100,14 +107,14 @@ class ProgressScreen extends ConsumerWidget {
       today: today,
     );
 
-    final trendPoints = _buildTrendPoints(filteredAttempts);
+    final trendPoints = _buildTrendPoints(filteredAttempts, edition: edition);
 
     return MzScaffold(
       body: CustomScrollView(
         slivers: <Widget>[
           SliverToBoxAdapter(
             child: BrandHeader(
-              title: 'Progress & Analytics',
+              title: isIran ? 'پیشرفت و تحلیل نمرات' : 'Progress & Analytics',
               onTapSettings: () => context.push(AppRoutes.settings),
             ),
           ),
@@ -118,7 +125,7 @@ class ProgressScreen extends ConsumerWidget {
             sliver: SliverList(
               delegate: SliverChildListDelegate(
                 <Widget>[
-                  _buildTimeframeBar(context, ref, timeframe),
+                  _buildTimeframeBar(context, ref, timeframe, isIran: isIran),
                   const SizedBox(height: SpacingTokens.lg),
                   _buildScoreHero(
                     context,
@@ -126,12 +133,28 @@ class ProgressScreen extends ConsumerWidget {
                     targetBand,
                     track,
                     skillMetrics,
+                    isIran: isIran,
                   ),
+                  if (isIran) ...<Widget>[
+                    const SizedBox(height: SpacingTokens.md),
+                    NaviaHandoffCard(
+                      track: track,
+                      estimatedScore: bandSummary.overallBand,
+                      targetScore: targetBand,
+                    ),
+                  ],
                   const SizedBox(height: SpacingTokens.lg),
-                  _buildStatsRow(context, filteredAttempts.length, streakDays),
+                  _buildStatsRow(
+                    context,
+                    filteredAttempts.length,
+                    streakDays,
+                    edition: edition,
+                  ),
                   const SizedBox(height: SpacingTokens.xl),
                   Text(
-                    'Score Trend ($timeframe)',
+                    isIran
+                        ? 'روند پیشرفت ($timeframe)'
+                        : 'Score Trend ($timeframe)',
                     style: typography.cardTitle.copyWith(
                       color: colors.textPrimary,
                     ),
@@ -146,13 +169,15 @@ class ProgressScreen extends ConsumerWidget {
                     runSpacing: SpacingTokens.xs,
                     children: <Widget>[
                       Text(
-                        'Skill Breakdown',
+                        isIran ? 'تفکیک مهارت‌ها' : 'Skill Breakdown',
                         style: typography.cardTitle.copyWith(
                           color: colors.textPrimary,
                         ),
                       ),
                       Text(
-                        'Tap for detailed analytics',
+                        isIran
+                            ? 'برای جزئیات هر مهارت لمس کنید'
+                            : 'Tap for detailed analytics',
                         style: typography.caption.copyWith(
                           color: colors.textSecondary,
                         ),
@@ -161,13 +186,18 @@ class ProgressScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: SpacingTokens.sm),
                   ...skillMetrics.map(
-                    (metric) => _buildSkillCard(context, metric),
+                    (metric) =>
+                        _buildSkillCard(context, metric, edition: edition),
                   ),
                   const SizedBox(height: SpacingTokens.xl),
                   PrimaryButton(
-                    label: 'View Complete Attempt History',
+                    label: isIran
+                        ? 'مشاهده تاریخچه کامل آزمون‌ها'
+                        : 'View Complete Attempt History',
                     glyph: LucideGlyph.chartIncreasing,
-                    trailingGlyph: LucideGlyph.arrowRight,
+                    trailingGlyph: isIran
+                        ? LucideGlyph.arrowLeft
+                        : LucideGlyph.arrowRight,
                     onPressed: () => context.push(AppRoutes.progressAttempts),
                   ),
                   const SizedBox(height: SpacingTokens.xxl),
@@ -201,20 +231,26 @@ class ProgressScreen extends ConsumerWidget {
   Widget _buildTimeframeBar(
     BuildContext context,
     WidgetRef ref,
-    String activeTimeframe,
-  ) {
-    final frames = <String>['7D', '30D', '90D', 'ALL'];
+    String activeTimeframe, {
+    required bool isIran,
+  }) {
+    final frames = <({String key, String label})>[
+      (key: '7D', label: isIran ? '۷ روز' : '7D'),
+      (key: '30D', label: isIran ? '۳۰ روز' : '30D'),
+      (key: '90D', label: isIran ? '۹۰ روز' : '90D'),
+      (key: 'ALL', label: isIran ? 'همه' : 'ALL'),
+    ];
     return Row(
       children: frames
           .map((f) {
-            final isSelected = activeTimeframe == f;
+            final isSelected = activeTimeframe == f.key;
             return Padding(
               padding: const EdgeInsetsDirectional.only(end: SpacingTokens.sm),
               child: MzChip(
-                label: f,
+                label: f.label,
                 isSelected: isSelected,
                 onTap: () =>
-                    ref.read(timeframeProvider.notifier).setTimeframe(f),
+                    ref.read(timeframeProvider.notifier).setTimeframe(f.key),
               ),
             );
           })
@@ -227,16 +263,19 @@ class ProgressScreen extends ConsumerWidget {
     EstimatedBandSummary summary,
     double target,
     ExamTrack track,
-    List<SkillScoreSummary> skillMetrics,
-  ) {
+    List<SkillScoreSummary> skillMetrics, {
+    required bool isIran,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
     final scoreText = summary.overallBand != null
         ? track.formatScoreWithUnit(summary.overallBand!)
-        : 'Not yet estimated';
-    final headingLabel = track.isIelts || track == ExamTrack.toeflIbt
-        ? 'ESTIMATED OVERALL BAND'
-        : 'ESTIMATED OVERALL SCORE';
+        : (isIran ? 'هنوز برآورد نشده' : 'Not yet estimated');
+    final headingLabel = isIran
+        ? 'نمره کل تخمینی'
+        : (track.isIelts || track == ExamTrack.toeflIbt
+              ? 'ESTIMATED OVERALL BAND'
+              : 'ESTIMATED OVERALL SCORE');
 
     double? skillVal(SkillKind s) => skillMetrics
         .cast<SkillScoreSummary?>()
@@ -293,17 +332,25 @@ class ProgressScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: SpacingTokens.md),
-          Text(
-            scoreText,
-            style: typography.heroScore.copyWith(color: colors.textPrimary),
+          LtrExamBoundary(
+            useLatinFont: summary.overallBand != null,
+            child: Text(
+              scoreText,
+              style: typography.heroScore.copyWith(color: colors.textPrimary),
+            ),
           ),
           const SizedBox(height: SpacingTokens.sm),
-          ScoreMeter(
-            score: summary.overallBand ?? track.minScore,
-            targetScore: target,
-            minScore: track.minScore,
-            maxScore: track.maxScore,
-            label: 'Target ${track.formatScoreWithUnit(target)}',
+          LtrExamBoundary(
+            useLatinFont: !isIran,
+            child: ScoreMeter(
+              score: summary.overallBand ?? track.minScore,
+              targetScore: target,
+              minScore: track.minScore,
+              maxScore: track.maxScore,
+              label: isIran
+                  ? 'هدف ${track.formatScoreWithUnit(target)}'
+                  : 'Target ${track.formatScoreWithUnit(target)}',
+            ),
           ),
           if (insights.isNotEmpty) ...<Widget>[
             const SizedBox(height: SpacingTokens.sm),
@@ -325,9 +372,15 @@ class ProgressScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatsRow(BuildContext context, int totalAttempts, int streak) {
+  Widget _buildStatsRow(
+    BuildContext context,
+    int totalAttempts,
+    int streak, {
+    required AppEdition edition,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
+    final isIran = edition == AppEdition.iran;
 
     return Row(
       children: <Widget>[
@@ -338,14 +391,14 @@ class ProgressScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'Attempts',
+                  isIran ? 'آزمون‌ها' : 'Attempts',
                   style: typography.caption.copyWith(
                     color: colors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: SpacingTokens.xs),
                 Text(
-                  '$totalAttempts',
+                  EdgeNumerals.formatChromeNumber(totalAttempts, edition),
                   style: typography.cardScore.copyWith(color: colors.primary),
                 ),
               ],
@@ -360,7 +413,7 @@ class ProgressScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'Day Streak',
+                  isIran ? 'زنجیره روزانه' : 'Day Streak',
                   style: typography.caption.copyWith(
                     color: colors.textSecondary,
                   ),
@@ -369,7 +422,7 @@ class ProgressScreen extends ConsumerWidget {
                 Row(
                   children: <Widget>[
                     Text(
-                      '$streak',
+                      EdgeNumerals.formatChromeNumber(streak, edition),
                       style: typography.cardScore.copyWith(
                         color: colors.warning,
                       ),
@@ -400,10 +453,15 @@ class ProgressScreen extends ConsumerWidget {
     ),
   );
 
-  Widget _buildSkillCard(BuildContext context, SkillScoreSummary metric) {
+  Widget _buildSkillCard(
+    BuildContext context,
+    SkillScoreSummary metric, {
+    required AppEdition edition,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
     final shapes = AppShapes.of(context);
+    final isIran = edition == AppEdition.iran;
 
     Color accent;
     LucideGlyph glyph;
@@ -449,14 +507,18 @@ class ProgressScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(
-                      skillName,
-                      style: typography.cardTitle.copyWith(
-                        color: colors.textPrimary,
+                    LtrExamBoundary(
+                      child: Text(
+                        skillName,
+                        style: typography.cardTitle.copyWith(
+                          color: colors.textPrimary,
+                        ),
                       ),
                     ),
                     Text(
-                      '${metric.sampleCount} attempts',
+                      isIran
+                          ? '${EdgeNumerals.formatChromeNumber(metric.sampleCount, edition)} تمرین'
+                          : '${metric.sampleCount} attempts',
                       style: typography.caption.copyWith(
                         color: colors.textSecondary,
                       ),
@@ -464,16 +526,21 @@ class ProgressScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              Text(
-                metric.scoreLabel,
-                style: typography.cardScore.copyWith(
-                  color: metric.score != null
-                      ? colors.textPrimary
-                      : colors.textTertiary,
+              LtrExamBoundary(
+                child: Text(
+                  metric.scoreLabel,
+                  style: typography.cardScore.copyWith(
+                    color: metric.score != null
+                        ? colors.textPrimary
+                        : colors.textTertiary,
+                  ),
                 ),
               ),
               const SizedBox(width: SpacingTokens.sm),
-              const AppIcon(LucideGlyph.chevronRight, size: 18),
+              AppIcon(
+                isIran ? LucideGlyph.chevronLeft : LucideGlyph.chevronRight,
+                size: 18,
+              ),
             ],
           ),
         ),
@@ -481,7 +548,10 @@ class ProgressScreen extends ConsumerWidget {
     );
   }
 
-  List<ScoreTrendPoint> _buildTrendPoints(List<AttemptSummary> attempts) {
+  List<ScoreTrendPoint> _buildTrendPoints(
+    List<AttemptSummary> attempts, {
+    required AppEdition edition,
+  }) {
     final scored = attempts.where((a) => a.overallBand != null).toList()
       ..sort(
         (a, b) => a.effectiveCompletedAtUtcMs.compareTo(
@@ -499,8 +569,18 @@ class ProgressScreen extends ConsumerWidget {
             a.effectiveCompletedAtUtcMs,
             isUtc: true,
           );
+          final label = edition == AppEdition.iran
+              ? (() {
+                  final j = JalaliEdgeFormatter.toJalali(
+                    dt.year,
+                    dt.month,
+                    dt.day,
+                  );
+                  return EdgeNumerals.toPersianDigits('${j.jm}/${j.jd}');
+                })()
+              : '${dt.month}/${dt.day}';
           return ScoreTrendPoint(
-            dateLabel: '${dt.month}/${dt.day}',
+            dateLabel: label,
             score: a.overallBand!,
             timestampUtcMs: a.effectiveCompletedAtUtcMs,
           );

@@ -644,6 +644,7 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
     required String headword,
     required String definition,
     required String topicTag,
+    String? glossFa,
     String? ipa,
     String? contextSentence,
     String? usageNote,
@@ -660,6 +661,7 @@ class EvaluationReviewNotifier extends Notifier<EvaluationReviewState> {
               ? definition.trim()
               : 'Captured from ${state.examTrack.shortName} ${state.skill.name} review',
           topicTag: topicTag,
+          glossFa: glossFa,
           ipa: ipa,
           contextSentence: contextSentence,
           usageNote: usageNote,

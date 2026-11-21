@@ -4,9 +4,12 @@ import type {
   AttemptDraftRecord,
   CatalogPackRecord,
   CompletedAttemptRecord,
+  DailyMissionRecord,
   DeviceMetaRecord,
   DiagnosticSessionRecord,
+  DroppedContentRecord,
   EvaluationResultRecord,
+  LinguisticNodeRecord,
   MediaCacheIndexRecord,
   MicroDrillHistoryRecord,
   PassageAnnotationRecord,
@@ -46,6 +49,9 @@ export const MOCKZA_DB_TABLE_NAMES = [
   'syncOutbox',
   'mediaCacheIndex',
   'deviceMeta',
+  'linguisticNodes',
+  'dailyMissions',
+  'droppedContents',
 ] as const;
 
 export type MockzaDbTableName = (typeof MOCKZA_DB_TABLE_NAMES)[number];
@@ -69,10 +75,13 @@ export class MockzaDexieDb extends Dexie {
   declare syncOutbox: EntityTable<SyncOutboxItem, 'seq'>;
   declare mediaCacheIndex: EntityTable<MediaCacheIndexRecord, 'mediaKey'>;
   declare deviceMeta: EntityTable<DeviceMetaRecord, 'key'>;
+  declare linguisticNodes: EntityTable<LinguisticNodeRecord, 'nodeId'>;
+  declare dailyMissions: EntityTable<DailyMissionRecord, 'missionId'>;
+  declare droppedContents: EntityTable<DroppedContentRecord, 'dropId'>;
 
   constructor(dbName: string = MOCKZA_DB_DEFAULT_NAME) {
     super(dbName);
-    this.version(1).stores({
+    const v1Stores = {
       localPreferences: 'key',
       catalogPacks: 'packId, [examId+skill], track, version, isCachedOffline',
       attemptDrafts: '[packId+skill], attemptId, updatedAtMs',
@@ -87,6 +96,13 @@ export class MockzaDexieDb extends Dexie {
       syncOutbox: '++seq, idempotencyKey, actionType, entityKind, nextRetryAtMs',
       mediaCacheIndex: 'mediaKey, kind, attemptId, lastAccessedMs, createdAtMs, expiresAtMs',
       deviceMeta: 'key',
+    };
+    this.version(1).stores(v1Stores);
+    this.version(2).stores({
+      ...v1Stores,
+      linguisticNodes: 'nodeId, [edition+nodeKind], canonicalKey, lastSeenDaySerial',
+      dailyMissions: 'missionId, [missionDaySerial+edition], status',
+      droppedContents: 'dropId, inputKind, createdAtMs, completedAtMs',
     });
   }
 }

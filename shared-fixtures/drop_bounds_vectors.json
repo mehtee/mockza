@@ -1,0 +1,105 @@
+{
+  "urlCases": [
+    {
+      "id": "valid_https_article",
+      "url": "https://engineering.example.com/posts/llm-evals",
+      "allowHttpInDev": false,
+      "expectedOk": true,
+      "expectedCode": null
+    },
+    {
+      "id": "youtube_blocked",
+      "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "allowHttpInDev": false,
+      "expectedOk": false,
+      "expectedCode": "UNSUPPORTED_DROP_SOURCE"
+    },
+    {
+      "id": "youtu_be_blocked",
+      "url": "https://youtu.be/dQw4w9WgXcQ",
+      "allowHttpInDev": false,
+      "expectedOk": false,
+      "expectedCode": "UNSUPPORTED_DROP_SOURCE"
+    },
+    {
+      "id": "hls_stream_blocked",
+      "url": "https://cdn.example.com/live/stream.m3u8",
+      "allowHttpInDev": false,
+      "expectedOk": false,
+      "expectedCode": "UNSUPPORTED_DROP_SOURCE"
+    },
+    {
+      "id": "ssrf_metadata_ip",
+      "url": "https://169.254.169.254/latest/meta-data/",
+      "allowHttpInDev": false,
+      "expectedOk": false,
+      "expectedCode": "SSRF_BLOCKED_HOST"
+    },
+    {
+      "id": "ssrf_rfc1918_10",
+      "url": "https://10.0.0.5/admin",
+      "allowHttpInDev": false,
+      "expectedOk": false,
+      "expectedCode": "SSRF_BLOCKED_HOST"
+    },
+    {
+      "id": "ssrf_cgnat",
+      "url": "https://100.64.12.1/internal",
+      "allowHttpInDev": false,
+      "expectedOk": false,
+      "expectedCode": "SSRF_BLOCKED_HOST"
+    }
+  ],
+  "textCases": [
+    {
+      "id": "too_short",
+      "text": "Too short snippet.",
+      "expectedOk": false,
+      "expectedCode": "DROP_TEXT_TOO_SHORT"
+    },
+    {
+      "id": "valid_excerpt",
+      "text": "Despite temporary supply chain disruptions, municipal solar adoption accelerated across northern districts.",
+      "expectedOk": true,
+      "expectedCode": null
+    }
+  ],
+  "audioCases": [
+    {
+      "id": "shifter_too_short",
+      "mode": "shifter",
+      "contentType": "audio/mp4",
+      "byteLength": 12000,
+      "durationSeconds": 3,
+      "expectedOk": false,
+      "expectedCode": "SHIFTER_AUDIO_TOO_SHORT"
+    },
+    {
+      "id": "shifter_ok",
+      "mode": "shifter",
+      "contentType": "audio/webm;codecs=opus",
+      "byteLength": 450000,
+      "durationSeconds": 30,
+      "expectedOk": true,
+      "expectedCode": null
+    },
+    {
+      "id": "drop_audio_too_long",
+      "mode": "drop",
+      "contentType": "audio/mp4",
+      "byteLength": 1200000,
+      "durationSeconds": 195,
+      "expectedOk": false,
+      "expectedCode": "DROP_AUDIO_TOO_LONG"
+    },
+    {
+      "id": "drop_audio_ok",
+      "mode": "drop",
+      "contentType": "audio/mp4",
+      "byteLength": 2400000,
+      "durationSeconds": 120,
+      "expectedOk": true,
+      "expectedCode": null
+    }
+  ]
+}

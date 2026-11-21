@@ -82,6 +82,23 @@ export const BaseEnvSchema = z.object({
   MAX_AUDIO_MB: z.coerce.number().positive().max(25).default(5),
   AUDIO_TTL_DAYS: z.coerce.number().int().positive().max(30).default(30),
   TRUSTED_PROXY_IPS: z.string().default(''),
+  OPENROUTER_ALPHA_BASE_URL: z.string().url().default('https://openrouter.ai/api/alpha'),
+  ENABLE_LINGUISTIC_GRAPH: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+  ENABLE_REGISTER_SHIFTER: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+  ENABLE_DROP_ANYTHING_TEXT_IMAGE: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+  ENABLE_DROP_ANYTHING_AUDIO: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
 });
 
 export const EnvSchema = BaseEnvSchema.superRefine((env, ctx) => {

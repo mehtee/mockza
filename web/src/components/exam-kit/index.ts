@@ -59,6 +59,10 @@ export {
   type DistractionFreeEssayEditorProps,
 } from './DistractionFreeEssayEditor';
 export {
+  RegisterGearLadderCard,
+  type RegisterGearLadderCardProps,
+} from './RegisterGearLadderCard';
+export {
   AudioStudioPlayer,
   type AudioStudioPlayerProps,
   type TranscriptSegmentItem,

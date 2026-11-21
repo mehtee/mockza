@@ -455,6 +455,13 @@ export class DexieOutboxAdapter implements ISyncOutboxGateway {
         }
         return this.handleFailure(item, undefined, res.error);
       }
+
+      case 'mission.complete':
+      case 'shifter.repeat_check':
+      case 'drop.drill_complete': {
+        await this.db.syncOutbox.delete(seq);
+        return { status: 'succeeded' };
+      }
     }
   }
 

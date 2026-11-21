@@ -38,10 +38,12 @@ android {
     productFlavors {
         create("global") {
             dimension = "distribution"
+            manifestPlaceholders["appLabel"] = "Mockza"
         }
         create("iran") {
             dimension = "distribution"
-            applicationIdSuffix = ".ir"
+            applicationId = "ir.sanjia.app"
+            manifestPlaceholders["appLabel"] = "سنجیا"
         }
     }
 

@@ -409,6 +409,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Reading Passages'**
   String get readingPassagesLabel;
+
+  /// No description provided for @authTitleSignIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign In'**
+  String get authTitleSignIn;
+
+  /// No description provided for @authTitleSignUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Account'**
+  String get authTitleSignUp;
+
+  /// No description provided for @authSmsPhoneLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Iran Mobile Number'**
+  String get authSmsPhoneLabel;
+
+  /// No description provided for @authSendOtp.
+  ///
+  /// In en, this message translates to:
+  /// **'Send SMS Verification Code'**
+  String get authSendOtp;
+
+  /// No description provided for @authVerifyOtp.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify & Sign In'**
+  String get authVerifyOtp;
+
+  /// No description provided for @practiceHubTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Practice Hub'**
+  String get practiceHubTitle;
+
+  /// No description provided for @practiceHubSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline exam library · Sync & download packs'**
+  String get practiceHubSubtitle;
+
+  /// No description provided for @vocabularyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Vocabulary Deck'**
+  String get vocabularyTitle;
+
+  /// No description provided for @progressTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Progress & Analytics'**
+  String get progressTitle;
+
+  /// No description provided for @targetDateLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Target Exam Date'**
+  String get targetDateLabel;
+
+  /// No description provided for @jalaliPickerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Exam Date (Jalali)'**
+  String get jalaliPickerTitle;
+
+  /// No description provided for @naviaHandoffTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Send Verified Score to Navia'**
+  String get naviaHandoffTitle;
 }
 
 class _AppLocalizationsDelegate

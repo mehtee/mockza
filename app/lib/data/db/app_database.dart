@@ -24,6 +24,9 @@ part 'app_database.g.dart';
     OutboxSyncQueue,
     MockSessions,
     DiagnosticSessions,
+    LinguisticNodes,
+    DailyMissions,
+    DroppedContents,
   ],
   daos: [AttemptDao, VocabDao, CatalogDao, ProgressDao],
 )
@@ -32,7 +35,7 @@ class AppDatabase extends _$AppDatabase {
   new(super.e);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -90,6 +93,14 @@ class AppDatabase extends _$AppDatabase {
       if (from < 5) {
         await m.createTable(diagnosticSessions);
       }
+      if (from < 6) {
+        await m.addColumn(vocabCards, vocabCards.glossFa);
+      }
+      if (from < 7) {
+        await m.createTable(linguisticNodes);
+        await m.createTable(dailyMissions);
+        await m.createTable(droppedContents);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON;');
@@ -117,6 +128,9 @@ class AppDatabase extends _$AppDatabase {
     await delete(vocabCards).go();
     await delete(mockSessions).go();
     await delete(diagnosticSessions).go();
+    await delete(linguisticNodes).go();
+    await delete(dailyMissions).go();
+    await delete(droppedContents).go();
     await delete(userProfiles).go();
   });
 }

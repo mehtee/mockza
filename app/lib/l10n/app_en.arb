@@ -51,5 +51,17 @@
   "exportStudyDataLabel": "Export Study Data (JSON)",
   "comingSoonLabel": "Soon",
   "partialEstimateLabel": "Partial Estimate",
-  "readingPassagesLabel": "Reading Passages"
+  "readingPassagesLabel": "Reading Passages",
+  "authTitleSignIn": "Sign In",
+  "authTitleSignUp": "Create Account",
+  "authSmsPhoneLabel": "Iran Mobile Number",
+  "authSendOtp": "Send SMS Verification Code",
+  "authVerifyOtp": "Verify & Sign In",
+  "practiceHubTitle": "Practice Hub",
+  "practiceHubSubtitle": "Offline exam library · Sync & download packs",
+  "vocabularyTitle": "Vocabulary Deck",
+  "progressTitle": "Progress & Analytics",
+  "targetDateLabel": "Target Exam Date",
+  "jalaliPickerTitle": "Select Exam Date (Jalali)",
+  "naviaHandoffTitle": "Send Verified Score to Navia"
 }

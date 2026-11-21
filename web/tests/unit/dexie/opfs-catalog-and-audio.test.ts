@@ -270,7 +270,7 @@ describe('W1.3 OpfsCatalogAdapter (SHA-256, OPFS/Cache/IDB, Drills, 250 MB LRU)'
     expect(listedDrills.ok && listedDrills.value).toHaveLength(1);
     const drillById = await catalogValid.getCachedDrillById('drill-lr-1');
     expect(drillById.ok && drillById.value?.title).toBe('Lexical Collocations');
-    expect(db.tables).toHaveLength(14);
+    expect(db.tables).toHaveLength(17);
   });
 
   it('supports OPFS, Cache Storage fallback, and IDB fallback binary storage', async () => {

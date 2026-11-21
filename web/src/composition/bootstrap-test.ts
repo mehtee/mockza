@@ -7,6 +7,7 @@ import {
   FakeClock,
   FakeDiagnosticAdapter,
   FakeEvaluationAdapter,
+  FakeLinguisticAdapter,
   FakeStorageAdapter,
   FakeTelemetryAdapter,
 } from '@/adapters/fakes';
@@ -30,6 +31,7 @@ export interface TestDependenciesBundle {
   readonly fakeCatalog: FakeCatalogAdapter;
   readonly fakeDiagnostic: FakeDiagnosticAdapter;
   readonly fakeEvaluation: FakeEvaluationAdapter;
+  readonly fakeLinguistic: FakeLinguisticAdapter;
   readonly fakeStorage: FakeStorageAdapter;
   readonly fakeTelemetry: FakeTelemetryAdapter;
 }
@@ -52,6 +54,7 @@ export function createTestDependenciesBundle(
   const fakeCatalog = new FakeCatalogAdapter({ clock: fakeClock });
   const fakeDiagnostic = new FakeDiagnosticAdapter({ clock: fakeClock });
   const fakeEvaluation = new FakeEvaluationAdapter({ clock: fakeClock, edition });
+  const fakeLinguistic = new FakeLinguisticAdapter({ edition });
   const fakeStorage = new FakeStorageAdapter({
     clock: fakeClock,
     catalog: fakeCatalog,
@@ -71,6 +74,7 @@ export function createTestDependenciesBundle(
     catalog: fakeCatalog,
     diagnostic: fakeDiagnostic,
     evaluation: fakeEvaluation,
+    linguistic: fakeLinguistic,
     telemetry: fakeTelemetry,
     clock: fakeClock,
     ...options.overrides,
@@ -86,6 +90,7 @@ export function createTestDependenciesBundle(
     fakeCatalog,
     fakeDiagnostic,
     fakeEvaluation,
+    fakeLinguistic,
     fakeStorage,
     fakeTelemetry,
   };

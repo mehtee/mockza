@@ -72,6 +72,7 @@ final class ProfileRepository {
     required ExamModuleType examModule,
     String? examId,
     int? targetDateSerial,
+    bool clearTargetDate = false,
   }) async {
     final now = _clock.now().toUtc();
     final existing = await _db.progressDao.getProfile(deviceId);
@@ -82,7 +83,11 @@ final class ProfileRepository {
         examModule: Value(examModule.name),
         isPro: Value(existing?.isPro ?? false),
         examId: Value(examId ?? existing?.examId ?? 'ielts_academic'),
-        targetDateSerial: Value(targetDateSerial ?? existing?.targetDateSerial),
+        targetDateSerial: Value(
+          clearTargetDate
+              ? null
+              : (targetDateSerial ?? existing?.targetDateSerial),
+        ),
         onboardingCompleted: Value(existing?.onboardingCompleted ?? false),
         freeDiagnosticUsed: Value(existing?.freeDiagnosticUsed ?? false),
         themeMode: Value(existing?.themeMode ?? 'system'),

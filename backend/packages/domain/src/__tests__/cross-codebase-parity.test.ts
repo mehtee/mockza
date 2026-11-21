@@ -17,6 +17,7 @@ import {
   computeBoundedStageDeadlineUtcMs,
   computeDetSubscores,
   computeDiagnosticRemainingSeconds,
+  computeNextMasteryMilli,
   computeOverallWritingBand,
   DIAGNOSTIC_BUDGET_SECONDS,
   DIAGNOSTIC_POLICY_VERSION,
@@ -25,6 +26,7 @@ import {
   type DiagnosticQuestionDef,
   defaultPackIdForSkill,
   differenceSerialDays,
+  evaluateAdvancedFeatureQuota,
   type ExamModuleType,
   estimateToeflLegacy120,
   formatExamScore,
@@ -32,6 +34,7 @@ import {
   formatSm2IntervalDays,
   getExamDescriptor,
   getWritingTaskSpec,
+  type LinguisticNodeSummary,
   listeningBandFor,
   type NoEvidenceReason,
   nextTargetWhenSwitchingFrom,
@@ -39,11 +42,13 @@ import {
   normalizeObjectiveSequence,
   normalizeScoreToQualityRatio,
   normalizeSupportedExamId,
+  normalizeUtf16Span,
   type ObjectiveQuestionAnswer,
   previewSm2Intervals,
   quantizeExamScore,
   type ReviewQuality,
   type RoutingCategory,
+  rankTopMissionTargets,
   readingBandFor,
   resolveExamTrackForPackOrProfile,
   roundIeltsBand,
@@ -56,6 +61,9 @@ import {
   scoreObjectiveForTrack,
   selectNextObjectiveBlock,
   serialDayFromUtcDate,
+  validateBoundedAudioInput,
+  validateDropTextSnippet,
+  validateDropUrlPreFlight,
 } from '../index.js';
 
 const FIXTURES_DIR = resolve(
@@ -818,6 +826,163 @@ describe('Cross-Codebase Golden Parity Suite (@mockza/domain <-> shared-fixtures
       nowMs += 50_000;
       expect(tracker.currentRemaining()).toBe(0);
       expect(tracker.isExpired).toBe(true);
+    });
+  });
+
+  describe('7. Closed-Loop Linguistic Graph & Drop Bounds Parity', () => {
+    const graphFixtures = loadFixture<{
+      masteryUpdates: Array<{
+        id: string;
+        currentMilli: number;
+        polarity: 'gap_observed' | 'target_used' | 'interest_matched';
+        evidenceCount: number;
+        expectedMilli: number;
+      }>;
+      rankMissionTargets: {
+        currentDaySerial: number;
+        dueCardIds: string[];
+        nodes: LinguisticNodeSummary[];
+        expected: {
+          bottleneckKeys: string[];
+          targetKeys: string[];
+          interestKeys: string[];
+          suggestedCardIds: string[];
+        };
+      };
+      utf16Spans: Array<{
+        id: string;
+        sourceText: string;
+        rawStart: number;
+        rawEnd: number;
+        expectedStart: number;
+        expectedEnd: number;
+        expectedExcerpt: string;
+      }>;
+    }>('linguistic_graph_vectors.json');
+
+    const dropFixtures = loadFixture<{
+      urlCases: Array<{
+        id: string;
+        url: string;
+        allowHttpInDev: boolean;
+        expectedOk: boolean;
+        expectedCode: string | null;
+      }>;
+      textCases: Array<{
+        id: string;
+        text: string;
+        expectedOk: boolean;
+        expectedCode: string | null;
+      }>;
+      audioCases: Array<{
+        id: string;
+        mode: 'shifter' | 'drop';
+        contentType: string;
+        byteLength: number;
+        durationSeconds: number;
+        expectedOk: boolean;
+        expectedCode: string | null;
+      }>;
+    }>('drop_bounds_vectors.json');
+
+    for (const v of graphFixtures.masteryUpdates) {
+      it(`computeNextMasteryMilli [${v.id}]`, () => {
+        expect(
+          computeNextMasteryMilli({
+            currentMilli: v.currentMilli,
+            polarity: v.polarity,
+            evidenceCount: v.evidenceCount,
+          }),
+        ).toBe(v.expectedMilli);
+      });
+    }
+
+    it('rankTopMissionTargets matches priority & recency decay parity', () => {
+      const ranked = rankTopMissionTargets({
+        nodes: graphFixtures.rankMissionTargets.nodes,
+        dueCardIds: graphFixtures.rankMissionTargets.dueCardIds,
+        currentDaySerial: graphFixtures.rankMissionTargets.currentDaySerial,
+      });
+      expect(ranked.bottlenecks.map((b) => b.canonicalKey)).toEqual(
+        graphFixtures.rankMissionTargets.expected.bottleneckKeys,
+      );
+      expect(ranked.targetStructures.map((t) => t.canonicalKey)).toEqual(
+        graphFixtures.rankMissionTargets.expected.targetKeys,
+      );
+      expect(ranked.interestTopics.map((i) => i.canonicalKey)).toEqual(
+        graphFixtures.rankMissionTargets.expected.interestKeys,
+      );
+      expect(ranked.suggestedCardIds).toEqual(
+        graphFixtures.rankMissionTargets.expected.suggestedCardIds,
+      );
+    });
+
+    for (const v of graphFixtures.utf16Spans) {
+      it(`normalizeUtf16Span [${v.id}]`, () => {
+        const res = normalizeUtf16Span(v.sourceText, v.rawStart, v.rawEnd);
+        expect(res.startUtf16).toBe(v.expectedStart);
+        expect(res.endUtf16).toBe(v.expectedEnd);
+        expect(res.excerpt).toBe(v.expectedExcerpt);
+      });
+    }
+
+    for (const v of dropFixtures.urlCases) {
+      it(`validateDropUrlPreFlight [${v.id}]`, () => {
+        const res = validateDropUrlPreFlight(v.url, { allowHttpInDev: v.allowHttpInDev });
+        expect(res.ok).toBe(v.expectedOk);
+        expect(res.code ?? null).toBe(v.expectedCode);
+      });
+    }
+
+    for (const v of dropFixtures.textCases) {
+      it(`validateDropTextSnippet [${v.id}]`, () => {
+        const res = validateDropTextSnippet(v.text);
+        expect(res.ok).toBe(v.expectedOk);
+        expect(res.code ?? null).toBe(v.expectedCode);
+      });
+    }
+
+    for (const v of dropFixtures.audioCases) {
+      it(`validateBoundedAudioInput [${v.id}]`, () => {
+        const res = validateBoundedAudioInput({
+          mode: v.mode,
+          contentType: v.contentType,
+          byteLength: v.byteLength,
+          durationSeconds: v.durationSeconds,
+        });
+        expect(res.ok).toBe(v.expectedOk);
+        expect(res.code ?? null).toBe(v.expectedCode);
+      });
+    }
+
+    it('evaluateAdvancedFeatureQuota enforces IRN 120/mo vs GLB 150/mo & Pro drop audio lock', () => {
+      const freeAudio = evaluateAdvancedFeatureQuota({
+        feature: 'drop_audio',
+        isPro: false,
+        freeSampleUsed: false,
+        speakingUsedToday: 0,
+        shifterUsedToday: 0,
+        dropsUsedToday: 0,
+        audioDropsUsedToday: 0,
+        monthlyUsed: 0,
+        edition: 'irn',
+      });
+      expect(freeAudio.allowed).toBe(false);
+      expect(freeAudio.reason).toBe('pro_required_for_audio_drop');
+
+      const irnCap = evaluateAdvancedFeatureQuota({
+        feature: 'drop_text_image',
+        isPro: true,
+        freeSampleUsed: true,
+        speakingUsedToday: 0,
+        shifterUsedToday: 0,
+        dropsUsedToday: 0,
+        audioDropsUsedToday: 0,
+        monthlyUsed: 120,
+        edition: 'irn',
+      });
+      expect(irnCap.allowed).toBe(false);
+      expect(irnCap.reason).toBe('monthly_quota_exceeded');
     });
   });
 });

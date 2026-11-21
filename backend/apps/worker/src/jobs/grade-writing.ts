@@ -16,6 +16,7 @@ import {
 } from '@mockza/db';
 import { and, eq, isNull, lt, notInArray, or } from 'drizzle-orm';
 import { JOB_LEASE_DURATION_MS, startEvaluationLeaseRenewal } from './evaluation-lease.js';
+import { recordPostEvaluationLinguisticSignals } from './record-linguistic-signals.js';
 
 export const WRITING_JOB_QUEUE = 'evaluation.writing';
 
@@ -156,6 +157,16 @@ export async function handleGradeWritingJob(
             await commitQuotaReservationAtomic({ db: tx, attemptId: payload.attemptId });
           }
         }
+      });
+
+      const writingSample = rawPayload.baseResponse ?? rawPayload.essayText ?? '';
+      await recordPostEvaluationLinguisticSignals({
+        db,
+        jobId: payload.jobId,
+        edition: effectiveEdition,
+        sourceKind: isDiagnosticTask ? 'diagnostic' : 'writing',
+        sourceRefId: payload.attemptId,
+        textSample: writingSample,
       });
     }
 

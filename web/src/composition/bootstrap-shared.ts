@@ -1,9 +1,11 @@
+import { DexieLinguisticCache } from '@/adapters/dexie/dexie-linguistic.adapter';
 import { DexieOutboxAdapter } from '@/adapters/dexie/dexie-outbox.adapter';
 import { DexieStorageAdapter } from '@/adapters/dexie/dexie-storage.adapter';
 import { MockzaDexieDb } from '@/adapters/dexie/mockza-db';
 import { ApiClient, createHttpOutboxTransport } from '@/adapters/http/api-client';
 import { HttpDiagnosticAdapter } from '@/adapters/http/http-diagnostic.adapter';
 import { HttpEvaluationAdapter } from '@/adapters/http/http-evaluation.adapter';
+import { HttpLinguisticAdapter } from '@/adapters/http/http-linguistic.adapter';
 import type { HttpAuthAdapter } from '@/adapters/http/http-auth.adapter';
 import { HttpTelemetryAdapter, SystemClock } from '@/adapters/http/http-telemetry.adapter';
 import { OpfsCatalogAdapter } from '@/adapters/media/opfs-catalog.adapter';
@@ -132,6 +134,12 @@ export function createEditionDependencies(options: EditionBootstrapOptions): App
   });
   const diagnostic = new HttpDiagnosticAdapter({ apiClient, fetchFn: options.fetchFn });
   const evaluation = new HttpEvaluationAdapter({ apiClient, fetchFn: options.fetchFn });
+  const linguistic = new HttpLinguisticAdapter({
+    apiClient,
+    edition: options.edition,
+    fetchFn: options.fetchFn,
+    cache: new DexieLinguisticCache(db),
+  });
   const telemetry = new HttpTelemetryAdapter({ apiClient, clock });
 
   return {
@@ -147,6 +155,7 @@ export function createEditionDependencies(options: EditionBootstrapOptions): App
     catalog: catalogAdapter,
     diagnostic,
     evaluation,
+    linguistic,
     telemetry,
     clock,
   };

@@ -4,6 +4,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_gradients.dart';
 import 'package:mockza/theme/primitives.dart';
 
@@ -223,6 +224,136 @@ class AppIcon extends StatelessWidget {
       );
     }
     return iconWidget;
+  }
+}
+
+/// Signature Sanjia ("سنجیا") 4-quadrant calibration emblem matching Web IRN chrome.
+class SanjiaMark extends StatelessWidget {
+  /// Creates a [SanjiaMark].
+  const new({this.size = 28, super.key});
+
+  /// Box dimension (default 28).
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final gradients = AppGradients.of(context);
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _SanjiaMarkPainter(
+          gradient: gradients.primaryButton,
+          borderColor: colors.primary,
+          highlightColor: colors.onPrimary,
+        ),
+      ),
+    );
+  }
+}
+
+class _SanjiaMarkPainter extends CustomPainter {
+  const new({
+    required this.gradient,
+    required this.borderColor,
+    required this.highlightColor,
+  });
+
+  final Gradient gradient;
+  final Color borderColor;
+  final Color highlightColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final outerRect = Rect.fromLTWH(w * 0.04, h * 0.04, w * 0.92, h * 0.92);
+    final outerRRect = RRect.fromRectAndRadius(
+      outerRect,
+      Radius.circular(w * 0.24),
+    );
+
+    final bgPaint = Paint()
+      ..shader = gradient.createShader(outerRect)
+      ..style = PaintingStyle.fill;
+    canvas.drawRRect(outerRRect, bgPaint);
+
+    final strokePaint = Paint()
+      ..color = borderColor.withValues(alpha: 0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = (w * 0.04).clamp(1.0, 2.5);
+    canvas.drawRRect(outerRRect, strokePaint);
+
+    // Asymmetric 2x2 Sanjia geometric prism (representing 4 exam skills + calibration step)
+    final blockPaint = Paint()
+      ..color = highlightColor
+      ..style = PaintingStyle.fill;
+    final radius = Radius.circular(w * 0.09);
+    const gap = 0.07;
+    const cell = 0.25;
+    const start = 0.215;
+
+    final tl = RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * start, h * start, w * cell, h * cell),
+      radius,
+    );
+    final tr = RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * (start + cell + gap), h * start, w * cell, h * cell),
+      radius,
+    );
+    final bl = RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * start, h * (start + cell + gap), w * cell, h * cell),
+      radius,
+    );
+    final br = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+        w * (start + cell + gap),
+        h * (start + cell + gap),
+        w * cell,
+        h * cell,
+      ),
+      Radius.circular(w * 0.14),
+    );
+
+    canvas.drawRRect(tl, blockPaint);
+    canvas.drawRRect(tr, blockPaint);
+    canvas.drawRRect(bl, blockPaint);
+
+    final accentPaint = Paint()
+      ..color = highlightColor.withValues(alpha: 0.52)
+      ..style = PaintingStyle.fill;
+    canvas.drawRRect(br, accentPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SanjiaMarkPainter oldDelegate) =>
+      oldDelegate.gradient != gradient ||
+      oldDelegate.borderColor != borderColor ||
+      oldDelegate.highlightColor != highlightColor;
+}
+
+/// Edition-aware brand mark: renders [SanjiaMark] under Persian/`irn` chrome and
+/// [MockzaMark] under Global/`Mockza`.
+class EditionBrandMark extends StatelessWidget {
+  /// Creates an [EditionBrandMark].
+  const new({
+    this.size = 28,
+    this.isIran,
+    super.key,
+  });
+
+  /// Box dimension (default 28).
+  final double size;
+
+  /// Optional override; defaults to checking active `Localizations.localeOf(context).languageCode == 'fa'`.
+  final bool? isIran;
+
+  @override
+  Widget build(BuildContext context) {
+    final persian =
+        isIran ?? (Localizations.maybeLocaleOf(context)?.languageCode == 'fa');
+    return persian ? SanjiaMark(size: size) : MockzaMark(size: size);
   }
 }
 

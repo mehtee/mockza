@@ -23,7 +23,16 @@ import { and, eq, ne } from 'drizzle-orm';
 import { createDeviceAuthMiddleware } from '../middleware/auth.js';
 import type { RequestVariables } from '../middleware/request-id.js';
 
-const ALLOWED_AUDIO_MIME = new Set<string>(['audio/mp4', 'audio/webm', 'audio/ogg', 'audio/wav']);
+const ALLOWED_PROXY_UPLOAD_MIME = new Set<string>([
+  'audio/mp4',
+  'audio/mpeg',
+  'audio/webm',
+  'audio/ogg',
+  'audio/wav',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+]);
 
 async function upsertAudioAssetRow(params: {
   db?: MockzaDb;
@@ -56,10 +65,16 @@ async function upsertAudioAssetRow(params: {
     });
 }
 
-function parseClipObjectKey(objectKey: string): { deviceId: string; attemptId: string } | null {
-  const match = /^users\/([0-9a-f-]{36})\/clips\/([0-9a-f-]{36})\//i.exec(objectKey);
-  if (!match?.[1] || !match[2]) return null;
-  return { deviceId: match[1], attemptId: match[2] };
+function parseClipObjectKey(
+  objectKey: string,
+): { kind: 'clips' | 'drops'; deviceId: string; attemptId: string } | null {
+  const match = /^users\/([0-9a-f-]{36})\/(clips|drops)\/([0-9a-f-]{36})\//i.exec(objectKey);
+  if (!match?.[1] || !match[2] || !match[3]) return null;
+  return {
+    kind: match[2] === 'drops' ? 'drops' : 'clips',
+    deviceId: match[1],
+    attemptId: match[3],
+  };
 }
 
 export function registerUploadRoutes(
@@ -252,7 +267,7 @@ export function registerUploadRoutes(
     }
 
     const expiresAtEpochSec = Number.parseInt(expStr, 10);
-    if (!objectKey.startsWith('users/') || !ALLOWED_AUDIO_MIME.has(contentType)) {
+    if (!objectKey.startsWith('users/') || !ALLOWED_PROXY_UPLOAD_MIME.has(contentType)) {
       return c.json(
         {
           code: 'bad_request',
@@ -398,14 +413,16 @@ export function registerUploadRoutes(
         ) {
           throw new Error('device_erased_concurrently');
         }
-        await upsertAudioAssetRow({
-          db,
-          objectKey,
-          deviceId: parsedKey.deviceId,
-          attemptId: parsedKey.attemptId,
-          byteLength: uploadBuffer.byteLength,
-          ttlDays: env.AUDIO_TTL_DAYS,
-        });
+        if (parsedKey.kind === 'clips') {
+          await upsertAudioAssetRow({
+            db,
+            objectKey,
+            deviceId: parsedKey.deviceId,
+            attemptId: parsedKey.attemptId,
+            byteLength: uploadBuffer.byteLength,
+            ttlDays: env.AUDIO_TTL_DAYS,
+          });
+        }
       }
     } catch {
       await deleteAudioObjects({ client, bucket: env.S3_BUCKET, objectKeys: [objectKey] }).catch(

@@ -20,6 +20,7 @@ class OnboardingState {
     required this.targetDays,
     required this.wantDiagnostic,
     required this.isSaving,
+    this.targetDateSerial,
     this.errorMessage,
   });
 
@@ -34,6 +35,9 @@ class OnboardingState {
 
   /// Target study timeframe in days (e.g. 14, 30, 90, or null if unset).
   final int? targetDays;
+
+  /// Explicit canonical UTC [SerialDay] value selected via calendar picker.
+  final int? targetDateSerial;
 
   /// Whether the user wishes to start immediately with a free diagnostic mock.
   final bool wantDiagnostic;
@@ -65,6 +69,8 @@ class OnboardingState {
     double? targetBand,
     int? targetDays,
     bool? clearTargetDays = false,
+    int? targetDateSerial,
+    bool clearTargetDateSerial = false,
     bool? wantDiagnostic,
     bool? isSaving,
     String? errorMessage,
@@ -76,6 +82,9 @@ class OnboardingState {
     targetDays: (clearTargetDays ?? false)
         ? null
         : (targetDays ?? this.targetDays),
+    targetDateSerial: clearTargetDateSerial
+        ? null
+        : (targetDateSerial ?? this.targetDateSerial),
     wantDiagnostic: wantDiagnostic ?? this.wantDiagnostic,
     isSaving: isSaving ?? this.isSaving,
     errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
@@ -113,6 +122,26 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
     state = state.copyWith(
       targetDays: days,
       clearTargetDays: days == null,
+      clearTargetDateSerial: true,
+    );
+  }
+
+  /// Sets an exact canonical UTC [SerialDay] for the user's exam date.
+  void selectTargetDateSerial(int? serial) {
+    if (serial == null) {
+      state = state.copyWith(
+        clearTargetDays: true,
+        clearTargetDateSerial: true,
+      );
+      return;
+    }
+    final todaySerial = SerialDay.fromUtcDateTime(
+      ref.read(clockProvider).now(),
+    ).value;
+    final diffDays = (serial - todaySerial).clamp(1, 3650);
+    state = state.copyWith(
+      targetDateSerial: serial,
+      targetDays: diffDays,
     );
   }
 
@@ -151,14 +180,16 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
         ref.read(clockProvider).now(),
       ).value;
 
+      final resolvedTargetSerial =
+          state.targetDateSerial ??
+          (state.targetDays != null ? (todaySerial + state.targetDays!) : null);
       await profileRepo.saveTargetPreferences(
         deviceId: primary.deviceId,
         targetBand: state.targetBand,
         examModule: state.examModule,
         examId: state.selectedTrack.id,
-        targetDateSerial: state.targetDays != null
-            ? (todaySerial + state.targetDays!)
-            : null,
+        targetDateSerial: resolvedTargetSerial,
+        clearTargetDate: resolvedTargetSerial == null,
       );
       await profileRepo.completeOnboarding(primary.deviceId);
       ref.read(onboardingCompletedLatchProvider.notifier).completed = true;

@@ -3,10 +3,15 @@ import { createDbClient, evaluationJobs, jobDispatchOutbox, type MockzaDb } from
 import { createAudioS3Client } from '@mockza/storage';
 import { and, eq, inArray, lt, sql } from 'drizzle-orm';
 import PgBoss from 'pg-boss';
+import { DROP_INGEST_JOB_QUEUE, handleDropIngestJob } from './jobs/drop-ingest.js';
 import { EXPLAIN_JOB_QUEUE, handleExplainQuestionJob } from './jobs/explain-question.js';
 import { handleGradeSpeakingJob, SPEAKING_JOB_QUEUE } from './jobs/grade-speaking.js';
 import { handleGradeWritingJob, WRITING_JOB_QUEUE } from './jobs/grade-writing.js';
 import { handlePurgeAudioJob, PURGE_AUDIO_QUEUE } from './jobs/purge-audio.js';
+import {
+  handleRegisterShifterJob,
+  REGISTER_SHIFTER_JOB_QUEUE,
+} from './jobs/register-shifter.js';
 
 const DEFAULT_RETRY_LIMIT = 3;
 
@@ -37,7 +42,14 @@ export async function sweepPendingDispatchOutbox(db: MockzaDb, boss: PgBoss): Pr
       .returning();
 
     for (const job of expiredJobs) {
-      const queueName = job.skill === 'speaking' ? SPEAKING_JOB_QUEUE : WRITING_JOB_QUEUE;
+      const queueName =
+        job.taskType === 'register_shifter'
+          ? REGISTER_SHIFTER_JOB_QUEUE
+          : job.taskType === 'drop_ingest'
+            ? DROP_INGEST_JOB_QUEUE
+            : job.skill === 'speaking'
+              ? SPEAKING_JOB_QUEUE
+              : WRITING_JOB_QUEUE;
       const payload = {
         ...(job.inputJson as Record<string, unknown>),
         jobId: job.jobId,
@@ -150,6 +162,16 @@ export async function startWorker(): Promise<{ boss: PgBoss; stop: () => Promise
     retryLimit: DEFAULT_RETRY_LIMIT,
     retryBackoff: true,
   });
+  await boss.createQueue(REGISTER_SHIFTER_JOB_QUEUE, {
+    name: REGISTER_SHIFTER_JOB_QUEUE,
+    retryLimit: 2,
+    retryBackoff: true,
+  });
+  await boss.createQueue(DROP_INGEST_JOB_QUEUE, {
+    name: DROP_INGEST_JOB_QUEUE,
+    retryLimit: 2,
+    retryBackoff: true,
+  });
   await boss.createQueue(PURGE_AUDIO_QUEUE, {
     name: PURGE_AUDIO_QUEUE,
     retryLimit: 2,
@@ -206,6 +228,52 @@ export async function startWorker(): Promise<{ boss: PgBoss; stop: () => Promise
       jobs.map((job) =>
         handleExplainQuestionJob(job.data as Parameters<typeof handleExplainQuestionJob>[0], db),
       ),
+    );
+    for (const outcome of outcomes) {
+      if (outcome.status === 'rejected') {
+        throw outcome.reason;
+      }
+    }
+  });
+
+  await boss.work(REGISTER_SHIFTER_JOB_QUEUE, { batchSize, includeMetadata: true }, async (jobs) => {
+    const outcomes = await Promise.allSettled(
+      jobs.map(async (job) => {
+        const meta = job as { retryCount?: number; retryLimit?: number; data: unknown };
+        const attemptNumber = (meta.retryCount ?? 0) + 1;
+        const maxAttempts = (meta.retryLimit ?? 2) + 1;
+        await handleRegisterShifterJob(
+          meta.data as Parameters<typeof handleRegisterShifterJob>[0],
+          db,
+          s3Client,
+          env.S3_BUCKET,
+          undefined,
+          { attemptNumber, maxAttempts },
+        );
+      }),
+    );
+    for (const outcome of outcomes) {
+      if (outcome.status === 'rejected') {
+        throw outcome.reason;
+      }
+    }
+  });
+
+  await boss.work(DROP_INGEST_JOB_QUEUE, { batchSize, includeMetadata: true }, async (jobs) => {
+    const outcomes = await Promise.allSettled(
+      jobs.map(async (job) => {
+        const meta = job as { retryCount?: number; retryLimit?: number; data: unknown };
+        const attemptNumber = (meta.retryCount ?? 0) + 1;
+        const maxAttempts = (meta.retryLimit ?? 2) + 1;
+        await handleDropIngestJob(
+          meta.data as Parameters<typeof handleDropIngestJob>[0],
+          db,
+          s3Client,
+          env.S3_BUCKET,
+          { ttlDays: env.AUDIO_TTL_DAYS },
+          { attemptNumber, maxAttempts },
+        );
+      }),
     );
     for (const outcome of outcomes) {
       if (outcome.status === 'rejected') {

@@ -10,6 +10,7 @@ import 'package:mockza/core/models/user_profile.dart';
 import 'package:mockza/core/preferences/appearance_settings.dart';
 import 'package:mockza/core/result/failure.dart';
 import 'package:mockza/core/result/result.dart';
+import 'package:mockza/core/vocab/serial_day.dart';
 import 'package:mockza/providers.dart';
 import 'package:mockza/routing/app_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -28,6 +29,7 @@ class SettingsState {
     required this.writingRemaining,
     required this.appUserId,
     this.track = ExamTrack.ieltsAcademic,
+    this.targetDateSerial,
     this.presetId = AppearanceSettings.defaultPresetId,
     this.appVersionLabel = 'v1.0.0',
     this.isBusy = false,
@@ -50,6 +52,9 @@ class SettingsState {
 
   /// Target overall IELTS band.
   final double targetBand;
+
+  /// Canonical UTC [SerialDay] of the learner's target exam date, if set.
+  final int? targetDateSerial;
 
   /// Current visual theme mode (`system`, `dark`, `light`).
   final String themeMode;
@@ -99,6 +104,8 @@ class SettingsState {
     ExamTrack? track,
     ExamModuleType? examModule,
     double? targetBand,
+    int? targetDateSerial,
+    bool clearTargetDateSerial = false,
     String? themeMode,
     String? presetId,
     bool? isPro,
@@ -120,6 +127,9 @@ class SettingsState {
     track: track ?? this.track,
     examModule: examModule ?? this.examModule,
     targetBand: targetBand ?? this.targetBand,
+    targetDateSerial: clearTargetDateSerial
+        ? null
+        : (targetDateSerial ?? this.targetDateSerial),
     themeMode: themeMode ?? this.themeMode,
     presetId: presetId ?? this.presetId,
     isPro: isPro ?? this.isPro,
@@ -183,6 +193,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
                 track: ExamTrack.fromId(profile.examId),
                 examModule: profile.examModule,
                 targetBand: profile.targetBand,
+                targetDateSerial: profile.targetDateSerial,
+                clearTargetDateSerial: profile.targetDateSerial == null,
                 isPro: profile.isPro,
                 appUserId: profile.appUserId ?? profile.deviceId,
               );
@@ -222,6 +234,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
           track: ExamTrack.fromId(profile.examId),
           examModule: profile.examModule,
           targetBand: profile.targetBand,
+          targetDateSerial: profile.targetDateSerial,
+          clearTargetDateSerial: profile.targetDateSerial == null,
           isPro: profile.isPro,
           appUserId: profile.appUserId ?? profile.deviceId,
         );
@@ -452,6 +466,32 @@ class SettingsNotifier extends Notifier<SettingsState> {
       ),
     );
   }
+
+  /// Updates the canonical target exam date (`SerialDay` UTC) or clears it when `null`.
+  Future<void> setTargetDateSerial(int? serial) async {
+    state = state.copyWith(
+      targetDateSerial: serial,
+      clearTargetDateSerial: serial == null,
+    );
+    try {
+      final profileRepo = ref.read(profileRepositoryProvider);
+      final primary = await profileRepo.loadOrInitializePrimary();
+      await profileRepo.saveTargetPreferences(
+        deviceId: primary.deviceId,
+        targetBand: state.targetBand,
+        examModule: state.examModule,
+        examId: state.track.id,
+        targetDateSerial: serial,
+        clearTargetDate: serial == null,
+      );
+    } on Object {
+      // Ignore in isolated widget tests without database plugin.
+    }
+  }
+
+  /// Returns canonical UTC [SerialDay] representing today for calendar bounds.
+  SerialDay currentTodaySerialDay() =>
+      SerialDay.fromUtcDateTime(ref.read(clockProvider).now());
 
   /// Updates IELTS exam track and persists to SQLite.
   void setExamModule(ExamModuleType module) {

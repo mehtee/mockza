@@ -18,6 +18,7 @@ import 'package:mockza/theme/components/audio_level_meter.dart';
 import 'package:mockza/theme/components/collapsible_prompt_card.dart';
 import 'package:mockza/theme/components/exam_question_controls.dart';
 import 'package:mockza/theme/components/icon_well.dart';
+import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
@@ -912,12 +913,14 @@ class _ObjectiveBlockView extends StatelessWidget {
         const SizedBox(height: SpacingTokens.sm),
 
         if (!isListening && block.passageText != null)
-          MzCard(
-            child: SelectableText(
-              block.passageText!,
-              style: typography.body.copyWith(
-                color: colors.textPrimary,
-                height: 1.5,
+          LtrExamBoundary(
+            child: MzCard(
+              child: SelectableText(
+                block.passageText!,
+                style: typography.body.copyWith(
+                  color: colors.textPrimary,
+                  height: 1.5,
+                ),
               ),
             ),
           ),
@@ -1206,40 +1209,42 @@ class _WritingStageView extends StatelessWidget {
             .split(RegExp(r'\s+'))
             .where((w) => w.isNotEmpty)
             .length;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            CollapsiblePromptCard(
-              title: title,
-              promptBody: promptText,
-              isCollapsed: isPromptCollapsed,
-              onToggleCollapsed: onTogglePromptCollapsed,
-              hideLabel: 'Hide',
-              footer: Wrap(
-                spacing: SpacingTokens.sm,
-                runSpacing: SpacingTokens.xs,
-                children: <Widget>[
-                  MzChip(label: guidanceLabel),
-                  MzChip(label: '$wordCount words'),
-                ],
+        return LtrExamBoundary(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              CollapsiblePromptCard(
+                title: title,
+                promptBody: promptText,
+                isCollapsed: isPromptCollapsed,
+                onToggleCollapsed: onTogglePromptCollapsed,
+                hideLabel: 'Hide',
+                footer: Wrap(
+                  spacing: SpacingTokens.sm,
+                  runSpacing: SpacingTokens.xs,
+                  children: <Widget>[
+                    MzChip(label: guidanceLabel),
+                    MzChip(label: '$wordCount words'),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: SpacingTokens.sm),
-            TextField(
-              controller: controller,
-              onChanged: onChanged,
-              minLines: 6,
-              maxLines: 10,
-              textInputAction: TextInputAction.newline,
-              decoration: InputDecoration(
-                hintText: isFollowUp
-                    ? 'Add 1 or 2 short sentences here...'
-                    : 'Write a short answer in your own words...',
-                filled: true,
-                fillColor: colors.surface,
+              const SizedBox(height: SpacingTokens.sm),
+              TextField(
+                controller: controller,
+                onChanged: onChanged,
+                minLines: 6,
+                maxLines: 10,
+                textInputAction: TextInputAction.newline,
+                decoration: InputDecoration(
+                  hintText: isFollowUp
+                      ? 'Add 1 or 2 short sentences here...'
+                      : 'Write a short answer in your own words...',
+                  filled: true,
+                  fillColor: colors.surface,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );

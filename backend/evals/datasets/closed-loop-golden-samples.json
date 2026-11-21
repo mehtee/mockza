@@ -1,0 +1,182 @@
+{
+  "version": "2026-11-21",
+  "registerShifter": [
+    {
+      "id": "rs-01",
+      "edition": "glb",
+      "examTrack": "ielts_academic",
+      "topicHint": "AI & software",
+      "sourceText": "Today I tried a new coding AI and it was really good, it saved a lot of time for our team."
+    },
+    {
+      "id": "rs-02",
+      "edition": "irn",
+      "examTrack": "ielts_academic",
+      "topicHint": "Cinema & media",
+      "sourceText": "The movie last night was super bad in the ending, even though the start looked nice."
+    },
+    {
+      "id": "rs-03",
+      "edition": "glb",
+      "examTrack": "toefl_ibt",
+      "topicHint": "Football",
+      "sourceText": "Our coach changed the plan at half time and suddenly everyone played way better."
+    },
+    {
+      "id": "rs-04",
+      "edition": "irn",
+      "examTrack": "pte_academic",
+      "topicHint": "Urban housing",
+      "sourceText": "Rent got so expensive this year that many students live far away from the university."
+    },
+    {
+      "id": "rs-05",
+      "edition": "glb",
+      "examTrack": "det",
+      "topicHint": "Remote work",
+      "sourceText": "Working from cafes feels fun at first, but too much noise breaks my focus fast."
+    },
+    {
+      "id": "rs-06",
+      "edition": "irn",
+      "examTrack": "ielts_general",
+      "topicHint": "Banking & errands",
+      "sourceText": "I waited half an hour at the desk just because the form had one small mistake."
+    },
+    {
+      "id": "rs-07",
+      "edition": "glb",
+      "examTrack": "ielts_academic",
+      "topicHint": "Climate policy",
+      "sourceText": "Planting trees in cities helps cool down hot streets and makes walking nice again."
+    }
+  ],
+  "dropAnything": [
+    {
+      "id": "drop-01",
+      "edition": "glb",
+      "inputKind": "text",
+      "examTrack": "ielts_academic",
+      "sourceDomainOrLabel": "arxiv.org",
+      "titleHint": "Sparse Attention Trade-offs",
+      "rawText": "Sparse attention strikes a deliberate trade-off between memory footprint and long-context recall, albeit with slight overhead during prefill.",
+      "expectedPhrases": ["trade-off", "albeit", "memory footprint"]
+    },
+    {
+      "id": "drop-02",
+      "edition": "irn",
+      "inputKind": "text",
+      "examTrack": "ielts_academic",
+      "sourceDomainOrLabel": "bbc.com",
+      "titleHint": "Tactical Pressing in Modern Football",
+      "rawText": "High-pressing systems remain sustainable only if fullbacks conserve energy during low-stakes phases of possession.",
+      "expectedPhrases": ["sustainable", "conserve energy", "low-stakes"]
+    },
+    {
+      "id": "drop-03",
+      "edition": "glb",
+      "inputKind": "text_url",
+      "examTrack": "toefl_ibt",
+      "sourceDomainOrLabel": "nature.com",
+      "titleHint": "Urban Microclimates",
+      "rawText": "Permeable pavements absorb storm runoff and gradually mitigate heat-island spikes across dense commercial districts.",
+      "expectedPhrases": ["mitigate", "storm runoff", "dense"]
+    },
+    {
+      "id": "drop-04",
+      "edition": "irn",
+      "inputKind": "text",
+      "examTrack": "pte_academic",
+      "sourceDomainOrLabel": "economist.com",
+      "titleHint": "Supply Chain Resilience",
+      "rawText": "Rather than chasing razor-thin inventory margins, manufacturers now prioritize redundant suppliers to cushion unexpected disruptions.",
+      "expectedPhrases": ["razor-thin", "redundant suppliers", "cushion"]
+    },
+    {
+      "id": "drop-05",
+      "edition": "glb",
+      "inputKind": "text",
+      "examTrack": "det",
+      "sourceDomainOrLabel": "mitpress.mit.edu",
+      "titleHint": "Human-Centered Interfaces",
+      "rawText": "Clear visual affordances reduce cognitive load when users switch between unfamiliar technical workflows.",
+      "expectedPhrases": ["cognitive load", "visual affordances", "unfamiliar"]
+    },
+    {
+      "id": "drop-06",
+      "edition": "irn",
+      "inputKind": "image",
+      "examTrack": "ielts_general",
+      "sourceDomainOrLabel": "Screenshot Menu",
+      "titleHint": "Cafe Allergen Notice",
+      "rawText": "Items marked with an asterisk may contain trace amounts of tree nuts despite dedicated preparation surfaces.",
+      "expectedPhrases": ["trace amounts", "dedicated", "despite"]
+    },
+    {
+      "id": "drop-07",
+      "edition": "glb",
+      "inputKind": "audio",
+      "examTrack": "ielts_academic",
+      "sourceDomainOrLabel": "Podcast Clip 45s",
+      "titleHint": "Sleep & Consolidation",
+      "rawText": "Deep slow-wave sleep consolidates declarative vocabulary far better than late-night cramming before an exam.",
+      "expectedPhrases": ["consolidate", "declarative", "late-night cramming"]
+    }
+  ],
+  "linguisticGraphAndMission": [
+    {
+      "id": "lgm-01",
+      "edition": "glb",
+      "examTrack": "ielts_academic",
+      "focusTopic": "Football",
+      "textSample": "The coach said it was very good and big help for players. Our team win a lot of match.",
+      "bottleneckKey": "lexis:evaluative_overuse_good_bad",
+      "dueWord": "albeit"
+    },
+    {
+      "id": "lgm-02",
+      "edition": "irn",
+      "examTrack": "ielts_academic",
+      "focusTopic": "Artificial Intelligence",
+      "textSample": "Models run fast in cloud. Engineers prefer small weight so latency stay low for users.",
+      "bottleneckKey": "grammar:conditional_avoidance",
+      "dueWord": "mitigate"
+    },
+    {
+      "id": "lgm-03",
+      "edition": "glb",
+      "examTrack": "toefl_ibt",
+      "focusTopic": "Environment",
+      "textSample": "Public rail costs money now, and also pollution rises every summer without trains.",
+      "bottleneckKey": "cohesion:concessive_linker_gap",
+      "dueWord": "nonetheless"
+    },
+    {
+      "id": "lgm-04",
+      "edition": "irn",
+      "examTrack": "pte_academic",
+      "focusTopic": "Cinema",
+      "textSample": "Good script make cinema nice, and good sound make people stay focused all time.",
+      "bottleneckKey": "lexis:evaluative_overuse_good_bad",
+      "dueWord": "compelling"
+    },
+    {
+      "id": "lgm-05",
+      "edition": "glb",
+      "examTrack": "det",
+      "focusTopic": "Software Engineering",
+      "textSample": "If engineers monitor queue depth carefully, they can prevent cascading failures early.",
+      "bottleneckKey": "grammar:conditional_framing",
+      "dueWord": "resilient"
+    },
+    {
+      "id": "lgm-06",
+      "edition": "irn",
+      "examTrack": "ielts_general",
+      "focusTopic": "Everyday Workplace",
+      "textSample": "I told manager deadline is very tight because client changed scope last week.",
+      "bottleneckKey": "grammar:conditional_avoidance",
+      "dueWord": "consequently"
+    }
+  ]
+}

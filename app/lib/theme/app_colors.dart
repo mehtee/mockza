@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mockza/theme/primitives.dart';
 
 /// Semantic color slots resolved via `AppColors.of(context)`.
-/// Aligned strictly with design.md Sec. 2.1 & 12.
+/// Aligned strictly with design.md Sec. 2.1 & 12 and `tokens.json`.
 @immutable
 class AppColors extends ThemeExtension<AppColors> {
   /// Creates an [AppColors] semantic palette.
@@ -35,6 +35,12 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.dangerBg,
     required this.blueBg,
     required this.violetBg,
+    required this.gearCasual,
+    required this.gearWork,
+    required this.gearAcademic,
+    required this.gapObserved,
+    required this.structureMastered,
+    required this.interestTag,
   });
 
   /// Canonical Dark semantic color set (primary product mode).
@@ -67,6 +73,12 @@ class AppColors extends ThemeExtension<AppColors> {
     dangerBg: PalettePrimitives.dangerBg,
     blueBg: PalettePrimitives.blueBg,
     violetBg: PalettePrimitives.violetBg,
+    gearCasual: PalettePrimitives.blue,
+    gearWork: PalettePrimitives.darkAccent,
+    gearAcademic: PalettePrimitives.amber,
+    gapObserved: PalettePrimitives.warning,
+    structureMastered: PalettePrimitives.success,
+    interestTag: PalettePrimitives.violet,
   );
 
   /// Canonical Light semantic color set.
@@ -99,6 +111,12 @@ class AppColors extends ThemeExtension<AppColors> {
     dangerBg: PalettePrimitives.lightDangerBg,
     blueBg: PalettePrimitives.lightBlueBg,
     violetBg: PalettePrimitives.lightVioletBg,
+    gearCasual: PalettePrimitives.lightBlue,
+    gearWork: PalettePrimitives.lightAccent,
+    gearAcademic: PalettePrimitives.lightAmber,
+    gapObserved: PalettePrimitives.lightWarning,
+    structureMastered: PalettePrimitives.lightSuccess,
+    interestTag: PalettePrimitives.lightViolet,
   );
 
   /// Primary canvas background.
@@ -185,6 +203,24 @@ class AppColors extends ThemeExtension<AppColors> {
   /// Violet tinted background fill.
   final Color violetBg;
 
+  /// Register Shifter Casual gear accent color.
+  final Color gearCasual;
+
+  /// Register Shifter Workplace Pro gear accent color.
+  final Color gearWork;
+
+  /// Register Shifter Academic / Target Band gear accent color.
+  final Color gearAcademic;
+
+  /// Linguistic Graph active bottleneck badge color.
+  final Color gapObserved;
+
+  /// Linguistic Graph mastered structure badge color.
+  final Color structureMastered;
+
+  /// Linguistic Graph learner interest topic tag color.
+  final Color interestTag;
+
   /// Resolves [AppColors] from [context], asserting the theme registered it.
   static AppColors of(BuildContext context) {
     final ext = Theme.of(context).extension<AppColors>();
@@ -222,6 +258,12 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? dangerBg,
     Color? blueBg,
     Color? violetBg,
+    Color? gearCasual,
+    Color? gearWork,
+    Color? gearAcademic,
+    Color? gapObserved,
+    Color? structureMastered,
+    Color? interestTag,
   }) => AppColors(
     background: background ?? this.background,
     bgRaised: bgRaised ?? this.bgRaised,
@@ -251,6 +293,12 @@ class AppColors extends ThemeExtension<AppColors> {
     dangerBg: dangerBg ?? this.dangerBg,
     blueBg: blueBg ?? this.blueBg,
     violetBg: violetBg ?? this.violetBg,
+    gearCasual: gearCasual ?? this.gearCasual,
+    gearWork: gearWork ?? this.gearWork,
+    gearAcademic: gearAcademic ?? this.gearAcademic,
+    gapObserved: gapObserved ?? this.gapObserved,
+    structureMastered: structureMastered ?? this.structureMastered,
+    interestTag: interestTag ?? this.interestTag,
   );
 
   @override
@@ -285,6 +333,16 @@ class AppColors extends ThemeExtension<AppColors> {
       dangerBg: Color.lerp(dangerBg, other.dangerBg, t)!,
       blueBg: Color.lerp(blueBg, other.blueBg, t)!,
       violetBg: Color.lerp(violetBg, other.violetBg, t)!,
+      gearCasual: Color.lerp(gearCasual, other.gearCasual, t)!,
+      gearWork: Color.lerp(gearWork, other.gearWork, t)!,
+      gearAcademic: Color.lerp(gearAcademic, other.gearAcademic, t)!,
+      gapObserved: Color.lerp(gapObserved, other.gapObserved, t)!,
+      structureMastered: Color.lerp(
+        structureMastered,
+        other.structureMastered,
+        t,
+      )!,
+      interestTag: Color.lerp(interestTag, other.interestTag, t)!,
     );
   }
 }

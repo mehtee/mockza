@@ -1,0 +1,110 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:mockza/core/config/brand_identity.dart';
+import 'package:mockza/core/exams/exam_spec.dart';
+import 'package:mockza/services/external_link_platform.dart';
+import 'package:mockza/theme/app_colors.dart';
+import 'package:mockza/theme/app_icons.dart';
+import 'package:mockza/theme/app_typography.dart';
+import 'package:mockza/theme/components/ltr_exam_boundary.dart';
+import 'package:mockza/theme/components/mz_buttons.dart';
+import 'package:mockza/theme/components/mz_card.dart';
+import 'package:mockza/theme/primitives.dart';
+
+/// Iran-only (`Sanjia`) cross-funnel card allowing learners who reached their target score
+/// to carry readiness metrics directly into `Navia` (`https://navia.ir`) for university applications.
+class NaviaHandoffCard extends StatelessWidget {
+  /// Creates a [NaviaHandoffCard].
+  const new({
+    required this.track,
+    required this.estimatedScore,
+    required this.targetScore,
+    super.key,
+  });
+
+  /// Active exam track.
+  final ExamTrack track;
+
+  /// Latest estimated overall score on [track] scale.
+  final double? estimatedScore;
+
+  /// User's target score on [track] scale.
+  final double targetScore;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final typography = AppTypography.of(context);
+    final reachedTarget =
+        estimatedScore != null && estimatedScore! >= targetScore;
+
+    return MzCard(
+      variant: MzCardVariant.hero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              AppIcon(
+                LucideGlyph.sparkles,
+                size: 20,
+                color: colors.primary,
+              ),
+              const SizedBox(width: SpacingTokens.xs),
+              Expanded(
+                child: Text(
+                  'انتقال نمره تاییدشده به ناویا (Navia)',
+                  style: typography.cardTitle.copyWith(
+                    color: colors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: SpacingTokens.xs),
+          Text(
+            reachedTarget
+                ? 'به نمره هدف خود رسیده‌اید! کارنامه شبیه‌سازی سنجیا را مستقیم برای ارزیابی پذیرش تحصیلی در ناویا استفاده کنید.'
+                : 'با رسیدن به نمره هدف، می‌توانید نمره شبیه‌سازی سنجیا را مستقیم به پلتفرم اپلای هوشمند ناویا ارسال کنید.',
+            style: typography.secondary.copyWith(color: colors.textSecondary),
+          ),
+          const SizedBox(height: SpacingTokens.sm),
+          LtrExamBoundary(
+            child: Text(
+              estimatedScore != null
+                  ? '${track.shortName}: ${track.formatScore(estimatedScore!)} / Target ${track.formatScore(targetScore)}'
+                  : '${track.shortName} · Target ${track.formatScore(targetScore)}',
+              style: typography.caption.copyWith(
+                color: colors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: SpacingTokens.md),
+          SecondaryButton(
+            label: 'ارسال نمره به ناویا (navia.ir)',
+            glyph: LucideGlyph.globe,
+            onPressed: () {
+              final scoreParam = estimatedScore != null
+                  ? track.formatScore(estimatedScore!)
+                  : '';
+              final handoffUrl = Uri.parse(BrandIdentity.iran.naviaUrl)
+                  .replace(
+                    path: '/import-score',
+                    queryParameters: <String, String>{
+                      'edition': 'irn',
+                      'track': track.id,
+                      if (scoreParam.isNotEmpty) 'score': scoreParam,
+                      'target': track.formatScore(targetScore),
+                    },
+                  )
+                  .toString();
+              unawaited(openExternalUrlImpl(handoffUrl));
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}

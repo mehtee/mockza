@@ -5560,6 +5560,17 @@ class $VocabCardsTable extends VocabCards
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _glossFaMeta = const VerificationMeta(
+    'glossFa',
+  );
+  @override
+  late final GeneratedColumn<String> glossFa = GeneratedColumn<String>(
+    'gloss_fa',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _topicTagMeta = const VerificationMeta(
     'topicTag',
   );
@@ -5714,6 +5725,7 @@ class $VocabCardsTable extends VocabCards
     headword,
     ipa,
     definition,
+    glossFa,
     topicTag,
     repetitions,
     intervalDays,
@@ -5785,6 +5797,12 @@ class $VocabCardsTable extends VocabCards
       );
     } else if (isInserting) {
       context.missing(_definitionMeta);
+    }
+    if (data.containsKey('gloss_fa')) {
+      context.handle(
+        _glossFaMeta,
+        glossFa.isAcceptableOrUnknown(data['gloss_fa']!, _glossFaMeta),
+      );
     }
     if (data.containsKey('topic_tag')) {
       context.handle(
@@ -5928,6 +5946,10 @@ class $VocabCardsTable extends VocabCards
         DriftSqlType.string,
         data['${effectivePrefix}definition'],
       )!,
+      glossFa: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}gloss_fa'],
+      ),
       topicTag: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}topic_tag'],
@@ -6008,6 +6030,9 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
   /// Learner definition and band-8 context example.
   final String definition;
 
+  /// Optional concise Persian translation/gloss (`IRN` Sanjia edition).
+  final String? glossFa;
+
   /// Topic tag (`environment`, `technology`, `education`, etc.).
   final String topicTag;
 
@@ -6053,6 +6078,7 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
     required this.headword,
     this.ipa,
     required this.definition,
+    this.glossFa,
     required this.topicTag,
     required this.repetitions,
     required this.intervalDays,
@@ -6078,6 +6104,9 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
       map['ipa'] = Variable<String>(ipa);
     }
     map['definition'] = Variable<String>(definition);
+    if (!nullToAbsent || glossFa != null) {
+      map['gloss_fa'] = Variable<String>(glossFa);
+    }
     map['topic_tag'] = Variable<String>(topicTag);
     map['repetitions'] = Variable<int>(repetitions);
     map['interval_days'] = Variable<int>(intervalDays);
@@ -6114,6 +6143,9 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
       headword: Value(headword),
       ipa: ipa == null && nullToAbsent ? const Value.absent() : Value(ipa),
       definition: Value(definition),
+      glossFa: glossFa == null && nullToAbsent
+          ? const Value.absent()
+          : Value(glossFa),
       topicTag: Value(topicTag),
       repetitions: Value(repetitions),
       intervalDays: Value(intervalDays),
@@ -6154,6 +6186,7 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
       headword: serializer.fromJson<String>(json['headword']),
       ipa: serializer.fromJson<String?>(json['ipa']),
       definition: serializer.fromJson<String>(json['definition']),
+      glossFa: serializer.fromJson<String?>(json['glossFa']),
       topicTag: serializer.fromJson<String>(json['topicTag']),
       repetitions: serializer.fromJson<int>(json['repetitions']),
       intervalDays: serializer.fromJson<int>(json['intervalDays']),
@@ -6181,6 +6214,7 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
       'headword': serializer.toJson<String>(headword),
       'ipa': serializer.toJson<String?>(ipa),
       'definition': serializer.toJson<String>(definition),
+      'glossFa': serializer.toJson<String?>(glossFa),
       'topicTag': serializer.toJson<String>(topicTag),
       'repetitions': serializer.toJson<int>(repetitions),
       'intervalDays': serializer.toJson<int>(intervalDays),
@@ -6204,6 +6238,7 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
     String? headword,
     Value<String?> ipa = const Value.absent(),
     String? definition,
+    Value<String?> glossFa = const Value.absent(),
     String? topicTag,
     int? repetitions,
     int? intervalDays,
@@ -6224,6 +6259,7 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
     headword: headword ?? this.headword,
     ipa: ipa.present ? ipa.value : this.ipa,
     definition: definition ?? this.definition,
+    glossFa: glossFa.present ? glossFa.value : this.glossFa,
     topicTag: topicTag ?? this.topicTag,
     repetitions: repetitions ?? this.repetitions,
     intervalDays: intervalDays ?? this.intervalDays,
@@ -6256,6 +6292,7 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
       definition: data.definition.present
           ? data.definition.value
           : this.definition,
+      glossFa: data.glossFa.present ? data.glossFa.value : this.glossFa,
       topicTag: data.topicTag.present ? data.topicTag.value : this.topicTag,
       repetitions: data.repetitions.present
           ? data.repetitions.value
@@ -6301,6 +6338,7 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
           ..write('headword: $headword, ')
           ..write('ipa: $ipa, ')
           ..write('definition: $definition, ')
+          ..write('glossFa: $glossFa, ')
           ..write('topicTag: $topicTag, ')
           ..write('repetitions: $repetitions, ')
           ..write('intervalDays: $intervalDays, ')
@@ -6326,6 +6364,7 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
     headword,
     ipa,
     definition,
+    glossFa,
     topicTag,
     repetitions,
     intervalDays,
@@ -6350,6 +6389,7 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
           other.headword == this.headword &&
           other.ipa == this.ipa &&
           other.definition == this.definition &&
+          other.glossFa == this.glossFa &&
           other.topicTag == this.topicTag &&
           other.repetitions == this.repetitions &&
           other.intervalDays == this.intervalDays &&
@@ -6372,6 +6412,7 @@ class VocabCardsCompanion extends UpdateCompanion<VocabCardRow> {
   final Value<String> headword;
   final Value<String?> ipa;
   final Value<String> definition;
+  final Value<String?> glossFa;
   final Value<String> topicTag;
   final Value<int> repetitions;
   final Value<int> intervalDays;
@@ -6393,6 +6434,7 @@ class VocabCardsCompanion extends UpdateCompanion<VocabCardRow> {
     this.headword = const Value.absent(),
     this.ipa = const Value.absent(),
     this.definition = const Value.absent(),
+    this.glossFa = const Value.absent(),
     this.topicTag = const Value.absent(),
     this.repetitions = const Value.absent(),
     this.intervalDays = const Value.absent(),
@@ -6415,6 +6457,7 @@ class VocabCardsCompanion extends UpdateCompanion<VocabCardRow> {
     required String headword,
     this.ipa = const Value.absent(),
     required String definition,
+    this.glossFa = const Value.absent(),
     required String topicTag,
     this.repetitions = const Value.absent(),
     this.intervalDays = const Value.absent(),
@@ -6443,6 +6486,7 @@ class VocabCardsCompanion extends UpdateCompanion<VocabCardRow> {
     Expression<String>? headword,
     Expression<String>? ipa,
     Expression<String>? definition,
+    Expression<String>? glossFa,
     Expression<String>? topicTag,
     Expression<int>? repetitions,
     Expression<int>? intervalDays,
@@ -6465,6 +6509,7 @@ class VocabCardsCompanion extends UpdateCompanion<VocabCardRow> {
       if (headword != null) 'headword': headword,
       if (ipa != null) 'ipa': ipa,
       if (definition != null) 'definition': definition,
+      if (glossFa != null) 'gloss_fa': glossFa,
       if (topicTag != null) 'topic_tag': topicTag,
       if (repetitions != null) 'repetitions': repetitions,
       if (intervalDays != null) 'interval_days': intervalDays,
@@ -6490,6 +6535,7 @@ class VocabCardsCompanion extends UpdateCompanion<VocabCardRow> {
     Value<String>? headword,
     Value<String?>? ipa,
     Value<String>? definition,
+    Value<String?>? glossFa,
     Value<String>? topicTag,
     Value<int>? repetitions,
     Value<int>? intervalDays,
@@ -6512,6 +6558,7 @@ class VocabCardsCompanion extends UpdateCompanion<VocabCardRow> {
       headword: headword ?? this.headword,
       ipa: ipa ?? this.ipa,
       definition: definition ?? this.definition,
+      glossFa: glossFa ?? this.glossFa,
       topicTag: topicTag ?? this.topicTag,
       repetitions: repetitions ?? this.repetitions,
       intervalDays: intervalDays ?? this.intervalDays,
@@ -6549,6 +6596,9 @@ class VocabCardsCompanion extends UpdateCompanion<VocabCardRow> {
     }
     if (definition.present) {
       map['definition'] = Variable<String>(definition.value);
+    }
+    if (glossFa.present) {
+      map['gloss_fa'] = Variable<String>(glossFa.value);
     }
     if (topicTag.present) {
       map['topic_tag'] = Variable<String>(topicTag.value);
@@ -6606,6 +6656,7 @@ class VocabCardsCompanion extends UpdateCompanion<VocabCardRow> {
           ..write('headword: $headword, ')
           ..write('ipa: $ipa, ')
           ..write('definition: $definition, ')
+          ..write('glossFa: $glossFa, ')
           ..write('topicTag: $topicTag, ')
           ..write('repetitions: $repetitions, ')
           ..write('intervalDays: $intervalDays, ')
@@ -9225,6 +9276,2053 @@ class DiagnosticSessionsCompanion
   }
 }
 
+class $LinguisticNodesTable extends LinguisticNodes
+    with TableInfo<$LinguisticNodesTable, LinguisticNodeRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LinguisticNodesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _nodeIdMeta = const VerificationMeta('nodeId');
+  @override
+  late final GeneratedColumn<String> nodeId = GeneratedColumn<String>(
+    'node_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _editionMeta = const VerificationMeta(
+    'edition',
+  );
+  @override
+  late final GeneratedColumn<String> edition = GeneratedColumn<String>(
+    'edition',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('glb'),
+  );
+  static const VerificationMeta _nodeKindMeta = const VerificationMeta(
+    'nodeKind',
+  );
+  @override
+  late final GeneratedColumn<String> nodeKind = GeneratedColumn<String>(
+    'node_kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _canonicalKeyMeta = const VerificationMeta(
+    'canonicalKey',
+  );
+  @override
+  late final GeneratedColumn<String> canonicalKey = GeneratedColumn<String>(
+    'canonical_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _displayLabelEnMeta = const VerificationMeta(
+    'displayLabelEn',
+  );
+  @override
+  late final GeneratedColumn<String> displayLabelEn = GeneratedColumn<String>(
+    'display_label_en',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _displayLabelFaMeta = const VerificationMeta(
+    'displayLabelFa',
+  );
+  @override
+  late final GeneratedColumn<String> displayLabelFa = GeneratedColumn<String>(
+    'display_label_fa',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _masteryScoreMilliMeta = const VerificationMeta(
+    'masteryScoreMilli',
+  );
+  @override
+  late final GeneratedColumn<int> masteryScoreMilli = GeneratedColumn<int>(
+    'mastery_score_milli',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(400),
+  );
+  static const VerificationMeta _signalWeightMilliMeta = const VerificationMeta(
+    'signalWeightMilli',
+  );
+  @override
+  late final GeneratedColumn<int> signalWeightMilli = GeneratedColumn<int>(
+    'signal_weight_milli',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(500),
+  );
+  static const VerificationMeta _evidenceCountMeta = const VerificationMeta(
+    'evidenceCount',
+  );
+  @override
+  late final GeneratedColumn<int> evidenceCount = GeneratedColumn<int>(
+    'evidence_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _lastSeenDaySerialMeta = const VerificationMeta(
+    'lastSeenDaySerial',
+  );
+  @override
+  late final GeneratedColumn<int> lastSeenDaySerial = GeneratedColumn<int>(
+    'last_seen_day_serial',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastExampleEnMeta = const VerificationMeta(
+    'lastExampleEn',
+  );
+  @override
+  late final GeneratedColumn<String> lastExampleEn = GeneratedColumn<String>(
+    'last_example_en',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _coachNoteEnMeta = const VerificationMeta(
+    'coachNoteEn',
+  );
+  @override
+  late final GeneratedColumn<String> coachNoteEn = GeneratedColumn<String>(
+    'coach_note_en',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _coachNoteFaMeta = const VerificationMeta(
+    'coachNoteFa',
+  );
+  @override
+  late final GeneratedColumn<String> coachNoteFa = GeneratedColumn<String>(
+    'coach_note_fa',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _updatedAtUtcMsMeta = const VerificationMeta(
+    'updatedAtUtcMs',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAtUtcMs = GeneratedColumn<int>(
+    'updated_at_utc_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    nodeId,
+    edition,
+    nodeKind,
+    canonicalKey,
+    displayLabelEn,
+    displayLabelFa,
+    masteryScoreMilli,
+    signalWeightMilli,
+    evidenceCount,
+    lastSeenDaySerial,
+    lastExampleEn,
+    coachNoteEn,
+    coachNoteFa,
+    updatedAtUtcMs,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'linguistic_nodes';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LinguisticNodeRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('node_id')) {
+      context.handle(
+        _nodeIdMeta,
+        nodeId.isAcceptableOrUnknown(data['node_id']!, _nodeIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nodeIdMeta);
+    }
+    if (data.containsKey('edition')) {
+      context.handle(
+        _editionMeta,
+        edition.isAcceptableOrUnknown(data['edition']!, _editionMeta),
+      );
+    }
+    if (data.containsKey('node_kind')) {
+      context.handle(
+        _nodeKindMeta,
+        nodeKind.isAcceptableOrUnknown(data['node_kind']!, _nodeKindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nodeKindMeta);
+    }
+    if (data.containsKey('canonical_key')) {
+      context.handle(
+        _canonicalKeyMeta,
+        canonicalKey.isAcceptableOrUnknown(
+          data['canonical_key']!,
+          _canonicalKeyMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_canonicalKeyMeta);
+    }
+    if (data.containsKey('display_label_en')) {
+      context.handle(
+        _displayLabelEnMeta,
+        displayLabelEn.isAcceptableOrUnknown(
+          data['display_label_en']!,
+          _displayLabelEnMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_displayLabelEnMeta);
+    }
+    if (data.containsKey('display_label_fa')) {
+      context.handle(
+        _displayLabelFaMeta,
+        displayLabelFa.isAcceptableOrUnknown(
+          data['display_label_fa']!,
+          _displayLabelFaMeta,
+        ),
+      );
+    }
+    if (data.containsKey('mastery_score_milli')) {
+      context.handle(
+        _masteryScoreMilliMeta,
+        masteryScoreMilli.isAcceptableOrUnknown(
+          data['mastery_score_milli']!,
+          _masteryScoreMilliMeta,
+        ),
+      );
+    }
+    if (data.containsKey('signal_weight_milli')) {
+      context.handle(
+        _signalWeightMilliMeta,
+        signalWeightMilli.isAcceptableOrUnknown(
+          data['signal_weight_milli']!,
+          _signalWeightMilliMeta,
+        ),
+      );
+    }
+    if (data.containsKey('evidence_count')) {
+      context.handle(
+        _evidenceCountMeta,
+        evidenceCount.isAcceptableOrUnknown(
+          data['evidence_count']!,
+          _evidenceCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_seen_day_serial')) {
+      context.handle(
+        _lastSeenDaySerialMeta,
+        lastSeenDaySerial.isAcceptableOrUnknown(
+          data['last_seen_day_serial']!,
+          _lastSeenDaySerialMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_lastSeenDaySerialMeta);
+    }
+    if (data.containsKey('last_example_en')) {
+      context.handle(
+        _lastExampleEnMeta,
+        lastExampleEn.isAcceptableOrUnknown(
+          data['last_example_en']!,
+          _lastExampleEnMeta,
+        ),
+      );
+    }
+    if (data.containsKey('coach_note_en')) {
+      context.handle(
+        _coachNoteEnMeta,
+        coachNoteEn.isAcceptableOrUnknown(
+          data['coach_note_en']!,
+          _coachNoteEnMeta,
+        ),
+      );
+    }
+    if (data.containsKey('coach_note_fa')) {
+      context.handle(
+        _coachNoteFaMeta,
+        coachNoteFa.isAcceptableOrUnknown(
+          data['coach_note_fa']!,
+          _coachNoteFaMeta,
+        ),
+      );
+    }
+    if (data.containsKey('updated_at_utc_ms')) {
+      context.handle(
+        _updatedAtUtcMsMeta,
+        updatedAtUtcMs.isAcceptableOrUnknown(
+          data['updated_at_utc_ms']!,
+          _updatedAtUtcMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtUtcMsMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {nodeId};
+  @override
+  LinguisticNodeRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LinguisticNodeRow(
+      nodeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}node_id'],
+      )!,
+      edition: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}edition'],
+      )!,
+      nodeKind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}node_kind'],
+      )!,
+      canonicalKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}canonical_key'],
+      )!,
+      displayLabelEn: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}display_label_en'],
+      )!,
+      displayLabelFa: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}display_label_fa'],
+      ),
+      masteryScoreMilli: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}mastery_score_milli'],
+      )!,
+      signalWeightMilli: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}signal_weight_milli'],
+      )!,
+      evidenceCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}evidence_count'],
+      )!,
+      lastSeenDaySerial: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_seen_day_serial'],
+      )!,
+      lastExampleEn: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_example_en'],
+      ),
+      coachNoteEn: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}coach_note_en'],
+      ),
+      coachNoteFa: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}coach_note_fa'],
+      ),
+      updatedAtUtcMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at_utc_ms'],
+      )!,
+    );
+  }
+
+  @override
+  $LinguisticNodesTable createAlias(String alias) {
+    return $LinguisticNodesTable(attachedDatabase, alias);
+  }
+}
+
+class LinguisticNodeRow extends DataClass
+    implements Insertable<LinguisticNodeRow> {
+  final String nodeId;
+  final String edition;
+  final String nodeKind;
+  final String canonicalKey;
+  final String displayLabelEn;
+  final String? displayLabelFa;
+  final int masteryScoreMilli;
+  final int signalWeightMilli;
+  final int evidenceCount;
+  final int lastSeenDaySerial;
+  final String? lastExampleEn;
+  final String? coachNoteEn;
+  final String? coachNoteFa;
+  final int updatedAtUtcMs;
+  const LinguisticNodeRow({
+    required this.nodeId,
+    required this.edition,
+    required this.nodeKind,
+    required this.canonicalKey,
+    required this.displayLabelEn,
+    this.displayLabelFa,
+    required this.masteryScoreMilli,
+    required this.signalWeightMilli,
+    required this.evidenceCount,
+    required this.lastSeenDaySerial,
+    this.lastExampleEn,
+    this.coachNoteEn,
+    this.coachNoteFa,
+    required this.updatedAtUtcMs,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['node_id'] = Variable<String>(nodeId);
+    map['edition'] = Variable<String>(edition);
+    map['node_kind'] = Variable<String>(nodeKind);
+    map['canonical_key'] = Variable<String>(canonicalKey);
+    map['display_label_en'] = Variable<String>(displayLabelEn);
+    if (!nullToAbsent || displayLabelFa != null) {
+      map['display_label_fa'] = Variable<String>(displayLabelFa);
+    }
+    map['mastery_score_milli'] = Variable<int>(masteryScoreMilli);
+    map['signal_weight_milli'] = Variable<int>(signalWeightMilli);
+    map['evidence_count'] = Variable<int>(evidenceCount);
+    map['last_seen_day_serial'] = Variable<int>(lastSeenDaySerial);
+    if (!nullToAbsent || lastExampleEn != null) {
+      map['last_example_en'] = Variable<String>(lastExampleEn);
+    }
+    if (!nullToAbsent || coachNoteEn != null) {
+      map['coach_note_en'] = Variable<String>(coachNoteEn);
+    }
+    if (!nullToAbsent || coachNoteFa != null) {
+      map['coach_note_fa'] = Variable<String>(coachNoteFa);
+    }
+    map['updated_at_utc_ms'] = Variable<int>(updatedAtUtcMs);
+    return map;
+  }
+
+  LinguisticNodesCompanion toCompanion(bool nullToAbsent) {
+    return LinguisticNodesCompanion(
+      nodeId: Value(nodeId),
+      edition: Value(edition),
+      nodeKind: Value(nodeKind),
+      canonicalKey: Value(canonicalKey),
+      displayLabelEn: Value(displayLabelEn),
+      displayLabelFa: displayLabelFa == null && nullToAbsent
+          ? const Value.absent()
+          : Value(displayLabelFa),
+      masteryScoreMilli: Value(masteryScoreMilli),
+      signalWeightMilli: Value(signalWeightMilli),
+      evidenceCount: Value(evidenceCount),
+      lastSeenDaySerial: Value(lastSeenDaySerial),
+      lastExampleEn: lastExampleEn == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastExampleEn),
+      coachNoteEn: coachNoteEn == null && nullToAbsent
+          ? const Value.absent()
+          : Value(coachNoteEn),
+      coachNoteFa: coachNoteFa == null && nullToAbsent
+          ? const Value.absent()
+          : Value(coachNoteFa),
+      updatedAtUtcMs: Value(updatedAtUtcMs),
+    );
+  }
+
+  factory LinguisticNodeRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LinguisticNodeRow(
+      nodeId: serializer.fromJson<String>(json['nodeId']),
+      edition: serializer.fromJson<String>(json['edition']),
+      nodeKind: serializer.fromJson<String>(json['nodeKind']),
+      canonicalKey: serializer.fromJson<String>(json['canonicalKey']),
+      displayLabelEn: serializer.fromJson<String>(json['displayLabelEn']),
+      displayLabelFa: serializer.fromJson<String?>(json['displayLabelFa']),
+      masteryScoreMilli: serializer.fromJson<int>(json['masteryScoreMilli']),
+      signalWeightMilli: serializer.fromJson<int>(json['signalWeightMilli']),
+      evidenceCount: serializer.fromJson<int>(json['evidenceCount']),
+      lastSeenDaySerial: serializer.fromJson<int>(json['lastSeenDaySerial']),
+      lastExampleEn: serializer.fromJson<String?>(json['lastExampleEn']),
+      coachNoteEn: serializer.fromJson<String?>(json['coachNoteEn']),
+      coachNoteFa: serializer.fromJson<String?>(json['coachNoteFa']),
+      updatedAtUtcMs: serializer.fromJson<int>(json['updatedAtUtcMs']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'nodeId': serializer.toJson<String>(nodeId),
+      'edition': serializer.toJson<String>(edition),
+      'nodeKind': serializer.toJson<String>(nodeKind),
+      'canonicalKey': serializer.toJson<String>(canonicalKey),
+      'displayLabelEn': serializer.toJson<String>(displayLabelEn),
+      'displayLabelFa': serializer.toJson<String?>(displayLabelFa),
+      'masteryScoreMilli': serializer.toJson<int>(masteryScoreMilli),
+      'signalWeightMilli': serializer.toJson<int>(signalWeightMilli),
+      'evidenceCount': serializer.toJson<int>(evidenceCount),
+      'lastSeenDaySerial': serializer.toJson<int>(lastSeenDaySerial),
+      'lastExampleEn': serializer.toJson<String?>(lastExampleEn),
+      'coachNoteEn': serializer.toJson<String?>(coachNoteEn),
+      'coachNoteFa': serializer.toJson<String?>(coachNoteFa),
+      'updatedAtUtcMs': serializer.toJson<int>(updatedAtUtcMs),
+    };
+  }
+
+  LinguisticNodeRow copyWith({
+    String? nodeId,
+    String? edition,
+    String? nodeKind,
+    String? canonicalKey,
+    String? displayLabelEn,
+    Value<String?> displayLabelFa = const Value.absent(),
+    int? masteryScoreMilli,
+    int? signalWeightMilli,
+    int? evidenceCount,
+    int? lastSeenDaySerial,
+    Value<String?> lastExampleEn = const Value.absent(),
+    Value<String?> coachNoteEn = const Value.absent(),
+    Value<String?> coachNoteFa = const Value.absent(),
+    int? updatedAtUtcMs,
+  }) => LinguisticNodeRow(
+    nodeId: nodeId ?? this.nodeId,
+    edition: edition ?? this.edition,
+    nodeKind: nodeKind ?? this.nodeKind,
+    canonicalKey: canonicalKey ?? this.canonicalKey,
+    displayLabelEn: displayLabelEn ?? this.displayLabelEn,
+    displayLabelFa: displayLabelFa.present
+        ? displayLabelFa.value
+        : this.displayLabelFa,
+    masteryScoreMilli: masteryScoreMilli ?? this.masteryScoreMilli,
+    signalWeightMilli: signalWeightMilli ?? this.signalWeightMilli,
+    evidenceCount: evidenceCount ?? this.evidenceCount,
+    lastSeenDaySerial: lastSeenDaySerial ?? this.lastSeenDaySerial,
+    lastExampleEn: lastExampleEn.present
+        ? lastExampleEn.value
+        : this.lastExampleEn,
+    coachNoteEn: coachNoteEn.present ? coachNoteEn.value : this.coachNoteEn,
+    coachNoteFa: coachNoteFa.present ? coachNoteFa.value : this.coachNoteFa,
+    updatedAtUtcMs: updatedAtUtcMs ?? this.updatedAtUtcMs,
+  );
+  LinguisticNodeRow copyWithCompanion(LinguisticNodesCompanion data) {
+    return LinguisticNodeRow(
+      nodeId: data.nodeId.present ? data.nodeId.value : this.nodeId,
+      edition: data.edition.present ? data.edition.value : this.edition,
+      nodeKind: data.nodeKind.present ? data.nodeKind.value : this.nodeKind,
+      canonicalKey: data.canonicalKey.present
+          ? data.canonicalKey.value
+          : this.canonicalKey,
+      displayLabelEn: data.displayLabelEn.present
+          ? data.displayLabelEn.value
+          : this.displayLabelEn,
+      displayLabelFa: data.displayLabelFa.present
+          ? data.displayLabelFa.value
+          : this.displayLabelFa,
+      masteryScoreMilli: data.masteryScoreMilli.present
+          ? data.masteryScoreMilli.value
+          : this.masteryScoreMilli,
+      signalWeightMilli: data.signalWeightMilli.present
+          ? data.signalWeightMilli.value
+          : this.signalWeightMilli,
+      evidenceCount: data.evidenceCount.present
+          ? data.evidenceCount.value
+          : this.evidenceCount,
+      lastSeenDaySerial: data.lastSeenDaySerial.present
+          ? data.lastSeenDaySerial.value
+          : this.lastSeenDaySerial,
+      lastExampleEn: data.lastExampleEn.present
+          ? data.lastExampleEn.value
+          : this.lastExampleEn,
+      coachNoteEn: data.coachNoteEn.present
+          ? data.coachNoteEn.value
+          : this.coachNoteEn,
+      coachNoteFa: data.coachNoteFa.present
+          ? data.coachNoteFa.value
+          : this.coachNoteFa,
+      updatedAtUtcMs: data.updatedAtUtcMs.present
+          ? data.updatedAtUtcMs.value
+          : this.updatedAtUtcMs,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LinguisticNodeRow(')
+          ..write('nodeId: $nodeId, ')
+          ..write('edition: $edition, ')
+          ..write('nodeKind: $nodeKind, ')
+          ..write('canonicalKey: $canonicalKey, ')
+          ..write('displayLabelEn: $displayLabelEn, ')
+          ..write('displayLabelFa: $displayLabelFa, ')
+          ..write('masteryScoreMilli: $masteryScoreMilli, ')
+          ..write('signalWeightMilli: $signalWeightMilli, ')
+          ..write('evidenceCount: $evidenceCount, ')
+          ..write('lastSeenDaySerial: $lastSeenDaySerial, ')
+          ..write('lastExampleEn: $lastExampleEn, ')
+          ..write('coachNoteEn: $coachNoteEn, ')
+          ..write('coachNoteFa: $coachNoteFa, ')
+          ..write('updatedAtUtcMs: $updatedAtUtcMs')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    nodeId,
+    edition,
+    nodeKind,
+    canonicalKey,
+    displayLabelEn,
+    displayLabelFa,
+    masteryScoreMilli,
+    signalWeightMilli,
+    evidenceCount,
+    lastSeenDaySerial,
+    lastExampleEn,
+    coachNoteEn,
+    coachNoteFa,
+    updatedAtUtcMs,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LinguisticNodeRow &&
+          other.nodeId == this.nodeId &&
+          other.edition == this.edition &&
+          other.nodeKind == this.nodeKind &&
+          other.canonicalKey == this.canonicalKey &&
+          other.displayLabelEn == this.displayLabelEn &&
+          other.displayLabelFa == this.displayLabelFa &&
+          other.masteryScoreMilli == this.masteryScoreMilli &&
+          other.signalWeightMilli == this.signalWeightMilli &&
+          other.evidenceCount == this.evidenceCount &&
+          other.lastSeenDaySerial == this.lastSeenDaySerial &&
+          other.lastExampleEn == this.lastExampleEn &&
+          other.coachNoteEn == this.coachNoteEn &&
+          other.coachNoteFa == this.coachNoteFa &&
+          other.updatedAtUtcMs == this.updatedAtUtcMs);
+}
+
+class LinguisticNodesCompanion extends UpdateCompanion<LinguisticNodeRow> {
+  final Value<String> nodeId;
+  final Value<String> edition;
+  final Value<String> nodeKind;
+  final Value<String> canonicalKey;
+  final Value<String> displayLabelEn;
+  final Value<String?> displayLabelFa;
+  final Value<int> masteryScoreMilli;
+  final Value<int> signalWeightMilli;
+  final Value<int> evidenceCount;
+  final Value<int> lastSeenDaySerial;
+  final Value<String?> lastExampleEn;
+  final Value<String?> coachNoteEn;
+  final Value<String?> coachNoteFa;
+  final Value<int> updatedAtUtcMs;
+  final Value<int> rowid;
+  const LinguisticNodesCompanion({
+    this.nodeId = const Value.absent(),
+    this.edition = const Value.absent(),
+    this.nodeKind = const Value.absent(),
+    this.canonicalKey = const Value.absent(),
+    this.displayLabelEn = const Value.absent(),
+    this.displayLabelFa = const Value.absent(),
+    this.masteryScoreMilli = const Value.absent(),
+    this.signalWeightMilli = const Value.absent(),
+    this.evidenceCount = const Value.absent(),
+    this.lastSeenDaySerial = const Value.absent(),
+    this.lastExampleEn = const Value.absent(),
+    this.coachNoteEn = const Value.absent(),
+    this.coachNoteFa = const Value.absent(),
+    this.updatedAtUtcMs = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LinguisticNodesCompanion.insert({
+    required String nodeId,
+    this.edition = const Value.absent(),
+    required String nodeKind,
+    required String canonicalKey,
+    required String displayLabelEn,
+    this.displayLabelFa = const Value.absent(),
+    this.masteryScoreMilli = const Value.absent(),
+    this.signalWeightMilli = const Value.absent(),
+    this.evidenceCount = const Value.absent(),
+    required int lastSeenDaySerial,
+    this.lastExampleEn = const Value.absent(),
+    this.coachNoteEn = const Value.absent(),
+    this.coachNoteFa = const Value.absent(),
+    required int updatedAtUtcMs,
+    this.rowid = const Value.absent(),
+  }) : nodeId = Value(nodeId),
+       nodeKind = Value(nodeKind),
+       canonicalKey = Value(canonicalKey),
+       displayLabelEn = Value(displayLabelEn),
+       lastSeenDaySerial = Value(lastSeenDaySerial),
+       updatedAtUtcMs = Value(updatedAtUtcMs);
+  static Insertable<LinguisticNodeRow> custom({
+    Expression<String>? nodeId,
+    Expression<String>? edition,
+    Expression<String>? nodeKind,
+    Expression<String>? canonicalKey,
+    Expression<String>? displayLabelEn,
+    Expression<String>? displayLabelFa,
+    Expression<int>? masteryScoreMilli,
+    Expression<int>? signalWeightMilli,
+    Expression<int>? evidenceCount,
+    Expression<int>? lastSeenDaySerial,
+    Expression<String>? lastExampleEn,
+    Expression<String>? coachNoteEn,
+    Expression<String>? coachNoteFa,
+    Expression<int>? updatedAtUtcMs,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (nodeId != null) 'node_id': nodeId,
+      if (edition != null) 'edition': edition,
+      if (nodeKind != null) 'node_kind': nodeKind,
+      if (canonicalKey != null) 'canonical_key': canonicalKey,
+      if (displayLabelEn != null) 'display_label_en': displayLabelEn,
+      if (displayLabelFa != null) 'display_label_fa': displayLabelFa,
+      if (masteryScoreMilli != null) 'mastery_score_milli': masteryScoreMilli,
+      if (signalWeightMilli != null) 'signal_weight_milli': signalWeightMilli,
+      if (evidenceCount != null) 'evidence_count': evidenceCount,
+      if (lastSeenDaySerial != null) 'last_seen_day_serial': lastSeenDaySerial,
+      if (lastExampleEn != null) 'last_example_en': lastExampleEn,
+      if (coachNoteEn != null) 'coach_note_en': coachNoteEn,
+      if (coachNoteFa != null) 'coach_note_fa': coachNoteFa,
+      if (updatedAtUtcMs != null) 'updated_at_utc_ms': updatedAtUtcMs,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LinguisticNodesCompanion copyWith({
+    Value<String>? nodeId,
+    Value<String>? edition,
+    Value<String>? nodeKind,
+    Value<String>? canonicalKey,
+    Value<String>? displayLabelEn,
+    Value<String?>? displayLabelFa,
+    Value<int>? masteryScoreMilli,
+    Value<int>? signalWeightMilli,
+    Value<int>? evidenceCount,
+    Value<int>? lastSeenDaySerial,
+    Value<String?>? lastExampleEn,
+    Value<String?>? coachNoteEn,
+    Value<String?>? coachNoteFa,
+    Value<int>? updatedAtUtcMs,
+    Value<int>? rowid,
+  }) {
+    return LinguisticNodesCompanion(
+      nodeId: nodeId ?? this.nodeId,
+      edition: edition ?? this.edition,
+      nodeKind: nodeKind ?? this.nodeKind,
+      canonicalKey: canonicalKey ?? this.canonicalKey,
+      displayLabelEn: displayLabelEn ?? this.displayLabelEn,
+      displayLabelFa: displayLabelFa ?? this.displayLabelFa,
+      masteryScoreMilli: masteryScoreMilli ?? this.masteryScoreMilli,
+      signalWeightMilli: signalWeightMilli ?? this.signalWeightMilli,
+      evidenceCount: evidenceCount ?? this.evidenceCount,
+      lastSeenDaySerial: lastSeenDaySerial ?? this.lastSeenDaySerial,
+      lastExampleEn: lastExampleEn ?? this.lastExampleEn,
+      coachNoteEn: coachNoteEn ?? this.coachNoteEn,
+      coachNoteFa: coachNoteFa ?? this.coachNoteFa,
+      updatedAtUtcMs: updatedAtUtcMs ?? this.updatedAtUtcMs,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (nodeId.present) {
+      map['node_id'] = Variable<String>(nodeId.value);
+    }
+    if (edition.present) {
+      map['edition'] = Variable<String>(edition.value);
+    }
+    if (nodeKind.present) {
+      map['node_kind'] = Variable<String>(nodeKind.value);
+    }
+    if (canonicalKey.present) {
+      map['canonical_key'] = Variable<String>(canonicalKey.value);
+    }
+    if (displayLabelEn.present) {
+      map['display_label_en'] = Variable<String>(displayLabelEn.value);
+    }
+    if (displayLabelFa.present) {
+      map['display_label_fa'] = Variable<String>(displayLabelFa.value);
+    }
+    if (masteryScoreMilli.present) {
+      map['mastery_score_milli'] = Variable<int>(masteryScoreMilli.value);
+    }
+    if (signalWeightMilli.present) {
+      map['signal_weight_milli'] = Variable<int>(signalWeightMilli.value);
+    }
+    if (evidenceCount.present) {
+      map['evidence_count'] = Variable<int>(evidenceCount.value);
+    }
+    if (lastSeenDaySerial.present) {
+      map['last_seen_day_serial'] = Variable<int>(lastSeenDaySerial.value);
+    }
+    if (lastExampleEn.present) {
+      map['last_example_en'] = Variable<String>(lastExampleEn.value);
+    }
+    if (coachNoteEn.present) {
+      map['coach_note_en'] = Variable<String>(coachNoteEn.value);
+    }
+    if (coachNoteFa.present) {
+      map['coach_note_fa'] = Variable<String>(coachNoteFa.value);
+    }
+    if (updatedAtUtcMs.present) {
+      map['updated_at_utc_ms'] = Variable<int>(updatedAtUtcMs.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LinguisticNodesCompanion(')
+          ..write('nodeId: $nodeId, ')
+          ..write('edition: $edition, ')
+          ..write('nodeKind: $nodeKind, ')
+          ..write('canonicalKey: $canonicalKey, ')
+          ..write('displayLabelEn: $displayLabelEn, ')
+          ..write('displayLabelFa: $displayLabelFa, ')
+          ..write('masteryScoreMilli: $masteryScoreMilli, ')
+          ..write('signalWeightMilli: $signalWeightMilli, ')
+          ..write('evidenceCount: $evidenceCount, ')
+          ..write('lastSeenDaySerial: $lastSeenDaySerial, ')
+          ..write('lastExampleEn: $lastExampleEn, ')
+          ..write('coachNoteEn: $coachNoteEn, ')
+          ..write('coachNoteFa: $coachNoteFa, ')
+          ..write('updatedAtUtcMs: $updatedAtUtcMs, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $DailyMissionsTable extends DailyMissions
+    with TableInfo<$DailyMissionsTable, DailyMissionRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DailyMissionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _missionIdMeta = const VerificationMeta(
+    'missionId',
+  );
+  @override
+  late final GeneratedColumn<String> missionId = GeneratedColumn<String>(
+    'mission_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _missionDaySerialMeta = const VerificationMeta(
+    'missionDaySerial',
+  );
+  @override
+  late final GeneratedColumn<int> missionDaySerial = GeneratedColumn<int>(
+    'mission_day_serial',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _examTrackMeta = const VerificationMeta(
+    'examTrack',
+  );
+  @override
+  late final GeneratedColumn<String> examTrack = GeneratedColumn<String>(
+    'exam_track',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('ielts_academic'),
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('ready'),
+  );
+  static const VerificationMeta _focusTopicMeta = const VerificationMeta(
+    'focusTopic',
+  );
+  @override
+  late final GeneratedColumn<String> focusTopic = GeneratedColumn<String>(
+    'focus_topic',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _missionPayloadJsonMeta =
+      const VerificationMeta('missionPayloadJson');
+  @override
+  late final GeneratedColumn<String> missionPayloadJson =
+      GeneratedColumn<String>(
+        'mission_payload_json',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _resultJsonMeta = const VerificationMeta(
+    'resultJson',
+  );
+  @override
+  late final GeneratedColumn<String> resultJson = GeneratedColumn<String>(
+    'result_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _updatedAtUtcMsMeta = const VerificationMeta(
+    'updatedAtUtcMs',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAtUtcMs = GeneratedColumn<int>(
+    'updated_at_utc_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    missionId,
+    missionDaySerial,
+    examTrack,
+    status,
+    focusTopic,
+    missionPayloadJson,
+    resultJson,
+    updatedAtUtcMs,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'daily_missions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DailyMissionRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('mission_id')) {
+      context.handle(
+        _missionIdMeta,
+        missionId.isAcceptableOrUnknown(data['mission_id']!, _missionIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_missionIdMeta);
+    }
+    if (data.containsKey('mission_day_serial')) {
+      context.handle(
+        _missionDaySerialMeta,
+        missionDaySerial.isAcceptableOrUnknown(
+          data['mission_day_serial']!,
+          _missionDaySerialMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_missionDaySerialMeta);
+    }
+    if (data.containsKey('exam_track')) {
+      context.handle(
+        _examTrackMeta,
+        examTrack.isAcceptableOrUnknown(data['exam_track']!, _examTrackMeta),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('focus_topic')) {
+      context.handle(
+        _focusTopicMeta,
+        focusTopic.isAcceptableOrUnknown(data['focus_topic']!, _focusTopicMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_focusTopicMeta);
+    }
+    if (data.containsKey('mission_payload_json')) {
+      context.handle(
+        _missionPayloadJsonMeta,
+        missionPayloadJson.isAcceptableOrUnknown(
+          data['mission_payload_json']!,
+          _missionPayloadJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_missionPayloadJsonMeta);
+    }
+    if (data.containsKey('result_json')) {
+      context.handle(
+        _resultJsonMeta,
+        resultJson.isAcceptableOrUnknown(data['result_json']!, _resultJsonMeta),
+      );
+    }
+    if (data.containsKey('updated_at_utc_ms')) {
+      context.handle(
+        _updatedAtUtcMsMeta,
+        updatedAtUtcMs.isAcceptableOrUnknown(
+          data['updated_at_utc_ms']!,
+          _updatedAtUtcMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtUtcMsMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {missionId};
+  @override
+  DailyMissionRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DailyMissionRow(
+      missionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mission_id'],
+      )!,
+      missionDaySerial: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}mission_day_serial'],
+      )!,
+      examTrack: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}exam_track'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      focusTopic: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}focus_topic'],
+      )!,
+      missionPayloadJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mission_payload_json'],
+      )!,
+      resultJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}result_json'],
+      ),
+      updatedAtUtcMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at_utc_ms'],
+      )!,
+    );
+  }
+
+  @override
+  $DailyMissionsTable createAlias(String alias) {
+    return $DailyMissionsTable(attachedDatabase, alias);
+  }
+}
+
+class DailyMissionRow extends DataClass implements Insertable<DailyMissionRow> {
+  final String missionId;
+  final int missionDaySerial;
+  final String examTrack;
+  final String status;
+  final String focusTopic;
+  final String missionPayloadJson;
+  final String? resultJson;
+  final int updatedAtUtcMs;
+  const DailyMissionRow({
+    required this.missionId,
+    required this.missionDaySerial,
+    required this.examTrack,
+    required this.status,
+    required this.focusTopic,
+    required this.missionPayloadJson,
+    this.resultJson,
+    required this.updatedAtUtcMs,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['mission_id'] = Variable<String>(missionId);
+    map['mission_day_serial'] = Variable<int>(missionDaySerial);
+    map['exam_track'] = Variable<String>(examTrack);
+    map['status'] = Variable<String>(status);
+    map['focus_topic'] = Variable<String>(focusTopic);
+    map['mission_payload_json'] = Variable<String>(missionPayloadJson);
+    if (!nullToAbsent || resultJson != null) {
+      map['result_json'] = Variable<String>(resultJson);
+    }
+    map['updated_at_utc_ms'] = Variable<int>(updatedAtUtcMs);
+    return map;
+  }
+
+  DailyMissionsCompanion toCompanion(bool nullToAbsent) {
+    return DailyMissionsCompanion(
+      missionId: Value(missionId),
+      missionDaySerial: Value(missionDaySerial),
+      examTrack: Value(examTrack),
+      status: Value(status),
+      focusTopic: Value(focusTopic),
+      missionPayloadJson: Value(missionPayloadJson),
+      resultJson: resultJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(resultJson),
+      updatedAtUtcMs: Value(updatedAtUtcMs),
+    );
+  }
+
+  factory DailyMissionRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DailyMissionRow(
+      missionId: serializer.fromJson<String>(json['missionId']),
+      missionDaySerial: serializer.fromJson<int>(json['missionDaySerial']),
+      examTrack: serializer.fromJson<String>(json['examTrack']),
+      status: serializer.fromJson<String>(json['status']),
+      focusTopic: serializer.fromJson<String>(json['focusTopic']),
+      missionPayloadJson: serializer.fromJson<String>(
+        json['missionPayloadJson'],
+      ),
+      resultJson: serializer.fromJson<String?>(json['resultJson']),
+      updatedAtUtcMs: serializer.fromJson<int>(json['updatedAtUtcMs']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'missionId': serializer.toJson<String>(missionId),
+      'missionDaySerial': serializer.toJson<int>(missionDaySerial),
+      'examTrack': serializer.toJson<String>(examTrack),
+      'status': serializer.toJson<String>(status),
+      'focusTopic': serializer.toJson<String>(focusTopic),
+      'missionPayloadJson': serializer.toJson<String>(missionPayloadJson),
+      'resultJson': serializer.toJson<String?>(resultJson),
+      'updatedAtUtcMs': serializer.toJson<int>(updatedAtUtcMs),
+    };
+  }
+
+  DailyMissionRow copyWith({
+    String? missionId,
+    int? missionDaySerial,
+    String? examTrack,
+    String? status,
+    String? focusTopic,
+    String? missionPayloadJson,
+    Value<String?> resultJson = const Value.absent(),
+    int? updatedAtUtcMs,
+  }) => DailyMissionRow(
+    missionId: missionId ?? this.missionId,
+    missionDaySerial: missionDaySerial ?? this.missionDaySerial,
+    examTrack: examTrack ?? this.examTrack,
+    status: status ?? this.status,
+    focusTopic: focusTopic ?? this.focusTopic,
+    missionPayloadJson: missionPayloadJson ?? this.missionPayloadJson,
+    resultJson: resultJson.present ? resultJson.value : this.resultJson,
+    updatedAtUtcMs: updatedAtUtcMs ?? this.updatedAtUtcMs,
+  );
+  DailyMissionRow copyWithCompanion(DailyMissionsCompanion data) {
+    return DailyMissionRow(
+      missionId: data.missionId.present ? data.missionId.value : this.missionId,
+      missionDaySerial: data.missionDaySerial.present
+          ? data.missionDaySerial.value
+          : this.missionDaySerial,
+      examTrack: data.examTrack.present ? data.examTrack.value : this.examTrack,
+      status: data.status.present ? data.status.value : this.status,
+      focusTopic: data.focusTopic.present
+          ? data.focusTopic.value
+          : this.focusTopic,
+      missionPayloadJson: data.missionPayloadJson.present
+          ? data.missionPayloadJson.value
+          : this.missionPayloadJson,
+      resultJson: data.resultJson.present
+          ? data.resultJson.value
+          : this.resultJson,
+      updatedAtUtcMs: data.updatedAtUtcMs.present
+          ? data.updatedAtUtcMs.value
+          : this.updatedAtUtcMs,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DailyMissionRow(')
+          ..write('missionId: $missionId, ')
+          ..write('missionDaySerial: $missionDaySerial, ')
+          ..write('examTrack: $examTrack, ')
+          ..write('status: $status, ')
+          ..write('focusTopic: $focusTopic, ')
+          ..write('missionPayloadJson: $missionPayloadJson, ')
+          ..write('resultJson: $resultJson, ')
+          ..write('updatedAtUtcMs: $updatedAtUtcMs')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    missionId,
+    missionDaySerial,
+    examTrack,
+    status,
+    focusTopic,
+    missionPayloadJson,
+    resultJson,
+    updatedAtUtcMs,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DailyMissionRow &&
+          other.missionId == this.missionId &&
+          other.missionDaySerial == this.missionDaySerial &&
+          other.examTrack == this.examTrack &&
+          other.status == this.status &&
+          other.focusTopic == this.focusTopic &&
+          other.missionPayloadJson == this.missionPayloadJson &&
+          other.resultJson == this.resultJson &&
+          other.updatedAtUtcMs == this.updatedAtUtcMs);
+}
+
+class DailyMissionsCompanion extends UpdateCompanion<DailyMissionRow> {
+  final Value<String> missionId;
+  final Value<int> missionDaySerial;
+  final Value<String> examTrack;
+  final Value<String> status;
+  final Value<String> focusTopic;
+  final Value<String> missionPayloadJson;
+  final Value<String?> resultJson;
+  final Value<int> updatedAtUtcMs;
+  final Value<int> rowid;
+  const DailyMissionsCompanion({
+    this.missionId = const Value.absent(),
+    this.missionDaySerial = const Value.absent(),
+    this.examTrack = const Value.absent(),
+    this.status = const Value.absent(),
+    this.focusTopic = const Value.absent(),
+    this.missionPayloadJson = const Value.absent(),
+    this.resultJson = const Value.absent(),
+    this.updatedAtUtcMs = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  DailyMissionsCompanion.insert({
+    required String missionId,
+    required int missionDaySerial,
+    this.examTrack = const Value.absent(),
+    this.status = const Value.absent(),
+    required String focusTopic,
+    required String missionPayloadJson,
+    this.resultJson = const Value.absent(),
+    required int updatedAtUtcMs,
+    this.rowid = const Value.absent(),
+  }) : missionId = Value(missionId),
+       missionDaySerial = Value(missionDaySerial),
+       focusTopic = Value(focusTopic),
+       missionPayloadJson = Value(missionPayloadJson),
+       updatedAtUtcMs = Value(updatedAtUtcMs);
+  static Insertable<DailyMissionRow> custom({
+    Expression<String>? missionId,
+    Expression<int>? missionDaySerial,
+    Expression<String>? examTrack,
+    Expression<String>? status,
+    Expression<String>? focusTopic,
+    Expression<String>? missionPayloadJson,
+    Expression<String>? resultJson,
+    Expression<int>? updatedAtUtcMs,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (missionId != null) 'mission_id': missionId,
+      if (missionDaySerial != null) 'mission_day_serial': missionDaySerial,
+      if (examTrack != null) 'exam_track': examTrack,
+      if (status != null) 'status': status,
+      if (focusTopic != null) 'focus_topic': focusTopic,
+      if (missionPayloadJson != null)
+        'mission_payload_json': missionPayloadJson,
+      if (resultJson != null) 'result_json': resultJson,
+      if (updatedAtUtcMs != null) 'updated_at_utc_ms': updatedAtUtcMs,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  DailyMissionsCompanion copyWith({
+    Value<String>? missionId,
+    Value<int>? missionDaySerial,
+    Value<String>? examTrack,
+    Value<String>? status,
+    Value<String>? focusTopic,
+    Value<String>? missionPayloadJson,
+    Value<String?>? resultJson,
+    Value<int>? updatedAtUtcMs,
+    Value<int>? rowid,
+  }) {
+    return DailyMissionsCompanion(
+      missionId: missionId ?? this.missionId,
+      missionDaySerial: missionDaySerial ?? this.missionDaySerial,
+      examTrack: examTrack ?? this.examTrack,
+      status: status ?? this.status,
+      focusTopic: focusTopic ?? this.focusTopic,
+      missionPayloadJson: missionPayloadJson ?? this.missionPayloadJson,
+      resultJson: resultJson ?? this.resultJson,
+      updatedAtUtcMs: updatedAtUtcMs ?? this.updatedAtUtcMs,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (missionId.present) {
+      map['mission_id'] = Variable<String>(missionId.value);
+    }
+    if (missionDaySerial.present) {
+      map['mission_day_serial'] = Variable<int>(missionDaySerial.value);
+    }
+    if (examTrack.present) {
+      map['exam_track'] = Variable<String>(examTrack.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (focusTopic.present) {
+      map['focus_topic'] = Variable<String>(focusTopic.value);
+    }
+    if (missionPayloadJson.present) {
+      map['mission_payload_json'] = Variable<String>(missionPayloadJson.value);
+    }
+    if (resultJson.present) {
+      map['result_json'] = Variable<String>(resultJson.value);
+    }
+    if (updatedAtUtcMs.present) {
+      map['updated_at_utc_ms'] = Variable<int>(updatedAtUtcMs.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DailyMissionsCompanion(')
+          ..write('missionId: $missionId, ')
+          ..write('missionDaySerial: $missionDaySerial, ')
+          ..write('examTrack: $examTrack, ')
+          ..write('status: $status, ')
+          ..write('focusTopic: $focusTopic, ')
+          ..write('missionPayloadJson: $missionPayloadJson, ')
+          ..write('resultJson: $resultJson, ')
+          ..write('updatedAtUtcMs: $updatedAtUtcMs, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $DroppedContentsTable extends DroppedContents
+    with TableInfo<$DroppedContentsTable, DroppedContentRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DroppedContentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _dropIdMeta = const VerificationMeta('dropId');
+  @override
+  late final GeneratedColumn<String> dropId = GeneratedColumn<String>(
+    'drop_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _inputKindMeta = const VerificationMeta(
+    'inputKind',
+  );
+  @override
+  late final GeneratedColumn<String> inputKind = GeneratedColumn<String>(
+    'input_kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceLabelMeta = const VerificationMeta(
+    'sourceLabel',
+  );
+  @override
+  late final GeneratedColumn<String> sourceLabel = GeneratedColumn<String>(
+    'source_label',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _cefrEstimateMeta = const VerificationMeta(
+    'cefrEstimate',
+  );
+  @override
+  late final GeneratedColumn<String> cefrEstimate = GeneratedColumn<String>(
+    'cefr_estimate',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('B2'),
+  );
+  static const VerificationMeta _extractedPhrasesJsonMeta =
+      const VerificationMeta('extractedPhrasesJson');
+  @override
+  late final GeneratedColumn<String> extractedPhrasesJson =
+      GeneratedColumn<String>(
+        'extracted_phrases_json',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _drillPayloadJsonMeta = const VerificationMeta(
+    'drillPayloadJson',
+  );
+  @override
+  late final GeneratedColumn<String> drillPayloadJson = GeneratedColumn<String>(
+    'drill_payload_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _localPreviewPathMeta = const VerificationMeta(
+    'localPreviewPath',
+  );
+  @override
+  late final GeneratedColumn<String> localPreviewPath = GeneratedColumn<String>(
+    'local_preview_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _completedAtUtcMsMeta = const VerificationMeta(
+    'completedAtUtcMs',
+  );
+  @override
+  late final GeneratedColumn<int> completedAtUtcMs = GeneratedColumn<int>(
+    'completed_at_utc_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtUtcMsMeta = const VerificationMeta(
+    'createdAtUtcMs',
+  );
+  @override
+  late final GeneratedColumn<int> createdAtUtcMs = GeneratedColumn<int>(
+    'created_at_utc_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    dropId,
+    inputKind,
+    title,
+    sourceLabel,
+    cefrEstimate,
+    extractedPhrasesJson,
+    drillPayloadJson,
+    localPreviewPath,
+    completedAtUtcMs,
+    createdAtUtcMs,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'dropped_contents';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DroppedContentRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('drop_id')) {
+      context.handle(
+        _dropIdMeta,
+        dropId.isAcceptableOrUnknown(data['drop_id']!, _dropIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dropIdMeta);
+    }
+    if (data.containsKey('input_kind')) {
+      context.handle(
+        _inputKindMeta,
+        inputKind.isAcceptableOrUnknown(data['input_kind']!, _inputKindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_inputKindMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('source_label')) {
+      context.handle(
+        _sourceLabelMeta,
+        sourceLabel.isAcceptableOrUnknown(
+          data['source_label']!,
+          _sourceLabelMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceLabelMeta);
+    }
+    if (data.containsKey('cefr_estimate')) {
+      context.handle(
+        _cefrEstimateMeta,
+        cefrEstimate.isAcceptableOrUnknown(
+          data['cefr_estimate']!,
+          _cefrEstimateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('extracted_phrases_json')) {
+      context.handle(
+        _extractedPhrasesJsonMeta,
+        extractedPhrasesJson.isAcceptableOrUnknown(
+          data['extracted_phrases_json']!,
+          _extractedPhrasesJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_extractedPhrasesJsonMeta);
+    }
+    if (data.containsKey('drill_payload_json')) {
+      context.handle(
+        _drillPayloadJsonMeta,
+        drillPayloadJson.isAcceptableOrUnknown(
+          data['drill_payload_json']!,
+          _drillPayloadJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_drillPayloadJsonMeta);
+    }
+    if (data.containsKey('local_preview_path')) {
+      context.handle(
+        _localPreviewPathMeta,
+        localPreviewPath.isAcceptableOrUnknown(
+          data['local_preview_path']!,
+          _localPreviewPathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('completed_at_utc_ms')) {
+      context.handle(
+        _completedAtUtcMsMeta,
+        completedAtUtcMs.isAcceptableOrUnknown(
+          data['completed_at_utc_ms']!,
+          _completedAtUtcMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at_utc_ms')) {
+      context.handle(
+        _createdAtUtcMsMeta,
+        createdAtUtcMs.isAcceptableOrUnknown(
+          data['created_at_utc_ms']!,
+          _createdAtUtcMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtUtcMsMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {dropId};
+  @override
+  DroppedContentRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DroppedContentRow(
+      dropId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}drop_id'],
+      )!,
+      inputKind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}input_kind'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      sourceLabel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_label'],
+      )!,
+      cefrEstimate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cefr_estimate'],
+      )!,
+      extractedPhrasesJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}extracted_phrases_json'],
+      )!,
+      drillPayloadJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}drill_payload_json'],
+      )!,
+      localPreviewPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}local_preview_path'],
+      ),
+      completedAtUtcMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}completed_at_utc_ms'],
+      ),
+      createdAtUtcMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at_utc_ms'],
+      )!,
+    );
+  }
+
+  @override
+  $DroppedContentsTable createAlias(String alias) {
+    return $DroppedContentsTable(attachedDatabase, alias);
+  }
+}
+
+class DroppedContentRow extends DataClass
+    implements Insertable<DroppedContentRow> {
+  final String dropId;
+  final String inputKind;
+  final String title;
+  final String sourceLabel;
+  final String cefrEstimate;
+  final String extractedPhrasesJson;
+  final String drillPayloadJson;
+  final String? localPreviewPath;
+  final int? completedAtUtcMs;
+  final int createdAtUtcMs;
+  const DroppedContentRow({
+    required this.dropId,
+    required this.inputKind,
+    required this.title,
+    required this.sourceLabel,
+    required this.cefrEstimate,
+    required this.extractedPhrasesJson,
+    required this.drillPayloadJson,
+    this.localPreviewPath,
+    this.completedAtUtcMs,
+    required this.createdAtUtcMs,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['drop_id'] = Variable<String>(dropId);
+    map['input_kind'] = Variable<String>(inputKind);
+    map['title'] = Variable<String>(title);
+    map['source_label'] = Variable<String>(sourceLabel);
+    map['cefr_estimate'] = Variable<String>(cefrEstimate);
+    map['extracted_phrases_json'] = Variable<String>(extractedPhrasesJson);
+    map['drill_payload_json'] = Variable<String>(drillPayloadJson);
+    if (!nullToAbsent || localPreviewPath != null) {
+      map['local_preview_path'] = Variable<String>(localPreviewPath);
+    }
+    if (!nullToAbsent || completedAtUtcMs != null) {
+      map['completed_at_utc_ms'] = Variable<int>(completedAtUtcMs);
+    }
+    map['created_at_utc_ms'] = Variable<int>(createdAtUtcMs);
+    return map;
+  }
+
+  DroppedContentsCompanion toCompanion(bool nullToAbsent) {
+    return DroppedContentsCompanion(
+      dropId: Value(dropId),
+      inputKind: Value(inputKind),
+      title: Value(title),
+      sourceLabel: Value(sourceLabel),
+      cefrEstimate: Value(cefrEstimate),
+      extractedPhrasesJson: Value(extractedPhrasesJson),
+      drillPayloadJson: Value(drillPayloadJson),
+      localPreviewPath: localPreviewPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(localPreviewPath),
+      completedAtUtcMs: completedAtUtcMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(completedAtUtcMs),
+      createdAtUtcMs: Value(createdAtUtcMs),
+    );
+  }
+
+  factory DroppedContentRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DroppedContentRow(
+      dropId: serializer.fromJson<String>(json['dropId']),
+      inputKind: serializer.fromJson<String>(json['inputKind']),
+      title: serializer.fromJson<String>(json['title']),
+      sourceLabel: serializer.fromJson<String>(json['sourceLabel']),
+      cefrEstimate: serializer.fromJson<String>(json['cefrEstimate']),
+      extractedPhrasesJson: serializer.fromJson<String>(
+        json['extractedPhrasesJson'],
+      ),
+      drillPayloadJson: serializer.fromJson<String>(json['drillPayloadJson']),
+      localPreviewPath: serializer.fromJson<String?>(json['localPreviewPath']),
+      completedAtUtcMs: serializer.fromJson<int?>(json['completedAtUtcMs']),
+      createdAtUtcMs: serializer.fromJson<int>(json['createdAtUtcMs']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'dropId': serializer.toJson<String>(dropId),
+      'inputKind': serializer.toJson<String>(inputKind),
+      'title': serializer.toJson<String>(title),
+      'sourceLabel': serializer.toJson<String>(sourceLabel),
+      'cefrEstimate': serializer.toJson<String>(cefrEstimate),
+      'extractedPhrasesJson': serializer.toJson<String>(extractedPhrasesJson),
+      'drillPayloadJson': serializer.toJson<String>(drillPayloadJson),
+      'localPreviewPath': serializer.toJson<String?>(localPreviewPath),
+      'completedAtUtcMs': serializer.toJson<int?>(completedAtUtcMs),
+      'createdAtUtcMs': serializer.toJson<int>(createdAtUtcMs),
+    };
+  }
+
+  DroppedContentRow copyWith({
+    String? dropId,
+    String? inputKind,
+    String? title,
+    String? sourceLabel,
+    String? cefrEstimate,
+    String? extractedPhrasesJson,
+    String? drillPayloadJson,
+    Value<String?> localPreviewPath = const Value.absent(),
+    Value<int?> completedAtUtcMs = const Value.absent(),
+    int? createdAtUtcMs,
+  }) => DroppedContentRow(
+    dropId: dropId ?? this.dropId,
+    inputKind: inputKind ?? this.inputKind,
+    title: title ?? this.title,
+    sourceLabel: sourceLabel ?? this.sourceLabel,
+    cefrEstimate: cefrEstimate ?? this.cefrEstimate,
+    extractedPhrasesJson: extractedPhrasesJson ?? this.extractedPhrasesJson,
+    drillPayloadJson: drillPayloadJson ?? this.drillPayloadJson,
+    localPreviewPath: localPreviewPath.present
+        ? localPreviewPath.value
+        : this.localPreviewPath,
+    completedAtUtcMs: completedAtUtcMs.present
+        ? completedAtUtcMs.value
+        : this.completedAtUtcMs,
+    createdAtUtcMs: createdAtUtcMs ?? this.createdAtUtcMs,
+  );
+  DroppedContentRow copyWithCompanion(DroppedContentsCompanion data) {
+    return DroppedContentRow(
+      dropId: data.dropId.present ? data.dropId.value : this.dropId,
+      inputKind: data.inputKind.present ? data.inputKind.value : this.inputKind,
+      title: data.title.present ? data.title.value : this.title,
+      sourceLabel: data.sourceLabel.present
+          ? data.sourceLabel.value
+          : this.sourceLabel,
+      cefrEstimate: data.cefrEstimate.present
+          ? data.cefrEstimate.value
+          : this.cefrEstimate,
+      extractedPhrasesJson: data.extractedPhrasesJson.present
+          ? data.extractedPhrasesJson.value
+          : this.extractedPhrasesJson,
+      drillPayloadJson: data.drillPayloadJson.present
+          ? data.drillPayloadJson.value
+          : this.drillPayloadJson,
+      localPreviewPath: data.localPreviewPath.present
+          ? data.localPreviewPath.value
+          : this.localPreviewPath,
+      completedAtUtcMs: data.completedAtUtcMs.present
+          ? data.completedAtUtcMs.value
+          : this.completedAtUtcMs,
+      createdAtUtcMs: data.createdAtUtcMs.present
+          ? data.createdAtUtcMs.value
+          : this.createdAtUtcMs,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DroppedContentRow(')
+          ..write('dropId: $dropId, ')
+          ..write('inputKind: $inputKind, ')
+          ..write('title: $title, ')
+          ..write('sourceLabel: $sourceLabel, ')
+          ..write('cefrEstimate: $cefrEstimate, ')
+          ..write('extractedPhrasesJson: $extractedPhrasesJson, ')
+          ..write('drillPayloadJson: $drillPayloadJson, ')
+          ..write('localPreviewPath: $localPreviewPath, ')
+          ..write('completedAtUtcMs: $completedAtUtcMs, ')
+          ..write('createdAtUtcMs: $createdAtUtcMs')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    dropId,
+    inputKind,
+    title,
+    sourceLabel,
+    cefrEstimate,
+    extractedPhrasesJson,
+    drillPayloadJson,
+    localPreviewPath,
+    completedAtUtcMs,
+    createdAtUtcMs,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DroppedContentRow &&
+          other.dropId == this.dropId &&
+          other.inputKind == this.inputKind &&
+          other.title == this.title &&
+          other.sourceLabel == this.sourceLabel &&
+          other.cefrEstimate == this.cefrEstimate &&
+          other.extractedPhrasesJson == this.extractedPhrasesJson &&
+          other.drillPayloadJson == this.drillPayloadJson &&
+          other.localPreviewPath == this.localPreviewPath &&
+          other.completedAtUtcMs == this.completedAtUtcMs &&
+          other.createdAtUtcMs == this.createdAtUtcMs);
+}
+
+class DroppedContentsCompanion extends UpdateCompanion<DroppedContentRow> {
+  final Value<String> dropId;
+  final Value<String> inputKind;
+  final Value<String> title;
+  final Value<String> sourceLabel;
+  final Value<String> cefrEstimate;
+  final Value<String> extractedPhrasesJson;
+  final Value<String> drillPayloadJson;
+  final Value<String?> localPreviewPath;
+  final Value<int?> completedAtUtcMs;
+  final Value<int> createdAtUtcMs;
+  final Value<int> rowid;
+  const DroppedContentsCompanion({
+    this.dropId = const Value.absent(),
+    this.inputKind = const Value.absent(),
+    this.title = const Value.absent(),
+    this.sourceLabel = const Value.absent(),
+    this.cefrEstimate = const Value.absent(),
+    this.extractedPhrasesJson = const Value.absent(),
+    this.drillPayloadJson = const Value.absent(),
+    this.localPreviewPath = const Value.absent(),
+    this.completedAtUtcMs = const Value.absent(),
+    this.createdAtUtcMs = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  DroppedContentsCompanion.insert({
+    required String dropId,
+    required String inputKind,
+    required String title,
+    required String sourceLabel,
+    this.cefrEstimate = const Value.absent(),
+    required String extractedPhrasesJson,
+    required String drillPayloadJson,
+    this.localPreviewPath = const Value.absent(),
+    this.completedAtUtcMs = const Value.absent(),
+    required int createdAtUtcMs,
+    this.rowid = const Value.absent(),
+  }) : dropId = Value(dropId),
+       inputKind = Value(inputKind),
+       title = Value(title),
+       sourceLabel = Value(sourceLabel),
+       extractedPhrasesJson = Value(extractedPhrasesJson),
+       drillPayloadJson = Value(drillPayloadJson),
+       createdAtUtcMs = Value(createdAtUtcMs);
+  static Insertable<DroppedContentRow> custom({
+    Expression<String>? dropId,
+    Expression<String>? inputKind,
+    Expression<String>? title,
+    Expression<String>? sourceLabel,
+    Expression<String>? cefrEstimate,
+    Expression<String>? extractedPhrasesJson,
+    Expression<String>? drillPayloadJson,
+    Expression<String>? localPreviewPath,
+    Expression<int>? completedAtUtcMs,
+    Expression<int>? createdAtUtcMs,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (dropId != null) 'drop_id': dropId,
+      if (inputKind != null) 'input_kind': inputKind,
+      if (title != null) 'title': title,
+      if (sourceLabel != null) 'source_label': sourceLabel,
+      if (cefrEstimate != null) 'cefr_estimate': cefrEstimate,
+      if (extractedPhrasesJson != null)
+        'extracted_phrases_json': extractedPhrasesJson,
+      if (drillPayloadJson != null) 'drill_payload_json': drillPayloadJson,
+      if (localPreviewPath != null) 'local_preview_path': localPreviewPath,
+      if (completedAtUtcMs != null) 'completed_at_utc_ms': completedAtUtcMs,
+      if (createdAtUtcMs != null) 'created_at_utc_ms': createdAtUtcMs,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  DroppedContentsCompanion copyWith({
+    Value<String>? dropId,
+    Value<String>? inputKind,
+    Value<String>? title,
+    Value<String>? sourceLabel,
+    Value<String>? cefrEstimate,
+    Value<String>? extractedPhrasesJson,
+    Value<String>? drillPayloadJson,
+    Value<String?>? localPreviewPath,
+    Value<int?>? completedAtUtcMs,
+    Value<int>? createdAtUtcMs,
+    Value<int>? rowid,
+  }) {
+    return DroppedContentsCompanion(
+      dropId: dropId ?? this.dropId,
+      inputKind: inputKind ?? this.inputKind,
+      title: title ?? this.title,
+      sourceLabel: sourceLabel ?? this.sourceLabel,
+      cefrEstimate: cefrEstimate ?? this.cefrEstimate,
+      extractedPhrasesJson: extractedPhrasesJson ?? this.extractedPhrasesJson,
+      drillPayloadJson: drillPayloadJson ?? this.drillPayloadJson,
+      localPreviewPath: localPreviewPath ?? this.localPreviewPath,
+      completedAtUtcMs: completedAtUtcMs ?? this.completedAtUtcMs,
+      createdAtUtcMs: createdAtUtcMs ?? this.createdAtUtcMs,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (dropId.present) {
+      map['drop_id'] = Variable<String>(dropId.value);
+    }
+    if (inputKind.present) {
+      map['input_kind'] = Variable<String>(inputKind.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (sourceLabel.present) {
+      map['source_label'] = Variable<String>(sourceLabel.value);
+    }
+    if (cefrEstimate.present) {
+      map['cefr_estimate'] = Variable<String>(cefrEstimate.value);
+    }
+    if (extractedPhrasesJson.present) {
+      map['extracted_phrases_json'] = Variable<String>(
+        extractedPhrasesJson.value,
+      );
+    }
+    if (drillPayloadJson.present) {
+      map['drill_payload_json'] = Variable<String>(drillPayloadJson.value);
+    }
+    if (localPreviewPath.present) {
+      map['local_preview_path'] = Variable<String>(localPreviewPath.value);
+    }
+    if (completedAtUtcMs.present) {
+      map['completed_at_utc_ms'] = Variable<int>(completedAtUtcMs.value);
+    }
+    if (createdAtUtcMs.present) {
+      map['created_at_utc_ms'] = Variable<int>(createdAtUtcMs.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DroppedContentsCompanion(')
+          ..write('dropId: $dropId, ')
+          ..write('inputKind: $inputKind, ')
+          ..write('title: $title, ')
+          ..write('sourceLabel: $sourceLabel, ')
+          ..write('cefrEstimate: $cefrEstimate, ')
+          ..write('extractedPhrasesJson: $extractedPhrasesJson, ')
+          ..write('drillPayloadJson: $drillPayloadJson, ')
+          ..write('localPreviewPath: $localPreviewPath, ')
+          ..write('completedAtUtcMs: $completedAtUtcMs, ')
+          ..write('createdAtUtcMs: $createdAtUtcMs, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -9250,6 +11348,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $MockSessionsTable mockSessions = $MockSessionsTable(this);
   late final $DiagnosticSessionsTable diagnosticSessions =
       $DiagnosticSessionsTable(this);
+  late final $LinguisticNodesTable linguisticNodes = $LinguisticNodesTable(
+    this,
+  );
+  late final $DailyMissionsTable dailyMissions = $DailyMissionsTable(this);
+  late final $DroppedContentsTable droppedContents = $DroppedContentsTable(
+    this,
+  );
   late final AttemptDao attemptDao = AttemptDao(this as AppDatabase);
   late final VocabDao vocabDao = VocabDao(this as AppDatabase);
   late final CatalogDao catalogDao = CatalogDao(this as AppDatabase);
@@ -9273,6 +11378,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     outboxSyncQueue,
     mockSessions,
     diagnosticSessions,
+    linguisticNodes,
+    dailyMissions,
+    droppedContents,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -12354,6 +14462,7 @@ typedef $$VocabCardsTableCreateCompanionBuilder = VocabCardsCompanion Function({
   required String headword,
   Value<String?> ipa,
   required String definition,
+  Value<String?> glossFa,
   required String topicTag,
   Value<int> repetitions,
   Value<int> intervalDays,
@@ -12376,6 +14485,7 @@ typedef $$VocabCardsTableUpdateCompanionBuilder = VocabCardsCompanion Function({
   Value<String> headword,
   Value<String?> ipa,
   Value<String> definition,
+  Value<String?> glossFa,
   Value<String> topicTag,
   Value<int> repetitions,
   Value<int> intervalDays,
@@ -12453,6 +14563,11 @@ class $$VocabCardsTableFilterComposer
 
   ColumnFilters<String> get definition => $composableBuilder(
     column: $table.definition,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get glossFa => $composableBuilder(
+    column: $table.glossFa,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12586,6 +14701,11 @@ class $$VocabCardsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get glossFa => $composableBuilder(
+    column: $table.glossFa,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get topicTag => $composableBuilder(
     column: $table.topicTag,
     builder: (column) => ColumnOrderings(column),
@@ -12680,6 +14800,9 @@ class $$VocabCardsTableAnnotationComposer
     column: $table.definition,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get glossFa =>
+      $composableBuilder(column: $table.glossFa, builder: (column) => column);
 
   GeneratedColumn<String> get topicTag =>
       $composableBuilder(column: $table.topicTag, builder: (column) => column);
@@ -12800,6 +14923,7 @@ class $$VocabCardsTableTableManager
                 Value<String> headword = const Value.absent(),
                 Value<String?> ipa = const Value.absent(),
                 Value<String> definition = const Value.absent(),
+                Value<String?> glossFa = const Value.absent(),
                 Value<String> topicTag = const Value.absent(),
                 Value<int> repetitions = const Value.absent(),
                 Value<int> intervalDays = const Value.absent(),
@@ -12821,6 +14945,7 @@ class $$VocabCardsTableTableManager
                 headword: headword,
                 ipa: ipa,
                 definition: definition,
+                glossFa: glossFa,
                 topicTag: topicTag,
                 repetitions: repetitions,
                 intervalDays: intervalDays,
@@ -12844,6 +14969,7 @@ class $$VocabCardsTableTableManager
                 required String headword,
                 Value<String?> ipa = const Value.absent(),
                 required String definition,
+                Value<String?> glossFa = const Value.absent(),
                 required String topicTag,
                 Value<int> repetitions = const Value.absent(),
                 Value<int> intervalDays = const Value.absent(),
@@ -12865,6 +14991,7 @@ class $$VocabCardsTableTableManager
                 headword: headword,
                 ipa: ipa,
                 definition: definition,
+                glossFa: glossFa,
                 topicTag: topicTag,
                 repetitions: repetitions,
                 intervalDays: intervalDays,
@@ -14397,6 +16524,1014 @@ typedef $$DiagnosticSessionsTableProcessedTableManager =
       DiagnosticSessionRow,
       PrefetchHooks Function()
     >;
+typedef $$LinguisticNodesTableCreateCompanionBuilder =
+    LinguisticNodesCompanion Function({
+      required String nodeId,
+      Value<String> edition,
+      required String nodeKind,
+      required String canonicalKey,
+      required String displayLabelEn,
+      Value<String?> displayLabelFa,
+      Value<int> masteryScoreMilli,
+      Value<int> signalWeightMilli,
+      Value<int> evidenceCount,
+      required int lastSeenDaySerial,
+      Value<String?> lastExampleEn,
+      Value<String?> coachNoteEn,
+      Value<String?> coachNoteFa,
+      required int updatedAtUtcMs,
+      Value<int> rowid,
+    });
+typedef $$LinguisticNodesTableUpdateCompanionBuilder =
+    LinguisticNodesCompanion Function({
+      Value<String> nodeId,
+      Value<String> edition,
+      Value<String> nodeKind,
+      Value<String> canonicalKey,
+      Value<String> displayLabelEn,
+      Value<String?> displayLabelFa,
+      Value<int> masteryScoreMilli,
+      Value<int> signalWeightMilli,
+      Value<int> evidenceCount,
+      Value<int> lastSeenDaySerial,
+      Value<String?> lastExampleEn,
+      Value<String?> coachNoteEn,
+      Value<String?> coachNoteFa,
+      Value<int> updatedAtUtcMs,
+      Value<int> rowid,
+    });
+
+class $$LinguisticNodesTableFilterComposer
+    extends Composer<_$AppDatabase, $LinguisticNodesTable> {
+  $$LinguisticNodesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get nodeId => $composableBuilder(
+    column: $table.nodeId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get edition => $composableBuilder(
+    column: $table.edition,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nodeKind => $composableBuilder(
+    column: $table.nodeKind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get canonicalKey => $composableBuilder(
+    column: $table.canonicalKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get displayLabelEn => $composableBuilder(
+    column: $table.displayLabelEn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get displayLabelFa => $composableBuilder(
+    column: $table.displayLabelFa,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get masteryScoreMilli => $composableBuilder(
+    column: $table.masteryScoreMilli,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get signalWeightMilli => $composableBuilder(
+    column: $table.signalWeightMilli,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get evidenceCount => $composableBuilder(
+    column: $table.evidenceCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastSeenDaySerial => $composableBuilder(
+    column: $table.lastSeenDaySerial,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastExampleEn => $composableBuilder(
+    column: $table.lastExampleEn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get coachNoteEn => $composableBuilder(
+    column: $table.coachNoteEn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get coachNoteFa => $composableBuilder(
+    column: $table.coachNoteFa,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAtUtcMs => $composableBuilder(
+    column: $table.updatedAtUtcMs,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LinguisticNodesTableOrderingComposer
+    extends Composer<_$AppDatabase, $LinguisticNodesTable> {
+  $$LinguisticNodesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get nodeId => $composableBuilder(
+    column: $table.nodeId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get edition => $composableBuilder(
+    column: $table.edition,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get nodeKind => $composableBuilder(
+    column: $table.nodeKind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get canonicalKey => $composableBuilder(
+    column: $table.canonicalKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get displayLabelEn => $composableBuilder(
+    column: $table.displayLabelEn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get displayLabelFa => $composableBuilder(
+    column: $table.displayLabelFa,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get masteryScoreMilli => $composableBuilder(
+    column: $table.masteryScoreMilli,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get signalWeightMilli => $composableBuilder(
+    column: $table.signalWeightMilli,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get evidenceCount => $composableBuilder(
+    column: $table.evidenceCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastSeenDaySerial => $composableBuilder(
+    column: $table.lastSeenDaySerial,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastExampleEn => $composableBuilder(
+    column: $table.lastExampleEn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get coachNoteEn => $composableBuilder(
+    column: $table.coachNoteEn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get coachNoteFa => $composableBuilder(
+    column: $table.coachNoteFa,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAtUtcMs => $composableBuilder(
+    column: $table.updatedAtUtcMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LinguisticNodesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LinguisticNodesTable> {
+  $$LinguisticNodesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get nodeId =>
+      $composableBuilder(column: $table.nodeId, builder: (column) => column);
+
+  GeneratedColumn<String> get edition =>
+      $composableBuilder(column: $table.edition, builder: (column) => column);
+
+  GeneratedColumn<String> get nodeKind =>
+      $composableBuilder(column: $table.nodeKind, builder: (column) => column);
+
+  GeneratedColumn<String> get canonicalKey => $composableBuilder(
+    column: $table.canonicalKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get displayLabelEn => $composableBuilder(
+    column: $table.displayLabelEn,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get displayLabelFa => $composableBuilder(
+    column: $table.displayLabelFa,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get masteryScoreMilli => $composableBuilder(
+    column: $table.masteryScoreMilli,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get signalWeightMilli => $composableBuilder(
+    column: $table.signalWeightMilli,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get evidenceCount => $composableBuilder(
+    column: $table.evidenceCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get lastSeenDaySerial => $composableBuilder(
+    column: $table.lastSeenDaySerial,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lastExampleEn => $composableBuilder(
+    column: $table.lastExampleEn,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get coachNoteEn => $composableBuilder(
+    column: $table.coachNoteEn,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get coachNoteFa => $composableBuilder(
+    column: $table.coachNoteFa,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get updatedAtUtcMs => $composableBuilder(
+    column: $table.updatedAtUtcMs,
+    builder: (column) => column,
+  );
+}
+
+class $$LinguisticNodesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LinguisticNodesTable,
+          LinguisticNodeRow,
+          $$LinguisticNodesTableFilterComposer,
+          $$LinguisticNodesTableOrderingComposer,
+          $$LinguisticNodesTableAnnotationComposer,
+          $$LinguisticNodesTableCreateCompanionBuilder,
+          $$LinguisticNodesTableUpdateCompanionBuilder,
+          (
+            LinguisticNodeRow,
+            BaseReferences<
+              _$AppDatabase,
+              $LinguisticNodesTable,
+              LinguisticNodeRow
+            >,
+          ),
+          LinguisticNodeRow,
+          PrefetchHooks Function()
+        > {
+  $$LinguisticNodesTableTableManager(
+    _$AppDatabase db,
+    $LinguisticNodesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LinguisticNodesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LinguisticNodesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LinguisticNodesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> nodeId = const Value.absent(),
+                Value<String> edition = const Value.absent(),
+                Value<String> nodeKind = const Value.absent(),
+                Value<String> canonicalKey = const Value.absent(),
+                Value<String> displayLabelEn = const Value.absent(),
+                Value<String?> displayLabelFa = const Value.absent(),
+                Value<int> masteryScoreMilli = const Value.absent(),
+                Value<int> signalWeightMilli = const Value.absent(),
+                Value<int> evidenceCount = const Value.absent(),
+                Value<int> lastSeenDaySerial = const Value.absent(),
+                Value<String?> lastExampleEn = const Value.absent(),
+                Value<String?> coachNoteEn = const Value.absent(),
+                Value<String?> coachNoteFa = const Value.absent(),
+                Value<int> updatedAtUtcMs = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LinguisticNodesCompanion(
+                nodeId: nodeId,
+                edition: edition,
+                nodeKind: nodeKind,
+                canonicalKey: canonicalKey,
+                displayLabelEn: displayLabelEn,
+                displayLabelFa: displayLabelFa,
+                masteryScoreMilli: masteryScoreMilli,
+                signalWeightMilli: signalWeightMilli,
+                evidenceCount: evidenceCount,
+                lastSeenDaySerial: lastSeenDaySerial,
+                lastExampleEn: lastExampleEn,
+                coachNoteEn: coachNoteEn,
+                coachNoteFa: coachNoteFa,
+                updatedAtUtcMs: updatedAtUtcMs,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String nodeId,
+                Value<String> edition = const Value.absent(),
+                required String nodeKind,
+                required String canonicalKey,
+                required String displayLabelEn,
+                Value<String?> displayLabelFa = const Value.absent(),
+                Value<int> masteryScoreMilli = const Value.absent(),
+                Value<int> signalWeightMilli = const Value.absent(),
+                Value<int> evidenceCount = const Value.absent(),
+                required int lastSeenDaySerial,
+                Value<String?> lastExampleEn = const Value.absent(),
+                Value<String?> coachNoteEn = const Value.absent(),
+                Value<String?> coachNoteFa = const Value.absent(),
+                required int updatedAtUtcMs,
+                Value<int> rowid = const Value.absent(),
+              }) => LinguisticNodesCompanion.insert(
+                nodeId: nodeId,
+                edition: edition,
+                nodeKind: nodeKind,
+                canonicalKey: canonicalKey,
+                displayLabelEn: displayLabelEn,
+                displayLabelFa: displayLabelFa,
+                masteryScoreMilli: masteryScoreMilli,
+                signalWeightMilli: signalWeightMilli,
+                evidenceCount: evidenceCount,
+                lastSeenDaySerial: lastSeenDaySerial,
+                lastExampleEn: lastExampleEn,
+                coachNoteEn: coachNoteEn,
+                coachNoteFa: coachNoteFa,
+                updatedAtUtcMs: updatedAtUtcMs,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$LinguisticNodesTable, LinguisticNodeRow>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $LinguisticNodesTable,
+                    LinguisticNodeRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LinguisticNodesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LinguisticNodesTable,
+      LinguisticNodeRow,
+      $$LinguisticNodesTableFilterComposer,
+      $$LinguisticNodesTableOrderingComposer,
+      $$LinguisticNodesTableAnnotationComposer,
+      $$LinguisticNodesTableCreateCompanionBuilder,
+      $$LinguisticNodesTableUpdateCompanionBuilder,
+      (
+        LinguisticNodeRow,
+        BaseReferences<_$AppDatabase, $LinguisticNodesTable, LinguisticNodeRow>,
+      ),
+      LinguisticNodeRow,
+      PrefetchHooks Function()
+    >;
+typedef $$DailyMissionsTableCreateCompanionBuilder =
+    DailyMissionsCompanion Function({
+      required String missionId,
+      required int missionDaySerial,
+      Value<String> examTrack,
+      Value<String> status,
+      required String focusTopic,
+      required String missionPayloadJson,
+      Value<String?> resultJson,
+      required int updatedAtUtcMs,
+      Value<int> rowid,
+    });
+typedef $$DailyMissionsTableUpdateCompanionBuilder =
+    DailyMissionsCompanion Function({
+      Value<String> missionId,
+      Value<int> missionDaySerial,
+      Value<String> examTrack,
+      Value<String> status,
+      Value<String> focusTopic,
+      Value<String> missionPayloadJson,
+      Value<String?> resultJson,
+      Value<int> updatedAtUtcMs,
+      Value<int> rowid,
+    });
+
+class $$DailyMissionsTableFilterComposer
+    extends Composer<_$AppDatabase, $DailyMissionsTable> {
+  $$DailyMissionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get missionId => $composableBuilder(
+    column: $table.missionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get missionDaySerial => $composableBuilder(
+    column: $table.missionDaySerial,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get examTrack => $composableBuilder(
+    column: $table.examTrack,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get focusTopic => $composableBuilder(
+    column: $table.focusTopic,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get missionPayloadJson => $composableBuilder(
+    column: $table.missionPayloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get resultJson => $composableBuilder(
+    column: $table.resultJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAtUtcMs => $composableBuilder(
+    column: $table.updatedAtUtcMs,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$DailyMissionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $DailyMissionsTable> {
+  $$DailyMissionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get missionId => $composableBuilder(
+    column: $table.missionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get missionDaySerial => $composableBuilder(
+    column: $table.missionDaySerial,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get examTrack => $composableBuilder(
+    column: $table.examTrack,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get focusTopic => $composableBuilder(
+    column: $table.focusTopic,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get missionPayloadJson => $composableBuilder(
+    column: $table.missionPayloadJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get resultJson => $composableBuilder(
+    column: $table.resultJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAtUtcMs => $composableBuilder(
+    column: $table.updatedAtUtcMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$DailyMissionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DailyMissionsTable> {
+  $$DailyMissionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get missionId =>
+      $composableBuilder(column: $table.missionId, builder: (column) => column);
+
+  GeneratedColumn<int> get missionDaySerial => $composableBuilder(
+    column: $table.missionDaySerial,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get examTrack =>
+      $composableBuilder(column: $table.examTrack, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get focusTopic => $composableBuilder(
+    column: $table.focusTopic,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get missionPayloadJson => $composableBuilder(
+    column: $table.missionPayloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get resultJson => $composableBuilder(
+    column: $table.resultJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get updatedAtUtcMs => $composableBuilder(
+    column: $table.updatedAtUtcMs,
+    builder: (column) => column,
+  );
+}
+
+class $$DailyMissionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $DailyMissionsTable,
+          DailyMissionRow,
+          $$DailyMissionsTableFilterComposer,
+          $$DailyMissionsTableOrderingComposer,
+          $$DailyMissionsTableAnnotationComposer,
+          $$DailyMissionsTableCreateCompanionBuilder,
+          $$DailyMissionsTableUpdateCompanionBuilder,
+          (
+            DailyMissionRow,
+            BaseReferences<_$AppDatabase, $DailyMissionsTable, DailyMissionRow>,
+          ),
+          DailyMissionRow,
+          PrefetchHooks Function()
+        > {
+  $$DailyMissionsTableTableManager(_$AppDatabase db, $DailyMissionsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DailyMissionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DailyMissionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$DailyMissionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> missionId = const Value.absent(),
+                Value<int> missionDaySerial = const Value.absent(),
+                Value<String> examTrack = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String> focusTopic = const Value.absent(),
+                Value<String> missionPayloadJson = const Value.absent(),
+                Value<String?> resultJson = const Value.absent(),
+                Value<int> updatedAtUtcMs = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => DailyMissionsCompanion(
+                missionId: missionId,
+                missionDaySerial: missionDaySerial,
+                examTrack: examTrack,
+                status: status,
+                focusTopic: focusTopic,
+                missionPayloadJson: missionPayloadJson,
+                resultJson: resultJson,
+                updatedAtUtcMs: updatedAtUtcMs,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String missionId,
+                required int missionDaySerial,
+                Value<String> examTrack = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                required String focusTopic,
+                required String missionPayloadJson,
+                Value<String?> resultJson = const Value.absent(),
+                required int updatedAtUtcMs,
+                Value<int> rowid = const Value.absent(),
+              }) => DailyMissionsCompanion.insert(
+                missionId: missionId,
+                missionDaySerial: missionDaySerial,
+                examTrack: examTrack,
+                status: status,
+                focusTopic: focusTopic,
+                missionPayloadJson: missionPayloadJson,
+                resultJson: resultJson,
+                updatedAtUtcMs: updatedAtUtcMs,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$DailyMissionsTable, DailyMissionRow>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $DailyMissionsTable,
+                    DailyMissionRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$DailyMissionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $DailyMissionsTable,
+      DailyMissionRow,
+      $$DailyMissionsTableFilterComposer,
+      $$DailyMissionsTableOrderingComposer,
+      $$DailyMissionsTableAnnotationComposer,
+      $$DailyMissionsTableCreateCompanionBuilder,
+      $$DailyMissionsTableUpdateCompanionBuilder,
+      (
+        DailyMissionRow,
+        BaseReferences<_$AppDatabase, $DailyMissionsTable, DailyMissionRow>,
+      ),
+      DailyMissionRow,
+      PrefetchHooks Function()
+    >;
+typedef $$DroppedContentsTableCreateCompanionBuilder =
+    DroppedContentsCompanion Function({
+      required String dropId,
+      required String inputKind,
+      required String title,
+      required String sourceLabel,
+      Value<String> cefrEstimate,
+      required String extractedPhrasesJson,
+      required String drillPayloadJson,
+      Value<String?> localPreviewPath,
+      Value<int?> completedAtUtcMs,
+      required int createdAtUtcMs,
+      Value<int> rowid,
+    });
+typedef $$DroppedContentsTableUpdateCompanionBuilder =
+    DroppedContentsCompanion Function({
+      Value<String> dropId,
+      Value<String> inputKind,
+      Value<String> title,
+      Value<String> sourceLabel,
+      Value<String> cefrEstimate,
+      Value<String> extractedPhrasesJson,
+      Value<String> drillPayloadJson,
+      Value<String?> localPreviewPath,
+      Value<int?> completedAtUtcMs,
+      Value<int> createdAtUtcMs,
+      Value<int> rowid,
+    });
+
+class $$DroppedContentsTableFilterComposer
+    extends Composer<_$AppDatabase, $DroppedContentsTable> {
+  $$DroppedContentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get dropId => $composableBuilder(
+    column: $table.dropId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get inputKind => $composableBuilder(
+    column: $table.inputKind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceLabel => $composableBuilder(
+    column: $table.sourceLabel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cefrEstimate => $composableBuilder(
+    column: $table.cefrEstimate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get extractedPhrasesJson => $composableBuilder(
+    column: $table.extractedPhrasesJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get drillPayloadJson => $composableBuilder(
+    column: $table.drillPayloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get localPreviewPath => $composableBuilder(
+    column: $table.localPreviewPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get completedAtUtcMs => $composableBuilder(
+    column: $table.completedAtUtcMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAtUtcMs => $composableBuilder(
+    column: $table.createdAtUtcMs,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$DroppedContentsTableOrderingComposer
+    extends Composer<_$AppDatabase, $DroppedContentsTable> {
+  $$DroppedContentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get dropId => $composableBuilder(
+    column: $table.dropId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get inputKind => $composableBuilder(
+    column: $table.inputKind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceLabel => $composableBuilder(
+    column: $table.sourceLabel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cefrEstimate => $composableBuilder(
+    column: $table.cefrEstimate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get extractedPhrasesJson => $composableBuilder(
+    column: $table.extractedPhrasesJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get drillPayloadJson => $composableBuilder(
+    column: $table.drillPayloadJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get localPreviewPath => $composableBuilder(
+    column: $table.localPreviewPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get completedAtUtcMs => $composableBuilder(
+    column: $table.completedAtUtcMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAtUtcMs => $composableBuilder(
+    column: $table.createdAtUtcMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$DroppedContentsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DroppedContentsTable> {
+  $$DroppedContentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get dropId =>
+      $composableBuilder(column: $table.dropId, builder: (column) => column);
+
+  GeneratedColumn<String> get inputKind =>
+      $composableBuilder(column: $table.inputKind, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceLabel => $composableBuilder(
+    column: $table.sourceLabel,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get cefrEstimate => $composableBuilder(
+    column: $table.cefrEstimate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get extractedPhrasesJson => $composableBuilder(
+    column: $table.extractedPhrasesJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get drillPayloadJson => $composableBuilder(
+    column: $table.drillPayloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get localPreviewPath => $composableBuilder(
+    column: $table.localPreviewPath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get completedAtUtcMs => $composableBuilder(
+    column: $table.completedAtUtcMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get createdAtUtcMs => $composableBuilder(
+    column: $table.createdAtUtcMs,
+    builder: (column) => column,
+  );
+}
+
+class $$DroppedContentsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $DroppedContentsTable,
+          DroppedContentRow,
+          $$DroppedContentsTableFilterComposer,
+          $$DroppedContentsTableOrderingComposer,
+          $$DroppedContentsTableAnnotationComposer,
+          $$DroppedContentsTableCreateCompanionBuilder,
+          $$DroppedContentsTableUpdateCompanionBuilder,
+          (
+            DroppedContentRow,
+            BaseReferences<
+              _$AppDatabase,
+              $DroppedContentsTable,
+              DroppedContentRow
+            >,
+          ),
+          DroppedContentRow,
+          PrefetchHooks Function()
+        > {
+  $$DroppedContentsTableTableManager(
+    _$AppDatabase db,
+    $DroppedContentsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DroppedContentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DroppedContentsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$DroppedContentsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> dropId = const Value.absent(),
+                Value<String> inputKind = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String> sourceLabel = const Value.absent(),
+                Value<String> cefrEstimate = const Value.absent(),
+                Value<String> extractedPhrasesJson = const Value.absent(),
+                Value<String> drillPayloadJson = const Value.absent(),
+                Value<String?> localPreviewPath = const Value.absent(),
+                Value<int?> completedAtUtcMs = const Value.absent(),
+                Value<int> createdAtUtcMs = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => DroppedContentsCompanion(
+                dropId: dropId,
+                inputKind: inputKind,
+                title: title,
+                sourceLabel: sourceLabel,
+                cefrEstimate: cefrEstimate,
+                extractedPhrasesJson: extractedPhrasesJson,
+                drillPayloadJson: drillPayloadJson,
+                localPreviewPath: localPreviewPath,
+                completedAtUtcMs: completedAtUtcMs,
+                createdAtUtcMs: createdAtUtcMs,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String dropId,
+                required String inputKind,
+                required String title,
+                required String sourceLabel,
+                Value<String> cefrEstimate = const Value.absent(),
+                required String extractedPhrasesJson,
+                required String drillPayloadJson,
+                Value<String?> localPreviewPath = const Value.absent(),
+                Value<int?> completedAtUtcMs = const Value.absent(),
+                required int createdAtUtcMs,
+                Value<int> rowid = const Value.absent(),
+              }) => DroppedContentsCompanion.insert(
+                dropId: dropId,
+                inputKind: inputKind,
+                title: title,
+                sourceLabel: sourceLabel,
+                cefrEstimate: cefrEstimate,
+                extractedPhrasesJson: extractedPhrasesJson,
+                drillPayloadJson: drillPayloadJson,
+                localPreviewPath: localPreviewPath,
+                completedAtUtcMs: completedAtUtcMs,
+                createdAtUtcMs: createdAtUtcMs,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$DroppedContentsTable, DroppedContentRow>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $DroppedContentsTable,
+                    DroppedContentRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$DroppedContentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $DroppedContentsTable,
+      DroppedContentRow,
+      $$DroppedContentsTableFilterComposer,
+      $$DroppedContentsTableOrderingComposer,
+      $$DroppedContentsTableAnnotationComposer,
+      $$DroppedContentsTableCreateCompanionBuilder,
+      $$DroppedContentsTableUpdateCompanionBuilder,
+      (
+        DroppedContentRow,
+        BaseReferences<_$AppDatabase, $DroppedContentsTable, DroppedContentRow>,
+      ),
+      DroppedContentRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -14429,4 +17564,10 @@ class $AppDatabaseManager {
       $$MockSessionsTableTableManager(_db, _db.mockSessions);
   $$DiagnosticSessionsTableTableManager get diagnosticSessions =>
       $$DiagnosticSessionsTableTableManager(_db, _db.diagnosticSessions);
+  $$LinguisticNodesTableTableManager get linguisticNodes =>
+      $$LinguisticNodesTableTableManager(_db, _db.linguisticNodes);
+  $$DailyMissionsTableTableManager get dailyMissions =>
+      $$DailyMissionsTableTableManager(_db, _db.dailyMissions);
+  $$DroppedContentsTableTableManager get droppedContents =>
+      $$DroppedContentsTableTableManager(_db, _db.droppedContents);
 }

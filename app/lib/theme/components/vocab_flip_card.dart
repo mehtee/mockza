@@ -4,6 +4,7 @@ import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
+import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
 import 'package:mockza/theme/primitives.dart';
@@ -18,6 +19,7 @@ class VocabFlipCard extends StatelessWidget {
     required this.onTapFlip,
     required this.onSelectRating,
     this.ipa,
+    this.glossFa,
     this.contextSentence,
     this.synonyms = const <String>[],
     this.sourceLabel,
@@ -31,6 +33,9 @@ class VocabFlipCard extends StatelessWidget {
 
   /// Learner definition and usage guidance.
   final String definition;
+
+  /// Optional concise Persian meaning/gloss (`IRN` Sanjia edition).
+  final String? glossFa;
 
   /// Whether card back has been revealed.
   final bool isRevealed;
@@ -97,26 +102,32 @@ class VocabFlipCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: SpacingTokens.lg),
-          // Headword
-          Text(
-            headword,
-            style: typography.headline.copyWith(
-              color: colors.textPrimary,
-              fontWeight: FontWeight.w700,
+          // Headword & IPA inside strict LTR boundary
+          LtrExamBoundary(
+            child: Column(
+              children: <Widget>[
+                Text(
+                  headword,
+                  style: typography.headline.copyWith(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                if (ipa != null && ipa!.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: SpacingTokens.xs),
+                  Text(
+                    ipa!,
+                    style: typography.body.copyWith(
+                      color: colors.textSecondary,
+                      fontStyle: FontStyle.italic,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ],
             ),
-            textAlign: TextAlign.center,
           ),
-          if (ipa != null && ipa!.isNotEmpty) ...<Widget>[
-            const SizedBox(height: SpacingTokens.xs),
-            Text(
-              ipa!,
-              style: typography.body.copyWith(
-                color: colors.textSecondary,
-                fontStyle: FontStyle.italic,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
           const SizedBox(height: SpacingTokens.xl),
           // Context sentence
           if (contextSentence != null &&
@@ -127,13 +138,15 @@ class VocabFlipCard extends StatelessWidget {
                 color: colors.surfaceAlt,
                 borderRadius: shapes.controlRadius,
               ),
-              child: Text(
-                '“$contextSentence”',
-                style: typography.body.copyWith(
-                  height: 1.5,
-                  color: colors.textPrimary,
+              child: LtrExamBoundary(
+                child: Text(
+                  '“$contextSentence”',
+                  style: typography.body.copyWith(
+                    height: 1.5,
+                    color: colors.textPrimary,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
               ),
             ),
             const SizedBox(height: SpacingTokens.lg),
@@ -151,14 +164,28 @@ class VocabFlipCard extends StatelessWidget {
               ),
             ),
           ] else ...<Widget>[
-            // Revealed content: Definition
-            Text(
-              definition,
-              style: typography.body.copyWith(
-                color: colors.textPrimary,
-                height: 1.5,
+            // Optional Persian gloss for Sanjia IRN
+            if (glossFa != null && glossFa!.trim().isNotEmpty) ...<Widget>[
+              Text(
+                glossFa!.trim(),
+                style: typography.cardTitle.copyWith(
+                  color: colors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
+              const SizedBox(height: SpacingTokens.sm),
+            ],
+            // Revealed content: Definition
+            LtrExamBoundary(
+              child: Text(
+                definition,
+                style: typography.body.copyWith(
+                  color: colors.textPrimary,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
             ),
             if (synonyms.isNotEmpty) ...<Widget>[
               const SizedBox(height: SpacingTokens.lg),

@@ -17,6 +17,7 @@ import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/evidence_link.dart';
 import 'package:mockza/theme/components/exam_exit_guard.dart';
 import 'package:mockza/theme/components/exam_question_controls.dart';
+import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/mz_bottom_sheet.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
@@ -217,41 +218,46 @@ class _ReadingSimScreenState extends ConsumerState<ReadingSimScreen> {
                   : LayoutBuilder(
                       builder: (context, constraints) {
                         final isWide = constraints.maxWidth >= 768;
-                        final passagePane = _PassagePane(
-                          passage: currentPassage,
-                          passageIndex: state.passageIndex,
-                          activeColor: state.activeHighlightColor,
-                          annotations: state.annotations,
-                          stagedSelection: state.stagedSelection,
-                          highlightedParagraphIndex:
-                              state.highlightedParagraphIndex,
-                          onSelectColor: notifier.setHighlightColor,
-                          onSelectionChanged: (pIdx, sel, text) =>
-                              notifier.stageTextSelection(
-                                paragraphIndex: pIdx,
-                                selection: sel,
-                                paragraphText: text,
-                              ),
-                          onTapHighlightSelection:
-                              notifier.saveStagedAnnotation,
-                          onTapAddNote: () => _openAddNoteDialog(
-                            context,
-                            notifier,
+                        final passagePane = LtrExamBoundary(
+                          child: _PassagePane(
+                            passage: currentPassage,
+                            passageIndex: state.passageIndex,
+                            activeColor: state.activeHighlightColor,
+                            annotations: state.annotations,
+                            stagedSelection: state.stagedSelection,
+                            highlightedParagraphIndex:
+                                state.highlightedParagraphIndex,
+                            onSelectColor: notifier.setHighlightColor,
+                            onSelectionChanged: (pIdx, sel, text) =>
+                                notifier.stageTextSelection(
+                                  paragraphIndex: pIdx,
+                                  selection: sel,
+                                  paragraphText: text,
+                                ),
+                            onTapHighlightSelection:
+                                notifier.saveStagedAnnotation,
+                            onTapAddNote: () => _openAddNoteDialog(
+                              context,
+                              notifier,
+                            ),
+                            onDeleteAnnotation: notifier.removeAnnotation,
                           ),
-                          onDeleteAnnotation: notifier.removeAnnotation,
                         );
-                        final questionsPane = _QuestionsPane(
-                          questions: currentPassage.questions,
-                          answers: state.answers,
-                          allowAiExplain: !state.isExamMode,
-                          focusedMode: _focusedQuestionMode,
-                          activeQuestionNumber: state.currentQuestionIndex,
-                          onToggleFocusedMode: (val) =>
-                              setState(() => _focusedQuestionMode = val),
-                          onSelectQuestionNumber: notifier.selectQuestion,
-                          onAnswer: notifier.setAnswer,
-                          onToggleMulti: notifier.toggleMultiAnswer,
-                          onAskAi: (q) => _showAskAiSheet(context, notifier, q),
+                        final questionsPane = LtrExamBoundary(
+                          child: _QuestionsPane(
+                            questions: currentPassage.questions,
+                            answers: state.answers,
+                            allowAiExplain: !state.isExamMode,
+                            focusedMode: _focusedQuestionMode,
+                            activeQuestionNumber: state.currentQuestionIndex,
+                            onToggleFocusedMode: (val) =>
+                                setState(() => _focusedQuestionMode = val),
+                            onSelectQuestionNumber: notifier.selectQuestion,
+                            onAnswer: notifier.setAnswer,
+                            onToggleMulti: notifier.toggleMultiAnswer,
+                            onAskAi: (q) =>
+                                _showAskAiSheet(context, notifier, q),
+                          ),
                         );
 
                         if (isWide) {

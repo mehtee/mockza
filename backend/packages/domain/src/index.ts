@@ -1,3 +1,5 @@
+export * from './advanced/drop-input-policy.js';
+export * from './advanced/linguistic-graph-math.js';
 export * from './content-safety.js';
 export * from './diagnostic/budget.js';
 export * from './diagnostic/routing.js';

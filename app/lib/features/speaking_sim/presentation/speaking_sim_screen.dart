@@ -15,6 +15,7 @@ import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/audio_level_meter.dart';
 import 'package:mockza/theme/components/chart_stage_card.dart';
 import 'package:mockza/theme/components/exam_exit_guard.dart';
+import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/mic_preflight_card.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
@@ -461,68 +462,72 @@ class _PromptAndMicCheckView extends StatelessWidget {
         const SizedBox(height: SpacingTokens.md),
 
         // Examiner Prompt / Cue Card
-        MzCard(
-          variant: MzCardVariant.hero,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                state.sessionTitle.trim().isNotEmpty
-                    ? 'Part ${state.activePart} · ${state.sessionTitle}'
-                    : switch (state.activePart) {
-                        1 => 'Part 1 Examiner Question',
-                        2 => 'Part 2 Candidate Cue Card',
-                        3 => 'Part 3 Follow-Up Discussion',
-                        _ => 'Part ${state.activePart} Speaking Prompt',
-                      },
-                style: typography.caption.copyWith(color: colors.textSecondary),
-              ),
-              const SizedBox(height: SpacingTokens.xs),
-              Text(state.promptTitle, style: typography.sectionHeading),
-              if (state.cueCardBullets.isNotEmpty) ...<Widget>[
-                const SizedBox(height: SpacingTokens.md),
+        LtrExamBoundary(
+          child: MzCard(
+            variant: MzCardVariant.hero,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
                 Text(
-                  'You should say:',
-                  style: typography.secondary.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: colors.textPrimary,
+                  state.sessionTitle.trim().isNotEmpty
+                      ? 'Part ${state.activePart} · ${state.sessionTitle}'
+                      : switch (state.activePart) {
+                          1 => 'Part 1 Examiner Question',
+                          2 => 'Part 2 Candidate Cue Card',
+                          3 => 'Part 3 Follow-Up Discussion',
+                          _ => 'Part ${state.activePart} Speaking Prompt',
+                        },
+                  style: typography.caption.copyWith(
+                    color: colors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: SpacingTokens.xs),
-                ...state.cueCardBullets.map(
-                  (bullet) => Padding(
-                    padding: const EdgeInsetsDirectional.only(
-                      bottom: SpacingTokens.xs,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Container(
-                          margin: const EdgeInsetsDirectional.only(
-                            top: 7,
-                            end: SpacingTokens.xs,
-                          ),
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: colors.primary,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            bullet,
-                            style: typography.body.copyWith(
-                              color: colors.textSecondary,
-                            ),
-                          ),
-                        ),
-                      ],
+                Text(state.promptTitle, style: typography.sectionHeading),
+                if (state.cueCardBullets.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: SpacingTokens.md),
+                  Text(
+                    'You should say:',
+                    style: typography.secondary.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: colors.textPrimary,
                     ),
                   ),
-                ),
+                  const SizedBox(height: SpacingTokens.xs),
+                  ...state.cueCardBullets.map(
+                    (bullet) => Padding(
+                      padding: const EdgeInsetsDirectional.only(
+                        bottom: SpacingTokens.xs,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Container(
+                            margin: const EdgeInsetsDirectional.only(
+                              top: 7,
+                              end: SpacingTokens.xs,
+                            ),
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: colors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              bullet,
+                              style: typography.body.copyWith(
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
 
@@ -536,18 +541,20 @@ class _PromptAndMicCheckView extends StatelessWidget {
               children: <Widget>[
                 Text('Prep Notes Scratchpad', style: typography.cardTitle),
                 const SizedBox(height: SpacingTokens.xs),
-                TextField(
-                  controller: notesController,
-                  maxLines: 3,
-                  style: typography.body,
-                  decoration: InputDecoration(
-                    border: InputBorder.none,
-                    hintText: 'Jot quick keywords while preparing...',
-                    hintStyle: typography.secondary.copyWith(
-                      color: colors.textTertiary,
+                LtrExamBoundary(
+                  child: TextField(
+                    controller: notesController,
+                    maxLines: 3,
+                    style: typography.body,
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      hintText: 'Jot quick keywords while preparing...',
+                      hintStyle: typography.secondary.copyWith(
+                        color: colors.textTertiary,
+                      ),
                     ),
+                    onChanged: notifier.updateCueCardNotes,
                   ),
-                  onChanged: notifier.updateCueCardNotes,
                 ),
               ],
             ),

@@ -1,4 +1,26 @@
 import 'package:meta/meta.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
+
+/// Normalizes Iranian mobile formats (`0912...`, `۹۱۲...`, `+98912...`) to
+/// strict E.164 `+989XXXXXXXXX`, returning `null` when invalid.
+String? normalizeIranPhoneToE164(String raw) {
+  final ascii = EdgeNumerals.toAsciiDigits(raw)
+      .replaceAll(RegExp(r'[\s\-().]'), '')
+      .trim();
+  var digitsOnly = ascii.startsWith('+') ? ascii.substring(1) : ascii;
+  if (digitsOnly.startsWith('0098')) {
+    digitsOnly = digitsOnly.substring(2);
+  }
+  if (digitsOnly.startsWith('09') && digitsOnly.length == 11) {
+    digitsOnly = '98${digitsOnly.substring(1)}';
+  } else if (digitsOnly.startsWith('9') && digitsOnly.length == 10) {
+    digitsOnly = '98$digitsOnly';
+  }
+  if (!RegExp(r'^989\d{9}$').hasMatch(digitsOnly)) {
+    return null;
+  }
+  return '+$digitsOnly';
+}
 
 /// Strict subscription hardware slot buckets enforced server-side.
 enum DeviceSlotKind {
@@ -33,17 +55,21 @@ enum AuthProviderType {
   google('google'),
 
   /// Sign in with Apple OIDC or dev sandbox.
-  apple('apple');
+  apple('apple'),
+
+  /// Iranian mobile SMS OTP authentication (`IRN` Sanjia edition).
+  smsOtp('sms_otp');
 
   new(this.wireValue);
 
-  /// Backend wire representation (`email` | `google` | `apple`).
+  /// Backend wire representation (`email` | `google` | `apple` | `sms_otp`).
   final String wireValue;
 
   /// Parses wire [raw] into [AuthProviderType].
   static AuthProviderType fromWire(String? raw) => switch (raw) {
     'google' => google,
     'apple' => apple,
+    'sms_otp' => smsOtp,
     _ => email,
   };
 
@@ -52,6 +78,7 @@ enum AuthProviderType {
     email => 'Email',
     google => 'Google',
     apple => 'Apple',
+    smsOtp => 'SMS OTP',
   };
 }
 
@@ -143,6 +170,28 @@ class SocialProviderDescriptor {
   final String? clientId;
 }
 
+/// Descriptor for Iranian SMS OTP authentication returned by `GET /v1/auth/providers`.
+@immutable
+class SmsOtpProviderDescriptor {
+  /// Creates an [SmsOtpProviderDescriptor].
+  const new({
+    required this.enabled,
+    required this.mode,
+  });
+
+  /// Parses JSON map from `/v1/auth/providers`.
+  factory fromJson(Map<String, Object?> json) => SmsOtpProviderDescriptor(
+    enabled: json['enabled'] == true,
+    mode: (json['mode'] as String?) ?? 'disabled',
+  );
+
+  /// Whether SMS OTP sign-in is enabled on this server edition.
+  final bool enabled;
+
+  /// Mode reported by backend (`sms_gateway`, `dev_sandbox`, `disabled`).
+  final String mode;
+}
+
 /// Complete capability catalog returned by `GET /v1/auth/providers`.
 @immutable
 class AuthProvidersCatalog {
@@ -151,6 +200,10 @@ class AuthProvidersCatalog {
     required this.emailPasswordEnabled,
     required this.google,
     required this.apple,
+    this.smsOtp = const SmsOtpProviderDescriptor(
+      enabled: false,
+      mode: 'disabled',
+    ),
     this.maxMobilePhones = 1,
     this.maxDesktopWebInstances = 1,
   });
@@ -159,12 +212,14 @@ class AuthProvidersCatalog {
   factory fromJson(Map<String, Object?> json) {
     final googleJson = json['google'] as Map<String, Object?>? ?? const {};
     final appleJson = json['apple'] as Map<String, Object?>? ?? const {};
+    final smsOtpJson = json['smsOtp'] as Map<String, Object?>? ?? const {};
     final policyJson =
         json['devicePolicy'] as Map<String, Object?>? ?? const {};
     return AuthProvidersCatalog(
       emailPasswordEnabled: json['emailPasswordEnabled'] != false,
       google: SocialProviderDescriptor.fromJson(googleJson),
       apple: SocialProviderDescriptor.fromJson(appleJson),
+      smsOtp: SmsOtpProviderDescriptor.fromJson(smsOtpJson),
       maxMobilePhones: (policyJson['maxMobilePhones'] as num?)?.toInt() ?? 1,
       maxDesktopWebInstances:
           (policyJson['maxDesktopWebInstances'] as num?)?.toInt() ?? 1,
@@ -192,6 +247,9 @@ class AuthProvidersCatalog {
 
   /// Sign in with Apple provider configuration.
   final SocialProviderDescriptor apple;
+
+  /// Iranian SMS OTP provider configuration (`IRN` edition).
+  final SmsOtpProviderDescriptor smsOtp;
 
   /// Maximum concurrent mobile phones per account (default `1`).
   final int maxMobilePhones;

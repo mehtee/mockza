@@ -55,6 +55,12 @@ const SEMANTIC_COLOR_KEYS = [
   'dangerBg',
   'blueBg',
   'violetBg',
+  'gearCasual',
+  'gearWork',
+  'gearAcademic',
+  'gapObserved',
+  'structureMastered',
+  'interestTag',
 ];
 
 const CSS_COLOR_VAR_MAP = {
@@ -86,6 +92,12 @@ const CSS_COLOR_VAR_MAP = {
   dangerBg: '--mz-danger-bg',
   blueBg: '--mz-blue-bg',
   violetBg: '--mz-violet-bg',
+  gearCasual: '--mz-gear-casual',
+  gearWork: '--mz-gear-work',
+  gearAcademic: '--mz-gear-academic',
+  gapObserved: '--mz-gap-observed',
+  structureMastered: '--mz-structure-mastered',
+  interestTag: '--mz-interest-tag',
 };
 
 const TAILWIND_COLOR_MAP = {
@@ -117,6 +129,12 @@ const TAILWIND_COLOR_MAP = {
   '--color-danger-bg': '--mz-danger-bg',
   '--color-blue-bg': '--mz-blue-bg',
   '--color-violet-bg': '--mz-violet-bg',
+  '--color-gear-casual': '--mz-gear-casual',
+  '--color-gear-work': '--mz-gear-work',
+  '--color-gear-academic': '--mz-gear-academic',
+  '--color-gap-observed': '--mz-gap-observed',
+  '--color-structure-mastered': '--mz-structure-mastered',
+  '--color-interest-tag': '--mz-interest-tag',
 };
 
 const GRADIENT_KEYS = ['primaryButton', 'scoreFill', 'heroCard', 'recommendationCard'];
@@ -211,6 +229,12 @@ const APP_COLORS_DARK_PRIMITIVES = {
   dangerBg: 'dangerBg',
   blueBg: 'blueBg',
   violetBg: 'violetBg',
+  gearCasual: 'blue',
+  gearWork: 'darkAccent',
+  gearAcademic: 'amber',
+  gapObserved: 'warning',
+  structureMastered: 'success',
+  interestTag: 'violet',
 };
 
 const APP_COLORS_LIGHT_PRIMITIVES = {
@@ -242,6 +266,12 @@ const APP_COLORS_LIGHT_PRIMITIVES = {
   dangerBg: 'lightDangerBg',
   blueBg: 'lightBlueBg',
   violetBg: 'lightVioletBg',
+  gearCasual: 'lightBlue',
+  gearWork: 'lightAccent',
+  gearAcademic: 'lightAmber',
+  gapObserved: 'lightWarning',
+  structureMastered: 'lightSuccess',
+  interestTag: 'lightViolet',
 };
 
 const APP_GRADIENTS_DARK_PRIMITIVES = {

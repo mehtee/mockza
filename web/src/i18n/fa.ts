@@ -625,4 +625,12 @@ export const faMessages = {
   evalPendingBgReadyToast: 'گزارش ارزیابی هوشمند شما آماده شد!',
   detSubscoresTitle: '۴ زیرنمره DET (۱۰–۱۶۰)',
   fullMockScorecardTitle: 'کارنامه تجمیعی آزمون آزمایشی کامل',
+  navDailyMission: 'مأموریت روزانه',
+  navRegisterShifter: 'تغییردهنده لحن',
+  navDropAnything: 'ورود هر محتوایی',
+  navLinguisticGraph: 'گراف زبانی',
+  homeDailyMissionTitle: 'مأموریت ۱۰ دقیقه‌ای امروز',
+  homeDailyMissionStartCta: 'شروع مأموریت ۱۰ دقیقه‌ای',
+  homeRegisterShifterCta: 'تغییردهنده لحن (۳۰ ثانیه)',
+  homeDropAnythingCta: 'ارسال متن / لینک / تصویر',
 } as const satisfies Record<TranslationKey, string>;

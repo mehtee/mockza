@@ -108,13 +108,13 @@ describe('W1.3 MockzaDexieDb & DexieStorageAdapter', () => {
     localStorage.clear();
   });
 
-  it('defines exact 14 EntityTable tables matching the canonical schema', async () => {
+  it('defines exact 17 EntityTable tables matching the canonical schema', async () => {
     const tableNames = db.tables.map((t) => t.name).sort();
     expect(tableNames).toEqual([...MOCKZA_DB_TABLE_NAMES].sort());
-    expect(tableNames).toHaveLength(14);
+    expect(tableNames).toHaveLength(17);
   });
 
-  it('supports CRUD across all 14 Dexie tables and wipeAllData clears every table and urgent buffers', async () => {
+  it('supports CRUD across all 17 Dexie tables and wipeAllData clears every table and urgent buffers', async () => {
     const now = fakeClock.clock.nowMs();
     const today: SerialDay = fakeClock.clock.todaySerialDay();
 
@@ -368,7 +368,54 @@ describe('W1.3 MockzaDexieDb & DexieStorageAdapter', () => {
       updatedAtMs: now,
     });
 
-    // Verify every single one of the 14 tables is non-empty
+    // 15. linguisticNodes
+    await db.linguisticNodes.put({
+      nodeId: 'node-1',
+      edition: 'glb',
+      nodeKind: 'bottleneck',
+      canonicalKey: 'grammar:conditional_avoidance',
+      displayLabelEn: 'Conditional Clause Avoidance',
+      displayLabelFa: null,
+      masteryScoreMilli: 350,
+      signalWeightMilli: 750,
+      evidenceCount: 1,
+      lastSeenDaySerial: today,
+      lastExampleEn: 'Sample text',
+      coachNoteEn: 'Use conditionals',
+      coachNoteFa: null,
+      isPinned: false,
+      isMuted: false,
+      updatedAtMs: now,
+    });
+
+    // 16. dailyMissions
+    await db.dailyMissions.put({
+      missionId: 'mission-1',
+      missionDaySerial: today,
+      edition: 'glb',
+      examTrack: 'ielts_academic',
+      status: 'ready',
+      focusTopic: 'Artificial Intelligence',
+      payloadJson: '{}',
+      resultJson: null,
+      updatedAtMs: now,
+    });
+
+    // 17. droppedContents
+    await db.droppedContents.put({
+      dropId: 'drop-1',
+      inputKind: 'text',
+      edition: 'glb',
+      title: 'AI Essay',
+      sourceLabel: 'Personal Paste',
+      cefrEstimate: 'B2',
+      extractedPhrasesJson: '[]',
+      drillPayloadJson: '{}',
+      completedAtMs: null,
+      createdAtMs: now,
+    });
+
+    // Verify every single one of the 17 tables is non-empty
     for (const tableName of MOCKZA_DB_TABLE_NAMES) {
       const count = await db.table(tableName).count();
       expect(count, `Expected table ${tableName} to have >= 1 row`).toBeGreaterThanOrEqual(1);

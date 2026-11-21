@@ -537,6 +537,12 @@ abstract final class GeneratedPresetCatalog {
       dangerBg: Color(0xFF3B2029),
       blueBg: Color(0xFF172B45),
       violetBg: Color(0xFF2A2147),
+      gearCasual: Color(0xFF70BEFF),
+      gearWork: Color(0xFF34D399),
+      gearAcademic: Color(0xFFF2C16B),
+      gapObserved: Color(0xFFF2C16B),
+      structureMastered: Color(0xFF6EE2BA),
+      interestTag: Color(0xFFAC91FF),
     ),
     lightColors: AppColors(
       background: Color(0xFFF4F9F7),
@@ -567,6 +573,12 @@ abstract final class GeneratedPresetCatalog {
       dangerBg: Color(0xFFFCEBEF),
       blueBg: Color(0xFFE9F3FC),
       violetBg: Color(0xFFF1EDFA),
+      gearCasual: Color(0xFF1968BD),
+      gearWork: Color(0xFF0F766E),
+      gearAcademic: Color(0xFF956116),
+      gapObserved: Color(0xFF956116),
+      structureMastered: Color(0xFF147E62),
+      interestTag: Color(0xFF6049BA),
     ),
     darkGradients: AppGradients(
       primaryButton: LinearGradient(
@@ -673,6 +685,12 @@ abstract final class GeneratedPresetCatalog {
       dangerBg: Color(0xFF3B2029),
       blueBg: Color(0xFF172B45),
       violetBg: Color(0xFF2A2147),
+      gearCasual: Color(0xFF70BEFF),
+      gearWork: Color(0xFFF5B749),
+      gearAcademic: Color(0xFFF2C16B),
+      gapObserved: Color(0xFFF2C16B),
+      structureMastered: Color(0xFF6EE2BA),
+      interestTag: Color(0xFFAC91FF),
     ),
     lightColors: AppColors(
       background: Color(0xFFFAF8F4),
@@ -703,6 +721,12 @@ abstract final class GeneratedPresetCatalog {
       dangerBg: Color(0xFFFCEBEF),
       blueBg: Color(0xFFE9F3FC),
       violetBg: Color(0xFFF1EDFA),
+      gearCasual: Color(0xFF1968BD),
+      gearWork: Color(0xFF9A5B13),
+      gearAcademic: Color(0xFF9A5B13),
+      gapObserved: Color(0xFF956116),
+      structureMastered: Color(0xFF147E62),
+      interestTag: Color(0xFF6049BA),
     ),
     darkGradients: AppGradients(
       primaryButton: LinearGradient(
@@ -809,6 +833,12 @@ abstract final class GeneratedPresetCatalog {
       dangerBg: Color(0xFF3B2029),
       blueBg: Color(0xFF172B45),
       violetBg: Color(0xFF2A2147),
+      gearCasual: Color(0xFF56CCF2),
+      gearWork: Color(0xFF56CCF2),
+      gearAcademic: Color(0xFFF2C16B),
+      gapObserved: Color(0xFFF2C16B),
+      structureMastered: Color(0xFF6EE2BA),
+      interestTag: Color(0xFFAC91FF),
     ),
     lightColors: AppColors(
       background: Color(0xFFF4F8FC),
@@ -839,6 +869,12 @@ abstract final class GeneratedPresetCatalog {
       dangerBg: Color(0xFFFCEBEF),
       blueBg: Color(0xFFE9F3FC),
       violetBg: Color(0xFFF1EDFA),
+      gearCasual: Color(0xFF0B69A3),
+      gearWork: Color(0xFF0B69A3),
+      gearAcademic: Color(0xFF956116),
+      gapObserved: Color(0xFF956116),
+      structureMastered: Color(0xFF147E62),
+      interestTag: Color(0xFF6049BA),
     ),
     darkGradients: AppGradients(
       primaryButton: LinearGradient(
@@ -945,6 +981,12 @@ abstract final class GeneratedPresetCatalog {
       dangerBg: Color(0xFF4C2F2A),
       blueBg: Color(0xFF283E47),
       violetBg: Color(0xFF43382F),
+      gearCasual: Color(0xFFA9C9BA),
+      gearWork: Color(0xFFA9C9A7),
+      gearAcademic: Color(0xFFDBB885),
+      gapObserved: Color(0xFFE6CB9F),
+      structureMastered: Color(0xFFA9D3AB),
+      interestTag: Color(0xFFE0BC9F),
     ),
     lightColors: AppColors(
       background: Color(0xFFF8F6EF),
@@ -975,6 +1017,12 @@ abstract final class GeneratedPresetCatalog {
       dangerBg: Color(0xFFF6E9E4),
       blueBg: Color(0xFFE4EDF1),
       violetBg: Color(0xFFECE7E1),
+      gearCasual: Color(0xFF326256),
+      gearWork: Color(0xFF264E3B),
+      gearAcademic: Color(0xFF745A30),
+      gapObserved: Color(0xFF795831),
+      structureMastered: Color(0xFF25603E),
+      interestTag: Color(0xFF6C4D38),
     ),
     darkGradients: AppGradients(
       primaryButton: LinearGradient(

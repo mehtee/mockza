@@ -78,6 +78,81 @@ export async function createAudioPresignUrl(params: {
   };
 }
 
+export type SupportedDropMediaContentType =
+  | 'image/png'
+  | 'image/jpeg'
+  | 'image/webp'
+  | 'audio/mp4'
+  | 'audio/mpeg'
+  | 'audio/wav'
+  | 'audio/ogg';
+
+export function extensionForDropMediaContentType(contentType: SupportedDropMediaContentType): string {
+  switch (contentType) {
+    case 'image/png':
+      return 'png';
+    case 'image/jpeg':
+      return 'jpg';
+    case 'image/webp':
+      return 'webp';
+    case 'audio/mp4':
+      return 'm4a';
+    case 'audio/mpeg':
+      return 'mp3';
+    case 'audio/wav':
+      return 'wav';
+    case 'audio/ogg':
+      return 'ogg';
+  }
+}
+
+export function buildDropMediaObjectKey(params: {
+  deviceId: string;
+  dropId: string;
+  index: number;
+  contentType: SupportedDropMediaContentType;
+}): string {
+  const ext = extensionForDropMediaContentType(params.contentType);
+  return `users/${params.deviceId}/drops/${params.dropId}/item-${params.index}.${ext}`;
+}
+
+export async function createDropMediaPresignUrl(params: {
+  client: S3Client;
+  bucket: string;
+  deviceId: string;
+  dropId: string;
+  index: number;
+  byteLength: number;
+  contentType: SupportedDropMediaContentType;
+  expiresInSeconds?: number;
+}): Promise<AudioPresignResult> {
+  const maxBytes = 5 * 1024 * 1024;
+  if (params.byteLength <= 0 || params.byteLength > maxBytes) {
+    throw new Error(`Drop media byteLength (${params.byteLength}) must be 1..${maxBytes}.`);
+  }
+  const expiresInSeconds = params.expiresInSeconds ?? 300;
+  const objectKey = buildDropMediaObjectKey({
+    deviceId: params.deviceId,
+    dropId: params.dropId,
+    index: params.index,
+    contentType: params.contentType,
+  });
+
+  const command = new PutObjectCommand({
+    Bucket: params.bucket,
+    Key: objectKey,
+    ContentType: params.contentType,
+    ContentLength: params.byteLength,
+  });
+
+  const uploadUrl = await getSignedUrl(params.client, command, { expiresIn: expiresInSeconds });
+  return {
+    objectKey,
+    uploadUrl,
+    expiresInSeconds,
+  };
+}
+
 /** Signs a same-origin API upload proxy URL so Web/mobile browsers bypass S3 CORS/localhost gaps. */
 export function signUploadProxyParams(params: {
   secret: string;

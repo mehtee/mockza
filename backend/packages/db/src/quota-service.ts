@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   EntitlementRequiredDomainError,
+  evaluateAdvancedFeatureQuota,
   evaluateQuotaEligibility,
   QuotaExceededDomainError,
 } from '@mockza/domain';
@@ -473,5 +474,175 @@ export async function refundQuotaAtomic(params: {
     }
 
     return true;
+  });
+}
+
+/**
+ * Atomically enforces & reserves daily/monthly quota for Register Shifter and Drop Anything
+ * under the same per-account advisory lock (`evaluateAdvancedFeatureQuota` SSOT).
+ */
+export async function reserveAdvancedQuotaAtomic(params: {
+  db: DbOrTx;
+  accountKey: string;
+  deviceId: string;
+  attemptId: string;
+  skill: 'register_shifter' | 'drop_text_image' | 'drop_audio';
+  edition?: 'glb' | 'irn';
+  now?: Date;
+}): Promise<{ allowed: true }> {
+  const now = params.now ?? new Date();
+  const utcDay = getUtcDayString(now);
+  const utcMonth = getUtcMonthString(now);
+
+  return await runWithAccountLockAndTx(params.db, params.accountKey, async (tx) => {
+    const existingRes = await tx
+      .select({ status: quotaReservations.status })
+      .from(quotaReservations)
+      .where(eq(quotaReservations.attemptId, params.attemptId))
+      .limit(1);
+
+    const existing = existingRes[0];
+    if (existing && (existing.status === 'reserved' || existing.status === 'committed')) {
+      return { allowed: true };
+    }
+
+    const status = await getAccountQuotaStatus({
+      db: tx,
+      accountKey: params.accountKey,
+      deviceId: params.deviceId,
+      now,
+    });
+
+    const todayReservations = await tx
+      .select({ skill: quotaReservations.skill })
+      .from(quotaReservations)
+      .where(
+        and(
+          eq(quotaReservations.accountKey, params.accountKey),
+          eq(quotaReservations.utcDay, utcDay),
+          sql`${quotaReservations.status} != 'refunded'`,
+        ),
+      );
+
+    let shifterUsedToday = 0;
+    let dropUsedToday = 0;
+    let dropAudioUsedToday = 0;
+    for (const r of todayReservations) {
+      if (r.skill === 'register_shifter') shifterUsedToday += 1;
+      if (r.skill === 'drop_text_image' || r.skill === 'drop_audio') dropUsedToday += 1;
+      if (r.skill === 'drop_audio') dropAudioUsedToday += 1;
+    }
+
+    let starterDropsUsedLifetime = 0;
+    if (!status.isPro) {
+      const lifetimeDrops = await tx
+        .select({ reservationId: quotaReservations.reservationId })
+        .from(quotaReservations)
+        .where(
+          and(
+            eq(quotaReservations.accountKey, params.accountKey),
+            sql`${quotaReservations.skill} IN ('drop_text_image', 'drop_audio')`,
+            sql`${quotaReservations.status} != 'refunded'`,
+          ),
+        );
+      starterDropsUsedLifetime = lifetimeDrops.length;
+    }
+
+    const eligibility = evaluateAdvancedFeatureQuota({
+      feature: params.skill,
+      isPro: status.isPro,
+      freeSampleUsed: starterDropsUsedLifetime > 0,
+      speakingUsedToday: status.speakingUsedToday,
+      shifterUsedToday,
+      dropsUsedToday: dropUsedToday,
+      audioDropsUsedToday: dropAudioUsedToday,
+      monthlyUsed: status.monthlyUsed,
+      edition: params.edition ?? 'glb',
+    });
+
+    if (!eligibility.allowed) {
+      if (
+        eligibility.reason === 'pro_required_for_audio_drop' ||
+        eligibility.reason === 'free_sample_used'
+      ) {
+        throw new EntitlementRequiredDomainError(
+          'Subscription required for additional Register Shifter / Drop Anything runs.',
+        );
+      }
+      throw new QuotaExceededDomainError(
+        `Daily or monthly quota exceeded (${eligibility.reason ?? 'limit reached'}).`,
+      );
+    }
+
+    const dailyKey = `${params.accountKey}:${utcDay}`;
+    const monthlyKey = `${params.accountKey}:${utcMonth}`;
+
+    if (existing) {
+      await tx
+        .update(quotaReservations)
+        .set({
+          accountKey: params.accountKey,
+          deviceId: params.deviceId,
+          utcDay,
+          utcMonth,
+          status: 'reserved',
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(quotaReservations.attemptId, params.attemptId),
+            eq(quotaReservations.status, 'refunded'),
+          ),
+        );
+    } else {
+      await tx.insert(quotaReservations).values({
+        reservationId: randomUUID(),
+        attemptId: params.attemptId,
+        accountKey: params.accountKey,
+        deviceId: params.deviceId,
+        skill: params.skill,
+        utcDay,
+        utcMonth,
+        status: 'reserved',
+        isDiagnostic: false,
+      });
+    }
+
+    if (params.skill === 'register_shifter') {
+      await tx
+        .insert(dailyQuotaUsage)
+        .values({
+          counterKey: dailyKey,
+          accountKey: params.accountKey,
+          utcDay,
+          speakingUsed: 1,
+          writingUsed: 0,
+        })
+        .onConflictDoUpdate({
+          target: dailyQuotaUsage.counterKey,
+          set: {
+            speakingUsed: sql`${dailyQuotaUsage.speakingUsed} + 1`,
+            updatedAt: now,
+          },
+        });
+    }
+
+    await tx
+      .insert(monthlyQuotaUsage)
+      .values({
+        counterKey: monthlyKey,
+        accountKey: params.accountKey,
+        utcMonth,
+        totalUsed: 1,
+      })
+      .onConflictDoUpdate({
+        target: monthlyQuotaUsage.counterKey,
+        set: {
+          totalUsed: sql`${monthlyQuotaUsage.totalUsed} + 1`,
+          updatedAt: now,
+        },
+      });
+
+    return { allowed: true };
   });
 }

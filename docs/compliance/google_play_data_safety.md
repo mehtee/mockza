@@ -19,8 +19,15 @@ This document provides exact responses required for the Google Play Console Data
 - **Collected?**: Yes
 - **Shared?**: Yes — transmitted over TLS to OpenRouter and configured upstream model inference providers solely to generate IELTS evaluation feedback when the user requests AI grading (subject to upstream API provider zero/limited-retention terms; never claim guaranteed zero-retention across third parties without signed DPA verification)
 - **Processed ephemerally?**: Audio stored in private S3 bucket with a configurable auto-purge TTL (`AUDIO_TTL_DAYS`), or deleted on `DELETE /v1/account`
-- **Is this data required or optional?**: Optional (only collected when the user undertakes Speaking or Writing AI evaluations)
-- **Purpose**: App functionality (providing IELTS Speaking fluency, lexical, grammatical, and pronunciation AI feedback)
+- **Is this data required or optional?**: Optional (only collected when the user undertakes Speaking, Writing, or Register Shifter AI evaluations)
+- **Purpose**: App functionality (providing speaking fluency, register transfer, lexical, grammatical, and pronunciation AI feedback)
+
+### A2. Drop Anything User-Shared Text, URLs & Bounded Images/Audio (`ACTION_SEND` / In-App Composer)
+- **Data type**: User-shared URLs, text excerpts (<= 15,000 chars), screenshots/photos (up to 4, EXIF-stripped before inference), and optional bounded voice memos (<= 180s)
+- **Collected?**: Yes (exclusively when initiated by user via OS Share Sheet or Drop composer)
+- **Shared?**: Transmitted securely over TLS to Mockza/Sanjia private APIs and configured OpenRouter zero/limited-retention inference endpoints to extract study vocabulary and 2-minute micro-drills; never published to any shared/public feed
+- **Processed ephemerally?**: Uploaded drop media stored ephemerally in private S3 bucket and auto-purged after `AUDIO_TTL_DAYS` (<= 30 days) or wiped immediately on `DELETE /v1/account`
+- **Purpose**: App functionality (personalized vocabulary & micro-drill generation + Linguistic Graph adaptation)
 
 ### B. Financial Info
 - **Data type**: Purchase history

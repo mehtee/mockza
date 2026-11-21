@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mockza/core/config/edition_config.dart';
+import 'package:mockza/core/result/failure.dart';
 import 'package:mockza/core/result/result.dart';
 import 'package:mockza/providers.dart';
 import 'package:mockza/services/billing_gateway.dart';
@@ -195,14 +197,22 @@ class PaywallNotifier extends Notifier<PaywallState> {
 
     switch (res) {
       case Ok(:final value):
-        await _persistProFlag(value);
+        if (value) {
+          await _persistProFlag(true);
+        }
+        final isIran =
+            ref.read(editionConfigProvider).edition == AppEdition.iran;
         if (!_isDisposed) {
           state = state.copyWith(
             isBusy: false,
             isPro: value,
             statusMessage: value
-                ? 'Welcome to Mockza Pro!'
-                : 'Purchase completed.',
+                ? (isIran
+                      ? 'سنجیا پرو با موفقیت فعال شد!'
+                      : 'Welcome to Mockza Pro!')
+                : (isIran
+                      ? 'در حال انتقال به درگاه پرداخت...'
+                      : 'Purchase completed.'),
           );
         }
       case Err(:final failure):
@@ -210,6 +220,38 @@ class PaywallNotifier extends Notifier<PaywallState> {
           isBusy: false,
           statusMessage: failure.message,
         );
+    }
+  }
+
+  /// Verifies a returned Zarinpal payment [authority] and activates Pro if confirmed by server.
+  Future<bool> verifyZarinpalCallback({
+    required String authority,
+    String? status,
+  }) async {
+    final gateway = ref.read(billingGatewayProvider);
+    if (gateway is! IranBillingGateway) return false;
+    state = state.copyWith(isBusy: true, clearStatusMessage: true);
+    final res = await gateway.verifyZarinpalCallback(
+      authority: authority,
+      status: status,
+    );
+    if (_isDisposed) return false;
+    switch (res) {
+      case Ok<bool, Failure>(:final value):
+        await _persistProFlag(value);
+        if (!_isDisposed) {
+          state = state.copyWith(
+            isBusy: false,
+            isPro: value,
+            statusMessage: value
+                ? 'پرداخت تایید شد و اشتراک سنجیا پرو فعال گردید!'
+                : 'تراکنش تکمیل یا تایید نشد.',
+          );
+        }
+        return value;
+      case Err<bool, Failure>(:final failure):
+        state = state.copyWith(isBusy: false, statusMessage: failure.message);
+        return false;
     }
   }
 

@@ -56,7 +56,7 @@ class AppLocalizationsFa extends AppLocalizations {
   String get objectiveNextDrill => 'انجام تمرین تکمیلی';
 
   @override
-  String get appTitle => 'موکزا';
+  String get appTitle => 'سنجیا';
 
   @override
   String get navHome => 'خانه';
@@ -74,14 +74,14 @@ class AppLocalizationsFa extends AppLocalizations {
   String get settingsTitle => 'تنظیمات';
 
   @override
-  String get onboardingTitle => 'به موکزا خوش آمدید';
+  String get onboardingTitle => 'به سنجیا خوش آمدید';
 
   @override
   String get onboardingSubtitle =>
-      'مسیر آزمون آیلتس و نمره هدف خود را انتخاب کنید و پیش از شروع میکروفون را آزمایش کنید.';
+      'مسیر آزمون، نمره هدف و تقویم مطالعه خود را تنظیم کنید و پیش از شروع میکروفون را آزمایش نمایید.';
 
   @override
-  String get paywallTitle => 'موکزا پرو';
+  String get paywallTitle => 'سنجیا پرو';
 
   @override
   String get speakingSimTitle => 'شبیه‌ساز اسپیکینگ';
@@ -169,4 +169,41 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   String get readingPassagesLabel => 'متن‌های ریدینگ';
+
+  @override
+  String get authTitleSignIn => 'ورود با موبایل';
+
+  @override
+  String get authTitleSignUp => 'ایجاد حساب';
+
+  @override
+  String get authSmsPhoneLabel => 'شماره موبایل ایران';
+
+  @override
+  String get authSendOtp => 'ارسال کد تایید پیامکی';
+
+  @override
+  String get authVerifyOtp => 'تایید و ورود';
+
+  @override
+  String get practiceHubTitle => 'کتابخانه آزمون و تمرین';
+
+  @override
+  String get practiceHubSubtitle =>
+      'بسته‌های آزمون آفلاین · همگام‌سازی و دانلود';
+
+  @override
+  String get vocabularyTitle => 'دفترچه واژگان';
+
+  @override
+  String get progressTitle => 'پیشرفت و تحلیل نمرات';
+
+  @override
+  String get targetDateLabel => 'تاریخ آزمون (شمسی)';
+
+  @override
+  String get jalaliPickerTitle => 'انتخاب تاریخ آزمون (شمسی)';
+
+  @override
+  String get naviaHandoffTitle => 'ارسال نمره تاییدشده به ناویا (Navia)';
 }

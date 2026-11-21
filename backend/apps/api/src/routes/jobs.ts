@@ -139,13 +139,20 @@ export function registerJobRoutes(
         quotaRefunded = res[0]?.status === 'refunded';
       }
 
+      const isAdvancedTask =
+        job.taskType === 'register_shifter' || job.taskType === 'drop_ingest';
+
       return c.json(
         {
           jobId: job.jobId,
           attemptId: job.attemptId,
           status: normalizeJobStage(job.status),
           stage: job.stageDetail ?? job.status,
-          result: job.resultJson ? (job.resultJson as never) : undefined,
+          result: !isAdvancedTask && job.resultJson ? (job.resultJson as never) : undefined,
+          advancedResult:
+            isAdvancedTask && job.resultJson
+              ? (job.resultJson as Record<string, unknown>)
+              : undefined,
           errorCode: job.errorCode ?? undefined,
           quotaRefunded,
           createdAt: job.createdAt.toISOString(),

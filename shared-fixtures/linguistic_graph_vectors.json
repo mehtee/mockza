@@ -1,0 +1,140 @@
+{
+  "masteryUpdates": [
+    {
+      "id": "gap_initial_drop",
+      "currentMilli": 600,
+      "polarity": "gap_observed",
+      "evidenceCount": 0,
+      "expectedMilli": 460
+    },
+    {
+      "id": "gap_repeated_high_evidence",
+      "currentMilli": 200,
+      "polarity": "gap_observed",
+      "evidenceCount": 8,
+      "expectedMilli": 124
+    },
+    {
+      "id": "gap_floor_clamp",
+      "currentMilli": 30,
+      "polarity": "gap_observed",
+      "evidenceCount": 2,
+      "expectedMilli": 0
+    },
+    {
+      "id": "target_used_low_mastery",
+      "currentMilli": 200,
+      "polarity": "target_used",
+      "evidenceCount": 1,
+      "expectedMilli": 400
+    },
+    {
+      "id": "target_used_high_mastery_min_step",
+      "currentMilli": 880,
+      "polarity": "target_used",
+      "evidenceCount": 5,
+      "expectedMilli": 940
+    },
+    {
+      "id": "interest_matched_boost",
+      "currentMilli": 650,
+      "polarity": "interest_matched",
+      "evidenceCount": 3,
+      "expectedMilli": 770
+    }
+  ],
+  "rankMissionTargets": {
+    "currentDaySerial": 20400,
+    "dueCardIds": ["c1", "c2", "c3", "c4", "c5", "c6"],
+    "nodes": [
+      {
+        "nodeId": "n1",
+        "nodeKind": "bottleneck",
+        "canonicalKey": "grammar:conditional_avoidance",
+        "masteryScoreMilli": 250,
+        "signalWeightMilli": 800,
+        "evidenceCount": 4,
+        "lastSeenDaySerial": 20399
+      },
+      {
+        "nodeId": "n2",
+        "nodeKind": "bottleneck",
+        "canonicalKey": "lexis:basic_evaluative_good_bad",
+        "masteryScoreMilli": 150,
+        "signalWeightMilli": 900,
+        "evidenceCount": 6,
+        "lastSeenDaySerial": 20380
+      },
+      {
+        "nodeId": "n3",
+        "nodeKind": "bottleneck",
+        "canonicalKey": "morphology:plural_s_omission",
+        "masteryScoreMilli": 450,
+        "signalWeightMilli": 700,
+        "evidenceCount": 2,
+        "lastSeenDaySerial": 20400
+      },
+      {
+        "nodeId": "n4",
+        "nodeKind": "target_structure",
+        "canonicalKey": "structure:concessive_albeit",
+        "masteryScoreMilli": 400,
+        "signalWeightMilli": 820,
+        "evidenceCount": 2,
+        "lastSeenDaySerial": 20399
+      },
+      {
+        "nodeId": "n5",
+        "nodeKind": "target_structure",
+        "canonicalKey": "structure:inversion_not_only",
+        "masteryScoreMilli": 300,
+        "signalWeightMilli": 600,
+        "evidenceCount": 1,
+        "lastSeenDaySerial": 20395
+      },
+      {
+        "nodeId": "n6",
+        "nodeKind": "interest_topic",
+        "canonicalKey": "topic:artificial_intelligence",
+        "masteryScoreMilli": 700,
+        "signalWeightMilli": 920,
+        "evidenceCount": 5,
+        "lastSeenDaySerial": 20400
+      }
+    ],
+    "expected": {
+      "bottleneckKeys": [
+        "grammar:conditional_avoidance",
+        "morphology:plural_s_omission"
+      ],
+      "targetKeys": [
+        "structure:concessive_albeit",
+        "structure:inversion_not_only"
+      ],
+      "interestKeys": [
+        "topic:artificial_intelligence"
+      ],
+      "suggestedCardIds": ["c1", "c2", "c3", "c4", "c5"]
+    }
+  },
+  "utf16Spans": [
+    {
+      "id": "ascii_clean",
+      "sourceText": "Albeit costly, renewable grids stabilize energy.",
+      "rawStart": 0,
+      "rawEnd": 14,
+      "expectedStart": 0,
+      "expectedEnd": 14,
+      "expectedExcerpt": "Albeit costly,"
+    },
+    {
+      "id": "emoji_surrogate_snap",
+      "sourceText": "Hi 🌍 world!",
+      "rawStart": 4,
+      "rawEnd": 11,
+      "expectedStart": 3,
+      "expectedEnd": 11,
+      "expectedExcerpt": "🌍 world"
+    }
+  ]
+}

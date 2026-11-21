@@ -5,11 +5,16 @@ import 'package:mockza/features/auth/presentation/auth_screen.dart';
 import 'package:mockza/features/diagnostic/presentation/diagnostic_intro_screen.dart';
 import 'package:mockza/features/diagnostic/presentation/diagnostic_results_screen.dart';
 import 'package:mockza/features/diagnostic/presentation/diagnostic_session_screen.dart';
+import 'package:mockza/features/drop_anything/presentation/drop_drill_screen.dart';
+import 'package:mockza/features/drop_anything/presentation/drop_hub_screen.dart';
 import 'package:mockza/features/evaluation_review/presentation/evaluation_review_screen.dart';
 import 'package:mockza/features/home/presentation/home_screen.dart';
+import 'package:mockza/features/linguistic_mission/presentation/daily_mission_screen.dart';
+import 'package:mockza/features/linguistic_mission/presentation/linguistic_graph_screen.dart';
 import 'package:mockza/features/listening_sim/presentation/listening_sim_screen.dart';
 import 'package:mockza/features/micro_drills/presentation/micro_drills_screen.dart';
 import 'package:mockza/features/onboarding/presentation/onboarding_screen.dart';
+import 'package:mockza/features/paywall/presentation/billing_callback_screen.dart';
 import 'package:mockza/features/paywall/presentation/paywall_screen.dart';
 import 'package:mockza/features/practice_hub/presentation/full_mock_screen.dart';
 import 'package:mockza/features/practice_hub/presentation/practice_hub_screen.dart';
@@ -18,6 +23,7 @@ import 'package:mockza/features/progress/presentation/progress_attempts_screen.d
 import 'package:mockza/features/progress/presentation/progress_screen.dart';
 import 'package:mockza/features/progress/presentation/progress_skill_screen.dart';
 import 'package:mockza/features/reading_sim/presentation/reading_sim_screen.dart';
+import 'package:mockza/features/register_shifter/presentation/register_shifter_screen.dart';
 import 'package:mockza/features/settings/presentation/settings_screen.dart';
 import 'package:mockza/features/speaking_sim/presentation/speaking_sim_screen.dart';
 import 'package:mockza/features/vocabulary/presentation/vocab_review_screen.dart';
@@ -179,6 +185,18 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const PaywallScreen(),
       ),
       GoRoute(
+        path: AppRoutes.billingCallback,
+        builder: (context, state) => BillingCallbackScreen(
+          authority:
+              state.uri.queryParameters['Authority'] ??
+              state.uri.queryParameters['authority'] ??
+              '',
+          status:
+              state.uri.queryParameters['Status'] ??
+              state.uri.queryParameters['status'],
+        ),
+      ),
+      GoRoute(
         path: AppRoutes.auth,
         builder: (context, state) => AuthScreen(
           initialIsSignUp: state.uri.queryParameters['mode'] == 'signup',
@@ -299,6 +317,39 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.progressAttempts,
         builder: (context, state) => const ProgressAttemptsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.linguisticGraph,
+        builder: (context, state) => const LinguisticGraphScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.dailyMission,
+        builder: (context, state) => DailyMissionScreen(
+          missionId: state.pathParameters['missionId'] ?? 'today',
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.registerShifter,
+        builder: (context, state) => const RegisterShifterScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.registerShifterRun,
+        builder: (context, state) => RegisterShifterScreen(
+          runId: state.pathParameters['runId'],
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.dropIngest,
+        builder: (context, state) => DropHubScreen(
+          initialUrl: state.uri.queryParameters['url'],
+          initialText: state.uri.queryParameters['text'],
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.dropDrill,
+        builder: (context, state) => DropDrillScreen(
+          dropId: state.pathParameters['dropId'] ?? '',
+        ),
       ),
     ],
     errorBuilder: (context, state) {

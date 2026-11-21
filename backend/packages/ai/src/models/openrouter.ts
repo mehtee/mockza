@@ -7,6 +7,12 @@ export interface OpenRouterMessage {
     | Array<
         | { type: 'text'; text: string }
         | {
+            type: 'image_url';
+            image_url: {
+              url: string;
+            };
+          }
+        | {
             type: 'input_audio';
             input_audio: {
               data: string; // base64
@@ -22,6 +28,8 @@ export interface OpenRouterChatRequest {
   response_format?: { type: 'json_object' };
   temperature?: number;
   max_tokens?: number;
+  /** Strictly opt-in ':floor' modifier for background async pg-boss queues ONLY (ADR-ADV-002). */
+  routingTier?: 'standard' | 'flex';
 }
 
 export interface OpenRouterChatResponse {
@@ -64,6 +72,11 @@ export class OpenRouterClient {
   async createChatCompletion(request: OpenRouterChatRequest): Promise<OpenRouterChatResponse> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    const { routingTier, ...wireRequest } = request;
+    const resolvedModel =
+      routingTier === 'flex' && !wireRequest.model.endsWith(':floor')
+        ? `${wireRequest.model}:floor`
+        : wireRequest.model;
 
     try {
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -75,7 +88,8 @@ export class OpenRouterClient {
           'X-Title': 'Mockza IELTS Prep',
         },
         body: JSON.stringify({
-          ...request,
+          ...wireRequest,
+          model: resolvedModel,
           // STRICT NO-RETENTION ROUTING
           provider: {
             data_collection: 'deny',

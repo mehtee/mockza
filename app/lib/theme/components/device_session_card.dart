@@ -27,13 +27,16 @@ class DeviceSlotCapacityStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isFa = Localizations.localeOf(context).languageCode == 'fa';
     return Row(
       children: <Widget>[
         Expanded(
           child: _SlotPill(
             glyph: LucideGlyph.smartphone,
-            title: 'Mobile Phone',
-            status: mobileOccupied ? '1 / 1 Active' : '0 / 1 Open',
+            title: isFa ? 'گوشی موبایل' : 'Mobile Phone',
+            status: isFa
+                ? (mobileOccupied ? '۱ / ۱ فعال' : '۰ / ۱ آزاد')
+                : (mobileOccupied ? '1 / 1 Active' : '0 / 1 Open'),
             occupied: mobileOccupied,
           ),
         ),
@@ -41,8 +44,10 @@ class DeviceSlotCapacityStrip extends StatelessWidget {
         Expanded(
           child: _SlotPill(
             glyph: LucideGlyph.monitor,
-            title: 'Desktop Web',
-            status: desktopWebOccupied ? '1 / 1 Active' : '0 / 1 Open',
+            title: isFa ? 'وب دسکتاپ' : 'Desktop Web',
+            status: isFa
+                ? (desktopWebOccupied ? '۱ / ۱ فعال' : '۰ / ۱ آزاد')
+                : (desktopWebOccupied ? '1 / 1 Active' : '0 / 1 Open'),
             occupied: desktopWebOccupied,
           ),
         ),
@@ -382,17 +387,23 @@ class DeviceSlotConflictBanner extends StatelessWidget {
 class DevicePolicyNoticeCard extends StatelessWidget {
   /// Creates a [DevicePolicyNoticeCard].
   const new({
-    this.title = 'Strict Single-User Device Policy',
+    this.title,
     super.key,
   });
 
-  /// Header text.
-  final String title;
+  /// Optional custom header text; defaults to localized single-user policy title.
+  final String? title;
 
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
+    final isFa = Localizations.localeOf(context).languageCode == 'fa';
+    final effectiveTitle =
+        title ??
+        (isFa
+            ? 'قانون استفاده شخصی (۱ موبایل + ۱ مرورگر دسکتاپ)'
+            : 'Strict Single-User Device Policy');
 
     return MzCard(
       variant: MzCardVariant.surfaceAlt,
@@ -406,7 +417,7 @@ class DevicePolicyNoticeCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  title,
+                  effectiveTitle,
                   style: typography.caption.copyWith(
                     color: colors.textPrimary,
                     fontWeight: FontWeight.w700,
@@ -414,7 +425,9 @@ class DevicePolicyNoticeCard extends StatelessWidget {
                 ),
                 const SizedBox(height: SpacingTokens.xs),
                 Text(
-                  'Each Mockza Pro account allows at most 1 active Mobile Phone and 1 active Desktop Web browser at a time. Account sharing is prohibited under Terms of Service. You can sign out or terminate devices anytime in Settings.',
+                  isFa
+                      ? 'هر اشتراک سنجیا پرو هم‌زمان روی حداکثر ۱ گوشی موبایل و ۱ مرورگر وب دسکتاپ قابل استفاده است. اشتراک‌گذاری حساب مجاز نیست و در بخش تنظیمات می‌توانید دستگاه‌ها را مدیریت کنید.'
+                      : 'Each Mockza Pro account allows at most 1 active Mobile Phone and 1 active Desktop Web browser at a time. Account sharing is prohibited under Terms of Service. You can sign out or terminate devices anytime in Settings.',
                   style: typography.caption.copyWith(
                     color: colors.textSecondary,
                     height: 1.35,

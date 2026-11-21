@@ -41,7 +41,14 @@ export async function bufferAudioStream(
 function inferInputExtension(sourceKey?: string): string {
   if (!sourceKey) return '.m4a';
   const ext = extname(sourceKey).toLowerCase();
-  if (ext === '.webm' || ext === '.ogg' || ext === '.wav' || ext === '.m4a' || ext === '.mp4') {
+  if (
+    ext === '.webm' ||
+    ext === '.ogg' ||
+    ext === '.wav' ||
+    ext === '.m4a' ||
+    ext === '.mp4' ||
+    ext === '.mp3'
+  ) {
     return ext;
   }
   return '.m4a';
@@ -137,6 +144,11 @@ async function runBoundedProcess(
   });
 }
 
+export interface PrepareAudioOptions {
+  timeoutMs?: number;
+  maxDurationSeconds?: number;
+}
+
 /**
  * Validates container, bounds duration/transcode time, and normalizes audio to 16 kHz mono AAC .m4a.
  * Fails closed on corrupt/hanging/unsupported inputs instead of mislabeling unconverted bytes as .m4a.
@@ -144,8 +156,16 @@ async function runBoundedProcess(
 export async function prepareAudioForModel(
   buffer: Buffer,
   sourceKey?: string,
-  timeoutMs = DEFAULT_FFMPEG_TIMEOUT_MS,
+  timeoutOrOptions: number | PrepareAudioOptions = DEFAULT_FFMPEG_TIMEOUT_MS,
 ): Promise<PreparedAudioResult> {
+  const timeoutMs =
+    typeof timeoutOrOptions === 'number'
+      ? timeoutOrOptions
+      : (timeoutOrOptions.timeoutMs ?? DEFAULT_FFMPEG_TIMEOUT_MS);
+  const maxDurationSeconds =
+    typeof timeoutOrOptions === 'number'
+      ? MAX_DURATION_SECONDS
+      : (timeoutOrOptions.maxDurationSeconds ?? MAX_DURATION_SECONDS);
   const detectedContainer = detectAudioContainer(buffer);
   if (!detectedContainer) {
     throw new EvaluationModelError(
@@ -181,10 +201,10 @@ export async function prepareAudioForModel(
     }
     if (probe.ok && probe.stdout.length > 0) {
       const durationSec = Number.parseFloat(probe.stdout);
-      if (Number.isFinite(durationSec) && durationSec > MAX_DURATION_SECONDS) {
+      if (Number.isFinite(durationSec) && durationSec > maxDurationSeconds) {
         throw new EvaluationModelError(
-          'audio_missing',
-          `Audio clip duration (${durationSec.toFixed(1)}s) exceeds ${MAX_DURATION_SECONDS}s ceiling.`,
+          'audio_too_long',
+          `Audio clip duration (${durationSec.toFixed(1)}s) exceeds ${maxDurationSeconds}s ceiling.`,
           false,
         );
       }
@@ -195,7 +215,7 @@ export async function prepareAudioForModel(
       [
         '-y',
         '-t',
-        String(MAX_DURATION_SECONDS),
+        String(maxDurationSeconds),
         '-i',
         inPath,
         '-vn',
@@ -234,7 +254,7 @@ export async function prepareAudioForModel(
         [
           '-y',
           '-t',
-          String(MAX_DURATION_SECONDS),
+          String(maxDurationSeconds),
           '-i',
           inPath,
           '-vn',

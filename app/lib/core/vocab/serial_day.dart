@@ -14,4 +14,10 @@ extension type const SerialDay(int value) {
 
   /// Signed day difference (`this - other`).
   int differenceDays(SerialDay other) => value - other.value;
+
+  /// Converts this canonical UTC day index to UTC midnight [DateTime].
+  DateTime toUtcDateTime() => DateTime.fromMillisecondsSinceEpoch(
+    value * Duration.millisecondsPerDay,
+    isUtc: true,
+  );
 }

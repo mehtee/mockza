@@ -5,8 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mockza/core/auth/auth_models.dart';
+import 'package:mockza/core/config/brand_identity.dart';
+import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/exams/exam_descriptor.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/core/formatting/jalali_edge_formatter.dart';
+import 'package:mockza/core/vocab/serial_day.dart';
 import 'package:mockza/features/settings/presentation/settings_notifier.dart';
 import 'package:mockza/features/settings/presentation/settings_providers.dart';
 import 'package:mockza/routing/routes.dart';
@@ -16,9 +21,11 @@ import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/device_session_card.dart';
+import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
+import 'package:mockza/theme/components/mz_jalali_date_picker.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
 import 'package:mockza/theme/components/mz_toast.dart';
 import 'package:mockza/theme/primitives.dart';
@@ -37,15 +44,16 @@ class SettingsScreen extends ConsumerWidget {
     final cacheBytes = ref.watch(totalCacheBytesProvider).asData?.value ?? 0;
     final cachedPacksCount =
         ref.watch(downloadedPackCountProvider).asData?.value ?? 0;
+    final isIran = state.edition == AppEdition.iran;
 
     return MzScaffold(
       appBar: AppBar(
         leading: IconButton(
-          tooltip: 'Back',
+          tooltip: isIran ? 'بازگشت' : 'Back',
           icon: const AppIcon(LucideGlyph.chevronLeft, size: 22),
           onPressed: () => context.safePopOrGo(AppRoutes.home),
         ),
-        title: const Text('Settings'),
+        title: Text(isIran ? 'تنظیمات' : 'Settings'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsetsDirectional.symmetric(
@@ -54,23 +62,37 @@ class SettingsScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            _buildSectionHeader(context, 'Exam Calibration'),
+            _buildSectionHeader(
+              context,
+              isIran ? 'تنظیمات آزمون و هدف' : 'Exam Calibration',
+            ),
             const SizedBox(height: SpacingTokens.sm),
             _buildCalibrationCard(context, state, notifier),
             const SizedBox(height: SpacingTokens.xl),
-            _buildSectionHeader(context, 'Appearance'),
+            _buildSectionHeader(context, isIran ? 'ظاهر برنامه' : 'Appearance'),
             const SizedBox(height: SpacingTokens.sm),
             _buildThemeCard(context, state, notifier),
             const SizedBox(height: SpacingTokens.xl),
-            _buildSectionHeader(context, 'Subscription & Daily Quota'),
+            _buildSectionHeader(
+              context,
+              isIran ? 'اشتراک و سهمیه روزانه' : 'Subscription & Daily Quota',
+            ),
             const SizedBox(height: SpacingTokens.sm),
             _buildSubscriptionCard(context, state, notifier),
             const SizedBox(height: SpacingTokens.xl),
-            _buildSectionHeader(context, 'Account & Signed-In Devices'),
+            _buildSectionHeader(
+              context,
+              isIran
+                  ? 'حساب کاربری و دستگاه‌های فعال'
+                  : 'Account & Signed-In Devices',
+            ),
             const SizedBox(height: SpacingTokens.sm),
             _buildAccountCard(context, state, notifier),
             const SizedBox(height: SpacingTokens.xl),
-            _buildSectionHeader(context, 'Offline Storage'),
+            _buildSectionHeader(
+              context,
+              isIran ? 'حافظه آفلاین' : 'Offline Storage',
+            ),
             const SizedBox(height: SpacingTokens.sm),
             _buildStorageCard(
               context,
@@ -80,7 +102,7 @@ class SettingsScreen extends ConsumerWidget {
               cachedPacksCount: cachedPacksCount,
             ),
             const SizedBox(height: SpacingTokens.xl),
-            _buildDisclaimerCard(context),
+            _buildDisclaimerCard(context, state),
             const SizedBox(height: SpacingTokens.xl),
             _buildDangerZone(context, state, notifier),
             const SizedBox(height: SpacingTokens.xxl),
@@ -108,23 +130,32 @@ class SettingsScreen extends ConsumerWidget {
   ) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
+    final isIran = state.edition == AppEdition.iran;
+    final formattedExamDate = state.targetDateSerial != null
+        ? JalaliEdgeFormatter.formatSerialDay(
+            SerialDay(state.targetDateSerial!),
+            state.edition,
+          )
+        : (isIran ? 'تنظیم نشده' : 'Not set');
 
     return MzCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            'Exam Track',
+            isIran ? 'مسیر آزمون' : 'Exam Track',
             style: typography.body.copyWith(
               color: colors.textPrimary,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: SpacingTokens.xs),
-          Text(
-            ExamDescriptor.forTrack(state.track).subtitle,
-            style: typography.caption.copyWith(
-              color: colors.textSecondary,
+          LtrExamBoundary(
+            child: Text(
+              ExamDescriptor.forTrack(state.track).subtitle,
+              style: typography.caption.copyWith(
+                color: colors.textSecondary,
+              ),
             ),
           ),
           const SizedBox(height: SpacingTokens.sm),
@@ -149,7 +180,9 @@ class SettingsScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      'Target ${state.track.unitLabel} Score',
+                      isIran
+                          ? 'نمره هدف (${state.track.unitLabel})'
+                          : 'Target ${state.track.unitLabel} Score',
                       style: typography.body.copyWith(
                         color: colors.textPrimary,
                         fontWeight: FontWeight.w600,
@@ -158,7 +191,9 @@ class SettingsScreen extends ConsumerWidget {
                     Text(
                       state.track == ExamTrack.toeflIbt
                           ? 'Comparable to ~${ExamSpec.estimateToeflLegacy120(state.targetBand)}/120'
-                          : 'Personal goal used for progress tracking',
+                          : (isIran
+                                ? 'هدف شخصی برای پیگیری پیشرفت'
+                                : 'Personal goal used for progress tracking'),
                       style: typography.caption.copyWith(
                         color: colors.textSecondary,
                       ),
@@ -175,9 +210,11 @@ class SettingsScreen extends ConsumerWidget {
                       )
                     : null,
               ),
-              Text(
-                state.track.formatScore(state.targetBand),
-                style: typography.cardTitle.copyWith(color: colors.primary),
+              LtrExamBoundary(
+                child: Text(
+                  state.track.formatScore(state.targetBand),
+                  style: typography.cardTitle.copyWith(color: colors.primary),
+                ),
               ),
               IconButton(
                 tooltip: 'Increase target band score',
@@ -187,6 +224,69 @@ class SettingsScreen extends ConsumerWidget {
                         state.targetBand + state.track.scoreStep,
                       )
                     : null,
+              ),
+            ],
+          ),
+          const Divider(height: SpacingTokens.xl),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      isIran ? 'تاریخ آزمون (شمسی)' : 'Target Exam Date',
+                      style: typography.body.copyWith(
+                        color: colors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      formattedExamDate,
+                      style: typography.caption.copyWith(
+                        color: colors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: () async {
+                  final today = notifier.currentTodaySerialDay();
+                  if (isIran) {
+                    final picked = await showMzJalaliDatePickerSheet(
+                      context,
+                      today: today,
+                      initialSelectedDay: state.targetDateSerial != null
+                          ? SerialDay(state.targetDateSerial!)
+                          : null,
+                    );
+                    if (picked == null) return;
+                    await notifier.setTargetDateSerial(
+                      picked.cleared ? null : picked.day?.value,
+                    );
+                  } else {
+                    final initialDt = state.targetDateSerial != null
+                        ? SerialDay(state.targetDateSerial!).toUtcDateTime()
+                        : today.toUtcDateTime().add(const Duration(days: 30));
+                    final dt = await showDatePicker(
+                      context: context,
+                      initialDate: initialDt,
+                      firstDate: today.toUtcDateTime(),
+                      lastDate: today.toUtcDateTime().add(
+                        const Duration(days: 730),
+                      ),
+                    );
+                    if (dt != null) {
+                      await notifier.setTargetDateSerial(
+                        SerialDay.fromUtcDateTime(
+                          DateTime.utc(dt.year, dt.month, dt.day),
+                        ).value,
+                      );
+                    }
+                  }
+                },
+                child: Text(isIran ? 'تغییر تاریخ' : 'Set Date'),
               ),
             ],
           ),
@@ -812,9 +912,13 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDisclaimerCard(BuildContext context) {
+  Widget _buildDisclaimerCard(BuildContext context, SettingsState state) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
+    final isIran = state.edition == AppEdition.iran;
+    final brandName = BrandIdentity.forEdition(
+      state.edition,
+    ).localizedName(persian: isIran);
 
     return MzCard(
       variant: MzCardVariant.surfaceAlt,
@@ -827,7 +931,7 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(width: SpacingTokens.xs),
               Expanded(
                 child: Text(
-                  'Independent Practice Tool',
+                  isIran ? 'ابزار تمرین مستقل' : 'Independent Practice Tool',
                   style: typography.caption.copyWith(
                     color: colors.textPrimary,
                     fontWeight: FontWeight.w600,
@@ -838,7 +942,9 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: SpacingTokens.xs),
           Text(
-            'Mockza is an independent prep simulator and is not affiliated with, approved, or endorsed by IELTS, Cambridge Assessment English, British Council, IDP, PTE, Duolingo, or ETS.',
+            isIran
+                ? '$brandName یک شبیه‌ساز مستقل آمادگی آزمون است و وابسته، تاییدشده یا تحت حمایت سازمان‌های IELTS، Cambridge، British Council، IDP، PTE، Duolingo یا ETS نیست.'
+                : '$brandName is an independent prep simulator and is not affiliated with, approved, or endorsed by IELTS, Cambridge Assessment English, British Council, IDP, PTE, Duolingo, or ETS.',
             style: typography.caption.copyWith(
               color: colors.textSecondary,
               height: 1.4,
@@ -898,10 +1004,14 @@ class SettingsScreen extends ConsumerWidget {
   Widget _buildFooter(BuildContext context, SettingsState state) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
+    final isIran = state.edition == AppEdition.iran;
+    final brandName = BrandIdentity.forEdition(
+      state.edition,
+    ).localizedName(persian: isIran);
 
     return Center(
       child: Text(
-        'Mockza ${state.appVersionLabel} · Edition: ${state.edition.code}',
+        '$brandName ${EdgeNumerals.formatChromeNumber(state.appVersionLabel, state.edition)} · Edition: ${state.edition.code}',
         style: typography.caption.copyWith(color: colors.textTertiary),
       ),
     );

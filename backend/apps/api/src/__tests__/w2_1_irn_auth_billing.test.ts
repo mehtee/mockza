@@ -357,4 +357,79 @@ describe('W2.1 Auth Slot Takeover, IRN OTP, Web Billing & Audio MIME', () => {
     });
     expect(portalRes.status).toBe(200);
   });
+
+  it('verifies Cafe Bazaar & Myket sandbox receipts in IRN edition and rejects them in GLB', async () => {
+    const irnApp = createApiApp(createIrnEnv());
+    const phone = `+98912${Math.floor(1_000_000 + Math.random() * 8_999_999)}`;
+    const deviceId = randomUUID();
+
+    const otpReq = await irnApp.request('/v1/auth/otp/request', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ phone }),
+    });
+    expect(otpReq.status).toBe(200);
+    const { devOtpCode } = (await otpReq.json()) as { devOtpCode: string };
+
+    const otpVerify = await irnApp.request('/v1/auth/otp/verify', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        phone,
+        code: devOtpCode,
+        deviceId,
+        deviceMeta: { slotKind: 'mobile', platform: 'android', appSurface: 'flutter_app' },
+      }),
+    });
+    expect(otpVerify.status).toBe(200);
+    const { accessToken } = (await otpVerify.json()) as { accessToken: string };
+
+    const bazaarRes = await irnApp.request('/v1/billing/bazaar/verify', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        planId: 'mockza_pro_monthly',
+        productId: 'mockza_pro_monthly',
+        purchaseToken: `bazaar_tok_${randomUUID()}`,
+        packageName: 'ir.sanjia.app',
+      }),
+    });
+    expect(bazaarRes.status).toBe(200);
+    const bazaarJson = (await bazaarRes.json()) as { isPro: boolean; activePlanId: string };
+    expect(bazaarJson.isPro).toBe(true);
+    expect(bazaarJson.activePlanId).toBe('mockza_pro_monthly');
+
+    const myketRes = await irnApp.request('/v1/billing/myket/verify', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        planId: 'mockza_quarterly',
+        productId: 'mockza_quarterly',
+        purchaseToken: `myket_tok_${randomUUID()}`,
+        packageName: 'ir.sanjia.app',
+      }),
+    });
+    expect(myketRes.status).toBe(200);
+    const myketJson = (await myketRes.json()) as { isPro: boolean; activePlanId: string };
+    expect(myketJson.isPro).toBe(true);
+    expect(myketJson.activePlanId).toBe('mockza_quarterly');
+
+    const glbApp = createApiApp(createGlbEnv());
+    const glbBlocked = await glbApp.request('/v1/billing/bazaar/verify', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        planId: 'mockza_pro_monthly',
+        productId: 'mockza_pro_monthly',
+        purchaseToken: 'tok-x',
+      }),
+    });
+    expect([401, 403]).toContain(glbBlocked.status);
+  });
 });

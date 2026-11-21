@@ -4,8 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/features/paywall/presentation/paywall_notifier.dart';
 import 'package:mockza/features/paywall/presentation/paywall_providers.dart';
+import 'package:mockza/providers.dart';
 import 'package:mockza/routing/routes.dart';
 import 'package:mockza/routing/safe_pop.dart';
 import 'package:mockza/services/billing_gateway.dart';
@@ -32,6 +34,8 @@ class PaywallScreen extends ConsumerWidget {
     final typography = AppTypography.of(context);
     final state = ref.watch(paywallNotifierProvider);
     final notifier = ref.read(paywallNotifierProvider.notifier);
+    final isIran = ref.watch(editionConfigProvider).edition == AppEdition.iran;
+    final webBillingLocked = kIsWeb && !isIran;
 
     return MzScaffold(
       appBar: AppBar(
@@ -39,7 +43,7 @@ class PaywallScreen extends ConsumerWidget {
           icon: const AppIcon(LucideGlyph.x, size: 20),
           onPressed: () => context.safePopOrGo(AppRoutes.home),
         ),
-        title: const Text('Mockza Pro'),
+        title: Text(isIran ? 'سنجیا پرو' : 'Mockza Pro'),
       ),
       body: Center(
         child: ConstrainedBox(
@@ -51,59 +55,74 @@ class PaywallScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                if (kIsWeb) ...<Widget>[
+                if (webBillingLocked) ...<Widget>[
                   const StatusBanner(
                     variant: StatusBannerVariant.offline,
                     message: 'Subscriptions are managed via Google Play / App Store on mobile devices and synced automatically to your account.',
                   ),
                   const SizedBox(height: SpacingTokens.lg),
                 ],
-                _buildHeroHeader(context),
+                _buildHeroHeader(context, isIran: isIran),
                 const SizedBox(height: SpacingTokens.lg),
-                _buildFairUseAllowanceCard(context),
+                _buildFairUseAllowanceCard(context, isIran: isIran),
                 const SizedBox(height: SpacingTokens.xl),
                 Text(
-                  'Select Your Study Plan',
+                  isIran
+                      ? 'انتخاب بسته آمادگی آزمون'
+                      : 'Select Your Study Plan',
                   style: typography.cardTitle.copyWith(
                     color: colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: SpacingTokens.sm),
                 ...state.packages.map(
-                  (p) => _buildPackageCard(context, p, state, notifier),
+                  (p) => _buildPackageCard(
+                    context,
+                    p,
+                    state,
+                    notifier,
+                    isIran: isIran,
+                  ),
                 ),
                 const SizedBox(height: SpacingTokens.lg),
-                const DevicePolicyNoticeCard(
-                  title: 'Strict 1-Phone + 1-Desktop-Web Subscription Rule',
+                DevicePolicyNoticeCard(
+                  title: isIran
+                      ? 'قانون دقیق اشتراک شخصی (۱ موبایل + ۱ وب دسکتاپ)'
+                      : 'Strict 1-Phone + 1-Desktop-Web Subscription Rule',
                 ),
                 const SizedBox(height: SpacingTokens.sm),
-                _buildDevicePolicyConsentBox(context, state, notifier),
+                _buildDevicePolicyConsentBox(
+                  context,
+                  state,
+                  notifier,
+                  isIran: isIran,
+                ),
                 if (!state.isSignedIn && !state.isPro) ...<Widget>[
                   const SizedBox(height: SpacingTokens.sm),
-                  _buildSignInPromptCard(context, notifier),
+                  _buildSignInPromptCard(context, notifier, isIran: isIran),
                 ],
                 const SizedBox(height: SpacingTokens.xl),
                 PrimaryButton(
                   label: state.isPro
-                      ? 'Pro Active'
-                      : (kIsWeb
+                      ? (isIran ? 'اشتراک پرو فعال است' : 'Pro Active')
+                      : (webBillingLocked
                             ? 'Subscribe via Android / iOS App'
-                            : 'Subscribe to Mockza Pro'),
+                            : (isIran
+                                  ? 'پرداخت و فعال‌سازی سنجیا پرو'
+                                  : 'Subscribe to Mockza Pro')),
                   isLoading: state.isBusy,
-                  onPressed: state.isPro || state.isBusy || kIsWeb
+                  onPressed: state.isPro || state.isBusy || webBillingLocked
                       ? null
                       : () => unawaited(
                           notifier.purchaseSelected(requirePolicyConsent: true),
                         ),
                 ),
-                const SizedBox(height: SpacingTokens.md),
-                Center(
-                  child: TextButton(
-                    onPressed: state.isBusy || kIsWeb
-                        ? null
-                        : () => unawaited(notifier.restorePurchases()),
-                    child: const Text('Restore Previous Purchases'),
-                  ),
+                const SizedBox(height: SpacingTokens.sm),
+                SecondaryButton(
+                  label: isIran ? 'بازیابی خرید قبلی' : 'Restore Purchases',
+                  onPressed: state.isBusy || webBillingLocked
+                      ? null
+                      : () => unawaited(notifier.restorePurchases()),
                 ),
                 if (state.statusMessage != null) ...<Widget>[
                   const SizedBox(height: SpacingTokens.sm),
@@ -116,9 +135,9 @@ class PaywallScreen extends ConsumerWidget {
                   ),
                 ],
                 const SizedBox(height: SpacingTokens.xl),
-                _buildFreeComparisonCard(context),
+                _buildFreeComparisonCard(context, isIran: isIran),
                 const SizedBox(height: SpacingTokens.xl),
-                _buildTermsNotice(context),
+                _buildTermsNotice(context, isIran: isIran),
                 const SizedBox(height: SpacingTokens.xxl),
               ],
             ),
@@ -128,22 +147,24 @@ class PaywallScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeroHeader(BuildContext context) {
+  Widget _buildHeroHeader(BuildContext context, {required bool isIran}) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
 
     return Column(
       children: <Widget>[
-        const MockzaMark(size: 48),
+        EditionBrandMark(size: 48, isIran: isIran),
         const SizedBox(height: SpacingTokens.md),
         Text(
-          'Reach Your Target Band',
+          isIran ? 'به نمره هدف خود برسید' : 'Reach Your Target Band',
           textAlign: TextAlign.center,
           style: typography.headline.copyWith(color: colors.textPrimary),
         ),
         const SizedBox(height: SpacingTokens.xs),
         Text(
-          'Structured IELTS Speaking & Writing rubric coaching paired with original Reading & Listening practice tests.',
+          isIran
+              ? 'ارزیابی دقیق اسپیکینگ و رایتینگ با هوش مصنوعی، همراه با آزمون‌های کامل ریدینگ و لیسنینگ آیلتس، تافل، پی‌تی‌ای و دولینگو.'
+              : 'Structured IELTS Speaking & Writing rubric coaching paired with original Reading & Listening practice tests.',
           textAlign: TextAlign.center,
           style: typography.body.copyWith(color: colors.textSecondary),
         ),
@@ -151,7 +172,10 @@ class PaywallScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildFairUseAllowanceCard(BuildContext context) {
+  Widget _buildFairUseAllowanceCard(
+    BuildContext context, {
+    required bool isIran,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
 
@@ -166,10 +190,12 @@ class PaywallScreen extends ConsumerWidget {
               const SizedBox(width: SpacingTokens.xs),
               Expanded(
                 child: Text(
-                  'TRANSPARENT FAIR-USE ALLOWANCE',
+                  isIran
+                      ? 'سهمیه شفاف و حرفه‌ای مصرف روزانه'
+                      : 'TRANSPARENT FAIR-USE ALLOWANCE',
                   style: typography.caption.copyWith(
                     color: colors.textSecondary,
-                    letterSpacing: 1.2,
+                    letterSpacing: isIran ? 0 : 1.2,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -179,23 +205,31 @@ class PaywallScreen extends ConsumerWidget {
           const SizedBox(height: SpacingTokens.md),
           _buildAllowanceBullet(
             context,
-            '10 Speaking & 10 Writing evaluations / day',
+            isIran
+                ? 'روزانه ۱۰ ارزیابی اسپیکینگ و ۱۰ ارزیابی رایتینگ'
+                : '10 Speaking & 10 Writing evaluations / day',
           ),
           _buildAllowanceBullet(
             context,
-            '150 evaluations / month',
+            isIran ? 'ماهانه ۱۵۰ ارزیابی هوشمند' : '150 evaluations / month',
           ),
           _buildAllowanceBullet(
             context,
-            'Unlimited 1-tap Mistake-to-Deck vocab saves',
+            isIran
+                ? 'ذخیره نامحدود اشتباهات به عنوان فلش‌کارت واژگان با معنی فارسی'
+                : 'Unlimited 1-tap Mistake-to-Deck vocab saves',
           ),
           _buildAllowanceBullet(
             context,
-            'Full offline Reading & Listening exam packs unlocked',
+            isIran
+                ? 'دسترسی کامل به بسته‌های آفلاین ریدینگ و لیسنینگ'
+                : 'Full offline Reading & Listening exam packs unlocked',
           ),
           _buildAllowanceBullet(
             context,
-            'Instant "Ask AI Why?" rationale explanations',
+            isIran
+                ? 'تحلیل فوری «چرا این پاسخ درست/غلط است؟» با هوش مصنوعی'
+                : 'Instant "Ask AI Why?" rationale explanations',
           ),
         ],
       ),
@@ -228,8 +262,9 @@ class PaywallScreen extends ConsumerWidget {
     BuildContext context,
     StorePackage package,
     PaywallState state,
-    PaywallNotifier notifier,
-  ) {
+    PaywallNotifier notifier, {
+    required bool isIran,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
     final shapes = AppShapes.of(context);
@@ -277,8 +312,8 @@ class PaywallScreen extends ConsumerWidget {
                           ),
                         ),
                         if (isBestValue)
-                          const MzChip(
-                            label: 'BEST VALUE',
+                          MzChip(
+                            label: isIran ? 'محبوب‌ترین' : 'BEST VALUE',
                             isSelected: true,
                           ),
                       ],
@@ -307,7 +342,10 @@ class PaywallScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildFreeComparisonCard(BuildContext context) {
+  Widget _buildFreeComparisonCard(
+    BuildContext context, {
+    required bool isIran,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
 
@@ -317,12 +355,16 @@ class PaywallScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            'Free Starter Plan Includes:',
+            isIran
+                ? 'امکانات نسخه رایگان پایه:'
+                : 'Free Starter Plan Includes:',
             style: typography.cardTitle.copyWith(color: colors.textPrimary),
           ),
           const SizedBox(height: SpacingTokens.xs),
           Text(
-            '1 shared free diagnostic AI evaluation (Speaking or Writing), full offline Reading & Listening practice tests, and daily spaced repetition vocabulary reviews.',
+            isIran
+                ? '۱ ارزیابی رایگان تشخیص سطح با هوش مصنوعی (اسپیکینگ یا رایتینگ)، دسترسی به آزمون‌های آفلاین ریدینگ و لیسنینگ و مرور روزانه واژگان.'
+                : '1 shared free diagnostic AI evaluation (Speaking or Writing), full offline Reading & Listening practice tests, and daily spaced repetition vocabulary reviews.',
             style: typography.caption.copyWith(
               color: colors.textSecondary,
               height: 1.4,
@@ -336,8 +378,9 @@ class PaywallScreen extends ConsumerWidget {
   Widget _buildDevicePolicyConsentBox(
     BuildContext context,
     PaywallState state,
-    PaywallNotifier notifier,
-  ) {
+    PaywallNotifier notifier, {
+    required bool isIran,
+  }) {
     final colors = AppColors.of(context);
     final shapes = AppShapes.of(context);
     final typography = AppTypography.of(context);
@@ -345,7 +388,9 @@ class PaywallScreen extends ConsumerWidget {
     return Semantics(
       toggled: state.hasAcceptedDevicePolicy,
       button: true,
-      label: 'Agree to strict 1 Mobile Phone and 1 Desktop Web personal-use subscription policy',
+      label: isIran
+          ? 'تایید قانون استفاده شخصی در ۱ گوشی موبایل و ۱ مرورگر دسکتاپ'
+          : 'Agree to strict 1 Mobile Phone and 1 Desktop Web personal-use subscription policy',
       child: InkWell(
         onTap: state.isPro ? null : notifier.toggleDevicePolicyConsent,
         borderRadius: shapes.controlRadius,
@@ -378,7 +423,9 @@ class PaywallScreen extends ConsumerWidget {
               const SizedBox(width: SpacingTokens.md),
               Expanded(
                 child: Text(
-                  'I understand and agree that my subscription permits at most 1 active Mobile Phone and 1 active Desktop Web browser at a time (personal use only; no account sharing).',
+                  isIran
+                      ? 'قوانین استفاده شخصی را می‌پذیرم: اشتراک سنجیا هم‌زمان حداکثر روی ۱ گوشی موبایل و ۱ مرورگر وب دسکتاپ قابل استفاده است.'
+                      : 'I understand and agree that my subscription permits at most 1 active Mobile Phone and 1 active Desktop Web browser at a time (personal use only; no account sharing).',
                   style: typography.caption.copyWith(
                     color: colors.textPrimary,
                     height: 1.35,
@@ -394,8 +441,9 @@ class PaywallScreen extends ConsumerWidget {
 
   Widget _buildSignInPromptCard(
     BuildContext context,
-    PaywallNotifier notifier,
-  ) {
+    PaywallNotifier notifier, {
+    required bool isIran,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
 
@@ -407,14 +455,18 @@ class PaywallScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'Link Your Account First',
+                  isIran
+                      ? 'ابتدا وارد حساب کاربری شوید'
+                      : 'Link Your Account First',
                   style: typography.body.copyWith(
                     color: colors.textPrimary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
-                  'Sign in with Google, Apple, or Email to carry Pro between your phone and Desktop Web.',
+                  isIran
+                      ? 'با شماره موبایل یا ایمیل وارد شوید تا اشتراک پرو بین گوشی و وب همگام شود.'
+                      : 'Sign in with Google, Apple, or Email to carry Pro between your phone and Desktop Web.',
                   style: typography.caption.copyWith(
                     color: colors.textSecondary,
                   ),
@@ -433,19 +485,21 @@ class PaywallScreen extends ConsumerWidget {
                 unawaited(notifier.refreshAccountLinkState());
               }
             },
-            child: const Text('Sign In'),
+            child: Text(isIran ? 'ورود' : 'Sign In'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTermsNotice(BuildContext context) {
+  Widget _buildTermsNotice(BuildContext context, {required bool isIran}) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
 
     return Text(
-      'Subscriptions are strictly licensed to one individual across at most 1 Mobile Phone and 1 Desktop Web browser and automatically renew unless canceled at least 24 hours before the end of the current period. Manage devices anytime in Settings or cancel in App Store / Google Play account settings.',
+      isIran
+          ? 'پرداخت ریالی از طریق درگاه بانکی شاپرک (زرین‌پال) یا مارکت‌های رسمی کافه‌بازار و مایکت انجام می‌شود و اشتراک به‌صورت فردی روی ۱ موبایل و ۱ مرورگر دسکتاپ فعال می‌گردد.'
+          : 'Subscriptions are strictly licensed to one individual across at most 1 Mobile Phone and 1 Desktop Web browser and automatically renew unless canceled at least 24 hours before the end of the current period. Manage devices anytime in Settings or cancel in App Store / Google Play account settings.',
       textAlign: TextAlign.center,
       style: typography.caption.copyWith(
         color: colors.textTertiary,

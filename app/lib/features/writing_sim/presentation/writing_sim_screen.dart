@@ -16,6 +16,7 @@ import 'package:mockza/theme/components/chart_stage_card.dart';
 import 'package:mockza/theme/components/collapsible_prompt_card.dart';
 import 'package:mockza/theme/components/exam_exit_guard.dart';
 import 'package:mockza/theme/components/exam_question_controls.dart';
+import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
 import 'package:mockza/theme/components/status_banner.dart';
@@ -269,25 +270,27 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
                           const SizedBox(height: SpacingTokens.sm),
                         ],
                         // Prompt Card (collapsible on compact screens so the editor stays reachable `UX-06`)
-                        CollapsiblePromptCard(
-                          overline: _headingForTaskType(state.taskType),
-                          title: state.promptTitle,
-                          promptBody: state.promptDescription,
-                          isCollapsed: _isPromptCollapsed,
-                          onToggleCollapsed: () => setState(
-                            () => _isPromptCollapsed = !_isPromptCollapsed,
+                        LtrExamBoundary(
+                          child: CollapsiblePromptCard(
+                            overline: _headingForTaskType(state.taskType),
+                            title: state.promptTitle,
+                            promptBody: state.promptDescription,
+                            isCollapsed: _isPromptCollapsed,
+                            onToggleCollapsed: () => setState(
+                              () => _isPromptCollapsed = !_isPromptCollapsed,
+                            ),
+                            expandedAttachment:
+                                (state.chartSvg != null &&
+                                    state.chartSvg!.isNotEmpty)
+                                ? ExamSvgChartCard(
+                                    chartSvgOrPath: state.chartSvg!,
+                                    resolvedUrl: editionConfig.resolveMediaUrl(
+                                      state.chartSvg!,
+                                    ),
+                                    caption: state.chartCaption,
+                                  )
+                                : null,
                           ),
-                          expandedAttachment:
-                              (state.chartSvg != null &&
-                                  state.chartSvg!.isNotEmpty)
-                              ? ExamSvgChartCard(
-                                  chartSvgOrPath: state.chartSvg!,
-                                  resolvedUrl: editionConfig.resolveMediaUrl(
-                                    state.chartSvg!,
-                                  ),
-                                  caption: state.chartCaption,
-                                )
-                              : null,
                         ),
                         const SizedBox(height: SpacingTokens.md),
 
@@ -330,26 +333,28 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
                                 ],
                               ),
                               const SizedBox(height: SpacingTokens.xs),
-                              TextField(
-                                controller: _controller,
-                                readOnly:
-                                    state.isTimeExpired || state.isSubmitting,
-                                maxLines: 15,
-                                autocorrect: !state.isExamMode,
-                                enableSuggestions: !state.isExamMode,
-                                style: typography.readingPassage,
-                                decoration: InputDecoration(
-                                  border: InputBorder.none,
-                                  hintText: state.isTimeExpired
-                                      ? 'Time expired — submit your response below.'
-                                      : (state.isEphemeralStorage
-                                            ? 'Begin typing your response here (memory-only session)...'
-                                            : 'Begin typing your response here... Drafts autosave locally.'),
-                                  hintStyle: typography.body.copyWith(
-                                    color: colors.textTertiary,
+                              LtrExamBoundary(
+                                child: TextField(
+                                  controller: _controller,
+                                  readOnly:
+                                      state.isTimeExpired || state.isSubmitting,
+                                  maxLines: 15,
+                                  autocorrect: !state.isExamMode,
+                                  enableSuggestions: !state.isExamMode,
+                                  style: typography.readingPassage,
+                                  decoration: InputDecoration(
+                                    border: InputBorder.none,
+                                    hintText: state.isTimeExpired
+                                        ? 'Time expired — submit your response below.'
+                                        : (state.isEphemeralStorage
+                                              ? 'Begin typing your response here (memory-only session)...'
+                                              : 'Begin typing your response here... Drafts autosave locally.'),
+                                    hintStyle: typography.body.copyWith(
+                                      color: colors.textTertiary,
+                                    ),
                                   ),
+                                  onChanged: notifier.updateDraft,
                                 ),
-                                onChanged: notifier.updateDraft,
                               ),
                             ],
                           ),
