@@ -167,6 +167,23 @@ export function signUploadProxyParams(params: {
   return createHmac('sha256', params.secret).update(payload).digest('hex');
 }
 
+export function createAudioPresignObjectUrl(params: {
+  client: S3Client;
+  bucket: string;
+  objectKey: string;
+  contentType: string;
+  byteLength: number;
+  expiresInSeconds?: number;
+}): Promise<string> {
+  const command = new PutObjectCommand({
+    Bucket: params.bucket,
+    Key: params.objectKey,
+    ContentType: params.contentType,
+    ContentLength: params.byteLength,
+  });
+  return getSignedUrl(params.client, command, { expiresIn: params.expiresInSeconds ?? 300 });
+}
+
 export function verifyUploadProxySignature(params: {
   secret: string;
   bucket: string;

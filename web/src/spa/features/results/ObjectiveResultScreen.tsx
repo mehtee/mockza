@@ -1,15 +1,19 @@
 import { estimateToeflLegacy120, formatExamScoreWithUnit } from '@mockza/domain';
-import { Link } from '@tanstack/react-router';
-import { CheckCircle2, Crosshair, HelpCircle, Sparkles, XCircle } from 'lucide-react';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { CheckCircle2, Crosshair, HelpCircle, Mic, Sparkles, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   AudioStudioPlayer,
   PassageAnnotatorPane,
   SplitPaneWorkspace,
 } from '@/components/exam-kit';
+import { InlineListenButton } from '@/components/speech/InlineListenButton';
+import { SpeechPracticeDrawer } from '@/components/speech/SpeechPracticeDrawer';
+import { PlanImpactCard } from '@/components/personalization/PlanImpactCard';
 import { MzBanner, MzButton, MzCard, MzSegmentedControl } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import { makePackMediaKey, type ExamBundlePayload } from '@/gateways/catalog.gateway';
+import { resolveWebRoadmapStepPath } from '@/spa/roadmap-route-resolver';
 import type { ExplainQuestionResponse } from '@/gateways/evaluation.gateway';
 import type { CompletedAttemptRecord } from '@/gateways/storage.gateway';
 import { createTranslator } from '@/i18n';
@@ -25,6 +29,7 @@ export interface ObjectiveResultScreenProps {
 
 export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps) {
   const deps = useDeps();
+  const navigate = useNavigate();
   const t = createTranslator(deps.edition);
 
   const [attempt, setAttempt] = useState<CompletedAttemptRecord | null>(null);
@@ -41,6 +46,10 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
   >({});
   const [loadingQuestionId, setLoadingQuestionId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [shadowTarget, setShadowTarget] = useState<{
+    readonly text: string;
+    readonly questionId: string;
+  } | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -236,6 +245,13 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
 
       {errorMsg ? <MzBanner tone="danger">{errorMsg}</MzBanner> : null}
 
+      <PlanImpactCard
+        skill={attempt.skill === 'listening' ? 'listening' : 'reading'}
+        scoreBand={attempt.overallBand}
+        onOpenNextStep={(step) => void navigate({ to: resolveWebRoadmapStepPath(step) as never })}
+        onOpenRoadmap={() => void navigate({ to: '/roadmap' })}
+      />
+
       {!loadingBundle && !bundle ? (
         <MzBanner tone="info">{t('objResultSourceUnavailable')}</MzBanner>
       ) : null}
@@ -279,7 +295,8 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
                 rawText={activeSection?.contentText ?? ''}
                 annotations={[]}
                 evidenceSpan={activeSpan}
-                readOnly
+                allowSpeechPractice
+                packId={attempt.packId}
               />
             )
           }
@@ -354,9 +371,33 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
                       </div>
 
                       {typeof quote === 'string' && quote ? (
-                        <blockquote className="mt-3 border-s-2 border-primary bg-surface-alt p-3 text-sm text-text-primary" dir="ltr">
-                          {quote}
-                        </blockquote>
+                        <div className="mt-3 space-y-2 border-s-2 border-primary bg-surface-alt p-3">
+                          <blockquote className="text-sm text-text-primary" dir="ltr">
+                            {quote}
+                          </blockquote>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <InlineListenButton
+                              text={quote}
+                              sourceContext={attempt.skill === 'listening' ? 'listening_feedback' : 'reading'}
+                              testId={`result-quote-listen-${question.questionNumber}`}
+                              size="sm"
+                            />
+                            <button
+                              type="button"
+                              data-testid={`result-quote-practice-${question.questionNumber}`}
+                              onClick={() =>
+                                setShadowTarget({
+                                  text: quote,
+                                  questionId: question.questionId,
+                                })
+                              }
+                              className="inline-flex h-7 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-primary/40 bg-canvas px-2 text-[11px] font-semibold text-primary hover:bg-surface-hover"
+                            >
+                              <Mic className="h-3 w-3" aria-hidden="true" />
+                              <span>{t('speechPracticeBtn')}</span>
+                            </button>
+                          </div>
+                        </div>
                       ) : null}
                       {notes.length > 0 ? (
                         <div className="mt-3 space-y-1 text-sm text-text-secondary" dir="ltr">
@@ -465,6 +506,16 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
           </Link>
         )}
       </MzCard>
+
+      <SpeechPracticeDrawer
+        open={shadowTarget !== null}
+        onClose={() => setShadowTarget(null)}
+        targetText={shadowTarget?.text ?? ''}
+        practiceKind="feedback_shadow"
+        sourceRefType={attempt?.skill === 'listening' ? 'listening_feedback' : 'reading_passage'}
+        sourceRefId={shadowTarget?.questionId}
+        examTrack={attempt?.examId}
+      />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import 'package:mockza/core/exams/exam_descriptor.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/formatting/edge_numerals.dart';
 import 'package:mockza/core/formatting/jalali_edge_formatter.dart';
+import 'package:mockza/core/personalization/topic_taxonomy.dart';
 import 'package:mockza/core/vocab/serial_day.dart';
 import 'package:mockza/features/settings/presentation/settings_notifier.dart';
 import 'package:mockza/features/settings/presentation/settings_providers.dart';
@@ -339,6 +340,84 @@ class SettingsScreen extends ConsumerWidget {
                   );
                 })
                 .toList(growable: false),
+          ),
+          const Divider(height: SpacingTokens.xl),
+          Text(
+            AppLocalizations.of(context).favoriteTopicsLabel,
+            style: typography.secondary.copyWith(
+              color: colors.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: SpacingTokens.xs),
+          Wrap(
+            spacing: SpacingTokens.xs,
+            runSpacing: SpacingTokens.xs,
+            children: CanonicalTopicKey.values
+                .map((topic) {
+                  final wire = topic.wireKey;
+                  final selected = state.favoriteTopics.contains(wire);
+                  return FilterChip(
+                    key: ValueKey<String>('settings_topic_$wire'),
+                    label: Text(
+                      topic.labelFor(isIran: state.edition == AppEdition.iran),
+                    ),
+                    selected: selected,
+                    onSelected: (_) =>
+                        unawaited(notifier.toggleFavoriteTopic(wire)),
+                  );
+                })
+                .toList(growable: false),
+          ),
+          const Divider(height: SpacingTokens.xl),
+          Text(
+            l10n.settingsDailyNewCapTitle,
+            style: typography.secondary.copyWith(
+              color: colors.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: SpacingTokens.xs),
+          Wrap(
+            spacing: SpacingTokens.xs,
+            runSpacing: SpacingTokens.xs,
+            children: <int>[5, 10, 20]
+                .map(
+                  (cap) => ChoiceChip(
+                    label: Text('$cap'),
+                    selected: state.dailyNewVocabCap == cap,
+                    onSelected: (_) =>
+                        unawaited(notifier.setDailyNewVocabCap(cap)),
+                  ),
+                )
+                .toList(growable: false),
+          ),
+          const Divider(height: SpacingTokens.xl),
+          Text(
+            l10n.settingsTtsAccentTitle,
+            style: typography.secondary.copyWith(
+              color: colors.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: SpacingTokens.xs),
+          Wrap(
+            spacing: SpacingTokens.xs,
+            runSpacing: SpacingTokens.xs,
+            children: <Widget>[
+              ChoiceChip(
+                label: Text(l10n.settingsTtsAccentUs),
+                selected: state.preferredTtsAccent == 'us',
+                onSelected: (_) =>
+                    unawaited(notifier.setPreferredTtsAccent('us')),
+              ),
+              ChoiceChip(
+                label: Text(l10n.settingsTtsAccentUk),
+                selected: state.preferredTtsAccent == 'uk',
+                onSelected: (_) =>
+                    unawaited(notifier.setPreferredTtsAccent('uk')),
+              ),
+            ],
           ),
         ],
       ),
@@ -786,6 +865,16 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: SpacingTokens.sm),
+          SecondaryButton(
+            label: state.isSyncingDevices
+                ? AppLocalizations.of(context).loadingLabel
+                : AppLocalizations.of(context).syncDevicesNow,
+            glyph: LucideGlyph.refreshCw,
+            onPressed: state.isSyncingDevices
+                ? null
+                : () => unawaited(notifier.syncAcrossDevicesNow()),
           ),
           const SizedBox(height: SpacingTokens.sm),
           SecondaryButton(

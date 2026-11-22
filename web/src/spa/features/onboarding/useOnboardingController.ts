@@ -1,12 +1,15 @@
 import {
+  CANONICAL_TOPICS,
   EXAM_DESCRIPTORS,
   EXAM_TRACK_SPECS,
   nextTargetWhenSwitchingFrom,
+  normalizeFavoriteTopicList,
   normalizeScoreToQualityRatio,
   quantizeExamScore,
   type SerialDay,
   serialDayFromUtcMs,
   type SupportedExamId,
+  TOPIC_METADATA,
   utcMidnightMsFromSerialDay,
 } from '@mockza/domain';
 import { useCallback, useEffect, useState } from 'react';
@@ -24,16 +27,13 @@ export interface StarterInterestTopic {
   readonly labelFa: string;
 }
 
-export const STARTER_INTEREST_TOPICS: readonly StarterInterestTopic[] = [
-  { key: 'Technology & AI', labelEn: 'Technology & AI', labelFa: 'فناوری و هوش مصنوعی' },
-  { key: 'Career & Workplace', labelEn: 'Career & Workplace', labelFa: 'کار و محیط حرفه‌ای' },
-  { key: 'Travel & Culture', labelEn: 'Travel & Culture', labelFa: 'سفر و فرهنگ' },
-  { key: 'Health & Fitness', labelEn: 'Health & Fitness', labelFa: 'سلامت و تناسب' },
-  { key: 'Science & Climate', labelEn: 'Science & Climate', labelFa: 'علم و محیط زیست' },
-  { key: 'Cinema & Arts', labelEn: 'Cinema & Arts', labelFa: 'سینما و هنر' },
-  { key: 'Sports', labelEn: 'Sports', labelFa: 'ورزش' },
-  { key: 'Business & Finance', labelEn: 'Business & Finance', labelFa: 'کسب‌وکار و مالی' },
-];
+export const STARTER_INTEREST_TOPICS: readonly StarterInterestTopic[] = CANONICAL_TOPICS.map(
+  (topicKey) => ({
+    key: topicKey,
+    labelEn: TOPIC_METADATA[topicKey].labelEn,
+    labelFa: TOPIC_METADATA[topicKey].labelFa,
+  }),
+);
 
 export interface JalaliDraftFields {
   readonly jy: string;
@@ -120,6 +120,9 @@ export function useOnboardingController() {
         setExistingProfile(profile);
         setSelectedTrack(profile.examId);
         if (profile.studyFocus) setStudyFocus(profile.studyFocus);
+        if (profile.favoriteTopics && profile.favoriteTopics.length > 0) {
+          setSelectedTopics(normalizeFavoriteTopicList(profile.favoriteTopics));
+        }
         setTargetScore(quantizeExamScore(profile.targetBand, profile.examId));
         setTargetDateSerial(profile.targetDateSerial);
         syncDateInputsFromSerial(profile.targetDateSerial);
@@ -242,11 +245,13 @@ export function useOnboardingController() {
       }
       setIsSaving(true);
       const nowMs = deps.clock.nowMs();
+      const canonicalTopics = normalizeFavoriteTopicList(selectedTopics);
       const record: UserProfileRecord = {
         deviceId,
         examId: selectedTrack,
         examModule: selectedTrack === 'ielts_general' ? 'general_training' : 'academic',
         studyFocus,
+        favoriteTopics: canonicalTopics,
         targetBand: targetScore,
         targetDateSerial,
         onboardingCompleted: markCompleted ? true : (existingProfile?.onboardingCompleted ?? false),
@@ -257,11 +262,34 @@ export function useOnboardingController() {
         updatedAtMs: nowMs,
       };
       const res = await deps.attemptStore.saveUserProfile(record);
-      if (markCompleted && res.ok && selectedTopics.length > 0) {
-        void deps.linguistic.updateInterests({
-          pinTopics: [...selectedTopics],
-          muteTopics: [],
-        });
+      if (markCompleted && res.ok) {
+        if (canonicalTopics.length > 0) {
+          void deps.linguistic.updateInterests({
+            pinTopics: canonicalTopics,
+            muteTopics: [],
+          });
+        }
+        const profilePayload = {
+          examTrack: selectedTrack,
+          targetBand: targetScore,
+          targetDateIso: targetDateSerial
+            ? new Date(utcMidnightMsFromSerialDay(targetDateSerial)).toISOString()
+            : null,
+          studyFocus: studyFocus === 'coach' ? ('speaking_only' as const) : ('both' as const),
+          favoriteTopics: canonicalTopics,
+          onboardingCompleted: true,
+        };
+        if (deps.personalization) {
+          const pRes = await deps.personalization.updateProfile(profilePayload);
+          if (!pRes.ok) {
+            void deps.syncOutbox.enqueue({
+              idempotencyKey: `profile.update:${nowMs}`,
+              actionType: 'profile.update',
+              entityKind: 'attempt',
+              payloadJson: JSON.stringify(profilePayload),
+            });
+          }
+        }
       }
       setExistingProfile(record);
       setIsSaving(false);
@@ -272,6 +300,8 @@ export function useOnboardingController() {
       deps.attemptStore,
       deps.clock,
       deps.linguistic,
+      deps.personalization,
+      deps.syncOutbox,
       deviceId,
       existingProfile,
       selectedTopics,

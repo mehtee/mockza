@@ -656,6 +656,7 @@ export const QuotaStatusResponseSchema = z
         freeSampleUsed: z.boolean(),
         shifterRemainingToday: z.number().int().nonnegative(),
         dropsRemainingToday: z.number().int().nonnegative(),
+        pronunciationRemainingToday: z.number().int().nonnegative().optional(),
         audioDropAllowed: z.boolean(),
         monthlyRemaining: z.number().int().nonnegative(),
       })
@@ -685,6 +686,11 @@ export const CatalogPackSummarySchema = z
       .default('authored_original'),
     humanQaReviewed: z.boolean().default(true),
     isFreeSample: z.boolean(),
+    topicKeys: z.array(z.string()).default([]),
+    weaknessTargets: z.array(z.string()).default([]),
+    cefrMin: z.string().default('B1'),
+    cefrMax: z.string().default('C1'),
+    roadmapOrder: z.number().int().default(100),
   })
   .openapi('CatalogPackSummary');
 
@@ -755,6 +761,10 @@ export const MicroDrillSchema = z
     skill: z.string(),
     durationSeconds: z.number().int().positive(),
     items: z.array(MicroDrillItemSchema),
+    topicKeys: z.array(z.string()).default([]),
+    weaknessTargets: z.array(z.string()).default([]),
+    cefrMin: z.string().default('B1'),
+    cefrMax: z.string().default('C1'),
   })
   .openapi('MicroDrill');
 
@@ -775,6 +785,9 @@ export const VocabDeckCardSchema = z
     paraphrases: z.array(z.string()),
     collocations: z.array(z.string()),
     easeFactorMilli: z.number().int().positive(),
+    canonicalTopic: z.string().default('academic_core'),
+    cefrLevel: z.string().default('B2'),
+    baseWaveOrder: z.number().int().default(100),
   })
   .openapi('VocabDeckCard');
 
@@ -1126,6 +1139,8 @@ export const DailyMissionPayloadSchema = z.object({
   promptTextEn: z.string(),
   promptTextFa: z.string().nullable().optional(),
   responseMode: z.enum(['writing', 'speaking']),
+  topicSelectionReasonEn: z.string().nullable().optional(),
+  topicSelectionReasonFa: z.string().nullable().optional(),
 });
 
 export const DailyMissionResponseSchema = z
@@ -1346,3 +1361,420 @@ export const DropHistoryResponseSchema = z
     nextCursor: z.string().nullable(),
   })
   .openapi('DropHistoryResponse');
+
+// ============================================================================
+// Adaptive Personalization, Roadmap, Kokoro TTS, Pronunciation & Tracing
+// ============================================================================
+
+export const BandConfidenceSchema = z.enum(['provisional', 'developing', 'calibrated']);
+
+export const LiveSkillBandStateSchema = z.object({
+  score: z.number().nullable(),
+  confidence: BandConfidenceSchema,
+  evidenceCount: z.number().int().nonnegative(),
+  lastUpdatedAt: z.string().nullable(),
+  trendDelta: z.number().nullable(),
+});
+
+export const LiveBandProfileSchema = z
+  .object({
+    examTrack: z.string(),
+    currentBand: z.number().nullable(),
+    targetBand: z.number(),
+    bandShift: z.number(),
+    confidence: BandConfidenceSchema,
+    skills: z.object({
+      reading: LiveSkillBandStateSchema,
+      listening: LiveSkillBandStateSchema,
+      writing: LiveSkillBandStateSchema,
+      speaking: LiveSkillBandStateSchema,
+    }),
+  })
+  .openapi('LiveBandProfile');
+
+export const AdaptationPhaseSchema = z.enum([
+  'favorite_topics',
+  'weakness_transfer',
+  'exam_breadth',
+]);
+
+export const WeaknessSummaryDtoSchema = z.object({
+  canonicalKey: z.string(),
+  skill: z.enum(['reading', 'listening', 'writing', 'speaking', 'mixed']),
+  displayLabelEn: z.string(),
+  displayLabelFa: z.string(),
+  masteryScoreMilli: z.number().int().min(0).max(1000),
+  evidenceCount: z.number().int().nonnegative(),
+  status: z.enum(['active', 'resolving', 'mastered']),
+});
+
+export const STUDY_FOCUS_MODES = ['exams', 'coach', 'both', 'speaking_only'] as const;
+export const TTS_SOURCE_CONTEXTS = [
+  'vocab',
+  'reading',
+  'listening_feedback',
+  'speaking_feedback',
+  'writing_feedback',
+  'coach',
+  'pronunciation',
+] as const;
+export const PRONUNCIATION_PRACTICE_KINDS = [
+  'word',
+  'sentence',
+  'reading_excerpt',
+  'feedback_shadow',
+] as const;
+export const PRONUNCIATION_SOURCE_REF_TYPES = [
+  'vocab_card',
+  'reading_passage',
+  'listening_feedback',
+  'writing_feedback',
+  'speaking_feedback',
+  'coach',
+  'custom',
+] as const;
+export const BAND_EVENT_SKILLS = ['reading', 'listening', 'writing', 'speaking'] as const;
+export const BAND_EVENT_SOURCE_KINDS = [
+  'diagnostic',
+  'practice_section',
+  'full_mock',
+  'writing_eval',
+  'speaking_eval',
+  'micro_drill',
+  'mission',
+  'pronunciation',
+] as const;
+
+export const RoadmapStepDtoSchema = z.object({
+  stepId: z.string(),
+  milestoneIndex: z.number().int().min(1).max(4),
+  stepOrder: z.number().int().nonnegative(),
+  stepKind: z.enum([
+    'vocab_wave',
+    'micro_drill',
+    'daily_mission',
+    'practice_section',
+    'practice_pack',
+    'full_mock',
+    'pronunciation',
+    'register_shifter',
+    'drop_anything',
+    'diagnostic',
+  ]),
+  skill: z.enum(['reading', 'listening', 'writing', 'speaking', 'vocabulary', 'all']).default('all'),
+  titleEn: z.string(),
+  titleFa: z.string(),
+  reasonEn: z.string(),
+  reasonFa: z.string(),
+  topicKey: z.string(),
+  weaknessKey: z.string().nullable().optional(),
+  targetRoute: z.string(),
+  targetEntityId: z.string().nullable().optional(),
+  status: z.enum(['locked', 'active', 'completed', 'skipped']),
+  estimatedMinutes: z.number().int().positive(),
+});
+
+export const RoadmapMilestoneDtoSchema = z.object({
+  index: z.number().int().min(1).max(4),
+  titleEn: z.string(),
+  titleFa: z.string(),
+  phaseLabelEn: z.string(),
+  phaseLabelFa: z.string(),
+  targetBandDelta: z.number(),
+  status: z.enum(['locked', 'active', 'completed']),
+});
+
+export const RoadmapPlanDtoSchema = z
+  .object({
+    planId: z.string(),
+    examTrack: z.string(),
+    planRevision: z.number().int().positive(),
+    baselineBand: z.number(),
+    targetBand: z.number(),
+    isSprintMode: z.boolean(),
+    milestones: z.array(RoadmapMilestoneDtoSchema),
+    currentStep: RoadmapStepDtoSchema.nullable(),
+    steps: z.array(RoadmapStepDtoSchema),
+  })
+  .openapi('RoadmapPlanDto');
+
+export const VocabWaveSummarySchema = z.object({
+  unlockedWave: z.number().int().positive(),
+  totalWaves: z.number().int().positive(),
+  currentWaveTotal: z.number().int().nonnegative(),
+  currentWaveLearned: z.number().int().nonnegative(),
+  readyToUnlockNext: z.boolean(),
+  dailyNewRemaining: z.number().int().nonnegative(),
+});
+
+export const RecommendedPackDtoSchema = z.object({
+  packId: z.string(),
+  score: z.number(),
+  phase: AdaptationPhaseSchema,
+  topicKey: z.string(),
+  weaknessKey: z.string().nullable().optional(),
+  reasonEn: z.string(),
+  reasonFa: z.string(),
+});
+
+export const RecommendedDrillDtoSchema = z.object({
+  drillId: z.string(),
+  score: z.number(),
+  phase: AdaptationPhaseSchema,
+  topicKey: z.string(),
+  weaknessKey: z.string().nullable().optional(),
+  reasonEn: z.string(),
+  reasonFa: z.string(),
+});
+
+export const PersonalizationStateResponseSchema = z
+  .object({
+    profile: z.object({
+      examTrack: z.string(),
+      targetBand: z.number(),
+      targetDateIso: z.string().nullable(),
+      dailyMinutesGoal: z.number().int().positive(),
+      studyFocus: z.enum(STUDY_FOCUS_MODES),
+      favoriteTopics: z.array(z.string()),
+      activeWeaknessPhase: AdaptationPhaseSchema,
+      vocabUnlockedWave: z.number().int().positive(),
+      dailyNewVocabCap: z.number().int().positive(),
+      preferredTtsAccent: z.enum(['us', 'uk']).default('us'),
+      bandShiftAcknowledged: z.boolean().default(false),
+      onboardingCompleted: z.boolean(),
+    }),
+    liveBand: LiveBandProfileSchema,
+    weaknesses: z.array(WeaknessSummaryDtoSchema),
+    roadmap: RoadmapPlanDtoSchema,
+    nextRecommendedPack: RecommendedPackDtoSchema.nullable(),
+    nextRecommendedDrill: RecommendedDrillDtoSchema.nullable(),
+    recommendedPacks: z.array(RecommendedPackDtoSchema).default([]),
+    recommendedDrills: z.array(RecommendedDrillDtoSchema).default([]),
+    vocabWaveSummary: VocabWaveSummarySchema,
+    topicCoverageSummary: z.object({
+      phase: AdaptationPhaseSchema,
+      masteredInFavoriteTopicsCount: z.number().int().nonnegative(),
+      transferredToOtherTopicsCount: z.number().int().nonnegative(),
+    }),
+  })
+  .openapi('PersonalizationStateResponse');
+
+export const UpdatePersonalizationProfileRequestSchema = z
+  .object({
+    examTrack: z.string().max(60).optional(),
+    targetBand: z.number().min(1).max(160).optional(),
+    targetDateIso: z.string().nullable().optional(),
+    dailyMinutesGoal: z.number().int().min(10).max(240).optional(),
+    studyFocus: z.enum(STUDY_FOCUS_MODES).optional(),
+    favoriteTopics: z.array(z.string().min(1).max(60)).max(10).optional(),
+    dailyNewVocabCap: z.number().int().min(3).max(50).optional(),
+    preferredTtsAccent: z.enum(['us', 'uk']).optional(),
+    onboardingCompleted: z.boolean().optional(),
+    unlockNextVocabWave: z.boolean().optional(),
+  })
+  .openapi('UpdatePersonalizationProfileRequest');
+
+export const AckBandShiftResponseSchema = z
+  .object({
+    ok: z.boolean(),
+    bandShift: z.number(),
+  })
+  .openapi('AckBandShiftResponse');
+
+export const BandEventSourceKindSchema = z.enum(BAND_EVENT_SOURCE_KINDS);
+
+export const RecordBandEventRequestSchema = z
+  .object({
+    examTrack: z.string().max(60),
+    skill: z.enum(BAND_EVENT_SKILLS),
+    sourceKind: BandEventSourceKindSchema,
+    sourceId: z.string().min(1).max(160),
+    rawScore: z.number().min(0).max(160),
+    cefrEstimate: DiagnosticTierSchema.nullable().optional(),
+    durationSeconds: z.number().int().nonnegative().optional(),
+    accuracyRatio: z.number().min(0).max(1).optional(),
+    topicKeys: z.array(z.string()).max(6).default([]),
+    questionTypeStats: z
+      .array(
+        z.object({
+          questionType: z.string(),
+          correct: z.number().int().nonnegative(),
+          total: z.number().int().positive(),
+        }),
+      )
+      .optional(),
+    packId: z.string().optional(),
+    attemptId: z.string().optional(),
+    scoreBand: z.number().nullable().optional(),
+    answersJson: z.record(z.string(), z.unknown()).optional(),
+    feedbackJson: z.record(z.string(), z.unknown()).optional(),
+  })
+  .openapi('RecordBandEventRequest');
+
+export const RoadmapStepActionRequestSchema = z
+  .object({
+    status: z.enum(['completed', 'skipped', 'active']),
+  })
+  .openapi('RoadmapStepActionRequest');
+
+export const TtsSynthesizeRequestSchema = z
+  .object({
+    text: z.string().trim().min(1).max(1000),
+    voice: z.string().trim().min(1).max(64).optional(),
+    speed: z.number().min(0.6).max(1.5).default(1),
+    sourceContext: z.enum(TTS_SOURCE_CONTEXTS).optional(),
+  })
+  .openapi('TtsSynthesizeRequest');
+
+export const TtsSynthesizeResponseSchema = z
+  .object({
+    cacheKey: z.string(),
+    audioUrl: z.string().min(1),
+    cached: z.boolean(),
+    modelUsed: z.string(),
+    voice: z.string(),
+    format: z.string().default('mp3'),
+  })
+  .openapi('TtsSynthesizeResponse');
+
+export const PronunciationPresignRequestSchema = z
+  .object({
+    practiceId: z.string().uuid(),
+    byteLength: z.number().int().positive().max(8 * 1024 * 1024),
+    contentType: z
+      .string()
+      .transform(normalizeAudioMimeType)
+      .pipe(z.enum(BASE_AUDIO_MIME_TYPES))
+      .default('audio/mp4'),
+  })
+  .openapi('PronunciationPresignRequest');
+
+export const PronunciationPresignResponseSchema = z
+  .object({
+    practiceId: z.string().uuid(),
+    uploadUrl: z.string().min(1),
+    objectKey: z.string(),
+    expiresInSeconds: z.number().int().positive(),
+  })
+  .openapi('PronunciationPresignResponse');
+
+export const AnalyzePronunciationRequestSchema = z
+  .object({
+    practiceId: z.string().uuid().optional(),
+    targetText: z.string().trim().min(1).max(600),
+    practiceKind: z.enum(PRONUNCIATION_PRACTICE_KINDS).default('word'),
+    sourceRefType: z.enum(PRONUNCIATION_SOURCE_REF_TYPES).optional(),
+    sourceRefId: z.string().max(160).optional(),
+    examTrack: z.string().default('ielts_academic'),
+    objectKey: z.string().min(5).max(500),
+    durationMs: z.number().int().nonnegative().max(120_000).optional(),
+  })
+  .openapi('AnalyzePronunciationRequest');
+
+export const PronunciationWordFeedbackDtoSchema = z.object({
+  word: z.string(),
+  status: z.enum(['accurate', 'needs_work', 'missing_or_extra']),
+  ipaTarget: z.string().nullable().optional(),
+  ipaObserved: z.string().nullable().optional(),
+  issueType: z.string().default('none'),
+  tipEn: z.string(),
+  tipFa: z.string().nullable().optional(),
+});
+
+export const PronunciationPracticeItemSchema = z
+  .object({
+    practiceId: z.string().uuid(),
+    targetText: z.string(),
+    practiceKind: z.string(),
+    sourceRefType: z.string().nullable().optional(),
+    sourceRefId: z.string().nullable().optional(),
+    objectKey: z.string(),
+    audioPlayUrl: z.string().nullable().optional(),
+    referenceTtsUrl: z.string().nullable().optional(),
+    transcript: z.string().nullable().optional(),
+    accuracyScore: z.number().nullable().optional(),
+    fluencyScore: z.number().nullable().optional(),
+    intonationScore: z.number().nullable().optional(),
+    stressScore: z.number().nullable().optional(),
+    overallScore: z.number().nullable().optional(),
+    bandImpactLabel: z.string().nullable().optional(),
+    summaryEn: z.string().nullable().optional(),
+    summaryFa: z.string().nullable().optional(),
+    mouthTipEn: z.string().nullable().optional(),
+    mouthTipFa: z.string().nullable().optional(),
+    actionableRetryEn: z.string().nullable().optional(),
+    actionableRetryFa: z.string().nullable().optional(),
+    wordsFeedback: z.array(PronunciationWordFeedbackDtoSchema).default([]),
+    status: z.string(),
+    errorMessage: z.string().nullable().optional(),
+    modelUsed: z.string().nullable().optional(),
+    estimatedCostUsdMicros: z.number().int().nonnegative().default(0),
+    createdAt: z.string(),
+  })
+  .openapi('PronunciationPracticeItem');
+
+export const PronunciationHistoryResponseSchema = z
+  .object({
+    items: z.array(PronunciationPracticeItemSchema),
+    nextCursor: z.string().nullable().optional(),
+    remainingDailyQuota: z.number().int().nonnegative().optional(),
+    dailyQuotaLimit: z.number().int().positive().optional(),
+  })
+  .openapi('PronunciationHistoryResponse');
+
+export const VocabBatchSyncItemSchema = z.object({
+  cardId: z.string(),
+  easeFactorMilli: z.number().int().positive().default(2500),
+  intervalDays: z.number().int().nonnegative().default(0),
+  repetitions: z.number().int().nonnegative().default(0),
+  dueSerialDay: z.number().int().nonnegative().default(0),
+  lapses: z.number().int().nonnegative().default(0),
+  lastReviewedAt: z.string().nullable().optional(),
+  sourceKind: z.string().default('seeded'),
+  cardSnapshotJson: z.record(z.string(), z.unknown()).nullable().optional(),
+});
+
+export const VocabBatchSyncRequestSchema = z
+  .object({
+    cards: z.array(VocabBatchSyncItemSchema).max(500),
+  })
+  .openapi('VocabBatchSyncRequest');
+
+export const SyncPullResponseSchema = z
+  .object({
+    profile: PersonalizationStateResponseSchema.shape.profile.nullable(),
+    liveBand: LiveBandProfileSchema.nullable(),
+    roadmap: RoadmapPlanDtoSchema.nullable(),
+    attempts: z.array(
+      z.object({
+        attemptId: z.string(),
+        packId: z.string(),
+        examId: z.string(),
+        skill: z.string(),
+        mode: z.string(),
+        status: z.string(),
+        scoreBand: z.number().nullable().optional(),
+        durationSeconds: z.number().int().nonnegative().default(0),
+        answersJson: z.record(z.string(), z.unknown()).nullable().optional(),
+        feedbackJson: z.record(z.string(), z.unknown()).nullable().optional(),
+        updatedAt: z.string(),
+      }),
+    ),
+    vocabSrs: z.array(VocabBatchSyncItemSchema),
+    pronunciationPractices: z.array(PronunciationPracticeItemSchema),
+    recentActivities: z
+      .array(
+        z.object({
+          activityId: z.string(),
+          activityKind: z.string(),
+          entityType: z.string(),
+          entityId: z.string(),
+          topicKey: z.string().nullable().optional(),
+          durationSeconds: z.number().int().nullable().optional(),
+          createdAt: z.string(),
+        }),
+      )
+      .default([]),
+    syncedAt: z.string(),
+  })
+  .openapi('SyncPullResponse');

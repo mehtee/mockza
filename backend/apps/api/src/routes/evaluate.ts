@@ -22,6 +22,8 @@ import {
   examSections,
   jobDispatchOutbox,
   type MockzaDb,
+  recordAiUsageLedger,
+  recordUserActivityLedger,
 } from '@mockza/db';
 import { DomainError } from '@mockza/domain';
 import { createAudioS3Client, verifyUploadedAudioObject } from '@mockza/storage';
@@ -1201,17 +1203,65 @@ export function registerEvaluateRoutes(
           : payload.skill;
 
       // Generate question-generic explanation using authoritative DB metadata (`RR-18`, `TD-59`).
-      const generatedExplanation = await explainQuestionGraph.invoke({
-        ...payload,
-        edition: payload.edition ?? env.EDITION,
-        packVersion: authoritativePackVersion,
-        questionType: qRow.questionType,
-        skill: authoritativeSkill,
-        userAnswer: '',
-        correctAnswer: correctAnswer || undefined,
-        questionPrompt: questionPrompt || undefined,
-        passageExcerpt: passageExcerpt || undefined,
-      });
+      const capturedUsages: Array<{
+        modelId: string;
+        providerRequestId?: string | null;
+        promptTokens: number;
+        completionTokens: number;
+        cachedTokens: number;
+        totalTokens: number;
+        estimatedCostUsdMicros: number;
+        costUsdSource: 'openrouter_usage' | 'registry_estimate' | 'unknown';
+        latencyMs: number;
+      }> = [];
+      const generatedExplanation = await explainQuestionGraph.invoke(
+        {
+          ...payload,
+          edition: payload.edition ?? env.EDITION,
+          packVersion: authoritativePackVersion,
+          questionType: qRow.questionType,
+          skill: authoritativeSkill,
+          userAnswer: '',
+          correctAnswer: correctAnswer || undefined,
+          questionPrompt: questionPrompt || undefined,
+          passageExcerpt: passageExcerpt || undefined,
+        },
+        {
+          onUsage: async (u) => {
+            capturedUsages.push(u);
+          },
+        },
+      );
+
+      for (const u of capturedUsages) {
+        await recordAiUsageLedger({
+          db,
+          accountKey,
+          deviceId,
+          edition,
+          featureKind: 'explain_question',
+          entityType: 'exam_question',
+          entityId: payload.questionId,
+          modelId: u.modelId,
+          providerRequestId: u.providerRequestId,
+          promptTokens: u.promptTokens,
+          completionTokens: u.completionTokens,
+          cachedTokens: u.cachedTokens,
+          totalTokens: u.totalTokens,
+          estimatedCostUsdMicros: u.estimatedCostUsdMicros,
+          costUsdSource: u.costUsdSource,
+          latencyMs: u.latencyMs,
+        }).catch(() => {});
+      }
+      await recordUserActivityLedger({
+        db,
+        accountKey,
+        deviceId,
+        edition,
+        activityKind: 'explain_question',
+        entityType: 'exam_question',
+        entityId: payload.questionId,
+      }).catch(() => {});
 
       const responsePayload = {
         cached: false,

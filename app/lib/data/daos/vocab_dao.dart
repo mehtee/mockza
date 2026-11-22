@@ -69,6 +69,9 @@ class VocabDao extends DatabaseAccessor<AppDatabase> with _$VocabDaoMixin {
             glossFa: card.glossFa,
             topicTag: card.topicTag,
             contextSentence: card.contextSentence,
+            canonicalTopic: card.canonicalTopic,
+            cefrLevel: card.cefrLevel,
+            baseWaveOrder: card.baseWaveOrder,
             updatedAt: card.updatedAt,
           ),
         ),
@@ -84,6 +87,14 @@ class VocabDao extends DatabaseAccessor<AppDatabase> with _$VocabDaoMixin {
   Future<VocabCardRow?> getCardById(String cardId) => (select(
     vocabCards,
   )..where((t) => t.cardId.equals(cardId))).getSingleOrNull();
+
+  /// Returns distinct card IDs reviewed on [serialDay] for daily new-word cap enforcement.
+  Future<Set<String>> getReviewedCardIdsOnDay(int serialDay) async {
+    final rows = await (select(
+      vocabReviewLogs,
+    )..where((t) => t.reviewedDaySerial.equals(serialDay))).get();
+    return rows.map((r) => r.cardId).toSet();
+  }
 
   /// Inserts or updates a vocabulary card.
   Future<void> upsertCard(VocabCardsCompanion card) =>

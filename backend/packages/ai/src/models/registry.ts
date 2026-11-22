@@ -6,12 +6,43 @@
 export const MODEL_REGISTRY = {
   writingPrimary: 'deepseek/deepseek-v4.1-flash-1017',
   speakingAudioPrimary: 'google/gemini-3.1-flash-lite',
+  pronunciationAudioPrimary: 'google/gemini-3.1-flash-lite',
+  ttsDefault: 'hexgrad/kokoro-82m',
   drillFast: 'deepseek/deepseek-v4.1-flash-1017',
   missionPlanner: 'deepseek/deepseek-v4.1-flash-1017',
   system1Decision: 'google/gemini-decision-1',
   system1Extractor: 'cloudflare/clairic',
   rubricVersion: 'ielts-v2026-01',
 } as const;
+
+export function resolveTtsModelId(override?: string): string {
+  const configured = override?.trim() || process.env['OPENROUTER_TTS_MODEL']?.trim();
+  return configured && configured.length > 0 ? configured : MODEL_REGISTRY.ttsDefault;
+}
+
+export const KOKORO_ALLOWED_VOICES = {
+  us: 'af_bella',
+  uk: 'bf_emma',
+  af_bella: 'af_bella',
+  af_sarah: 'af_sarah',
+  am_adam: 'am_adam',
+  bf_emma: 'bf_emma',
+  bm_george: 'bm_george',
+} as const;
+
+export function resolveTtsDefaultVoice(override?: string): string {
+  const configured = override?.trim() || process.env['OPENROUTER_TTS_DEFAULT_VOICE']?.trim();
+  if (!configured) return 'af_bella';
+  const mapped = KOKORO_ALLOWED_VOICES[configured as keyof typeof KOKORO_ALLOWED_VOICES];
+  return mapped ?? 'af_bella';
+}
+
+export function resolvePronunciationModelId(override?: string): string {
+  const configured = override?.trim() || process.env['OPENROUTER_PRONUNCIATION_MODEL']?.trim();
+  return configured && configured.length > 0
+    ? configured
+    : MODEL_REGISTRY.pronunciationAudioPrimary;
+}
 
 export const ALPHA_FALLBACK_REGISTRY = {
   'google/gemini-decision-1': {
@@ -78,5 +109,15 @@ export const MODEL_METADATA: Record<string, ModelCapabilityMetadata> = {
     outputCostPer1M: 0,
     calibrated: false,
     isAlpha: true,
+  },
+  'hexgrad/kokoro-82m': {
+    id: 'hexgrad/kokoro-82m',
+    supportsAudioInput: false,
+    supportsImageInput: false,
+    acceptedAudioFormats: ['mp3', 'wav'],
+    supportsStructuredJsonSchema: false,
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    calibrated: true,
   },
 };

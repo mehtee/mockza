@@ -10,11 +10,13 @@ import {
   type SupportedExamId,
 } from '@mockza/domain';
 import { Link } from '@tanstack/react-router';
-import { ArrowUpRight, Download, Flame, GitCompare, Target, TrendingUp } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { ArrowUpRight, Compass, Download, Flame, GitCompare, Mic, Play, Target, TrendingUp } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { MzBanner, MzButton, MzCard } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import { formatDisplayDate } from '@/edition/calendar/jalali-edge';
+import type { PersonalizationStateDto } from '@/gateways/personalization.gateway';
+import type { PronunciationPracticeItemDto } from '@/gateways/speech-practice.gateway';
 import type { CompletedAttemptRecord, DailyStudyLogRecord } from '@/gateways/storage.gateway';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
@@ -35,13 +37,19 @@ export function ProgressScreen() {
   const [attempts, setAttempts] = useState<readonly CompletedAttemptRecord[]>([]);
   const [studyLogs, setStudyLogs] = useState<readonly DailyStudyLogRecord[]>([]);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const [personalization, setPersonalization] = useState<PersonalizationStateDto | null>(null);
+  const [pronHistory, setPronHistory] = useState<readonly PronunciationPracticeItemDto[]>([]);
+  const [playingTakeId, setPlayingTakeId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     let mounted = true;
     async function hydrate() {
-      const [profileRes, logsRes] = await Promise.all([
+      const [profileRes, logsRes, pRes, hRes] = await Promise.all([
         deps.attemptStore.getUserProfile(),
         deps.attemptStore.listRecentDailyStudyLogs(30),
+        deps.personalization ? deps.personalization.getState() : Promise.resolve(null),
+        deps.speechPractice ? deps.speechPractice.listPronunciationHistory({ limit: 8 }) : Promise.resolve(null),
       ]);
       if (!mounted) return;
       const activeExam = profileRes.ok && profileRes.value ? profileRes.value.examId : 'ielts_academic';
@@ -51,6 +59,12 @@ export function ProgressScreen() {
       }
       if (logsRes.ok) {
         setStudyLogs(logsRes.value);
+      }
+      if (pRes && pRes.ok) {
+        setPersonalization(pRes.value);
+      }
+      if (hRes && hRes.ok) {
+        setPronHistory(hRes.value.items);
       }
 
       const attemptsRes = await deps.attemptStore.listCompletedAttempts({
@@ -64,8 +78,27 @@ export function ProgressScreen() {
     void hydrate();
     return () => {
       mounted = false;
+      audioRef.current?.pause();
     };
-  }, [deps.attemptStore]);
+  }, [deps.attemptStore, deps.personalization, deps.speechPractice]);
+
+  const handleReplayTake = async (item: PronunciationPracticeItemDto) => {
+    if (!deps.speechPractice || !item.audioPlayUrl) return;
+    if (playingTakeId === item.practiceId) {
+      audioRef.current?.pause();
+      setPlayingTakeId(null);
+      return;
+    }
+    const res = await deps.speechPractice.resolveAuthenticatedAudioUrl(item.audioPlayUrl);
+    if (!res.ok) return;
+    audioRef.current?.pause();
+    const audio = new Audio(res.value);
+    audioRef.current = audio;
+    setPlayingTakeId(item.practiceId);
+    audio.onended = () => setPlayingTakeId(null);
+    audio.onerror = () => setPlayingTakeId(null);
+    void audio.play().catch(() => setPlayingTakeId(null));
+  };
 
   const scoredAttempts = useMemo(
     () =>
@@ -140,7 +173,13 @@ export function ProgressScreen() {
           : padX + (idx / (scoredAttempts.length - 1)) * (width - padX * 2);
       const norm = (item.score - trackSpec.minScore) / spanScore;
       const y = height - padY - norm * (height - padY * 2);
-      return { x: Math.round(x), y: Math.round(y), score: item.score, skill: item.skill };
+      return {
+        x: Math.round(x),
+        y: Math.round(y),
+        score: item.score,
+        skill: item.skill,
+        isCalibrated: item.attempt.isCalibratedFullPack,
+      };
     });
   }, [scoredAttempts, trackSpec.maxScore, trackSpec.minScore]);
 
@@ -279,6 +318,24 @@ export function ProgressScreen() {
                 ? t('progressTargetReachedBadge')
                 : t('progressReadinessGapLabel', { gap: readinessGap })}
           </p>
+          {personalization ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="rounded-[var(--mz-radius-pill)] border border-primary/30 bg-surface-alt px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+                {personalization.liveBand.confidence === 'calibrated'
+                  ? t('confidenceHigh')
+                  : personalization.liveBand.confidence === 'developing'
+                    ? t('confidenceMedium')
+                    : t('confidenceLow')}
+              </span>
+              <Link
+                to="/roadmap"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+              >
+                <Compass className="h-3 w-3" aria-hidden="true" />
+                <span>{t('navRoadmap')}</span>
+              </Link>
+            </div>
+          ) : null}
         </MzCard>
 
         <MzCard variant="default">
@@ -362,10 +419,15 @@ export function ProgressScreen() {
                     cx={pt.x}
                     cy={pt.y}
                     r="4.5"
-                    fill="currentColor"
+                    fill={pt.isCalibrated ? 'currentColor' : 'var(--mz-color-canvas)'}
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeDasharray={pt.isCalibrated ? undefined : '2 1.5'}
                     className="text-primary"
                   >
-                    <title>{`${pt.skill}: ${pt.score}`}</title>
+                    <title>
+                      {`${pt.skill}: ${pt.score} (${pt.isCalibrated ? 'Calibrated' : 'Provisional'})`}
+                    </title>
                   </circle>
                 ))}
               </svg>
@@ -537,6 +599,42 @@ export function ProgressScreen() {
                   </span>
                 </LtrExamBoundary>
               </Link>
+            ))}
+          </div>
+        </MzCard>
+      ) : null}
+
+      {/* Pronunciation Studio Saved Takes & History */}
+      {pronHistory.length > 0 ? (
+        <MzCard variant="default" data-testid="progress-pronunciation-history-card">
+          <div className="mb-3 flex items-center gap-2">
+            <Mic className="h-4 w-4 text-primary" aria-hidden="true" />
+            <h2 className="text-sm font-bold text-text-primary">{t('speechPastTakesTitle')}</h2>
+          </div>
+          <div className="flex flex-col gap-2">
+            {pronHistory.map((item) => (
+              <div
+                key={item.practiceId}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-3.5 py-2.5 text-xs"
+              >
+                <div className="min-w-0 flex-1">
+                  <LtrExamBoundary>
+                    <p className="truncate font-semibold text-text-primary">{item.targetText}</p>
+                  </LtrExamBoundary>
+                  <p className="text-[11px] text-text-secondary">
+                    {item.overallScore != null ? `${t('speechScoreOverall')}: ${item.overallScore}/100` : item.status}{' '}
+                    · {formatDisplayDate(Date.parse(item.createdAt), deps.edition)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleReplayTake(item)}
+                  className="inline-flex h-8 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-2.5 text-xs font-semibold text-primary hover:border-primary"
+                >
+                  <Play className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{playingTakeId === item.practiceId ? '...' : t('speechPlayOwnTake')}</span>
+                </button>
+              </div>
             ))}
           </div>
         </MzCard>

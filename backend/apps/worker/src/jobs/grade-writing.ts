@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
+  type AiUsageRecord,
   type DiagnosticWritingInput,
   EvaluationModelError,
   gradeWritingDiagnosticGraph,
@@ -12,8 +13,13 @@ import {
   commitQuotaReservationAtomic,
   evaluationJobs,
   type MockzaDb,
+  recordAiUsageLedger,
+  recordBandEventAndRecalculate,
+  recordUserActivityLedger,
   refundQuotaAtomic,
+  upsertUserAttemptSync,
 } from '@mockza/db';
+import { mapCefrTierToExamScore, normalizeSupportedExamId, type AuthoringTier } from '@mockza/domain';
 import { and, eq, isNull, lt, notInArray, or } from 'drizzle-orm';
 import { JOB_LEASE_DURATION_MS, startEvaluationLeaseRenewal } from './evaluation-lease.js';
 import { recordPostEvaluationLinguisticSignals } from './record-linguistic-signals.js';
@@ -36,6 +42,9 @@ export async function handleGradeWritingJob(
   const maxAttempts = retryCtx.maxAttempts ?? 3;
   const expectedGeneration = payload.executionGeneration ?? 1;
   const claimToken = randomUUID();
+
+  let claimedAccountKey: string | undefined;
+  let claimedDeviceId: string | undefined;
 
   if (db && payload.jobId) {
     const claimExpiresAt = new Date(Date.now() + JOB_LEASE_DURATION_MS);
@@ -64,7 +73,11 @@ export async function handleGradeWritingJob(
           ),
         ),
       )
-      .returning({ jobId: evaluationJobs.jobId });
+      .returning({
+        jobId: evaluationJobs.jobId,
+        accountKey: evaluationJobs.accountKey,
+        deviceId: evaluationJobs.deviceId,
+      });
 
     if (claimed.length === 0) {
       const [existing] = await db
@@ -81,6 +94,8 @@ export async function handleGradeWritingJob(
       // Absent, stale generation, failed, or actively leased by another worker.
       return null;
     }
+    claimedAccountKey = claimed[0]?.accountKey;
+    claimedDeviceId = claimed[0]?.deviceId;
   }
 
   const stopLeaseRenewal =
@@ -106,6 +121,14 @@ export async function handleGradeWritingJob(
     const isDiagnosticTask = rawPayload.taskType === 'diagnostic_writing';
     const effectiveEdition =
       rawPayload.edition ?? (process.env['EDITION'] === 'irn' ? 'irn' : 'glb');
+    const collectedUsages: AiUsageRecord[] = [];
+    const trackedOptions: WritingInvokeOptions = {
+      ...invokeOptions,
+      onUsage: async (u) => {
+        collectedUsages.push(u);
+        await invokeOptions?.onUsage?.(u);
+      },
+    };
     const result = isDiagnosticTask
       ? await gradeWritingDiagnosticGraph.invoke(
           {
@@ -117,11 +140,12 @@ export async function handleGradeWritingJob(
             baseResponse: rawPayload.baseResponse ?? rawPayload.essayText,
             followUpResponse: rawPayload.followUpResponse,
           } satisfies DiagnosticWritingInput,
-          invokeOptions,
+          trackedOptions,
         )
-      : await gradeWritingGraph.invoke({ ...payload, edition: effectiveEdition }, invokeOptions);
+      : await gradeWritingGraph.invoke({ ...payload, edition: effectiveEdition }, trackedOptions);
     const latencyMs = Date.now() - startMs;
     const numericBand = 'overallBand' in result ? result.overallBand : null;
+    const primaryUsage = collectedUsages[0] ?? null;
 
     if (db && payload.jobId) {
       await db.transaction(async (tx) => {
@@ -135,6 +159,8 @@ export async function handleGradeWritingJob(
             modelId: result.modelId,
             rubricVersion: result.rubricVersion,
             latencyMs,
+            tokenUsageJson: primaryUsage,
+            estimatedCostUsdMicros: primaryUsage?.estimatedCostUsdMicros ?? 0,
             errorCode: null,
             claimToken: null,
             claimExpiresAt: null,
@@ -168,6 +194,74 @@ export async function handleGradeWritingJob(
         sourceRefId: payload.attemptId,
         textSample: writingSample,
       });
+
+      if (claimedAccountKey) {
+        for (const u of collectedUsages) {
+          await recordAiUsageLedger({
+            db,
+            accountKey: claimedAccountKey,
+            deviceId: claimedDeviceId ?? null,
+            edition: effectiveEdition,
+            featureKind: u.featureKind,
+            entityType: isDiagnosticTask ? 'diagnostic_writing' : 'writing_eval',
+            entityId: payload.attemptId,
+            modelId: u.modelId,
+            providerRequestId: u.providerRequestId,
+            promptTokens: u.promptTokens,
+            completionTokens: u.completionTokens,
+            cachedTokens: u.cachedTokens,
+            totalTokens: u.totalTokens,
+            estimatedCostUsdMicros: u.estimatedCostUsdMicros,
+            costUsdSource: u.costUsdSource,
+            latencyMs: u.latencyMs,
+          }).catch(() => {});
+        }
+        const effectiveExam = normalizeSupportedExamId(rawPayload.examId);
+        const derivedScore =
+          numericBand ??
+          ('tierHint' in result && result.tierHint
+            ? mapCefrTierToExamScore(result.tierHint as AuthoringTier, effectiveExam)
+            : null);
+        if (derivedScore != null) {
+          await recordBandEventAndRecalculate({
+            db,
+            accountKey: claimedAccountKey,
+            edition: effectiveEdition,
+            examTrack: effectiveExam,
+            skill: 'writing',
+            sourceKind: isDiagnosticTask ? 'diagnostic' : 'writing_eval',
+            sourceId: payload.attemptId,
+            rawScore: derivedScore,
+            cefrEstimate: 'tierHint' in result ? (result.tierHint ?? null) : null,
+            durationSeconds: rawPayload.durationSeconds ?? undefined,
+          }).catch(() => {});
+        }
+        await upsertUserAttemptSync({
+          db,
+          attemptId: payload.attemptId,
+          accountKey: claimedAccountKey,
+          edition: effectiveEdition,
+          packId: rawPayload.packId,
+          examId: effectiveExam,
+          skill: 'writing',
+          mode: isDiagnosticTask ? 'diagnostic' : 'timed_exam',
+          status: 'completed',
+          scoreBand: derivedScore,
+          durationSeconds: rawPayload.durationSeconds ?? 0,
+          feedbackJson: result as unknown as Record<string, unknown>,
+          deviceId: claimedDeviceId ?? null,
+        }).catch(() => {});
+        await recordUserActivityLedger({
+          db,
+          accountKey: claimedAccountKey,
+          deviceId: claimedDeviceId ?? null,
+          edition: effectiveEdition,
+          activityKind: isDiagnosticTask ? 'diagnostic_writing_done' : 'writing_eval_done',
+          entityType: 'evaluation_job',
+          entityId: payload.jobId,
+          metadata: { band: derivedScore },
+        }).catch(() => {});
+      }
     }
 
     return (isDiagnosticTask ? null : result) as WritingGraphOutput | null;

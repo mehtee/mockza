@@ -9,6 +9,7 @@ import {
 } from '@mockza/contracts';
 import {
   accountLinks,
+  aiUsageLedger,
   audioAssets,
   dailyMissions,
   dailyQuotaUsage,
@@ -17,14 +18,22 @@ import {
   entitlements,
   erasureRequests,
   evaluationJobs,
+  learnerBandEvents,
+  learnerProfiles,
+  learnerRoadmapPlans,
+  learnerTopicWeaknessCoverage,
   linguisticEvidenceEvents,
   linguisticNodes,
   type MockzaDb,
   monthlyQuotaUsage,
+  pronunciationPractices,
   questionFlags,
   quotaReservations,
+  userActivityLedger,
+  userAttemptsSync,
   userDeviceSessions,
   userEntitlements,
+  userVocabSrsSync,
   users,
 } from '@mockza/db';
 import { createAudioS3Client, deleteAllUserAudio } from '@mockza/storage';
@@ -329,6 +338,11 @@ export function registerAccountRoutes(
           .delete(monthlyQuotaUsage)
           .where(inArray(monthlyQuotaUsage.accountKey, accountKeys));
 
+        const anonymizedKey = `deleted:${createHash('sha256')
+          .update(`${linkedUserId ?? deviceId}:${env.JWT_SECRET}`)
+          .digest('hex')
+          .slice(0, 24)}`;
+
         if (linkedUserId) {
           await tx
             .delete(entitlements)
@@ -338,12 +352,41 @@ export function registerAccountRoutes(
                 eq(entitlements.userId, linkedUserId),
               ),
             );
+          await tx.delete(learnerRoadmapPlans).where(inArray(learnerRoadmapPlans.accountKey, accountKeys));
+          await tx.delete(learnerProfiles).where(inArray(learnerProfiles.accountKey, accountKeys));
+          await tx.delete(learnerBandEvents).where(inArray(learnerBandEvents.accountKey, accountKeys));
+          await tx
+            .delete(learnerTopicWeaknessCoverage)
+            .where(inArray(learnerTopicWeaknessCoverage.accountKey, accountKeys));
+          await tx.delete(pronunciationPractices).where(inArray(pronunciationPractices.accountKey, accountKeys));
+          await tx.delete(userAttemptsSync).where(inArray(userAttemptsSync.accountKey, accountKeys));
+          await tx.delete(userVocabSrsSync).where(inArray(userVocabSrsSync.accountKey, accountKeys));
+          await tx.delete(userActivityLedger).where(inArray(userActivityLedger.accountKey, accountKeys));
+          // Pseudonymize cost ledger instead of deleting so aggregate OpenRouter spend remains auditable
+          await tx
+            .update(aiUsageLedger)
+            .set({ accountKey: anonymizedKey, deviceId: null, entityId: 'redacted' })
+            .where(inArray(aiUsageLedger.accountKey, accountKeys));
           await tx.delete(userDeviceSessions).where(eq(userDeviceSessions.userId, linkedUserId));
           await tx.delete(userEntitlements).where(eq(userEntitlements.userId, linkedUserId));
           await tx.delete(accountLinks).where(eq(accountLinks.userId, linkedUserId));
           await tx.delete(devices).where(inArray(devices.deviceId, affectedDeviceIds));
           await tx.delete(users).where(eq(users.userId, linkedUserId));
         } else {
+          await tx.delete(learnerRoadmapPlans).where(inArray(learnerRoadmapPlans.accountKey, accountKeys));
+          await tx.delete(learnerProfiles).where(inArray(learnerProfiles.accountKey, accountKeys));
+          await tx.delete(learnerBandEvents).where(inArray(learnerBandEvents.accountKey, accountKeys));
+          await tx
+            .delete(learnerTopicWeaknessCoverage)
+            .where(inArray(learnerTopicWeaknessCoverage.accountKey, accountKeys));
+          await tx.delete(pronunciationPractices).where(inArray(pronunciationPractices.accountKey, accountKeys));
+          await tx.delete(userAttemptsSync).where(inArray(userAttemptsSync.accountKey, accountKeys));
+          await tx.delete(userVocabSrsSync).where(inArray(userVocabSrsSync.accountKey, accountKeys));
+          await tx.delete(userActivityLedger).where(inArray(userActivityLedger.accountKey, accountKeys));
+          await tx
+            .update(aiUsageLedger)
+            .set({ accountKey: anonymizedKey, deviceId: null, entityId: 'redacted' })
+            .where(inArray(aiUsageLedger.accountKey, accountKeys));
           await tx.delete(entitlements).where(inArray(entitlements.deviceId, affectedDeviceIds));
           await tx.delete(devices).where(inArray(devices.deviceId, affectedDeviceIds));
         }

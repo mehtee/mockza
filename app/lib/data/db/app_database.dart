@@ -27,6 +27,9 @@ part 'app_database.g.dart';
     LinguisticNodes,
     DailyMissions,
     DroppedContents,
+    PersonalizationStates,
+    LocalPronunciationPractices,
+    LocalBandEvents,
   ],
   daos: [AttemptDao, VocabDao, CatalogDao, ProgressDao],
 )
@@ -35,7 +38,7 @@ class AppDatabase extends _$AppDatabase {
   new(super.e);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -108,6 +111,17 @@ class AppDatabase extends _$AppDatabase {
       if (from < 9) {
         await m.addColumn(userProfiles, userProfiles.studyFocus);
       }
+      if (from < 10) {
+        await m.addColumn(userProfiles, userProfiles.favoriteTopicsJson);
+        await m.addColumn(userProfiles, userProfiles.vocabUnlockedWave);
+        await m.addColumn(userProfiles, userProfiles.dailyNewVocabCap);
+        await m.addColumn(vocabCards, vocabCards.canonicalTopic);
+        await m.addColumn(vocabCards, vocabCards.cefrLevel);
+        await m.addColumn(vocabCards, vocabCards.baseWaveOrder);
+        await m.createTable(personalizationStates);
+        await m.createTable(localPronunciationPractices);
+        await m.createTable(localBandEvents);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON;');
@@ -138,6 +152,9 @@ class AppDatabase extends _$AppDatabase {
     await delete(linguisticNodes).go();
     await delete(dailyMissions).go();
     await delete(droppedContents).go();
+    await delete(personalizationStates).go();
+    await delete(localPronunciationPractices).go();
+    await delete(localBandEvents).go();
     await delete(userProfiles).go();
   });
 }

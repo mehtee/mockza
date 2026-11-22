@@ -108,13 +108,13 @@ describe('W1.3 MockzaDexieDb & DexieStorageAdapter', () => {
     localStorage.clear();
   });
 
-  it('defines exact 17 EntityTable tables matching the canonical schema', async () => {
+  it('defines exact 20 EntityTable tables matching the canonical schema', async () => {
     const tableNames = db.tables.map((t) => t.name).sort();
     expect(tableNames).toEqual([...MOCKZA_DB_TABLE_NAMES].sort());
-    expect(tableNames).toHaveLength(17);
+    expect(tableNames).toHaveLength(20);
   });
 
-  it('supports CRUD across all 17 Dexie tables and wipeAllData clears every table and urgent buffers', async () => {
+  it('supports CRUD across all 20 Dexie tables and wipeAllData clears every table and urgent buffers', async () => {
     const now = fakeClock.clock.nowMs();
     const today: SerialDay = fakeClock.clock.todaySerialDay();
 
@@ -415,7 +415,32 @@ describe('W1.3 MockzaDexieDb & DexieStorageAdapter', () => {
       createdAtMs: now,
     });
 
-    // Verify every single one of the 17 tables is non-empty
+    // 18. personalizationState
+    await db.personalizationState.put({
+      key: 'primary',
+      payloadJson: '{}',
+      updatedAtMs: now,
+    });
+
+    // 19. pronunciationHistory
+    await db.pronunciationHistory.put({
+      practiceId: 'pron-1',
+      targetText: 'sustainable urbanization',
+      overallScore: 84,
+      payloadJson: '{}',
+      createdAtMs: now,
+    });
+
+    // 20. bandEventsLocal
+    await db.bandEventsLocal.put({
+      eventId: 'evt-1',
+      skill: 'reading',
+      sourceKind: 'practice_section',
+      rawScore: 7.0,
+      createdAtMs: now,
+    });
+
+    // Verify every single one of the 20 tables is non-empty
     for (const tableName of MOCKZA_DB_TABLE_NAMES) {
       const count = await db.table(tableName).count();
       expect(count, `Expected table ${tableName} to have >= 1 row`).toBeGreaterThanOrEqual(1);

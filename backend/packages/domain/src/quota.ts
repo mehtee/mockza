@@ -302,3 +302,19 @@ export function evaluateAdvancedFeatureQuota(
     monthlyRemaining,
   };
 }
+
+export const FREE_DAILY_PRONUNCIATION_QUOTA = 5;
+export const PRO_DAILY_PRONUNCIATION_QUOTA = 30;
+
+export function evaluatePronunciationQuota(params: {
+  isPro: boolean;
+  usedToday: number;
+}): { allowed: boolean; limit: number; remaining: number } {
+  const limit = params.isPro ? PRO_DAILY_PRONUNCIATION_QUOTA : FREE_DAILY_PRONUNCIATION_QUOTA;
+  const remaining = Math.max(0, limit - Math.max(0, params.usedToday));
+  return {
+    allowed: remaining > 0,
+    limit,
+    remaining,
+  };
+}

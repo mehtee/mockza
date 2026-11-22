@@ -8,6 +8,7 @@ import 'package:mockza/core/exams/exam_descriptor.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/formatting/edge_numerals.dart';
 import 'package:mockza/core/formatting/jalali_edge_formatter.dart';
+import 'package:mockza/core/personalization/topic_taxonomy.dart';
 import 'package:mockza/core/vocab/serial_day.dart';
 import 'package:mockza/features/onboarding/presentation/onboarding_notifier.dart';
 import 'package:mockza/features/onboarding/presentation/onboarding_providers.dart';
@@ -409,33 +410,19 @@ class _GoalSetupStep extends ConsumerWidget {
                     Wrap(
                       spacing: SpacingTokens.sm,
                       runSpacing: SpacingTokens.xs,
-                      children:
-                          <(String, String)>[
-                                ('Technology & AI', 'فناوری و هوش مصنوعی'),
-                                ('Career & Workplace', 'کار و حرفه'),
-                                ('Travel & Culture', 'سفر و فرهنگ'),
-                                ('Health & Fitness', 'سلامت و ورزش'),
-                                ('Science & Climate', 'علم و محیط زیست'),
-                                ('Cinema & Arts', 'سینما و هنر'),
-                                ('Sports', 'ورزش'),
-                                ('Business & Finance', 'کسب‌وکار و مالی'),
-                              ]
-                              .map((entry) {
-                                final key = entry.$1;
-                                final label = isIran ? entry.$2 : entry.$1;
-                                final selected = state.selectedTopics.contains(
-                                  key,
-                                );
-                                return FilterChip(
-                                  key: ValueKey<String>(
-                                    'onboarding_topic_${key.toLowerCase().replaceAll(RegExp('[^a-z0-9]+'), '_')}',
-                                  ),
-                                  label: Text(label),
-                                  selected: selected,
-                                  onSelected: (_) => notifier.toggleTopic(key),
-                                );
-                              })
-                              .toList(growable: false),
+                      children: CanonicalTopicKey.values
+                          .map((topic) {
+                            final key = topic.wireKey;
+                            final label = topic.labelFor(isIran: isIran);
+                            final selected = state.selectedTopics.contains(key);
+                            return FilterChip(
+                              key: ValueKey<String>('onboarding_topic_$key'),
+                              label: Text(label),
+                              selected: selected,
+                              onSelected: (_) => notifier.toggleTopic(key),
+                            );
+                          })
+                          .toList(growable: false),
                     ),
                     const SizedBox(height: SpacingTokens.lg),
                     Text(

@@ -131,6 +131,11 @@ async function seedListeningTestBundle(edition: 'glb' | 'irn') {
     humanQaReviewed: true,
     accent: 'en-GB',
     mediaUrl: 'https://cdn.example.invalid/audio/list-test-01-p1.m4a',
+    topicKeys: [],
+    weaknessTargets: [],
+    cefrMin: 'B1',
+    cefrMax: 'C1',
+    roadmapOrder: 0,
   };
 
   const pack: CatalogPackRecord = {

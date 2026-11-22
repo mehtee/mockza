@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -13,8 +15,10 @@ import 'package:mockza/data/repositories/attempt_repository.dart';
 import 'package:mockza/data/repositories/progress_repository.dart';
 import 'package:mockza/features/progress/presentation/progress_providers.dart';
 import 'package:mockza/features/progress/presentation/widgets/navia_handoff_card.dart';
+import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/providers.dart';
 import 'package:mockza/routing/routes.dart';
+import 'package:mockza/services/speech_practice_gateway.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
@@ -26,6 +30,7 @@ import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
 import 'package:mockza/theme/components/score_meter.dart';
+import 'package:mockza/theme/components/speech_practice_sheet.dart';
 import 'package:mockza/theme/components/trend_chart.dart';
 import 'package:mockza/theme/primitives.dart';
 
@@ -190,6 +195,28 @@ class ProgressScreen extends ConsumerWidget {
                         _buildSkillCard(context, metric, edition: edition),
                   ),
                   const SizedBox(height: SpacingTokens.xl),
+                  SecondaryButton(
+                    label: AppLocalizations.of(context).roadmapViewFullCta,
+                    glyph: LucideGlyph.target,
+                    onPressed: () => context.push(AppRoutes.roadmap),
+                  ),
+                  const SizedBox(height: SpacingTokens.sm),
+                  SecondaryButton(
+                    label: AppLocalizations.of(context).speechStudioTitle,
+                    glyph: LucideGlyph.mic,
+                    onPressed: () => unawaited(
+                      SpeechPracticeSheet.show(
+                        context,
+                        targetText:
+                            'Consistent daily articulation sharpens clarity and fluency.',
+                        sourceRefType: 'progress_studio',
+                        sourceContext: 'progress',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: SpacingTokens.sm),
+                  const _PronunciationHistorySection(),
+                  const SizedBox(height: SpacingTokens.sm),
                   PrimaryButton(
                     label: isIran
                         ? 'مشاهده تاریخچه کامل آزمون‌ها'
@@ -583,8 +610,130 @@ class ProgressScreen extends ConsumerWidget {
             dateLabel: label,
             score: a.overallBand!,
             timestampUtcMs: a.effectiveCompletedAtUtcMs,
+            isCalibrated: a.countsTowardCalibratedBand,
           );
         })
         .toList(growable: false);
+  }
+}
+
+class _PronunciationHistorySection extends ConsumerStatefulWidget {
+  const new();
+
+  @override
+  ConsumerState<_PronunciationHistorySection> createState() =>
+      _PronunciationHistorySectionState();
+}
+
+class _PronunciationHistorySectionState
+    extends ConsumerState<_PronunciationHistorySection> {
+  List<PronunciationPracticeItemDto> _items =
+      const <PronunciationPracticeItemDto>[];
+  String? _playingId;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    try {
+      final repo = ref.read(personalizationRepositoryProvider);
+      final local = await repo.listLocalPronunciationHistory(limit: 5);
+      if (mounted && local.isNotEmpty) {
+        setState(() => _items = local);
+      }
+      final remote = await ref
+          .read(speechPracticeGatewayProvider)
+          .listHistory(limit: 5);
+      final items = remote.valueOrNull;
+      if (mounted && items != null && items.isNotEmpty) {
+        for (final item in items) {
+          await repo.savePronunciationPractice(item);
+        }
+        if (mounted) setState(() => _items = items);
+      }
+    } on Object {
+      // Offline fallback preserved.
+    }
+  }
+
+  Future<void> _play(PronunciationPracticeItemDto item) async {
+    final audioUrl = item.audioPlayUrl;
+    if (audioUrl == null || audioUrl.isEmpty) return;
+    setState(() => _playingId = item.practiceId);
+    final res = await ref
+        .read(speechPracticeGatewayProvider)
+        .fetchPlayableRecordingRef(
+          practiceId: item.practiceId,
+          relativeAudioPath: audioUrl,
+        );
+    final playable = res.valueOrNull;
+    if (playable != null) {
+      final player = ref.read(audioPlayerGatewayProvider);
+      final loadRes = await player.loadFile(playable);
+      if (loadRes.isOk) {
+        await player.play();
+      }
+    }
+    if (mounted) setState(() => _playingId = null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_items.isEmpty) return const SizedBox.shrink();
+    final l10n = AppLocalizations.of(context);
+    final colors = AppColors.of(context);
+    final typography = AppTypography.of(context);
+    return MzCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Text(
+            l10n.speechHistoryTitle,
+            style: typography.cardTitle.copyWith(color: colors.textPrimary),
+          ),
+          const SizedBox(height: SpacingTokens.sm),
+          ..._items.map(
+            (item) => Padding(
+              padding: const EdgeInsetsDirectional.only(
+                bottom: SpacingTokens.xs,
+              ),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: LtrExamBoundary(
+                      child: Text(
+                        '${item.overallScore ?? '--'}% · ${item.targetText}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: typography.caption.copyWith(
+                          color: colors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (item.audioPlayUrl != null)
+                    IconButton(
+                      tooltip: l10n.speechReplayMine,
+                      onPressed: _playingId == item.practiceId
+                          ? null
+                          : () => unawaited(_play(item)),
+                      icon: AppIcon(
+                        _playingId == item.practiceId
+                            ? LucideGlyph.loaderCircle
+                            : LucideGlyph.play,
+                        size: 16,
+                        color: colors.primary,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

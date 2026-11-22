@@ -41,6 +41,11 @@ async function seedWritingPack(params: {
     humanQaReviewed: true,
     accent: null,
     mediaUrl: null,
+    topicKeys: [],
+    weaknessTargets: [],
+    cefrMin: 'B1',
+    cefrMax: 'C1',
+    roadmapOrder: 0,
   };
 
   const pack: CatalogPackRecord = {

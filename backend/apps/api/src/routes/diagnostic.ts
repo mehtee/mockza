@@ -25,6 +25,8 @@ import {
   jobDispatchOutbox,
   type MockzaDb,
   quotaReservations,
+  recordBandEventAndRecalculate,
+  recordUserActivityLedger,
 } from '@mockza/db';
 import {
   type AuthoringTier,
@@ -33,6 +35,8 @@ import {
   DIAGNOSTIC_POLICY_VERSION,
   type DiagnosticBlockDef,
   type DiagnosticSkill,
+  mapCefrTierToExamScore,
+  normalizeSupportedExamId,
   type DiagnosticSkillStatus,
   type DiagnosticStopReason,
   DomainError,
@@ -131,6 +135,35 @@ function recomputeObjectiveSkill(params: {
     stopReason: params.stopReason,
     skippedByUser: params.skipped,
   });
+}
+
+function buildDiagnosticQuestionTypeStats(
+  bank: readonly DiagnosticBlockDef[],
+  inputs: ReadonlyArray<{
+    blockId: string;
+    selectedOptionIndices: Array<number | null>;
+  }>,
+): Array<{ questionType: string; correct: number; total: number }> {
+  const byId = new Map(bank.map((b) => [b.blockId, b] as const));
+  const counts = new Map<string, { correct: number; total: number }>();
+  for (const item of inputs) {
+    const def = byId.get(item.blockId);
+    if (!def) continue;
+    def.questions.forEach((q, idx) => {
+      const tag = q.focusTag || 'general';
+      const entry = counts.get(tag) ?? { correct: 0, total: 0 };
+      entry.total += 1;
+      if (item.selectedOptionIndices[idx] === q.correctIndex) {
+        entry.correct += 1;
+      }
+      counts.set(tag, entry);
+    });
+  }
+  return Array.from(counts.entries()).map(([questionType, v]) => ({
+    questionType,
+    correct: v.correct,
+    total: v.total,
+  }));
 }
 
 function mapObjectiveToDto(res: ObjectivePlacementResult): SkillOutcomeDto {
@@ -928,6 +961,55 @@ export function registerDiagnosticRoutes(
       .returning();
 
     const responsePayload = await assembleSessionResponse(db, updatedRow ?? session);
+
+    // Seed initial dynamic band scores & extracted weaknesses for Reading & Listening immediately
+    const effectiveExamId = normalizeSupportedExamId(payload.examId ?? session.examId);
+    const readingStats = buildDiagnosticQuestionTypeStats(
+      DIAGNOSTIC_READING_BANK,
+      payload.readingHistory,
+    );
+    const listeningStats = buildDiagnosticQuestionTypeStats(
+      DIAGNOSTIC_LISTENING_BANK,
+      payload.listeningHistory,
+    );
+    if (readingDto.suggestedTier) {
+      await recordBandEventAndRecalculate({
+        db,
+        accountKey,
+        edition: env.EDITION,
+        examTrack: effectiveExamId,
+        skill: 'reading',
+        sourceKind: 'diagnostic',
+        sourceId: diagId,
+        rawScore: mapCefrTierToExamScore(readingDto.suggestedTier as AuthoringTier, effectiveExamId),
+        cefrEstimate: readingDto.suggestedTier,
+        questionTypeStats: readingStats,
+      }).catch(() => {});
+    }
+    if (listeningDto.suggestedTier) {
+      await recordBandEventAndRecalculate({
+        db,
+        accountKey,
+        edition: env.EDITION,
+        examTrack: effectiveExamId,
+        skill: 'listening',
+        sourceKind: 'diagnostic',
+        sourceId: diagId,
+        rawScore: mapCefrTierToExamScore(listeningDto.suggestedTier as AuthoringTier, effectiveExamId),
+        cefrEstimate: listeningDto.suggestedTier,
+        questionTypeStats: listeningStats,
+      }).catch(() => {});
+    }
+    await recordUserActivityLedger({
+      db,
+      accountKey,
+      deviceId,
+      edition: env.EDITION,
+      activityKind: 'diagnostic_submitted',
+      entityType: 'diagnostic_session',
+      entityId: diagId,
+    }).catch(() => {});
+
     return c.json(responsePayload, 200);
   });
 

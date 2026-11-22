@@ -1,5 +1,7 @@
-import { BookmarkPlus, Highlighter, MessageSquare, Trash2, X } from 'lucide-react';
+import { BookmarkPlus, Highlighter, MessageSquare, Mic, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { InlineListenButton } from '@/components/speech/InlineListenButton';
+import { SpeechPracticeDrawer } from '@/components/speech/SpeechPracticeDrawer';
 import { MzButton } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import { getActiveEditionCode } from '@/edition/edition-config';
@@ -34,6 +36,8 @@ export interface PassageAnnotatorPaneProps {
   readonly annotations: readonly PassageAnnotationRecord[];
   readonly evidenceSpan?: PassageEvidenceSpan | null;
   readonly readOnly?: boolean;
+  readonly allowSpeechPractice?: boolean;
+  readonly packId?: string;
   readonly onAddAnnotation?: (input: {
     readonly startOffset: number;
     readonly endOffset: number;
@@ -227,6 +231,8 @@ export function PassageAnnotatorPane({
   annotations,
   evidenceSpan = null,
   readOnly = false,
+  allowSpeechPractice = false,
+  packId,
   onAddAnnotation,
   onUpdateAnnotationNote,
   onDeleteAnnotation,
@@ -240,6 +246,7 @@ export function PassageAnnotatorPane({
   const evidenceRef = useRef<HTMLElement | null>(null);
 
   const [selectionDraft, setSelectionDraft] = useState<PassageSelectionDraft | null>(null);
+  const [practicePhrase, setPracticePhrase] = useState<string | null>(null);
   const [noteInputOpen, setNoteInputOpen] = useState(false);
   const [noteDraftText, setNoteDraftText] = useState('');
   const [inspectedAnnotationId, setInspectedAnnotationId] = useState<string | null>(null);
@@ -255,6 +262,15 @@ export function PassageAnnotatorPane({
   const segments = useMemo(
     () => slicePassageSegments(rawText, annotations, evidenceSpan),
     [annotations, evidenceSpan, rawText],
+  );
+
+  const paragraphs = useMemo(
+    () =>
+      rawText
+        .split(/\n{2,}/)
+        .map((p) => p.trim())
+        .filter((p) => p.length > 0),
+    [rawText],
   );
 
   const inspectedAnnotation = useMemo(
@@ -328,7 +344,17 @@ export function PassageAnnotatorPane({
 
   return (
     <div data-testid="passage-annotator-pane" className="flex flex-col gap-3">
-      {title ? <h3 className="text-base font-bold text-text-primary text-start">{title}</h3> : null}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {title ? <h3 className="text-base font-bold text-text-primary text-start">{title}</h3> : <span />}
+        {allowSpeechPractice && rawText.trim().length > 0 ? (
+          <InlineListenButton
+            text={rawText.slice(0, 480)}
+            sourceContext="reading"
+            testId="passage-listen-excerpt-btn"
+            size="sm"
+          />
+        ) : null}
+      </div>
 
       {/* Contextual Selection Toolbar */}
       {selectionDraft && !readOnly ? (
@@ -388,6 +414,26 @@ export function PassageAnnotatorPane({
                 <BookmarkPlus className="h-3 w-3" aria-hidden="true" />
                 <span>{t('annotatorSaveVocabAction')}</span>
               </button>
+            ) : null}
+            {allowSpeechPractice ? (
+              <>
+                <InlineListenButton
+                  text={selectionDraft.selectedText}
+                  sourceContext="reading"
+                  showSlowToggle={false}
+                  testId="annotator-listen-btn"
+                  size="sm"
+                />
+                <button
+                  type="button"
+                  data-testid="annotator-practice-speech-btn"
+                  onClick={() => setPracticePhrase(selectionDraft.selectedText)}
+                  className="inline-flex items-center gap-1 rounded-[var(--mz-radius-compact)] border border-primary/50 bg-bg-surface px-2.5 py-0.5 text-xs font-semibold text-primary hover:bg-surface-hover"
+                >
+                  <Mic className="h-3 w-3" aria-hidden="true" />
+                  <span>{t('speechPracticeBtn')}</span>
+                </button>
+              </>
             ) : null}
           </div>
 
@@ -502,6 +548,26 @@ export function PassageAnnotatorPane({
         </div>
       ) : null}
 
+      {/* Study-Mode Per-Paragraph Listen Strip (strictly outside UTF-16 textContainerRef) */}
+      {allowSpeechPractice && paragraphs.length > 1 ? (
+        <div
+          data-testid="passage-paragraph-listen-bar"
+          className="flex flex-wrap items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-surface-alt px-2.5 py-1.5"
+        >
+          {paragraphs.map((para, idx) => (
+            <InlineListenButton
+              key={`para-${idx}-${para.slice(0, 16)}`}
+              text={para.slice(0, 480)}
+              sourceContext="reading"
+              showSlowToggle={false}
+              size="sm"
+              label={edition === 'irn' ? `پاراگراف ${idx + 1}` : `P${idx + 1}`}
+              testId={`passage-listen-paragraph-${idx}`}
+            />
+          ))}
+        </div>
+      ) : null}
+
       {/* Canonical UTF-16 Passage Body */}
       <LtrExamBoundary>
         <div
@@ -555,6 +621,15 @@ export function PassageAnnotatorPane({
           })}
         </div>
       </LtrExamBoundary>
+
+      <SpeechPracticeDrawer
+        open={practicePhrase !== null}
+        onClose={() => setPracticePhrase(null)}
+        targetText={practicePhrase ?? ''}
+        practiceKind="reading_excerpt"
+        sourceRefType="reading_passage"
+        sourceRefId={packId}
+      />
     </div>
   );
 }

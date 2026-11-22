@@ -1,0 +1,138 @@
+{
+  "schemaVersion": "1.0",
+  "topicNormalizationCases": [
+    { "id": "tech_en", "input": "Technology & AI", "expected": "technology_ai" },
+    { "id": "tech_fa", "input": "فناوری و هوش مصنوعی", "expected": "technology_ai" },
+    { "id": "sports", "input": "Sports", "expected": "health_sports" },
+    { "id": "legacy_env", "input": "environment", "expected": "science_climate" },
+    { "id": "legacy_econ", "input": "society_economics", "expected": "business_finance" },
+    { "id": "legacy_urban", "input": "urbanization", "expected": "urban_society" }
+  ],
+  "liveBandCases": [
+    {
+      "id": "diagnostic_only_provisional",
+      "examId": "ielts_academic",
+      "targetBand": 7.5,
+      "nowUtcMs": 1795270000000,
+      "previousOverallScore": null,
+      "events": [
+        { "skill": "reading", "sourceKind": "diagnostic", "rawScore": 6.5, "recordedAtMs": 1795269900000 },
+        { "skill": "listening", "sourceKind": "diagnostic", "rawScore": 5.5, "recordedAtMs": 1795269900000 },
+        { "skill": "writing", "sourceKind": "diagnostic", "rawScore": 5.5, "recordedAtMs": 1795269900000 },
+        { "skill": "speaking", "sourceKind": "diagnostic", "rawScore": 6.5, "recordedAtMs": 1795269900000 }
+      ],
+      "expectedOverall": 6.0,
+      "expectedConfidence": "provisional",
+      "expectedBandShiftDelta": null
+    },
+    {
+      "id": "real_attempts_override_diag_with_band_shift",
+      "examId": "ielts_academic",
+      "targetBand": 7.5,
+      "nowUtcMs": 1796270000000,
+      "previousOverallScore": 6.0,
+      "events": [
+        { "skill": "reading", "sourceKind": "diagnostic", "rawScore": 5.5, "recordedAtMs": 1795000000000 },
+        { "skill": "reading", "sourceKind": "timed_exam", "rawScore": 7.5, "recordedAtMs": 1796100000000 },
+        { "skill": "reading", "sourceKind": "timed_exam", "rawScore": 7.5, "recordedAtMs": 1796200000000 },
+        { "skill": "reading", "sourceKind": "timed_exam", "rawScore": 8.0, "recordedAtMs": 1796260000000 },
+        { "skill": "writing", "sourceKind": "timed_exam", "rawScore": 6.5, "recordedAtMs": 1796250000000 }
+      ],
+      "expectedOverall": 7.0,
+      "expectedConfidence": "developing",
+      "expectedBandShiftDelta": 1.0
+    }
+  ],
+  "phaseRotationCases": [
+    {
+      "id": "cold_start_ignition",
+      "favoriteTopics": ["technology_ai", "health_sports"],
+      "currentDaySerial": 20780,
+      "weaknessNodes": [],
+      "coverage": [],
+      "expectedTopic": "technology_ai",
+      "expectedPhase": "ignition"
+    },
+    {
+      "id": "weakness_detected_stays_in_favorite_topic",
+      "favoriteTopics": ["technology_ai", "health_sports"],
+      "currentDaySerial": 20780,
+      "weaknessNodes": [
+        {
+          "nodeId": "n1",
+          "nodeKind": "bottleneck",
+          "canonicalKey": "reading:tfng_trap",
+          "masteryScoreMilli": 320,
+          "signalWeightMilli": 800,
+          "evidenceCount": 2,
+          "lastSeenDaySerial": 20780
+        }
+      ],
+      "coverage": [],
+      "expectedTopic": "technology_ai",
+      "expectedPhase": "interest_weakness"
+    },
+    {
+      "id": "favorite_topics_covered_transfers_to_other_topic",
+      "favoriteTopics": ["technology_ai", "health_sports"],
+      "currentDaySerial": 20781,
+      "weaknessNodes": [
+        {
+          "nodeId": "n1",
+          "nodeKind": "bottleneck",
+          "canonicalKey": "reading:tfng_trap",
+          "masteryScoreMilli": 480,
+          "signalWeightMilli": 800,
+          "evidenceCount": 3,
+          "lastSeenDaySerial": 20780
+        }
+      ],
+      "coverage": [
+        {
+          "weaknessKey": "reading:tfng_trap",
+          "topicKey": "technology_ai",
+          "practiceCount": 1,
+          "passCount": 0,
+          "lastMasteryMilli": 450,
+          "lastPracticedDaySerial": 20780
+        },
+        {
+          "weaknessKey": "reading:tfng_trap",
+          "topicKey": "health_sports",
+          "practiceCount": 1,
+          "passCount": 0,
+          "lastMasteryMilli": 480,
+          "lastPracticedDaySerial": 20780
+        }
+      ],
+      "expectedTopic": "career_workplace",
+      "expectedPhase": "cross_topic_transfer"
+    }
+  ],
+  "vocabWaveCase": {
+    "id": "progressive_wave_cap_and_unlock",
+    "favoriteTopics": ["technology_ai"],
+    "examId": "ielts_academic",
+    "currentBand": 6.0,
+    "targetBand": 7.5,
+    "activeWeaknessKeys": ["reading:tfng_trap"],
+    "unlockedWave": 1,
+    "waveSize": 5,
+    "dailyNewCap": 3,
+    "todaySerialDay": 20780,
+    "cards": [
+      { "cardId": "c1", "headword": "algorithm", "legacyTopicTag": "technology", "cefrLevel": "B2", "repetitions": 1, "dueSerialDay": 20782 },
+      { "cardId": "c2", "headword": "automation", "legacyTopicTag": "technology", "cefrLevel": "B2", "repetitions": 1, "dueSerialDay": 20782 },
+      { "cardId": "c3", "headword": "latency", "legacyTopicTag": "technology", "cefrLevel": "B2", "repetitions": 1, "dueSerialDay": 20782 },
+      { "cardId": "c4", "headword": "bandwidth", "legacyTopicTag": "technology", "cefrLevel": "B1", "repetitions": 0, "dueSerialDay": 20780 },
+      { "cardId": "c5", "headword": "albeit", "legacyTopicTag": "academic_linking", "cefrLevel": "B2", "repetitions": 0, "dueSerialDay": 20780 },
+      { "cardId": "c6", "headword": "mitigate", "legacyTopicTag": "environment", "cefrLevel": "B2", "repetitions": 0, "dueSerialDay": 20780 },
+      { "cardId": "c7", "headword": "biodiversity", "legacyTopicTag": "environment", "cefrLevel": "B2", "repetitions": 0, "dueSerialDay": 20780 },
+      { "cardId": "c8", "headword": "curriculum", "legacyTopicTag": "education", "cefrLevel": "B1", "repetitions": 0, "dueSerialDay": 20780 },
+      { "cardId": "c9", "headword": "suburbia", "legacyTopicTag": "urbanization", "cefrLevel": "B2", "repetitions": 0, "dueSerialDay": 20780 },
+      { "cardId": "c10", "headword": "tariff", "legacyTopicTag": "society_economics", "cefrLevel": "B2", "repetitions": 0, "dueSerialDay": 20780 }
+    ],
+    "expectedQueueLength": 2,
+    "expectedReadyToUnlockNext": true
+  }
+}

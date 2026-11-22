@@ -38,6 +38,7 @@ export interface UserProfileRecord {
   readonly examId: SupportedExamId;
   readonly examModule: ExamModuleType;
   readonly studyFocus?: 'exams' | 'coach' | 'both';
+  readonly favoriteTopics?: readonly string[];
   readonly targetBand: number;
   readonly targetDateSerial: SerialDay | null;
   readonly onboardingCompleted: boolean;
@@ -94,6 +95,10 @@ export interface CatalogPackRecord {
   readonly cachedAtMs: number | null;
   readonly updatedAtMs: number;
   readonly kind?: 'pack' | 'drill';
+  readonly topicKeys?: readonly string[];
+  readonly weaknessTargets?: readonly string[];
+  readonly cefrMin?: string;
+  readonly cefrMax?: string;
 }
 
 export interface CachedDrillRecord {
@@ -243,6 +248,9 @@ export interface VocabCardRecord {
   readonly sourceSkill: SkillKind | null;
   readonly sourceAttemptId: string | null;
   readonly sourceRefLabel: string | null;
+  readonly canonicalTopic?: string;
+  readonly cefrLevel?: string;
+  readonly baseWaveOrder?: number;
   readonly createdAtMs: number;
   readonly updatedAtMs: number;
 }
@@ -290,7 +298,10 @@ export type SyncOutboxActionType =
   | 'sync_log'
   | 'mission.complete'
   | 'shifter.repeat_check'
-  | 'drop.drill_complete';
+  | 'drop.drill_complete'
+  | 'vocab.srs_batch'
+  | 'band.event'
+  | 'profile.update';
 
 export type SyncOutboxEntityKind =
   | 'attempt'

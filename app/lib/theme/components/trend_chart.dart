@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_typography.dart';
@@ -9,6 +11,7 @@ class ScoreTrendPoint {
     required this.dateLabel,
     required this.score,
     required this.timestampUtcMs,
+    this.isCalibrated = true,
   });
 
   /// Short date label (e.g. "Oct 12").
@@ -19,6 +22,10 @@ class ScoreTrendPoint {
 
   /// UTC millisecond timestamp for ordering.
   final int timestampUtcMs;
+
+  /// Whether this point came from a calibrated full/section evaluation (`true`)
+  /// or a provisional baseline / study attempt (`false`).
+  final bool isCalibrated;
 }
 
 /// Accessible low-ink score trend chart (design.md Sec. 5, Screenshot 20).
@@ -65,7 +72,12 @@ class TrendChart extends StatelessWidget {
       );
     }
 
-    final summary = points.map((p) => '${p.dateLabel}: ${p.score}').join(', ');
+    final summary = points
+        .map(
+          (p) =>
+              '${p.dateLabel}: ${p.score} (${p.isCalibrated ? 'Calibrated' : 'Provisional'})',
+        )
+        .join(', ');
 
     return Semantics(
       label: 'Score trend history. Target: $targetScore. Data points: $summary',
@@ -195,10 +207,53 @@ class _TrendChartPainter extends CustomPainter {
       startX += dashWidth + dashSpace;
     }
 
+    void drawPoint(Offset center, {required bool isCalibrated}) {
+      if (isCalibrated) {
+        canvas
+          ..drawCircle(
+            center,
+            4.5,
+            Paint()
+              ..color = lineColor
+              ..style = PaintingStyle.fill,
+          )
+          ..drawCircle(
+            center,
+            5,
+            Paint()
+              ..color = pointFillColor
+              ..strokeWidth = 1.5
+              ..style = PaintingStyle.stroke,
+          );
+      } else {
+        canvas.drawCircle(
+          center,
+          4.5,
+          Paint()
+            ..color = pointFillColor
+            ..style = PaintingStyle.fill,
+        );
+        final dashPaint = Paint()
+          ..color = lineColor
+          ..strokeWidth = 2.0
+          ..style = PaintingStyle.stroke;
+        final rect = Rect.fromCircle(center: center, radius: 4.5);
+        for (var d = 0; d < 4; d++) {
+          canvas.drawArc(
+            rect,
+            d * (math.pi / 2),
+            math.pi / 3,
+            false,
+            dashPaint,
+          );
+        }
+      }
+    }
+
     if (points.length < 2) {
       final pY = getY(points.first.score);
       final pX = leftPadding + (chartWidth / 2);
-      canvas.drawCircle(Offset(pX, pY), 5, Paint()..color = lineColor);
+      drawPoint(Offset(pX, pY), isCalibrated: points.first.isCalibrated);
       drawLabel(
         points.first.dateLabel,
         Offset(pX - 16, size.height - bottomPadding + 4),
@@ -243,20 +298,9 @@ class _TrendChartPainter extends CustomPainter {
 
     canvas.drawPath(linePath, linePaint);
 
-    // Draw data points
-    final dotStrokePaint = Paint()
-      ..color = lineColor
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke;
-
-    final dotFillPaint = Paint()
-      ..color = pointFillColor
-      ..style = PaintingStyle.fill;
-
-    for (final offset in offsets) {
-      canvas
-        ..drawCircle(offset, 4.5, dotFillPaint)
-        ..drawCircle(offset, 4.5, dotStrokePaint);
+    // Draw data points (solid for calibrated, hollow dashed for provisional)
+    for (var i = 0; i < offsets.length; i++) {
+      drawPoint(offsets[i], isCalibrated: points[i].isCalibrated);
     }
   }
 

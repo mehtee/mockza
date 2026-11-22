@@ -275,6 +275,69 @@ export function useObjectiveSimulatorSession({
       addCompletedItems: 1,
     });
 
+    if (skill === 'reading' || skill === 'listening') {
+      let questionTypeStats: Array<{ questionType: string; correct: number; total: number }> = [];
+      let accuracyRatio = 0;
+      let parsedSubmission: Record<string, unknown> = {};
+      try {
+        const sub = JSON.parse(record.submissionJson) as {
+          readonly questionCorrectness?: Readonly<Record<string, boolean>>;
+          readonly correctCount?: number;
+          readonly totalCount?: number;
+        };
+        parsedSubmission = sub as unknown as Record<string, unknown>;
+        const counts = new Map<string, { correct: number; total: number }>();
+        for (const q of bundle.questions) {
+          const qt = q.questionType || skill;
+          const cur = counts.get(qt) ?? { correct: 0, total: 0 };
+          cur.total += 1;
+          if (sub.questionCorrectness?.[q.questionId] === true) cur.correct += 1;
+          counts.set(qt, cur);
+        }
+        questionTypeStats = Array.from(counts.entries()).map(([questionType, v]) => ({
+          questionType,
+          correct: v.correct,
+          total: v.total,
+        }));
+        accuracyRatio =
+          typeof sub.correctCount === 'number' && typeof sub.totalCount === 'number' && sub.totalCount > 0
+            ? sub.correctCount / sub.totalCount
+            : 0;
+      } catch {
+        // Fallback without detailed stats
+      }
+
+      const packAny = bundle.pack as unknown as { readonly topicKeys?: readonly string[] };
+      const topicKeys = Array.isArray(packAny.topicKeys) ? [...packAny.topicKeys] : [];
+      const bandPayload = {
+        examTrack: profileExamId,
+        skill,
+        sourceKind: mockSessionId ? ('full_mock' as const) : ('practice_section' as const),
+        sourceId: record.attemptId,
+        rawScore: record.overallBand ?? 5.5,
+        durationSeconds: record.durationSeconds,
+        accuracyRatio,
+        topicKeys,
+        ...(questionTypeStats.length > 0 ? { questionTypeStats } : {}),
+        packId: bundle.pack.packId,
+        attemptId: record.attemptId,
+        scoreBand: record.overallBand ?? null,
+        answersJson: { answersByQuestionId },
+        feedbackJson: parsedSubmission,
+      };
+      if (deps.personalization) {
+        const bRes = await deps.personalization.recordBandEvent(bandPayload);
+        if (!bRes.ok) {
+          void deps.syncOutbox.enqueue({
+            idempotencyKey: `band.event:${record.attemptId}`,
+            actionType: 'band.event',
+            entityKind: 'attempt',
+            payloadJson: JSON.stringify(bandPayload),
+          });
+        }
+      }
+    }
+
     setIsSubmitting(false);
     setActiveExamLock(false);
 
@@ -292,6 +355,8 @@ export function useObjectiveSimulatorSession({
     bundle,
     deps.attemptStore,
     deps.clock,
+    deps.personalization,
+    deps.syncOutbox,
     examMode,
     flaggedQuestionIds,
     isSubmitting,

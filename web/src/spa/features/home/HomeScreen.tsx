@@ -9,6 +9,7 @@ import { Link } from '@tanstack/react-router';
 import {
   BookOpen,
   Calendar,
+  Compass,
   Flame,
   Headphones,
   Layers,
@@ -20,12 +21,13 @@ import {
   TrendingUp,
   Zap,
 } from 'lucide-react';
-import { MzCard } from '@/components/ui';
+import { MzBanner, MzCard } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import { formatDisplayDate } from '@/edition/calendar/jalali-edge';
 import { getActiveEditionConfig } from '@/edition/edition-config';
 import { createTranslator, type TranslationKey } from '@/i18n';
 import { useDeps } from '@/spa/deps';
+import { resolveWebRoadmapStepPath } from '@/spa/roadmap-route-resolver';
 import { useHomeController } from './useHomeController';
 
 const TRACK_I18N_KEYS: Record<SupportedExamId, TranslationKey> = {
@@ -95,7 +97,29 @@ export function HomeScreen() {
     latestDiagnostic,
     detSubscores,
     toeflLegacy120,
+    personalization,
   } = ctrl;
+
+  const isRtl = deps.edition === 'irn';
+  const currentStep = personalization?.roadmap.currentStep ?? null;
+  const bandShiftDelta = personalization?.liveBand.bandShift ?? 0;
+  const showBandShiftBanner =
+    Boolean(personalization) &&
+    bandShiftDelta !== 0 &&
+    !personalization?.profile.bandShiftAcknowledged;
+  const liveOverallBand = personalization?.liveBand.currentBand ?? estimatedSummary.overallBand;
+  const confidenceBadgeText =
+    personalization?.liveBand.confidence === 'calibrated'
+      ? t('confidenceHigh')
+      : personalization?.liveBand.confidence === 'developing'
+        ? t('confidenceMedium')
+        : t('confidenceLow');
+  const phaseLabelText =
+    personalization?.profile.activeWeaknessPhase === 'weakness_transfer'
+      ? t('roadmapPhaseWeaknessTransfer')
+      : personalization?.profile.activeWeaknessPhase === 'exam_breadth'
+        ? t('roadmapPhaseExamBreadth')
+        : t('roadmapPhaseFavoriteTopics');
 
   const formattedTargetDate =
     targetDateSerial !== null
@@ -140,7 +164,116 @@ export function HomeScreen() {
         </div>
       </header>
 
-      {/* Clear 2-Pillar Quick Switcher: Mock Exams vs Smart Coach */}
+      {/* Dismissible Band-Shift Celebration Banner */}
+      {showBandShiftBanner ? (
+        <div data-testid="home-band-shift-banner">
+          <MzBanner
+            tone="success"
+            actions={
+              <button
+                type="button"
+                data-testid="home-band-shift-ack-btn"
+                onClick={() => void ctrl.ackBandShift()}
+                className="rounded-[var(--mz-radius-compact)] border border-success/40 bg-canvas px-2.5 py-1 text-xs font-semibold text-success hover:bg-surface-hover"
+              >
+                ✓
+              </button>
+            }
+          >
+            <p className="font-bold">
+              {t('roadmapBandUpBannerTitle', {
+                delta: bandShiftDelta > 0 ? `+${bandShiftDelta}` : bandShiftDelta,
+                band: formatExamScore(liveOverallBand ?? targetScore, activeTrack),
+              })}
+            </p>
+            <p className="mt-0.5 text-xs">{t('roadmapBandUpBannerBody')}</p>
+          </MzBanner>
+        </div>
+      ) : null}
+
+      {/* Focused Step Card + Horizontal 4-Dot Durnama Panorama Strip */}
+      {personalization ? (
+        <MzCard variant="hero" data-testid="home-roadmap-next-step-card">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-[var(--mz-radius-pill)] bg-primary/15 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+                  <Compass className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{phaseLabelText}</span>
+                </span>
+                {personalization.weaknesses.slice(0, 2).map((w) => (
+                  <span
+                    key={w.canonicalKey}
+                    className="rounded-[var(--mz-radius-pill)] border border-warning/40 bg-amber-bg px-2.5 py-0.5 text-[11px] font-semibold text-warning"
+                  >
+                    {isRtl ? w.displayLabelFa : w.displayLabelEn}
+                  </span>
+                ))}
+              </div>
+              <h2 className="text-base font-bold text-text-primary">
+                {currentStep
+                  ? isRtl
+                    ? currentStep.titleFa
+                    : currentStep.titleEn
+                  : t('roadmapTitle')}
+              </h2>
+              <p className="text-xs text-text-secondary">
+                {currentStep
+                  ? isRtl
+                    ? currentStep.reasonFa
+                    : currentStep.reasonEn
+                  : t('roadmapSubtitle')}
+              </p>
+
+              {/* Compact Horizontal 4-Milestone Panorama Dots (دورنما) */}
+              <div
+                data-testid="home-panorama-strip"
+                className="flex flex-wrap items-center gap-2 pt-1.5"
+              >
+                {personalization.roadmap.milestones.map((ms, idx) => (
+                  <div key={ms.index} className="inline-flex items-center gap-1.5">
+                    <span
+                      title={isRtl ? ms.titleFa : ms.titleEn}
+                      className={`inline-flex h-5 items-center rounded-full border px-2 text-[10px] font-bold ${
+                        ms.status === 'completed'
+                          ? 'border-success/50 bg-mint-bg text-success'
+                          : ms.status === 'active'
+                            ? 'border-primary bg-primary text-on-primary'
+                            : 'border-border-subtle bg-canvas text-text-tertiary'
+                      }`}
+                    >
+                      M{ms.index}
+                    </span>
+                    {idx < personalization.roadmap.milestones.length - 1 ? (
+                      <span className="h-px w-3 bg-border-subtle" aria-hidden="true" />
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {currentStep ? (
+                <Link
+                  to={resolveWebRoadmapStepPath(currentStep) as never}
+                  data-testid="home-roadmap-start-step-cta"
+                  className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
+                >
+                  {t('roadmapOpenStepCta')}
+                </Link>
+              ) : null}
+              <Link
+                to="/roadmap"
+                data-testid="home-open-roadmap-link"
+                className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] border border-border-strong bg-canvas px-3.5 text-xs font-semibold text-primary hover:bg-surface-hover"
+              >
+                {t('navRoadmap')}
+              </Link>
+            </div>
+          </div>
+        </MzCard>
+      ) : null}
+
       <div
         data-testid="home-two-pillars"
         className="grid grid-cols-1 gap-3 sm:grid-cols-2"
@@ -418,11 +551,19 @@ export function HomeScreen() {
                     data-testid="home-overall-score"
                     className="font-mono-exam text-4xl font-bold text-primary"
                   >
-                    {estimatedSummary.overallBand !== null
-                      ? formatExamScore(estimatedSummary.overallBand, activeTrack)
+                    {liveOverallBand !== null
+                      ? formatExamScore(liveOverallBand, activeTrack)
                       : '—'}
                   </span>
                 </LtrExamBoundary>
+                {personalization ? (
+                  <span
+                    data-testid="home-band-confidence-pill"
+                    className="rounded-[var(--mz-radius-pill)] border border-primary/30 bg-surface-alt px-2.5 py-0.5 text-[11px] font-semibold text-primary"
+                  >
+                    {confidenceBadgeText}
+                  </span>
+                ) : null}
                 <span className="inline-flex items-center gap-1 rounded-[var(--mz-radius-pill)] border border-border-subtle bg-canvas/70 px-2.5 py-0.5 text-xs font-semibold text-text-primary">
                   <Target className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                   <span data-testid="home-target-score-pill">

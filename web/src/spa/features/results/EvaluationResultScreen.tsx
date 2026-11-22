@@ -4,15 +4,19 @@ import {
   formatExamScoreWithUnit,
   type SupportedExamId,
 } from '@mockza/domain';
-import { Link } from '@tanstack/react-router';
-import { BookmarkPlus, CheckCircle2, Flame, GitCompare, Sparkles, ArrowUpRight } from 'lucide-react';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { BookmarkPlus, CheckCircle2, Flame, GitCompare, Mic, Sparkles, ArrowUpRight } from 'lucide-react';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { SplitPaneWorkspace } from '@/components/exam-kit';
+import { InlineListenButton } from '@/components/speech/InlineListenButton';
+import { SpeechPracticeDrawer } from '@/components/speech/SpeechPracticeDrawer';
+import { PlanImpactCard } from '@/components/personalization/PlanImpactCard';
 import { MzBanner, MzButton, MzCard } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import type { CompletedAttemptRecord, EvaluationOutputDto } from '@/gateways/storage.gateway';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
+import { resolveWebRoadmapStepPath } from '@/spa/roadmap-route-resolver';
 import { generateUuid } from '@/spa/objective-sim-helpers';
 
 export interface EvaluationResultScreenProps {
@@ -72,6 +76,7 @@ function buildInlineEditSlices(
 
 export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
   const deps = useDeps();
+  const navigate = useNavigate();
   const t = createTranslator(deps.edition);
 
   const [attempt, setAttempt] = useState<CompletedAttemptRecord | null>(null);
@@ -82,6 +87,10 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
   const [addedVocabIds, setAddedVocabIds] = useState<Record<string, boolean>>({});
   const [statusToast, setStatusToast] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [shadowPractice, setShadowPractice] = useState<{
+    readonly text: string;
+    readonly refId: string;
+  } | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -264,6 +273,13 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
         </div>
       </MzCard>
 
+      <PlanImpactCard
+        skill={attempt?.skill === 'speaking' ? 'speaking' : 'writing'}
+        scoreBand={evaluation.overallBand}
+        onOpenNextStep={(step) => void navigate({ to: resolveWebRoadmapStepPath(step) as never })}
+        onOpenRoadmap={() => void navigate({ to: '/roadmap' })}
+      />
+
       {/* Master-Detail Review Split */}
       <div className="min-h-0 flex-1 overflow-hidden rounded-[var(--mz-radius-card)] border border-border-subtle bg-canvas">
         <SplitPaneWorkspace
@@ -402,6 +418,28 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
                   <p className="mt-1 text-xs text-text-secondary">
                     {evaluation.modelRewrite.preservedIdeasNote}
                   </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <InlineListenButton
+                      text={evaluation.modelRewrite.rewrittenText}
+                      sourceContext={attempt?.skill === 'speaking' ? 'speaking_feedback' : 'writing_feedback'}
+                      testId="eval-rewrite-listen"
+                      size="sm"
+                    />
+                    <button
+                      type="button"
+                      data-testid="eval-rewrite-practice"
+                      onClick={() =>
+                        setShadowPractice({
+                          text: evaluation.modelRewrite?.rewrittenText ?? '',
+                          refId: `${id}:rewrite`,
+                        })
+                      }
+                      className="inline-flex h-7 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-primary/50 bg-primary/10 px-2.5 text-[11px] font-semibold text-primary hover:bg-primary/20"
+                    >
+                      <Mic className="h-3 w-3" aria-hidden="true" />
+                      <span>{t('speechPracticeBtn')}</span>
+                    </button>
+                  </div>
                   <LtrExamBoundary>
                     <p
                       data-testid="eval-model-rewrite-diff"
@@ -459,6 +497,21 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
                             {deps.edition === 'irn' && v.glossFa ? (
                               <p className="mt-0.5 font-medium text-primary">{v.glossFa}</p>
                             ) : null}
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                              <InlineListenButton
+                                text={v.term}
+                                sourceContext="vocab"
+                                showSlowToggle={false}
+                                size="sm"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShadowPractice({ text: v.term, refId: v.id })}
+                                className="inline-flex h-7 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-primary/40 bg-canvas px-2 text-[11px] font-semibold text-primary hover:bg-surface-hover"
+                              >
+                                <Mic className="h-3 w-3" aria-hidden="true" />
+                              </button>
+                            </div>
                           </div>
                           <MzButton
                             variant={isAdded ? 'secondary' : 'primary'}
@@ -588,6 +641,16 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
           }
         />
       </div>
+
+      <SpeechPracticeDrawer
+        open={shadowPractice !== null}
+        onClose={() => setShadowPractice(null)}
+        targetText={shadowPractice?.text ?? ''}
+        practiceKind="feedback_shadow"
+        sourceRefType={attempt?.skill === 'speaking' ? 'speaking_feedback' : 'writing_feedback'}
+        sourceRefId={shadowPractice?.refId}
+        examTrack={examId}
+      />
     </div>
   );
 }

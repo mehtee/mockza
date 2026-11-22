@@ -12,6 +12,9 @@ class UserProfile {
     required this.isPro,
     this.examId = 'ielts_academic',
     this.studyFocus = 'both',
+    this.favoriteTopics = const <String>[],
+    this.vocabUnlockedWave = 1,
+    this.dailyNewVocabCap = 10,
     this.targetDateSerial,
     this.onboardingCompleted = false,
     this.freeDiagnosticUsed = false,
@@ -37,6 +40,15 @@ class UserProfile {
 
   /// Learner preferred focus (`exams`, `coach`, or `both`).
   final String studyFocus;
+
+  /// Canonical favorite topic keys chosen during onboarding or settings.
+  final List<String> favoriteTopics;
+
+  /// Unlocked 15-word vocabulary wave count (`>= 1`).
+  final int vocabUnlockedWave;
+
+  /// Daily cap for brand-new vocabulary words.
+  final int dailyNewVocabCap;
 
   /// Optional exam target date serial.
   final int? targetDateSerial;

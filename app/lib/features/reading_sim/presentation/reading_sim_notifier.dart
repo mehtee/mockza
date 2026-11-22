@@ -9,6 +9,7 @@ import 'package:mockza/core/exams/local_objective_scorer.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/data/repositories/attempt_repository.dart';
 import 'package:mockza/providers.dart';
+import 'package:mockza/services/personalization_gateway.dart';
 
 /// Selected passage text range staged for highlighting or note-taking.
 @immutable
@@ -611,6 +612,77 @@ class ReadingSimNotifier extends Notifier<ReadingSimState> {
         studySeconds: elapsedSeconds,
         completedItems: 1,
       );
+
+      try {
+        final ratio = report.totalCount > 0
+            ? report.correctCount / report.totalCount
+            : null;
+        final typeTotals = <String, ({int correct, int total})>{};
+        for (final q in allQuestions) {
+          final qId = q.questionId.isNotEmpty ? q.questionId : 'q_${q.number}';
+          final qt = q.questionType.name;
+          final prev = typeTotals[qt] ?? (correct: 0, total: 0);
+          final isOk = report.questionCorrectness[qId] ?? false;
+          typeTotals[qt] = (
+            correct: prev.correct + (isOk ? 1 : 0),
+            total: prev.total + 1,
+          );
+        }
+        final qStats = typeTotals.entries
+            .map(
+              (e) => <String, Object?>{
+                'questionType': e.key,
+                'correct': e.value.correct,
+                'total': e.value.total,
+              },
+            )
+            .toList(growable: false);
+        final res = await ref
+            .read(personalizationGatewayProvider)
+            .recordBandEvent(
+              examTrack: examId,
+              skill: BandEventSkill.reading.wire,
+              sourceKind: BandEventSourceKind.practiceSection.wire,
+              sourceId: pack.packId,
+              rawScore: report.bandScore,
+              durationSeconds: elapsedSeconds,
+              accuracyRatio: ratio,
+              questionTypeStats: qStats,
+              packId: pack.packId,
+              attemptId: attemptId,
+              scoreBand: report.bandScore,
+              answersJson: <String, Object?>{'questions': questionBreakdown},
+              feedbackJson: <String, Object?>{
+                'correctCount': report.correctCount,
+                'totalCount': report.totalCount,
+                'overallBand': report.bandScore,
+              },
+            );
+        final updated = res.valueOrNull;
+        if (updated != null) {
+          await ref.read(personalizationRepositoryProvider).cacheState(updated);
+        } else {
+          await attemptRepo.enqueueOutboxAction(
+            actionType: 'band.event',
+            payloadJson: jsonEncode(<String, Object?>{
+              'examTrack': examId,
+              'skill': BandEventSkill.reading.wire,
+              'sourceKind': BandEventSourceKind.practiceSection.wire,
+              'sourceId': pack.packId,
+              'rawScore': report.bandScore,
+              'durationSeconds': elapsedSeconds,
+              'accuracyRatio': ?ratio,
+              'questionTypeStats': qStats,
+              'packId': pack.packId,
+              'attemptId': attemptId,
+              'scoreBand': report.bandScore,
+            }),
+          );
+          ref.read(outboxSyncServiceProvider).notifyWorkEnqueued();
+        }
+      } on Object {
+        // Safe offline fallback.
+      }
 
       if (!_isDisposed) {
         state = state.copyWith(isSubmitting: false);

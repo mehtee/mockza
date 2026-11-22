@@ -20,6 +20,7 @@ import type {
   DailyMissionSnapshot,
   LinguisticGraphSnapshot,
 } from '@/gateways/linguistic.gateway';
+import type { PersonalizationStateDto } from '@/gateways/personalization.gateway';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
 
@@ -32,23 +33,26 @@ export function CoachHubScreen() {
   const [graph, setGraph] = useState<LinguisticGraphSnapshot | null>(null);
   const [dropCount, setDropCount] = useState<number>(0);
   const [quota, setQuota] = useState<QuotaStatusSnapshot | null>(null);
+  const [personalization, setPersonalization] = useState<PersonalizationStateDto | null>(null);
 
   useEffect(() => {
     let active = true;
     void (async () => {
       const profileRes = await deps.attemptStore.getUserProfile();
       const examTrack = profileRes.ok && profileRes.value ? profileRes.value.examId : 'ielts_academic';
-      const [missionRes, graphRes, dropsRes, quotaRes] = await Promise.all([
+      const [missionRes, graphRes, dropsRes, quotaRes, pRes] = await Promise.all([
         deps.linguistic.getTodayMission({ examTrack }),
         deps.linguistic.getMyGraph(),
         deps.linguistic.getDropHistory(),
         deps.evaluation.getQuotaStatus(),
+        deps.personalization ? deps.personalization.getState() : Promise.resolve(null),
       ]);
       if (!active) return;
       if (missionRes.ok) setMission(missionRes.value);
       if (graphRes.ok) setGraph(graphRes.value);
       if (dropsRes.ok) setDropCount(dropsRes.value.items.length);
       if (quotaRes.ok) setQuota(quotaRes.value);
+      if (pRes && pRes.ok) setPersonalization(pRes.value);
     })();
     return () => {
       active = false;
@@ -139,6 +143,15 @@ export function CoachHubScreen() {
                         : 'Done today'
                       : `${isRtl ? 'موضوع:' : 'Topic:'} ${mission.focusTopic}`}
                   </span>
+                </span>
+              ) : null}
+              {personalization ? (
+                <span className="rounded-[var(--mz-radius-pill)] border border-primary/30 bg-surface-alt px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+                  {personalization.profile.activeWeaknessPhase === 'weakness_transfer'
+                    ? t('roadmapPhaseWeaknessTransfer')
+                    : personalization.profile.activeWeaknessPhase === 'exam_breadth'
+                      ? t('roadmapPhaseExamBreadth')
+                      : t('roadmapPhaseFavoriteTopics')}
                 </span>
               ) : null}
             </div>

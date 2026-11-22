@@ -16,7 +16,7 @@ import {
   OtpRequestSchema,
   OtpVerifyRequestSchema,
 } from '@mockza/contracts';
-import type { MockzaDb } from '@mockza/db';
+import { mergeAccountPersonalizationData, type MockzaDb } from '@mockza/db';
 import type { Context } from 'hono';
 import type { ChallengeStore } from '../middleware/attest.js';
 import { createDeviceAuthMiddleware } from '../middleware/auth.js';
@@ -321,6 +321,11 @@ export function registerAuthRoutes(
       });
 
       if (db) {
+        await mergeAccountPersonalizationData({
+          db,
+          fromAccountKey: deviceId,
+          toAccountKey: bundle.user.userId,
+        }).catch(() => {});
         const reconciled = await reconcilePendingWebhooksForIdentities(db, [
           deviceId,
           bundle.user.userId,
@@ -387,6 +392,11 @@ export function registerAuthRoutes(
       });
 
       if (db) {
+        await mergeAccountPersonalizationData({
+          db,
+          fromAccountKey: deviceId,
+          toAccountKey: bundle.user.userId,
+        }).catch(() => {});
         const reconciled = await reconcilePendingWebhooksForIdentities(db, [
           deviceId,
           bundle.user.userId,
@@ -462,6 +472,11 @@ export function registerAuthRoutes(
       });
 
       if (db) {
+        await mergeAccountPersonalizationData({
+          db,
+          fromAccountKey: deviceId,
+          toAccountKey: bundle.user.userId,
+        }).catch(() => {});
         const reconciled = await reconcilePendingWebhooksForIdentities(db, [
           deviceId,
           bundle.user.userId,
@@ -605,6 +620,11 @@ export function registerAuthRoutes(
       });
 
       if (db) {
+        await mergeAccountPersonalizationData({
+          db,
+          fromAccountKey: deviceId,
+          toAccountKey: bundle.user.userId,
+        }).catch(() => {});
         const reconciled = await reconcilePendingWebhooksForIdentities(db, [
           deviceId,
           bundle.user.userId,
@@ -680,6 +700,11 @@ export function registerAuthRoutes(
       });
 
       if (db) {
+        await mergeAccountPersonalizationData({
+          db,
+          fromAccountKey: deviceId,
+          toAccountKey: linked.userId,
+        }).catch(() => {});
         await reconcilePendingWebhooksForIdentities(db, [deviceId, linked.userId]);
       }
 

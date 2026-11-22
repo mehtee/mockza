@@ -109,6 +109,8 @@ export interface OutboxTransport {
   syncVocabLogs?(payload: Record<string, unknown>): Promise<Result<void, SyncOutboxError>>;
   completeMission?(payload: Record<string, unknown>): Promise<Result<void, SyncOutboxError>>;
   verifyRepeatAloud?(payload: Record<string, unknown>): Promise<Result<void, SyncOutboxError>>;
+  recordBandEvent?(payload: Record<string, unknown>): Promise<Result<void, SyncOutboxError>>;
+  updateProfile?(payload: Record<string, unknown>): Promise<Result<void, SyncOutboxError>>;
 }
 
 export type CatalogMediaForOutbox = Pick<
@@ -489,6 +491,48 @@ export class DexieOutboxAdapter implements ISyncOutboxGateway {
         }
         await this.db.syncOutbox.delete(seq);
         return { status: 'succeeded' };
+      }
+
+      case 'vocab.srs_batch': {
+        const res = this.transport.syncVocabLogs
+          ? await this.transport.syncVocabLogs(payload)
+          : ok(undefined);
+        if (res.ok) {
+          const logIds = Array.isArray(payload['logIds'])
+            ? payload['logIds'].filter((v): v is string => typeof v === 'string')
+            : [];
+          if (logIds.length > 0) {
+            await this.db.vocabReviewLogs
+              .where('logId')
+              .anyOf(logIds)
+              .modify({ syncStatus: 'synced' });
+          }
+          await this.db.syncOutbox.delete(seq);
+          return { status: 'succeeded' };
+        }
+        return this.handleFailure(item, undefined, res.error);
+      }
+
+      case 'band.event': {
+        const res = this.transport.recordBandEvent
+          ? await this.transport.recordBandEvent(payload)
+          : ok(undefined);
+        if (res.ok) {
+          await this.db.syncOutbox.delete(seq);
+          return { status: 'succeeded' };
+        }
+        return this.handleFailure(item, undefined, res.error);
+      }
+
+      case 'profile.update': {
+        const res = this.transport.updateProfile
+          ? await this.transport.updateProfile(payload)
+          : ok(undefined);
+        if (res.ok) {
+          await this.db.syncOutbox.delete(seq);
+          return { status: 'succeeded' };
+        }
+        return this.handleFailure(item, undefined, res.error);
       }
     }
   }

@@ -308,7 +308,7 @@ export function renderLanding(irn) {
   function speakingExample() {
     const waveform = SPEAKING_PEAKS.map(height => `<i style="--bar:${height}%"></i>`).join("");
     return `<div class="speaking-audio" dir="ltr">
-        <audio data-demo-audio preload="metadata" data-src="/sample-media/speaking-feedback.mp3"></audio>
+        <audio data-demo-audio preload="none" data-src="/sample-media/speaking-feedback.mp3"></audio>
         <div class="speaking-wave" data-demo-wave aria-hidden="true">${waveform}</div>
         <div class="speaking-controls">
           <button type="button" class="demo-play" data-demo-play aria-label="${L("Play sample recording", "پخش صدای نمونه")}" disabled><span aria-hidden="true">▶</span></button>

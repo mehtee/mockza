@@ -1,8 +1,10 @@
 import { DailyMissionPayloadSchema } from '@mockza/contracts';
+import { normalizeCanonicalTopicKey, type CanonicalTopicKey } from '@mockza/domain';
 import type { z } from 'zod';
 import { EvaluationModelError } from '../errors.js';
-import { OpenRouterClient } from '../models/openrouter.js';
+import { type AiUsageTelemetryCallback, OpenRouterClient } from '../models/openrouter.js';
 import { MODEL_REGISTRY } from '../models/registry.js';
+import { emitChatUsage } from '../observability/usage-extract.js';
 
 export type DailyMissionPayload = z.infer<typeof DailyMissionPayloadSchema>;
 
@@ -10,6 +12,11 @@ export interface PlanDailyMissionInput {
   edition: 'glb' | 'irn';
   examTrack: string;
   focusTopic: string;
+  activePhase?: 'favorite_topics' | 'weakness_transfer' | 'exam_breadth';
+  phaseReasonEn?: string;
+  phaseReasonFa?: string;
+  currentBand?: number;
+  targetBand?: number;
   bottlenecks: Array<{
     canonicalKey: string;
     displayLabelEn: string;
@@ -35,6 +42,7 @@ export interface PlanDailyMissionOptions {
   client?: Pick<OpenRouterClient, 'createChatCompletion'>;
   allowDemoEvaluator?: boolean;
   routingTier?: 'standard' | 'flex';
+  onUsage?: AiUsageTelemetryCallback;
 }
 
 const PROMPT_VERSION = 'daily-mission@2026-11';
@@ -51,8 +59,8 @@ interface StarterTopicTemplate {
   target2HintFa: string;
 }
 
-const STARTER_TOPIC_TEMPLATES: Record<string, StarterTopicTemplate> = {
-  ai_tech: {
+const STARTER_TOPIC_TEMPLATES: Record<CanonicalTopicKey, StarterTopicTemplate> = {
+  technology_ai: {
     promptTitleEn: 'AI at Work: Weighing Speed vs Reliability',
     promptTextEn:
       'In 4–6 sentences, explain whether teams should automate routine tasks with AI tools right away or roll them out slowly with human checks.',
@@ -65,7 +73,7 @@ const STARTER_TOPIC_TEMPLATES: Record<string, StarterTopicTemplate> = {
     target2HintEn: 'Use this formal linker to weigh a trade-off smoothly.',
     target2HintFa: 'برای بیان موازنه یا هزینهٔ پنهان یک مزیت از عبارت «albeit at the cost of» بهره ببرید.',
   },
-  business_work: {
+  career_workplace: {
     promptTitleEn: 'Remote Flexibility vs In-Office Collaboration',
     promptTextEn:
       'In 4–6 sentences, discuss how hybrid work changes team communication and accountability.',
@@ -78,60 +86,115 @@ const STARTER_TOPIC_TEMPLATES: Record<string, StarterTopicTemplate> = {
     target2HintEn: 'Natural Band 8 collocation for managing competing priorities.',
     target2HintFa: 'کالوکیشن طبیعی نمره ۸+ به معنای «ایجاد تعادل میان دو چیز».',
   },
-  sports_football: {
-    promptTitleEn: 'High-Press Tactics vs Energy Management',
+  health_sports: {
+    promptTitleEn: 'Preventive Habits & Athletic Performance',
     promptTextEn:
-      'In 4–6 sentences, explain whether a coach should instruct players to press aggressively from the first minute or conserve stamina for the final quarter.',
+      'In 4–6 sentences, argue why consistent sleep, nutrition, and conditioning outweigh short bursts of intense training.',
     promptTextFa:
-      'در ۴ تا ۶ جمله انگلیسی توضیح دهید آیا مربی باید از دقیقه اول پرس سنگین را انتخاب کند یا انرژی تیم را برای دقایق پایانی نگه دارد.',
-    target1Phrase: 'Had the side maintained..., they might have...',
-    target1HintEn: 'Third-conditional structure ideal for analyzing match tactics.',
-    target1HintFa: 'ساختار شرطی نوع سوم، بسیار کاربردی برای تحلیل تصمیم‌های تاکتیکی.',
-    target2Phrase: 'turn the tide',
-    target2HintEn: 'Idiomatic phrase meaning to change the direction of a match or situation.',
-    target2HintFa: 'اصطلاح طبیعی به معنای «تغییر دادن جریان بازی یا شرایط».',
-  },
-  medicine_health: {
-    promptTitleEn: 'Preventive Habits vs Reactive Treatment',
-    promptTextEn:
-      'In 4–6 sentences, argue why public health systems should invest more in preventive habits like sleep and nutrition rather than waiting to treat illness.',
-    promptTextFa:
-      'در ۴ تا ۶ جمله انگلیسی بنویسید چرا سرمایه‌گذاری روی پیشگیری (خواب و تغذیه) مؤثرتر از درمان دیرهنگام است.',
-    target1Phrase: 'Rather than treating..., systems ought to...',
+      'در ۴ تا ۶ جمله انگلیسی توضیح دهید چرا خواب، تغذیه و تمرین پیوسته از فشار مقطعی و کوتاه‌مدت مؤثرتر است.',
+    target1Phrase: 'Rather than prioritizing..., athletes and systems ought to...',
     target1HintEn: 'Strong comparative structure for policy and opinion questions.',
     target1HintFa: 'ساختار مقایسه‌ای عالی برای سؤال‌های استدلالی و تحلیلی.',
     target2Phrase: 'alleviate the burden on',
-    target2HintEn: 'High-value collocation meaning to reduce pressure on a system.',
+    target2HintEn: 'High-value collocation meaning to reduce strain on a system or body.',
     target2HintFa: 'کالوکیشن دقیق نمره ۸+ به معنای «کاهش فشار بر...».',
+  },
+  science_climate: {
+    promptTitleEn: 'Renewable Grids vs Short-Term Energy Costs',
+    promptTextEn:
+      'In 4–6 sentences, evaluate how cities should balance cleaner renewable infrastructure against household energy affordability.',
+    promptTextFa:
+      'در ۴ تا ۶ جمله انگلیسی بررسی کنید شهرها چگونه باید میان انرژی‌های پاک و هزینهٔ معقول برق برای خانوارها تعادل بسازند.',
+    target1Phrase: 'Provided that governments subsidize..., emissions could...',
+    target1HintEn: 'Conditional framing ideal for environmental policy arguments.',
+    target1HintFa: 'ساختار شرطی قوی برای استدلال‌های زیست‌محیطی و سیاست‌گذاری.',
+    target2Phrase: 'irreversible ecological damage',
+    target2HintEn: 'Exact C1 topic collocation for IELTS/PTE environmental prompts.',
+    target2HintFa: 'کالوکیشن آکادمیک سطح C1 برای موضوعات محیط‌زیست.',
+  },
+  education_campus: {
+    promptTitleEn: 'Project-Based Learning vs Standardized Exams',
+    promptTextEn:
+      'In 4–6 sentences, discuss whether schools prepare students better through practical projects or formal written examinations.',
+    promptTextFa:
+      'در ۴ تا ۶ جمله انگلیسی تحلیل کنید آیا پروژه‌های عملی دانشجویان را بهتر آماده می‌کنند یا آزمون‌های استاندارد.',
+    target1Phrase: 'Whereas rote memorization encourages..., inquiry-based tasks cultivate...',
+    target1HintEn: 'High-scoring contrastive structure with whereas.',
+    target1HintFa: 'ساختار تقابلی حرفه‌ای با whereas برای بالا بردن نمره گرامر.',
+    target2Phrase: 'foster independent critical thinking',
+    target2HintEn: 'Strong Academic verb-noun collocation.',
+    target2HintFa: 'کالوکیشن دقیق برای بحث‌های آموزش عالی.',
+  },
+  urban_society: {
+    promptTitleEn: 'Compact Housing vs Public Green Spaces',
+    promptTextEn:
+      'In 4–6 sentences, examine how growing cities should allocate scarce urban land between affordable housing and parks.',
+    promptTextFa:
+      'در ۴ تا ۶ جمله انگلیسی بنویسید کلان‌شهرها چگونه باید زمین محدود شهری را بین مسکن اقتصادی و فضای سبز تقسیم کنند.',
+    target1Phrase: 'Not only does dense housing expand..., it also demands...',
+    target1HintEn: 'Inversion structure ("Not only does...") boosts GRA range.',
+    target1HintFa: 'ساختار وارونه‌سازی برای نشان دادن تنوع گرامری نمره بالا.',
+    target2Phrase: 'mitigate social isolation',
+    target2HintEn: 'Authentic Band 8 collocation for urban planning topics.',
+    target2HintFa: 'کالوکیشن آکادمیک برای موضوعات اجتماعی و شهری.',
+  },
+  arts_media: {
+    promptTitleEn: 'Global Streaming Platforms & Local Culture',
+    promptTextEn:
+      'In 4–6 sentences, analyze whether international streaming algorithms enrich local storytelling or homogenize cultural identity.',
+    promptTextFa:
+      'در ۴ تا ۶ جمله انگلیسی بررسی کنید پلتفرم‌های جهانی استریم به سینمای بومی کمک می‌کنند یا فرهنگ‌ها را یکسان‌سازی می‌کنند.',
+    target1Phrase: 'While global exposure amplifies..., it simultaneously risks...',
+    target1HintEn: 'Balanced concessive clause weighing dual cultural impacts.',
+    target1HintFa: 'ساختار متوازن برای تحلیل دو سوی یک پدیده فرهنگی.',
+    target2Phrase: 'preserve cultural authenticity',
+    target2HintEn: 'Natural C1 collocation for arts and heritage topics.',
+    target2HintFa: 'عبارت سطح بالا به معنای «حفظ اصالت فرهنگی».',
+  },
+  travel_culture: {
+    promptTitleEn: 'High-Speed Rail vs Sustainable Tourism',
+    promptTextEn:
+      'In 4–6 sentences, compare investing in high-speed intercity rail and heritage preservation against mass short-haul tourism.',
+    promptTextFa:
+      'در ۴ تا ۶ جمله انگلیسی سرمایه‌گذاری در قطار سریع‌السیر و گردشگری پایدار را با سفرهای پرحجم مقایسه کنید.',
+    target1Phrase: 'Had regions modernized rail corridors earlier, travelers would...',
+    target1HintEn: 'Inverted third conditional for infrastructure reflection.',
+    target1HintFa: 'شرطی نوع سوم معکوس؛ ساختار ممتاز برای تحلیل حمل‌ونقل و سفر.',
+    target2Phrase: 'alleviate chronic congestion',
+    target2HintEn: 'High-value Band 8 urban-mobility collocation.',
+    target2HintFa: 'کالوکیشن دقیق برای کاهش ترافیک و ازدحام.',
+  },
+  academic_core: {
+    promptTitleEn: 'Open-Science Data Sharing vs Commercial Patents',
+    promptTextEn:
+      'In 4–6 sentences, explain whether publicly funded laboratories should publish raw data immediately or allow commercial patent windows.',
+    promptTextFa:
+      'در ۴ تا ۶ جمله انگلیسی توضیح دهید آیا پژوهش‌های با بودجه عمومی باید فوراً داده‌ها را منتشر کنند یا مهلت ثبت تجاری داشته باشند.',
+    target1Phrase: 'Even though exclusive patents incentivize..., open replication accelerates...',
+    target1HintEn: 'Nuanced causal comparison using Even though.',
+    target1HintFa: 'ساختار پیچیده و دقیق برای مقایسه انگیزه‌های علمی.',
+    target2Phrase: 'reproducible empirical evidence',
+    target2HintEn: 'Precision C1 research vocabulary.',
+    target2HintFa: 'واژگان تخصصی سطح C1 در پژوهش و علم.',
+  },
+  business_finance: {
+    promptTitleEn: 'Financial Literacy vs Consumer Credit Regulation',
+    promptTextEn:
+      'In 4–6 sentences, discuss whether school financial education or stricter lending regulation better protects young households from debt.',
+    promptTextFa:
+      'در ۴ تا ۶ جمله انگلیسی بررسی کنید آموزش سواد مالی مؤثرتر است یا قوانین سخت‌گیرانه‌تر وام‌دهی.',
+    target1Phrase: 'Without transparent borrowing safeguards, households become...',
+    target1HintEn: 'Prepositional conditional frame without "if".',
+    target1HintFa: 'جمله شرطی پیشرفته با Without برای نشان دادن پیامد اقتصادی.',
+    target2Phrase: 'long-term financial resilience',
+    target2HintEn: 'Sophisticated Band 8 economics phrase.',
+    target2HintFa: 'عبارت دقیق نمره ۸+ برای اقتصاد و بودجه خانوار.',
   },
 };
 
 function matchStarterTemplate(topic: string): StarterTopicTemplate {
-  const lower = topic.toLowerCase();
-  if (lower.includes('ai') || lower.includes('tech') || lower.includes('هوش')) {
-    return STARTER_TOPIC_TEMPLATES['ai_tech']!;
-  }
-  if (lower.includes('business') || lower.includes('work') || lower.includes('کار')) {
-    return STARTER_TOPIC_TEMPLATES['business_work']!;
-  }
-  if (lower.includes('sport') || lower.includes('football') || lower.includes('ورزش') || lower.includes('فوتبال')) {
-    return STARTER_TOPIC_TEMPLATES['sports_football']!;
-  }
-  if (lower.includes('med') || lower.includes('health') || lower.includes('پزشک') || lower.includes('سلامت')) {
-    return STARTER_TOPIC_TEMPLATES['medicine_health']!;
-  }
-  const cleanTopic = topic.trim() || 'Everyday Technology & Modern Life';
-  return {
-    promptTitleEn: `${cleanTopic}: Balancing Benefits & Trade-Offs`,
-    promptTextEn: `In 4–6 natural sentences about "${cleanTopic}", compare one clear advantage with one practical challenge using both target expressions above.`,
-    promptTextFa: `درباره «${cleanTopic}» ۴ تا ۶ جمله انگلیسی بنویسید یا بگویید؛ یک مزیت روشن و یک چالش واقعی را با کمک هر دو عبارت بالا مقایسه کنید.`,
-    target1Phrase: 'While it is clear that..., one cannot overlook...',
-    target1HintEn: `Use this balanced concessive opener to frame "${cleanTopic}".`,
-    target1HintFa: 'از این ساختار متعادل برای شروع استدلال و بیان نکته مقابل استفاده کنید.',
-    target2Phrase: 'in the long run',
-    target2HintEn: 'Idiomatic expression meaning over an extended period of time.',
-    target2HintFa: 'اصطلاح کاربردی به معنای «در درازمدت».',
-  };
+  const canonical = normalizeCanonicalTopicKey(topic) ?? 'technology_ai';
+  return STARTER_TOPIC_TEMPLATES[canonical] ?? STARTER_TOPIC_TEMPLATES.technology_ai;
 }
 
 /**
@@ -186,6 +249,8 @@ export function buildCuratedStarterMission(input: PlanDailyMissionInput): PlanDa
     promptTextEn: tpl.promptTextEn,
     promptTextFa: isIrn ? tpl.promptTextFa : null,
     responseMode: input.responseMode ?? 'writing',
+    topicSelectionReasonEn: input.phaseReasonEn ?? null,
+    topicSelectionReasonFa: isIrn ? (input.phaseReasonFa ?? null) : null,
   });
 
   return {
@@ -260,9 +325,11 @@ export async function evaluateMissionResponseGraph(
   const hasAudio = Boolean(input.base64AudioData);
   const model = hasAudio ? MODEL_REGISTRY.speakingAudioPrimary : MODEL_REGISTRY.drillFast;
 
+  const startedAt = Date.now();
   const res = await client.createChatCompletion({
     model,
     routingTier: options.routingTier ?? 'standard',
+    featureKind: 'daily_mission_eval',
     response_format: { type: 'json_object' },
     temperature: 0.2,
     max_tokens: 1100,
@@ -293,6 +360,13 @@ export async function evaluateMissionResponseGraph(
       },
     ],
   });
+  await emitChatUsage(
+    'daily_mission_eval',
+    model,
+    res,
+    Date.now() - startedAt,
+    options.onUsage,
+  );
 
   const parsed = JSON.parse(stripJsonCodeFences(res.choices[0]?.message?.content ?? '{}')) as Partial<EvaluateMissionOutput>;
   const matched = Array.isArray(parsed.matchedTargets) ? parsed.matchedTargets : [];
@@ -427,23 +501,32 @@ export async function planDailyMissionGraph(
       ? 'Keep ALL forcedTargets[].phraseEn, hintEn, promptTitle, and promptTextEn in crisp natural English. Write hintFa and promptTextFa in clear encouraging Persian (fa-IR).'
       : 'Keep all strings in crisp natural English. Set hintFa and promptTextFa to null.';
 
+  const phaseLine = input.activePhase
+    ? `Adaptive Phase: ${input.activePhase}${input.phaseReasonEn ? ` (${input.phaseReasonEn})` : ''}. Current estimated band: ${input.currentBand ?? 'uncalibrated'}, Target band: ${input.targetBand ?? '7.0'}.`
+    : '';
+
   const systemPrompt = [
     'You are an adaptive language coach generating a high-signal 10-minute Daily Mission.',
     `Target exam track: ${input.examTrack}. Focus interest topic: ${input.focusTopic}.`,
+    phaseLine,
     editionInstruction,
     'Return ONLY JSON matching:',
     '{"estimatedSeconds":600,"warmupCardIds":["..."],"forcedTargets":[{"canonicalKey":"...","phraseEn":"...","hintEn":"...","hintFa":null}],"promptTitle":"...","promptTextEn":"...","promptTextFa":null,"responseMode":"writing"|"speaking"}',
     'Always provide exactly 2 actionable forcedTargets combining the learner bottleneck + SM-2 vocabulary.',
-  ].join('\n');
+  ]
+    .filter((l) => l.length > 0)
+    .join('\n');
 
   const userPrompt = `Top Bottlenecks:\n${bottlenecksDesc}\n\nDue SM-2 Cards:\n${dueDesc}\n\nPreferred mode: ${input.responseMode ?? 'writing'}`;
 
   let lastError: unknown;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
+      const startedAt = Date.now();
       const res = await client.createChatCompletion({
         model: MODEL_REGISTRY.missionPlanner,
         routingTier: tier,
+        featureKind: 'daily_mission_plan',
         response_format: { type: 'json_object' },
         temperature: 0.35,
         max_tokens: 1800,
@@ -458,12 +541,25 @@ export async function planDailyMissionGraph(
           },
         ],
       });
+      await emitChatUsage(
+        'daily_mission_plan',
+        MODEL_REGISTRY.missionPlanner,
+        res,
+        Date.now() - startedAt,
+        options.onUsage,
+      );
 
       const raw = stripJsonCodeFences(res.choices[0]?.message?.content ?? '{}');
       const parsedJson = JSON.parse(raw) as Record<string, unknown>;
       // Ensure warmupCardIds always carries valid card IDs from input
       if (!Array.isArray(parsedJson['warmupCardIds'])) {
         parsedJson['warmupCardIds'] = input.dueCards.slice(0, 5).map((c) => c.cardId);
+      }
+      if (input.phaseReasonEn && parsedJson['topicSelectionReasonEn'] == null) {
+        parsedJson['topicSelectionReasonEn'] = input.phaseReasonEn;
+      }
+      if (input.edition === 'irn' && input.phaseReasonFa && parsedJson['topicSelectionReasonFa'] == null) {
+        parsedJson['topicSelectionReasonFa'] = input.phaseReasonFa;
       }
       const payload = DailyMissionPayloadSchema.parse(parsedJson);
       return {

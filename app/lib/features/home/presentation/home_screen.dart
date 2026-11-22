@@ -11,9 +11,12 @@ import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/features/home/presentation/home_providers.dart';
 import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/providers.dart';
+import 'package:mockza/routing/roadmap_route_resolver.dart';
 import 'package:mockza/routing/routes.dart';
+import 'package:mockza/services/personalization_gateway.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
+import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/brand_header.dart';
 import 'package:mockza/theme/components/icon_well.dart';
@@ -262,6 +265,12 @@ class HomeScreen extends ConsumerWidget {
                     glyph: LucideGlyph.circlePlay,
                     onPressed: () => context.go(AppRoutes.practice),
                   ),
+                  const SizedBox(height: SpacingTokens.xs),
+                  SecondaryButton(
+                    label: l10n.roadmapViewFullCta,
+                    glyph: LucideGlyph.target,
+                    onPressed: () => context.push(AppRoutes.roadmap),
+                  ),
                   const SizedBox(height: SpacingTokens.md),
                   MissionProgressCard(
                     isRtl: isIran,
@@ -275,6 +284,17 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ],
                 const SizedBox(height: SpacingTokens.lg),
+                if (state.personalization != null) ...<Widget>[
+                  _PersonalizationRoadmapCard(
+                    personalization: state.personalization!,
+                    isIran: isIran,
+                    bandShiftDismissed: state.bandShiftDismissed,
+                    onAckBandShift: () => unawaited(
+                      ref.read(homeNotifierProvider.notifier).acknowledgeBandShift(),
+                    ),
+                  ),
+                  const SizedBox(height: SpacingTokens.lg),
+                ],
 
                 // Metric Hero Card
                 MetricHero(
@@ -468,6 +488,180 @@ class HomeScreen extends ConsumerWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PersonalizationRoadmapCard extends StatelessWidget {
+  const new({
+    required this.personalization,
+    required this.isIran,
+    required this.bandShiftDismissed,
+    required this.onAckBandShift,
+  });
+
+  final PersonalizationStateDto personalization;
+  final bool isIran;
+  final bool bandShiftDismissed;
+  final VoidCallback onAckBandShift;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final colors = AppColors.of(context);
+    final shapes = AppShapes.of(context);
+    final typography = AppTypography.of(context);
+    final step = personalization.currentStep;
+    final confLabel = switch (personalization.liveBand.confidence) {
+      BandConfidenceTier.calibrated => l10n.confidenceCalibrated,
+      BandConfidenceTier.developing => l10n.confidenceDeveloping,
+      BandConfidenceTier.provisional => l10n.confidenceProvisional,
+    };
+    final showBandUp =
+        personalization.liveBand.bandShift >= 0.3 &&
+        !personalization.bandShiftAcknowledged &&
+        !bandShiftDismissed &&
+        personalization.liveBand.currentBand != null;
+
+    return MzCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          if (showBandUp) ...<Widget>[
+            Container(
+              padding: const EdgeInsetsDirectional.all(SpacingTokens.sm),
+              decoration: BoxDecoration(
+                color: colors.mintBg,
+                borderRadius: shapes.compactRadius,
+                border: Border.all(color: colors.success),
+              ),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          l10n.roadmapBandUpTitle(
+                            personalization.liveBand.bandShift.toStringAsFixed(1),
+                            personalization.liveBand.currentBand!.toStringAsFixed(1),
+                          ),
+                          style: typography.caption.copyWith(
+                            color: colors.success,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: SpacingTokens.xs),
+                        Text(
+                          l10n.roadmapBandUpBody,
+                          style: typography.caption.copyWith(
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: l10n.cancelAction,
+                    onPressed: onAckBandShift,
+                    icon: const AppIcon(LucideGlyph.x, size: 16),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: SpacingTokens.sm),
+          ],
+          Wrap(
+            spacing: SpacingTokens.xs,
+            runSpacing: SpacingTokens.xs,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: <Widget>[
+              Text(
+                l10n.roadmapTitle,
+                style: typography.cardTitle.copyWith(color: colors.textPrimary),
+              ),
+              MzChip(label: confLabel),
+            ],
+          ),
+          if (personalization.milestones.isNotEmpty) ...<Widget>[
+            const SizedBox(height: SpacingTokens.sm),
+            Wrap(
+              spacing: SpacingTokens.xs,
+              runSpacing: SpacingTokens.xs,
+              children: personalization.milestones
+                  .map(
+                    (m) => MzChip(
+                      label:
+                          'M${m.index}${m.status == 'completed' ? ' ✓' : ''}',
+                      isSelected: m.status == 'active',
+                      variant: m.status == 'completed'
+                          ? MzChipVariant.positive
+                          : MzChipVariant.neutral,
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          ],
+          if (personalization.weaknesses.isNotEmpty) ...<Widget>[
+            const SizedBox(height: SpacingTokens.xs),
+            Wrap(
+              spacing: SpacingTokens.xs,
+              runSpacing: SpacingTokens.xs,
+              children: personalization.weaknesses
+                  .take(2)
+                  .map(
+                    (w) => MzChip(
+                      label: isIran ? w.displayLabelFa : w.displayLabelEn,
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          ],
+          if (step != null) ...<Widget>[
+            const SizedBox(height: SpacingTokens.sm),
+            Text(
+              isIran ? step.titleFa : step.titleEn,
+              style: typography.body.copyWith(
+                color: colors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: SpacingTokens.xs),
+            Text(
+              isIran ? step.reasonFa : step.reasonEn,
+              style: typography.caption.copyWith(color: colors.textSecondary),
+            ),
+            const SizedBox(height: SpacingTokens.xs),
+            Wrap(
+              spacing: SpacingTokens.sm,
+              runSpacing: SpacingTokens.xs,
+              children: <Widget>[
+                PrimaryButton(
+                  label: l10n.studyStart,
+                  glyph: LucideGlyph.arrowRight,
+                  isFullWidth: false,
+                  onPressed: () => context.push(
+                    resolveFlutterRoadmapStepRoute(step),
+                  ),
+                ),
+                SecondaryButton(
+                  label: l10n.roadmapViewFullCta,
+                  isFullWidth: false,
+                  onPressed: () => context.push(AppRoutes.roadmap),
+                ),
+              ],
+            ),
+          ] else ...<Widget>[
+            const SizedBox(height: SpacingTokens.sm),
+            SecondaryButton(
+              label: l10n.roadmapViewFullCta,
+              glyph: LucideGlyph.target,
+              onPressed: () => context.push(AppRoutes.roadmap),
+            ),
+          ],
+        ],
       ),
     );
   }

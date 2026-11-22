@@ -1252,6 +1252,14 @@
                   "writing",
                   "speaking"
                 ]
+              },
+              "topicSelectionReasonEn": {
+                "type": "string",
+                "nullable": true
+              },
+              "topicSelectionReasonFa": {
+                "type": "string",
+                "nullable": true
               }
             },
             "required": [
@@ -1849,6 +1857,1768 @@
           "items",
           "nextCursor"
         ]
+      },
+      "LiveBandProfile": {
+        "type": "object",
+        "properties": {
+          "examTrack": {
+            "type": "string"
+          },
+          "currentBand": {
+            "type": "number",
+            "nullable": true
+          },
+          "targetBand": {
+            "type": "number"
+          },
+          "bandShift": {
+            "type": "number"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "provisional",
+              "developing",
+              "calibrated"
+            ]
+          },
+          "skills": {
+            "type": "object",
+            "properties": {
+              "reading": {
+                "type": "object",
+                "properties": {
+                  "score": {
+                    "type": "number",
+                    "nullable": true
+                  },
+                  "confidence": {
+                    "type": "string",
+                    "enum": [
+                      "provisional",
+                      "developing",
+                      "calibrated"
+                    ]
+                  },
+                  "evidenceCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "lastUpdatedAt": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "trendDelta": {
+                    "type": "number",
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "score",
+                  "confidence",
+                  "evidenceCount",
+                  "lastUpdatedAt",
+                  "trendDelta"
+                ]
+              },
+              "listening": {
+                "type": "object",
+                "properties": {
+                  "score": {
+                    "type": "number",
+                    "nullable": true
+                  },
+                  "confidence": {
+                    "type": "string",
+                    "enum": [
+                      "provisional",
+                      "developing",
+                      "calibrated"
+                    ]
+                  },
+                  "evidenceCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "lastUpdatedAt": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "trendDelta": {
+                    "type": "number",
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "score",
+                  "confidence",
+                  "evidenceCount",
+                  "lastUpdatedAt",
+                  "trendDelta"
+                ]
+              },
+              "writing": {
+                "type": "object",
+                "properties": {
+                  "score": {
+                    "type": "number",
+                    "nullable": true
+                  },
+                  "confidence": {
+                    "type": "string",
+                    "enum": [
+                      "provisional",
+                      "developing",
+                      "calibrated"
+                    ]
+                  },
+                  "evidenceCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "lastUpdatedAt": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "trendDelta": {
+                    "type": "number",
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "score",
+                  "confidence",
+                  "evidenceCount",
+                  "lastUpdatedAt",
+                  "trendDelta"
+                ]
+              },
+              "speaking": {
+                "type": "object",
+                "properties": {
+                  "score": {
+                    "type": "number",
+                    "nullable": true
+                  },
+                  "confidence": {
+                    "type": "string",
+                    "enum": [
+                      "provisional",
+                      "developing",
+                      "calibrated"
+                    ]
+                  },
+                  "evidenceCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "lastUpdatedAt": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "trendDelta": {
+                    "type": "number",
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "score",
+                  "confidence",
+                  "evidenceCount",
+                  "lastUpdatedAt",
+                  "trendDelta"
+                ]
+              }
+            },
+            "required": [
+              "reading",
+              "listening",
+              "writing",
+              "speaking"
+            ]
+          }
+        },
+        "required": [
+          "examTrack",
+          "currentBand",
+          "targetBand",
+          "bandShift",
+          "confidence",
+          "skills"
+        ]
+      },
+      "RoadmapPlanDto": {
+        "type": "object",
+        "properties": {
+          "planId": {
+            "type": "string"
+          },
+          "examTrack": {
+            "type": "string"
+          },
+          "planRevision": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "baselineBand": {
+            "type": "number"
+          },
+          "targetBand": {
+            "type": "number"
+          },
+          "isSprintMode": {
+            "type": "boolean"
+          },
+          "milestones": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4
+                },
+                "titleEn": {
+                  "type": "string"
+                },
+                "titleFa": {
+                  "type": "string"
+                },
+                "phaseLabelEn": {
+                  "type": "string"
+                },
+                "phaseLabelFa": {
+                  "type": "string"
+                },
+                "targetBandDelta": {
+                  "type": "number"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "locked",
+                    "active",
+                    "completed"
+                  ]
+                }
+              },
+              "required": [
+                "index",
+                "titleEn",
+                "titleFa",
+                "phaseLabelEn",
+                "phaseLabelFa",
+                "targetBandDelta",
+                "status"
+              ]
+            }
+          },
+          "currentStep": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "stepId": {
+                "type": "string"
+              },
+              "milestoneIndex": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4
+              },
+              "stepOrder": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "stepKind": {
+                "type": "string",
+                "enum": [
+                  "vocab_wave",
+                  "micro_drill",
+                  "daily_mission",
+                  "practice_section",
+                  "practice_pack",
+                  "full_mock",
+                  "pronunciation",
+                  "register_shifter",
+                  "drop_anything",
+                  "diagnostic"
+                ]
+              },
+              "skill": {
+                "type": "string",
+                "enum": [
+                  "reading",
+                  "listening",
+                  "writing",
+                  "speaking",
+                  "vocabulary",
+                  "all"
+                ],
+                "default": "all"
+              },
+              "titleEn": {
+                "type": "string"
+              },
+              "titleFa": {
+                "type": "string"
+              },
+              "reasonEn": {
+                "type": "string"
+              },
+              "reasonFa": {
+                "type": "string"
+              },
+              "topicKey": {
+                "type": "string"
+              },
+              "weaknessKey": {
+                "type": "string",
+                "nullable": true
+              },
+              "targetRoute": {
+                "type": "string"
+              },
+              "targetEntityId": {
+                "type": "string",
+                "nullable": true
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "locked",
+                  "active",
+                  "completed",
+                  "skipped"
+                ]
+              },
+              "estimatedMinutes": {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true
+              }
+            },
+            "required": [
+              "stepId",
+              "milestoneIndex",
+              "stepOrder",
+              "stepKind",
+              "titleEn",
+              "titleFa",
+              "reasonEn",
+              "reasonFa",
+              "topicKey",
+              "targetRoute",
+              "status",
+              "estimatedMinutes"
+            ]
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "stepId": {
+                  "type": "string"
+                },
+                "milestoneIndex": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4
+                },
+                "stepOrder": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "stepKind": {
+                  "type": "string",
+                  "enum": [
+                    "vocab_wave",
+                    "micro_drill",
+                    "daily_mission",
+                    "practice_section",
+                    "practice_pack",
+                    "full_mock",
+                    "pronunciation",
+                    "register_shifter",
+                    "drop_anything",
+                    "diagnostic"
+                  ]
+                },
+                "skill": {
+                  "type": "string",
+                  "enum": [
+                    "reading",
+                    "listening",
+                    "writing",
+                    "speaking",
+                    "vocabulary",
+                    "all"
+                  ],
+                  "default": "all"
+                },
+                "titleEn": {
+                  "type": "string"
+                },
+                "titleFa": {
+                  "type": "string"
+                },
+                "reasonEn": {
+                  "type": "string"
+                },
+                "reasonFa": {
+                  "type": "string"
+                },
+                "topicKey": {
+                  "type": "string"
+                },
+                "weaknessKey": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "targetRoute": {
+                  "type": "string"
+                },
+                "targetEntityId": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "locked",
+                    "active",
+                    "completed",
+                    "skipped"
+                  ]
+                },
+                "estimatedMinutes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                }
+              },
+              "required": [
+                "stepId",
+                "milestoneIndex",
+                "stepOrder",
+                "stepKind",
+                "titleEn",
+                "titleFa",
+                "reasonEn",
+                "reasonFa",
+                "topicKey",
+                "targetRoute",
+                "status",
+                "estimatedMinutes"
+              ]
+            }
+          }
+        },
+        "required": [
+          "planId",
+          "examTrack",
+          "planRevision",
+          "baselineBand",
+          "targetBand",
+          "isSprintMode",
+          "milestones",
+          "currentStep",
+          "steps"
+        ]
+      },
+      "PersonalizationStateResponse": {
+        "type": "object",
+        "properties": {
+          "profile": {
+            "type": "object",
+            "properties": {
+              "examTrack": {
+                "type": "string"
+              },
+              "targetBand": {
+                "type": "number"
+              },
+              "targetDateIso": {
+                "type": "string",
+                "nullable": true
+              },
+              "dailyMinutesGoal": {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true
+              },
+              "studyFocus": {
+                "type": "string",
+                "enum": [
+                  "exams",
+                  "coach",
+                  "both",
+                  "speaking_only"
+                ]
+              },
+              "favoriteTopics": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "activeWeaknessPhase": {
+                "type": "string",
+                "enum": [
+                  "favorite_topics",
+                  "weakness_transfer",
+                  "exam_breadth"
+                ]
+              },
+              "vocabUnlockedWave": {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true
+              },
+              "dailyNewVocabCap": {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true
+              },
+              "preferredTtsAccent": {
+                "type": "string",
+                "enum": [
+                  "us",
+                  "uk"
+                ],
+                "default": "us"
+              },
+              "bandShiftAcknowledged": {
+                "type": "boolean",
+                "default": false
+              },
+              "onboardingCompleted": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "examTrack",
+              "targetBand",
+              "targetDateIso",
+              "dailyMinutesGoal",
+              "studyFocus",
+              "favoriteTopics",
+              "activeWeaknessPhase",
+              "vocabUnlockedWave",
+              "dailyNewVocabCap",
+              "onboardingCompleted"
+            ]
+          },
+          "liveBand": {
+            "$ref": "#/components/schemas/LiveBandProfile"
+          },
+          "weaknesses": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "canonicalKey": {
+                  "type": "string"
+                },
+                "skill": {
+                  "type": "string",
+                  "enum": [
+                    "reading",
+                    "listening",
+                    "writing",
+                    "speaking",
+                    "mixed"
+                  ]
+                },
+                "displayLabelEn": {
+                  "type": "string"
+                },
+                "displayLabelFa": {
+                  "type": "string"
+                },
+                "masteryScoreMilli": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000
+                },
+                "evidenceCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "resolving",
+                    "mastered"
+                  ]
+                }
+              },
+              "required": [
+                "canonicalKey",
+                "skill",
+                "displayLabelEn",
+                "displayLabelFa",
+                "masteryScoreMilli",
+                "evidenceCount",
+                "status"
+              ]
+            }
+          },
+          "roadmap": {
+            "$ref": "#/components/schemas/RoadmapPlanDto"
+          },
+          "nextRecommendedPack": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "packId": {
+                "type": "string"
+              },
+              "score": {
+                "type": "number"
+              },
+              "phase": {
+                "type": "string",
+                "enum": [
+                  "favorite_topics",
+                  "weakness_transfer",
+                  "exam_breadth"
+                ]
+              },
+              "topicKey": {
+                "type": "string"
+              },
+              "weaknessKey": {
+                "type": "string",
+                "nullable": true
+              },
+              "reasonEn": {
+                "type": "string"
+              },
+              "reasonFa": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "packId",
+              "score",
+              "phase",
+              "topicKey",
+              "reasonEn",
+              "reasonFa"
+            ]
+          },
+          "nextRecommendedDrill": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "drillId": {
+                "type": "string"
+              },
+              "score": {
+                "type": "number"
+              },
+              "phase": {
+                "type": "string",
+                "enum": [
+                  "favorite_topics",
+                  "weakness_transfer",
+                  "exam_breadth"
+                ]
+              },
+              "topicKey": {
+                "type": "string"
+              },
+              "weaknessKey": {
+                "type": "string",
+                "nullable": true
+              },
+              "reasonEn": {
+                "type": "string"
+              },
+              "reasonFa": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "drillId",
+              "score",
+              "phase",
+              "topicKey",
+              "reasonEn",
+              "reasonFa"
+            ]
+          },
+          "recommendedPacks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "packId": {
+                  "type": "string"
+                },
+                "score": {
+                  "type": "number"
+                },
+                "phase": {
+                  "type": "string",
+                  "enum": [
+                    "favorite_topics",
+                    "weakness_transfer",
+                    "exam_breadth"
+                  ]
+                },
+                "topicKey": {
+                  "type": "string"
+                },
+                "weaknessKey": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "reasonEn": {
+                  "type": "string"
+                },
+                "reasonFa": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "packId",
+                "score",
+                "phase",
+                "topicKey",
+                "reasonEn",
+                "reasonFa"
+              ]
+            },
+            "default": []
+          },
+          "recommendedDrills": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "drillId": {
+                  "type": "string"
+                },
+                "score": {
+                  "type": "number"
+                },
+                "phase": {
+                  "type": "string",
+                  "enum": [
+                    "favorite_topics",
+                    "weakness_transfer",
+                    "exam_breadth"
+                  ]
+                },
+                "topicKey": {
+                  "type": "string"
+                },
+                "weaknessKey": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "reasonEn": {
+                  "type": "string"
+                },
+                "reasonFa": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "drillId",
+                "score",
+                "phase",
+                "topicKey",
+                "reasonEn",
+                "reasonFa"
+              ]
+            },
+            "default": []
+          },
+          "vocabWaveSummary": {
+            "type": "object",
+            "properties": {
+              "unlockedWave": {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true
+              },
+              "totalWaves": {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true
+              },
+              "currentWaveTotal": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "currentWaveLearned": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "readyToUnlockNext": {
+                "type": "boolean"
+              },
+              "dailyNewRemaining": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "unlockedWave",
+              "totalWaves",
+              "currentWaveTotal",
+              "currentWaveLearned",
+              "readyToUnlockNext",
+              "dailyNewRemaining"
+            ]
+          },
+          "topicCoverageSummary": {
+            "type": "object",
+            "properties": {
+              "phase": {
+                "type": "string",
+                "enum": [
+                  "favorite_topics",
+                  "weakness_transfer",
+                  "exam_breadth"
+                ]
+              },
+              "masteredInFavoriteTopicsCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "transferredToOtherTopicsCount": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "phase",
+              "masteredInFavoriteTopicsCount",
+              "transferredToOtherTopicsCount"
+            ]
+          }
+        },
+        "required": [
+          "profile",
+          "liveBand",
+          "weaknesses",
+          "roadmap",
+          "nextRecommendedPack",
+          "nextRecommendedDrill",
+          "vocabWaveSummary",
+          "topicCoverageSummary"
+        ]
+      },
+      "UpdatePersonalizationProfileRequest": {
+        "type": "object",
+        "properties": {
+          "examTrack": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "targetBand": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 160
+          },
+          "targetDateIso": {
+            "type": "string",
+            "nullable": true
+          },
+          "dailyMinutesGoal": {
+            "type": "integer",
+            "minimum": 10,
+            "maximum": 240
+          },
+          "studyFocus": {
+            "type": "string",
+            "enum": [
+              "exams",
+              "coach",
+              "both",
+              "speaking_only"
+            ]
+          },
+          "favoriteTopics": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 60
+            },
+            "maxItems": 10
+          },
+          "dailyNewVocabCap": {
+            "type": "integer",
+            "minimum": 3,
+            "maximum": 50
+          },
+          "preferredTtsAccent": {
+            "type": "string",
+            "enum": [
+              "us",
+              "uk"
+            ]
+          },
+          "onboardingCompleted": {
+            "type": "boolean"
+          },
+          "unlockNextVocabWave": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DiagnosticTier": {
+        "type": "string",
+        "nullable": true,
+        "enum": [
+          "A1",
+          "A2",
+          "B1",
+          "B2",
+          "C1",
+          "C2"
+        ]
+      },
+      "RecordBandEventRequest": {
+        "type": "object",
+        "properties": {
+          "examTrack": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "skill": {
+            "type": "string",
+            "enum": [
+              "reading",
+              "listening",
+              "writing",
+              "speaking"
+            ]
+          },
+          "sourceKind": {
+            "type": "string",
+            "enum": [
+              "diagnostic",
+              "practice_section",
+              "full_mock",
+              "writing_eval",
+              "speaking_eval",
+              "micro_drill",
+              "mission",
+              "pronunciation"
+            ]
+          },
+          "sourceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "rawScore": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 160
+          },
+          "cefrEstimate": {
+            "$ref": "#/components/schemas/DiagnosticTier"
+          },
+          "durationSeconds": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "accuracyRatio": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "topicKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 6,
+            "default": []
+          },
+          "questionTypeStats": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "questionType": {
+                  "type": "string"
+                },
+                "correct": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "total": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "exclusiveMinimum": true
+                }
+              },
+              "required": [
+                "questionType",
+                "correct",
+                "total"
+              ]
+            }
+          },
+          "packId": {
+            "type": "string"
+          },
+          "attemptId": {
+            "type": "string"
+          },
+          "scoreBand": {
+            "type": "number",
+            "nullable": true
+          },
+          "answersJson": {
+            "type": "object",
+            "additionalProperties": {
+              "nullable": true
+            }
+          },
+          "feedbackJson": {
+            "type": "object",
+            "additionalProperties": {
+              "nullable": true
+            }
+          }
+        },
+        "required": [
+          "examTrack",
+          "skill",
+          "sourceKind",
+          "sourceId",
+          "rawScore"
+        ]
+      },
+      "AckBandShiftResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "bandShift": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "ok",
+          "bandShift"
+        ]
+      },
+      "TtsSynthesizeResponse": {
+        "type": "object",
+        "properties": {
+          "cacheKey": {
+            "type": "string"
+          },
+          "audioUrl": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cached": {
+            "type": "boolean"
+          },
+          "modelUsed": {
+            "type": "string"
+          },
+          "voice": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string",
+            "default": "mp3"
+          }
+        },
+        "required": [
+          "cacheKey",
+          "audioUrl",
+          "cached",
+          "modelUsed",
+          "voice"
+        ]
+      },
+      "TtsSynthesizeRequest": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "voice": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "speed": {
+            "type": "number",
+            "minimum": 0.6,
+            "maximum": 1.5,
+            "default": 1
+          },
+          "sourceContext": {
+            "type": "string",
+            "enum": [
+              "vocab",
+              "reading",
+              "listening_feedback",
+              "speaking_feedback",
+              "writing_feedback",
+              "coach",
+              "pronunciation"
+            ]
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "PronunciationPresignResponse": {
+        "type": "object",
+        "properties": {
+          "practiceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uploadUrl": {
+            "type": "string",
+            "minLength": 1
+          },
+          "objectKey": {
+            "type": "string"
+          },
+          "expiresInSeconds": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          }
+        },
+        "required": [
+          "practiceId",
+          "uploadUrl",
+          "objectKey",
+          "expiresInSeconds"
+        ]
+      },
+      "PronunciationPresignRequest": {
+        "type": "object",
+        "properties": {
+          "practiceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "byteLength": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 8388608
+          },
+          "contentType": {
+            "type": "string",
+            "default": "audio/mp4"
+          }
+        },
+        "required": [
+          "practiceId",
+          "byteLength"
+        ]
+      },
+      "AnalyzePronunciationRequest": {
+        "type": "object",
+        "properties": {
+          "practiceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "targetText": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 600
+          },
+          "practiceKind": {
+            "type": "string",
+            "enum": [
+              "word",
+              "sentence",
+              "reading_excerpt",
+              "feedback_shadow"
+            ],
+            "default": "word"
+          },
+          "sourceRefType": {
+            "type": "string",
+            "enum": [
+              "vocab_card",
+              "reading_passage",
+              "listening_feedback",
+              "writing_feedback",
+              "speaking_feedback",
+              "coach",
+              "custom"
+            ]
+          },
+          "sourceRefId": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "examTrack": {
+            "type": "string",
+            "default": "ielts_academic"
+          },
+          "objectKey": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 500
+          },
+          "durationMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 120000
+          }
+        },
+        "required": [
+          "targetText",
+          "objectKey"
+        ]
+      },
+      "PronunciationPracticeItem": {
+        "type": "object",
+        "properties": {
+          "practiceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "targetText": {
+            "type": "string"
+          },
+          "practiceKind": {
+            "type": "string"
+          },
+          "sourceRefType": {
+            "type": "string",
+            "nullable": true
+          },
+          "sourceRefId": {
+            "type": "string",
+            "nullable": true
+          },
+          "objectKey": {
+            "type": "string"
+          },
+          "audioPlayUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "referenceTtsUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "transcript": {
+            "type": "string",
+            "nullable": true
+          },
+          "accuracyScore": {
+            "type": "number",
+            "nullable": true
+          },
+          "fluencyScore": {
+            "type": "number",
+            "nullable": true
+          },
+          "intonationScore": {
+            "type": "number",
+            "nullable": true
+          },
+          "stressScore": {
+            "type": "number",
+            "nullable": true
+          },
+          "overallScore": {
+            "type": "number",
+            "nullable": true
+          },
+          "bandImpactLabel": {
+            "type": "string",
+            "nullable": true
+          },
+          "summaryEn": {
+            "type": "string",
+            "nullable": true
+          },
+          "summaryFa": {
+            "type": "string",
+            "nullable": true
+          },
+          "mouthTipEn": {
+            "type": "string",
+            "nullable": true
+          },
+          "mouthTipFa": {
+            "type": "string",
+            "nullable": true
+          },
+          "actionableRetryEn": {
+            "type": "string",
+            "nullable": true
+          },
+          "actionableRetryFa": {
+            "type": "string",
+            "nullable": true
+          },
+          "wordsFeedback": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "word": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "accurate",
+                    "needs_work",
+                    "missing_or_extra"
+                  ]
+                },
+                "ipaTarget": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "ipaObserved": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "issueType": {
+                  "type": "string",
+                  "default": "none"
+                },
+                "tipEn": {
+                  "type": "string"
+                },
+                "tipFa": {
+                  "type": "string",
+                  "nullable": true
+                }
+              },
+              "required": [
+                "word",
+                "status",
+                "tipEn"
+              ]
+            },
+            "default": []
+          },
+          "status": {
+            "type": "string"
+          },
+          "errorMessage": {
+            "type": "string",
+            "nullable": true
+          },
+          "modelUsed": {
+            "type": "string",
+            "nullable": true
+          },
+          "estimatedCostUsdMicros": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "practiceId",
+          "targetText",
+          "practiceKind",
+          "objectKey",
+          "status",
+          "createdAt"
+        ]
+      },
+      "PronunciationHistoryResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PronunciationPracticeItem"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "remainingDailyQuota": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "dailyQuotaLimit": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "SyncPullResponse": {
+        "type": "object",
+        "properties": {
+          "profile": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "examTrack": {
+                "type": "string"
+              },
+              "targetBand": {
+                "type": "number"
+              },
+              "targetDateIso": {
+                "type": "string",
+                "nullable": true
+              },
+              "dailyMinutesGoal": {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true
+              },
+              "studyFocus": {
+                "type": "string",
+                "enum": [
+                  "exams",
+                  "coach",
+                  "both",
+                  "speaking_only"
+                ]
+              },
+              "favoriteTopics": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "activeWeaknessPhase": {
+                "type": "string",
+                "enum": [
+                  "favorite_topics",
+                  "weakness_transfer",
+                  "exam_breadth"
+                ]
+              },
+              "vocabUnlockedWave": {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true
+              },
+              "dailyNewVocabCap": {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true
+              },
+              "preferredTtsAccent": {
+                "type": "string",
+                "enum": [
+                  "us",
+                  "uk"
+                ],
+                "default": "us"
+              },
+              "bandShiftAcknowledged": {
+                "type": "boolean",
+                "default": false
+              },
+              "onboardingCompleted": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "examTrack",
+              "targetBand",
+              "targetDateIso",
+              "dailyMinutesGoal",
+              "studyFocus",
+              "favoriteTopics",
+              "activeWeaknessPhase",
+              "vocabUnlockedWave",
+              "dailyNewVocabCap",
+              "onboardingCompleted"
+            ]
+          },
+          "liveBand": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LiveBandProfile"
+              },
+              {
+                "nullable": true
+              }
+            ]
+          },
+          "roadmap": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RoadmapPlanDto"
+              },
+              {
+                "nullable": true
+              }
+            ]
+          },
+          "attempts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "attemptId": {
+                  "type": "string"
+                },
+                "packId": {
+                  "type": "string"
+                },
+                "examId": {
+                  "type": "string"
+                },
+                "skill": {
+                  "type": "string"
+                },
+                "mode": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "scoreBand": {
+                  "type": "number",
+                  "nullable": true
+                },
+                "durationSeconds": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "default": 0
+                },
+                "answersJson": {
+                  "type": "object",
+                  "nullable": true,
+                  "additionalProperties": {
+                    "nullable": true
+                  }
+                },
+                "feedbackJson": {
+                  "type": "object",
+                  "nullable": true,
+                  "additionalProperties": {
+                    "nullable": true
+                  }
+                },
+                "updatedAt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "attemptId",
+                "packId",
+                "examId",
+                "skill",
+                "mode",
+                "status",
+                "updatedAt"
+              ]
+            }
+          },
+          "vocabSrs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "cardId": {
+                  "type": "string"
+                },
+                "easeFactorMilli": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "exclusiveMinimum": true,
+                  "default": 2500
+                },
+                "intervalDays": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "default": 0
+                },
+                "repetitions": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "default": 0
+                },
+                "dueSerialDay": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "default": 0
+                },
+                "lapses": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "default": 0
+                },
+                "lastReviewedAt": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "sourceKind": {
+                  "type": "string",
+                  "default": "seeded"
+                },
+                "cardSnapshotJson": {
+                  "type": "object",
+                  "nullable": true,
+                  "additionalProperties": {
+                    "nullable": true
+                  }
+                }
+              },
+              "required": [
+                "cardId"
+              ]
+            }
+          },
+          "pronunciationPractices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PronunciationPracticeItem"
+            }
+          },
+          "recentActivities": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "activityId": {
+                  "type": "string"
+                },
+                "activityKind": {
+                  "type": "string"
+                },
+                "entityType": {
+                  "type": "string"
+                },
+                "entityId": {
+                  "type": "string"
+                },
+                "topicKey": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "durationSeconds": {
+                  "type": "integer",
+                  "nullable": true
+                },
+                "createdAt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "activityId",
+                "activityKind",
+                "entityType",
+                "entityId",
+                "createdAt"
+              ]
+            },
+            "default": []
+          },
+          "syncedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile",
+          "liveBand",
+          "roadmap",
+          "attempts",
+          "vocabSrs",
+          "pronunciationPractices",
+          "syncedAt"
+        ]
+      },
+      "VocabBatchSyncRequest": {
+        "type": "object",
+        "properties": {
+          "cards": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "cardId": {
+                  "type": "string"
+                },
+                "easeFactorMilli": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "exclusiveMinimum": true,
+                  "default": 2500
+                },
+                "intervalDays": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "default": 0
+                },
+                "repetitions": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "default": 0
+                },
+                "dueSerialDay": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "default": 0
+                },
+                "lapses": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "default": 0
+                },
+                "lastReviewedAt": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "sourceKind": {
+                  "type": "string",
+                  "default": "seeded"
+                },
+                "cardSnapshotJson": {
+                  "type": "object",
+                  "nullable": true,
+                  "additionalProperties": {
+                    "nullable": true
+                  }
+                }
+              },
+              "required": [
+                "cardId"
+              ]
+            },
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "cards"
+        ]
       }
     },
     "parameters": {}
@@ -2320,6 +4090,282 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DropHistoryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/personalization/state": {
+      "get": {
+        "summary": "Get dynamic band score, weakness graph, roadmap plan, and wave schedule",
+        "responses": {
+          "200": {
+            "description": "Unified adaptive personalization state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonalizationStateResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/personalization/profile": {
+      "put": {
+        "summary": "Update learner profile, favorite topics, target band/date, or unlock next vocab wave",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePersonalizationProfileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated personalization state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonalizationStateResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/personalization/band-event": {
+      "post": {
+        "summary": "Record objective/practice band event and update weaknesses + roadmap",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordBandEventRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated personalization state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonalizationStateResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/personalization/band-shift/ack": {
+      "post": {
+        "summary": "Acknowledge recent band-shift celebration banner",
+        "responses": {
+          "200": {
+            "description": "Acknowledged band shift state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AckBandShiftResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tts/synthesize": {
+      "post": {
+        "summary": "Synthesize English speech via OpenRouter TTS API (Kokoro-82m) with S3 cache",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TtsSynthesizeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cached or freshly synthesized speech audio URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TtsSynthesizeResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/pronunciation/presign": {
+      "post": {
+        "summary": "Issue bounded presigned upload URL for pronunciation practice recording",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PronunciationPresignRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Presigned pronunciation audio upload target",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PronunciationPresignResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/pronunciation/analyze": {
+      "post": {
+        "summary": "Queue or analyze learner pronunciation recording using Gemini 3.1 Flash Lite",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalyzePronunciationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Queued pronunciation analysis job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEnqueueResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/pronunciation/history": {
+      "get": {
+        "summary": "List pronunciation practices and audio replay links scoped to account and edition",
+        "responses": {
+          "200": {
+            "description": "Pronunciation practice history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PronunciationHistoryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/pronunciation/{practiceId}": {
+      "get": {
+        "summary": "Poll a single pronunciation practice analysis record by practiceId",
+        "responses": {
+          "200": {
+            "description": "Single pronunciation practice item",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PronunciationPracticeItem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sync/pull": {
+      "get": {
+        "summary": "Pull synced profile, roadmap, attempts, SRS cards, pronunciation practices, and activity ledger",
+        "responses": {
+          "200": {
+            "description": "Full cross-device state snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPullResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sync/vocab-batch": {
+      "post": {
+        "summary": "Sync batch of local SM-2 vocab progress cards to PostgreSQL",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VocabBatchSyncRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Merged wave summary after batch sync",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "unlockedWave": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "totalWaves": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true
+                    },
+                    "currentWaveTotal": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "currentWaveLearned": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "readyToUnlockNext": {
+                      "type": "boolean"
+                    },
+                    "dailyNewRemaining": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "unlockedWave",
+                    "totalWaves",
+                    "currentWaveTotal",
+                    "currentWaveLearned",
+                    "readyToUnlockNext",
+                    "dailyNewRemaining"
+                  ]
                 }
               }
             }

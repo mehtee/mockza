@@ -6,6 +6,10 @@ import {
   type ReadyBackgroundDrop,
   subscribeBackgroundDropReady,
 } from '@/spa/advanced-job-watcher';
+import {
+  bindGlobalSpeechGateway,
+  setGlobalDefaultTtsAccent,
+} from '@/components/speech-tts';
 import { type AppDependencies, AppDependenciesProvider } from '@/spa/deps';
 import {
   clearBackgroundEvaluationReady,
@@ -89,6 +93,24 @@ export function DesktopSimulatorApp({
   const [bgReadyEval, setBgReadyEval] = useState<ReadyBackgroundEvaluation | null>(null);
   const [bgReadyDrop, setBgReadyDrop] = useState<ReadyBackgroundDrop | null>(null);
 
+  useEffect(() => {
+    if (dependencies?.speechPractice) {
+      bindGlobalSpeechGateway(dependencies.speechPractice);
+    }
+    if (dependencies?.personalization) {
+      void dependencies.personalization
+        .getState()
+        .then((res) => {
+          if (res.ok) {
+            setGlobalDefaultTtsAccent(
+              res.value.profile.preferredTtsAccent === 'uk' ? 'uk' : 'us',
+            );
+          }
+        })
+        .catch(() => {});
+    }
+  }, [dependencies]);
+
   useEffect(() => subscribeBackgroundEvaluationReady(setBgReadyEval), []);
   useEffect(() => subscribeBackgroundDropReady(setBgReadyDrop), []);
 
@@ -121,7 +143,6 @@ export function DesktopSimulatorApp({
     };
     const handleOnline = () => {
       void dependencies.syncOutbox.flushPending();
-      runPrefetch();
     };
     const handlePrefetchRequest = () => {
       runPrefetch();
@@ -129,12 +150,7 @@ export function DesktopSimulatorApp({
     window.addEventListener('online', handleOnline);
     window.addEventListener('mockza:prefetch-offline-chunks', handlePrefetchRequest);
 
-    // Defer background simulator chunk warming until well after initial hydration so it
-    // never competes with page render or /v1/catalog/manifest; offline pack downloads
-    // still trigger immediate prefetch via 'mockza:prefetch-offline-chunks'.
-    const deferredTimer = window.setTimeout(runPrefetch, 8000);
     return () => {
-      window.clearTimeout(deferredTimer);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('mockza:prefetch-offline-chunks', handlePrefetchRequest);
     };

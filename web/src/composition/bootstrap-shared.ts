@@ -6,6 +6,8 @@ import { ApiClient, createHttpOutboxTransport } from '@/adapters/http/api-client
 import { HttpDiagnosticAdapter } from '@/adapters/http/http-diagnostic.adapter';
 import { HttpEvaluationAdapter } from '@/adapters/http/http-evaluation.adapter';
 import { HttpLinguisticAdapter } from '@/adapters/http/http-linguistic.adapter';
+import { HttpPersonalizationAdapter } from '@/adapters/http/http-personalization.adapter';
+import { HttpSpeechPracticeAdapter } from '@/adapters/http/http-speech-practice.adapter';
 import type { HttpAuthAdapter } from '@/adapters/http/http-auth.adapter';
 import { HttpTelemetryAdapter, SystemClock } from '@/adapters/http/http-telemetry.adapter';
 import { OpfsCatalogAdapter } from '@/adapters/media/opfs-catalog.adapter';
@@ -53,7 +55,10 @@ export function createEditionDependencies(options: EditionBootstrapOptions): App
     (isLocalHost
       ? `${window.location.protocol}//${window.location.hostname}:45281`
       : options.defaultApiBaseUrl);
-  const cdnBaseUrl = options.cdnBaseUrl ?? options.defaultCdnBaseUrl;
+  const cdnBaseUrl =
+    options.cdnBaseUrl ??
+    import.meta.env.PUBLIC_CDN_BASE_URL ??
+    (import.meta.env.PUBLIC_API_BASE_URL === '' || isLocalHost ? '' : options.defaultCdnBaseUrl);
   const allowDevAuth =
     options.allowDevAuth ?? (import.meta.env?.['PUBLIC_ALLOW_DEV_AUTH'] === 'true' || isLocalHost);
 
@@ -142,6 +147,11 @@ export function createEditionDependencies(options: EditionBootstrapOptions): App
     outbox: syncOutbox,
     clock,
   });
+  const personalization = new HttpPersonalizationAdapter({ apiClient, db });
+  const speechPractice = new HttpSpeechPracticeAdapter({
+    apiClient,
+    fetchFn: options.fetchFn,
+  });
   const telemetry = new HttpTelemetryAdapter({ apiClient, clock });
 
   return {
@@ -158,6 +168,9 @@ export function createEditionDependencies(options: EditionBootstrapOptions): App
     diagnostic,
     evaluation,
     linguistic,
+    personalization,
+    speechPractice,
+    dexieDb: db,
     telemetry,
     clock,
   };

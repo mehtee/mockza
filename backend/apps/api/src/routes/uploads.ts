@@ -39,6 +39,9 @@ async function upsertAudioAssetRow(params: {
   objectKey: string;
   deviceId: string;
   attemptId: string;
+  accountKey?: string | null;
+  assetKind?: string;
+  contentType?: string;
   byteLength: number;
   ttlDays: number;
 }): Promise<void> {
@@ -51,6 +54,10 @@ async function upsertAudioAssetRow(params: {
       objectKey: params.objectKey,
       deviceId: params.deviceId,
       attemptId: params.attemptId,
+      accountKey: params.accountKey ?? null,
+      assetKind: params.assetKind ?? 'speaking_attempt',
+      sourceRefId: params.attemptId,
+      contentType: params.contentType ?? null,
       byteLength: params.byteLength,
       expiresAt,
       purgedAt: null,
@@ -59,6 +66,8 @@ async function upsertAudioAssetRow(params: {
       target: audioAssets.objectKey,
       set: {
         byteLength: params.byteLength,
+        accountKey: params.accountKey ?? null,
+        contentType: params.contentType ?? null,
         expiresAt,
         purgedAt: null,
       },
@@ -67,11 +76,18 @@ async function upsertAudioAssetRow(params: {
 
 function parseClipObjectKey(
   objectKey: string,
-): { kind: 'clips' | 'drops'; deviceId: string; attemptId: string } | null {
-  const match = /^users\/([0-9a-f-]{36})\/(clips|drops)\/([0-9a-f-]{36})\//i.exec(objectKey);
+): { kind: 'clips' | 'drops' | 'pronunciation'; deviceId: string; attemptId: string } | null {
+  const match = /^users\/([0-9a-f-]{36})\/(clips|drops|pronunciation)\/([0-9a-f-]{36})\//i.exec(
+    objectKey,
+  );
   if (!match?.[1] || !match[2] || !match[3]) return null;
   return {
-    kind: match[2] === 'drops' ? 'drops' : 'clips',
+    kind:
+      match[2] === 'drops'
+        ? 'drops'
+        : match[2] === 'pronunciation'
+          ? 'pronunciation'
+          : 'clips',
     deviceId: match[1],
     attemptId: match[3],
   };
@@ -413,12 +429,15 @@ export function registerUploadRoutes(
         ) {
           throw new Error('device_erased_concurrently');
         }
-        if (parsedKey.kind === 'clips') {
+        if (parsedKey.kind === 'clips' || parsedKey.kind === 'pronunciation') {
           await upsertAudioAssetRow({
             db,
             objectKey,
             deviceId: parsedKey.deviceId,
             attemptId: parsedKey.attemptId,
+            assetKind:
+              parsedKey.kind === 'pronunciation' ? 'pronunciation_practice' : 'speaking_attempt',
+            contentType,
             byteLength: uploadBuffer.byteLength,
             ttlDays: env.AUDIO_TTL_DAYS,
           });

@@ -380,7 +380,9 @@ describe('W1.2 Static dependency boundary hygiene for web/src/gateways/*', () =>
     'evaluation.gateway.ts',
     'index.ts',
     'linguistic.gateway.ts',
+    'personalization.gateway.ts',
     'result.ts',
+    'speech-practice.gateway.ts',
     'storage.gateway.ts',
     'telemetry.gateway.ts',
   ].sort();

@@ -1,12 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:mockza/core/vocab/sm2_scheduler.dart';
+import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
+import 'package:mockza/theme/components/inline_listen_button.dart';
 import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
+import 'package:mockza/theme/components/speech_practice_sheet.dart';
 import 'package:mockza/theme/primitives.dart';
 
 /// Interactive spaced repetition flashcard with tap-to-flip (design.md Sec. 5, Screenshot 17).
@@ -18,6 +23,7 @@ class VocabFlipCard extends StatelessWidget {
     required this.isRevealed,
     required this.onTapFlip,
     required this.onSelectRating,
+    this.cardId,
     this.ipa,
     this.glossFa,
     this.contextSentence,
@@ -25,8 +31,12 @@ class VocabFlipCard extends StatelessWidget {
     this.sourceLabel,
     this.onTapSpeaker,
     this.previewIntervals,
+    this.enableSpeechPractice = true,
     super.key,
   });
+
+  /// Optional card identifier linked to server-side pronunciation history.
+  final String? cardId;
 
   /// Target headword or collocation term.
   final String headword;
@@ -64,6 +74,9 @@ class VocabFlipCard extends StatelessWidget {
   /// Dynamic intervals preview map (Again -> "1m", Hard -> "1d", etc.).
   final Map<ReviewQuality, String>? previewIntervals;
 
+  /// Whether to render the Kokoro Listen + Shadow Pronunciation studio buttons.
+  final bool enableSpeechPractice;
+
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -98,9 +111,58 @@ class VocabFlipCard extends StatelessWidget {
                     size: 20,
                     color: colors.vocabAccent,
                   ),
+                )
+              else if (enableSpeechPractice)
+                InlineListenButton(
+                  text: headword,
+                  sourceContext: 'vocab_card',
+                  compact: true,
                 ),
             ],
           ),
+          if (enableSpeechPractice) ...<Widget>[
+            const SizedBox(height: SpacingTokens.xs),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: InkWell(
+                onTap: () => unawaited(
+                  SpeechPracticeSheet.show(
+                    context,
+                    targetText: headword,
+                    practiceKind: headword.contains(' ') ? 'collocation' : 'word',
+                    sourceRefType: 'vocab_card',
+                    sourceRefId: cardId ?? headword,
+                    sourceContext: 'vocab_card',
+                  ),
+                ),
+                borderRadius: shapes.pillRadius,
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.symmetric(
+                    horizontal: SpacingTokens.sm,
+                    vertical: SpacingTokens.xs,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      AppIcon(
+                        LucideGlyph.mic,
+                        size: 14,
+                        color: colors.primary,
+                      ),
+                      const SizedBox(width: SpacingTokens.xs),
+                      Text(
+                        AppLocalizations.of(context).practiceSpeechCta,
+                        style: typography.caption.copyWith(
+                          color: colors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: SpacingTokens.lg),
           // Headword & IPA inside strict LTR boundary
           LtrExamBoundary(
@@ -138,15 +200,55 @@ class VocabFlipCard extends StatelessWidget {
                 color: colors.surfaceAlt,
                 borderRadius: shapes.controlRadius,
               ),
-              child: LtrExamBoundary(
-                child: Text(
-                  '“$contextSentence”',
-                  style: typography.body.copyWith(
-                    height: 1.5,
-                    color: colors.textPrimary,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  LtrExamBoundary(
+                    child: Text(
+                      '“$contextSentence”',
+                      style: typography.body.copyWith(
+                        height: 1.5,
+                        color: colors.textPrimary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                ),
+                  if (enableSpeechPractice) ...<Widget>[
+                    const SizedBox(height: SpacingTokens.sm),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: SpacingTokens.sm,
+                      runSpacing: SpacingTokens.xs,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: <Widget>[
+                        InlineListenButton(
+                          text: contextSentence!,
+                          sourceContext: 'vocab_example',
+                        ),
+                        ActionChip(
+                          avatar: AppIcon(
+                            LucideGlyph.mic,
+                            size: 14,
+                            color: colors.primary,
+                          ),
+                          label: Text(
+                            AppLocalizations.of(context).practiceSpeechCta,
+                            style: typography.caption,
+                          ),
+                          onPressed: () => unawaited(
+                            SpeechPracticeSheet.show(
+                              context,
+                              targetText: contextSentence!,
+                              sourceRefType: 'vocab_example',
+                              sourceRefId: cardId ?? headword,
+                              sourceContext: 'vocab_example',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
               ),
             ),
             const SizedBox(height: SpacingTokens.lg),

@@ -293,4 +293,187 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   String get recentDropsLabel => 'منابع مطالعاتی اخیر';
+
+  @override
+  String get roadmapTitle => 'نقشه راه یادگیری شما';
+
+  @override
+  String get roadmapPanoramaLabel => 'دورنما · مسیر ۴ مرحله‌ای';
+
+  @override
+  String get roadmapActiveStepsLabel => 'قدم‌های فعال و مرحله‌به‌مرحله';
+
+  @override
+  String get roadmapUpcomingLabel => 'قدم‌های بعدی در انتظار';
+
+  @override
+  String get roadmapViewFullCta => 'مشاهده نقشه راه و دورنما';
+
+  @override
+  String get roadmapCompleteStepCta => 'ثبت انجام این قدم';
+
+  @override
+  String get roadmapSkipStepCta => 'رد کردن';
+
+  @override
+  String get liveBandTitle => 'تخمین زنده نمره شما';
+
+  @override
+  String get confidenceProvisional => 'مقدماتی · ارزیابی اولیه';
+
+  @override
+  String get confidenceDeveloping => 'در حال تکمیل · کالیبراسیون';
+
+  @override
+  String get confidenceCalibrated => 'دقیق · کالیبره‌شده';
+
+  @override
+  String get listenCta => 'شنیدن تلفظ';
+
+  @override
+  String get listenSlowCta => '۰.۸×';
+
+  @override
+  String get practiceSpeechCta => 'تمرین تلفظ با میکروفون';
+
+  @override
+  String get speechStudioTitle => 'استودیوی تمرین تلفظ و لهجه';
+
+  @override
+  String get speechRecordStart => 'ضبط صدای من';
+
+  @override
+  String get speechRecordStop => 'توقف ضبط';
+
+  @override
+  String get speechAnalyzeCta => 'تحلیل دقیق تلفظ';
+
+  @override
+  String get speechAnalyzing => 'در حال تحلیل تلفظ، استرس و روانی کلام...';
+
+  @override
+  String get speechReplayMine => 'پخش صدای ضبط‌شده';
+
+  @override
+  String get speechHistoryTitle => 'ضبط‌های قبلی (ذخیره‌شده)';
+
+  @override
+  String vocabWaveTitle(int current, int total) {
+    return 'موج $current از $total';
+  }
+
+  @override
+  String get vocabUnlockNextWave => 'باز کردن ۱۵ واژه بعدی';
+
+  @override
+  String get vocabPreviewAllWaves => 'نمایش همه امواج';
+
+  @override
+  String get syncDevicesNow => 'همگام‌سازی بین دستگاه‌ها';
+
+  @override
+  String get syncSuccessBanner => 'داده‌ها با سرور همگام شد';
+
+  @override
+  String get favoriteTopicsLabel => 'موضوعات مورد علاقه (نقطه شروع)';
+
+  @override
+  String roadmapBandUpTitle(String delta, String band) {
+    return '+$delta ارتقای نمره! تخمین زنده به $band رسید';
+  }
+
+  @override
+  String get roadmapBandUpBody =>
+      'نقشه راه شما متناسب با هدف بعدی به‌روزرسانی شد.';
+
+  @override
+  String roadmapCollapseCompleted(int count) {
+    return 'ایستگاه تکمیل‌شده · $count گام';
+  }
+
+  @override
+  String get roadmapJumpAheadCta => 'انجام زودتر این گام';
+
+  @override
+  String get roadmapEditTopicsPace => 'موضوعات و سرعت مطالعه';
+
+  @override
+  String get planImpactTitle => 'تأثیر این تمرین بر برنامه شما';
+
+  @override
+  String get planImpactBandLabel => 'تخمین زنده نمره';
+
+  @override
+  String get planImpactNextStepCta => 'ادامه گام بعدی نقشه راه';
+
+  @override
+  String get practiceTabForYourPath => 'مسیر اختصاصی شما';
+
+  @override
+  String get practiceTabAllTests => 'همه آزمون‌ها';
+
+  @override
+  String get vocabTabTodaysWave => 'موج امروز';
+
+  @override
+  String get vocabTabSavedMistakes => 'اشتباهات ذخیره‌شده';
+
+  @override
+  String get vocabTabFullDeck => 'کل مجموعه';
+
+  @override
+  String get vocabWhyThisWord => 'علت انتخاب';
+
+  @override
+  String vocabWaveAutoUnlocked(int wave, int next) {
+    return '۶۰٪ موج $wave مرور شد! موج $next برای شما باز شد.';
+  }
+
+  @override
+  String get speechPreviewHint =>
+      'پیش از تحلیل، صدای خودتان را بشنوید یا بدون مصرف سهمیه دوباره ضبط کنید.';
+
+  @override
+  String speechQuotaRemaining(int remaining, int limit) {
+    return '$remaining از $limit تحلیل امروز باقی مانده';
+  }
+
+  @override
+  String get speechWordTapHint =>
+      'روی هر واژه رنگی بزنید تا فونتیک IPA و تلفظ آهسته را ببینید';
+
+  @override
+  String speechListenWordSlow(String word) {
+    return 'شنیدن آهسته «$word» (۰.۸x)';
+  }
+
+  @override
+  String get settingsDailyNewCapTitle => 'سقف واژگان جدید روزانه';
+
+  @override
+  String get settingsTtsAccentTitle => 'لهجه صوتی مرجع (Kokoro AI)';
+
+  @override
+  String get settingsTtsAccentUs => 'آمریکایی (af_bella)';
+
+  @override
+  String get settingsTtsAccentUk => 'بریتانیایی (bf_emma)';
+
+  @override
+  String get graphCoverageTitle => 'ماتریس پوشش موضوعات و نقاط ضعف';
+
+  @override
+  String get graphCoveragePhaseLabel => 'فاز فعلی شخصی‌سازی';
+
+  @override
+  String get graphCoverageFavoriteMastered => 'تثبیت‌شده در موضوعات دلخواه';
+
+  @override
+  String get graphCoverageTransferred => 'منتقل‌شده به سایر موضوعات';
+
+  @override
+  String get diagStartStepCta => 'شروع قدم اول نقشه راه';
+
+  @override
+  String get audioLoadFailed => 'بارگذاری صوت ناموفق بود';
 }

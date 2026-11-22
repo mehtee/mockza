@@ -174,6 +174,42 @@ class $UserProfilesTable extends UserProfiles
     requiredDuringInsert: false,
     defaultValue: const Constant('both'),
   );
+  static const VerificationMeta _favoriteTopicsJsonMeta =
+      const VerificationMeta('favoriteTopicsJson');
+  @override
+  late final GeneratedColumn<String> favoriteTopicsJson =
+      GeneratedColumn<String>(
+        'favorite_topics_json',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('[]'),
+      );
+  static const VerificationMeta _vocabUnlockedWaveMeta = const VerificationMeta(
+    'vocabUnlockedWave',
+  );
+  @override
+  late final GeneratedColumn<int> vocabUnlockedWave = GeneratedColumn<int>(
+    'vocab_unlocked_wave',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _dailyNewVocabCapMeta = const VerificationMeta(
+    'dailyNewVocabCap',
+  );
+  @override
+  late final GeneratedColumn<int> dailyNewVocabCap = GeneratedColumn<int>(
+    'daily_new_vocab_cap',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(10),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     createdAt,
@@ -190,6 +226,9 @@ class $UserProfilesTable extends UserProfiles
     appUserId,
     isPro,
     studyFocus,
+    favoriteTopicsJson,
+    vocabUnlockedWave,
+    dailyNewVocabCap,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -305,6 +344,33 @@ class $UserProfilesTable extends UserProfiles
         studyFocus.isAcceptableOrUnknown(data['study_focus']!, _studyFocusMeta),
       );
     }
+    if (data.containsKey('favorite_topics_json')) {
+      context.handle(
+        _favoriteTopicsJsonMeta,
+        favoriteTopicsJson.isAcceptableOrUnknown(
+          data['favorite_topics_json']!,
+          _favoriteTopicsJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('vocab_unlocked_wave')) {
+      context.handle(
+        _vocabUnlockedWaveMeta,
+        vocabUnlockedWave.isAcceptableOrUnknown(
+          data['vocab_unlocked_wave']!,
+          _vocabUnlockedWaveMeta,
+        ),
+      );
+    }
+    if (data.containsKey('daily_new_vocab_cap')) {
+      context.handle(
+        _dailyNewVocabCapMeta,
+        dailyNewVocabCap.isAcceptableOrUnknown(
+          data['daily_new_vocab_cap']!,
+          _dailyNewVocabCapMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -370,6 +436,18 @@ class $UserProfilesTable extends UserProfiles
         DriftSqlType.string,
         data['${effectivePrefix}study_focus'],
       )!,
+      favoriteTopicsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}favorite_topics_json'],
+      )!,
+      vocabUnlockedWave: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}vocab_unlocked_wave'],
+      )!,
+      dailyNewVocabCap: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}daily_new_vocab_cap'],
+      )!,
     );
   }
 
@@ -421,6 +499,15 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
 
   /// Learner study focus from onboarding screening (`exams`, `coach`, or `both`).
   final String studyFocus;
+
+  /// JSON-encoded canonical favorite topic keys for adaptive personalization.
+  final String favoriteTopicsJson;
+
+  /// Currently unlocked 15-word progressive vocabulary wave index (`1..N`).
+  final int vocabUnlockedWave;
+
+  /// Daily cap on brand-new vocabulary words introduced per UTC serial day.
+  final int dailyNewVocabCap;
   const UserProfileRow({
     required this.createdAt,
     required this.updatedAt,
@@ -436,6 +523,9 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
     this.appUserId,
     required this.isPro,
     required this.studyFocus,
+    required this.favoriteTopicsJson,
+    required this.vocabUnlockedWave,
+    required this.dailyNewVocabCap,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -460,6 +550,9 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
     }
     map['is_pro'] = Variable<bool>(isPro);
     map['study_focus'] = Variable<String>(studyFocus);
+    map['favorite_topics_json'] = Variable<String>(favoriteTopicsJson);
+    map['vocab_unlocked_wave'] = Variable<int>(vocabUnlockedWave);
+    map['daily_new_vocab_cap'] = Variable<int>(dailyNewVocabCap);
     return map;
   }
 
@@ -485,6 +578,9 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
           : Value(appUserId),
       isPro: Value(isPro),
       studyFocus: Value(studyFocus),
+      favoriteTopicsJson: Value(favoriteTopicsJson),
+      vocabUnlockedWave: Value(vocabUnlockedWave),
+      dailyNewVocabCap: Value(dailyNewVocabCap),
     );
   }
 
@@ -510,6 +606,11 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
       appUserId: serializer.fromJson<String?>(json['appUserId']),
       isPro: serializer.fromJson<bool>(json['isPro']),
       studyFocus: serializer.fromJson<String>(json['studyFocus']),
+      favoriteTopicsJson: serializer.fromJson<String>(
+        json['favoriteTopicsJson'],
+      ),
+      vocabUnlockedWave: serializer.fromJson<int>(json['vocabUnlockedWave']),
+      dailyNewVocabCap: serializer.fromJson<int>(json['dailyNewVocabCap']),
     );
   }
   @override
@@ -530,6 +631,9 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
       'appUserId': serializer.toJson<String?>(appUserId),
       'isPro': serializer.toJson<bool>(isPro),
       'studyFocus': serializer.toJson<String>(studyFocus),
+      'favoriteTopicsJson': serializer.toJson<String>(favoriteTopicsJson),
+      'vocabUnlockedWave': serializer.toJson<int>(vocabUnlockedWave),
+      'dailyNewVocabCap': serializer.toJson<int>(dailyNewVocabCap),
     };
   }
 
@@ -548,6 +652,9 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
     Value<String?> appUserId = const Value.absent(),
     bool? isPro,
     String? studyFocus,
+    String? favoriteTopicsJson,
+    int? vocabUnlockedWave,
+    int? dailyNewVocabCap,
   }) => UserProfileRow(
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -565,6 +672,9 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
     appUserId: appUserId.present ? appUserId.value : this.appUserId,
     isPro: isPro ?? this.isPro,
     studyFocus: studyFocus ?? this.studyFocus,
+    favoriteTopicsJson: favoriteTopicsJson ?? this.favoriteTopicsJson,
+    vocabUnlockedWave: vocabUnlockedWave ?? this.vocabUnlockedWave,
+    dailyNewVocabCap: dailyNewVocabCap ?? this.dailyNewVocabCap,
   );
   UserProfileRow copyWithCompanion(UserProfilesCompanion data) {
     return UserProfileRow(
@@ -596,6 +706,15 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
       studyFocus: data.studyFocus.present
           ? data.studyFocus.value
           : this.studyFocus,
+      favoriteTopicsJson: data.favoriteTopicsJson.present
+          ? data.favoriteTopicsJson.value
+          : this.favoriteTopicsJson,
+      vocabUnlockedWave: data.vocabUnlockedWave.present
+          ? data.vocabUnlockedWave.value
+          : this.vocabUnlockedWave,
+      dailyNewVocabCap: data.dailyNewVocabCap.present
+          ? data.dailyNewVocabCap.value
+          : this.dailyNewVocabCap,
     );
   }
 
@@ -615,7 +734,10 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
           ..write('linkedEmail: $linkedEmail, ')
           ..write('appUserId: $appUserId, ')
           ..write('isPro: $isPro, ')
-          ..write('studyFocus: $studyFocus')
+          ..write('studyFocus: $studyFocus, ')
+          ..write('favoriteTopicsJson: $favoriteTopicsJson, ')
+          ..write('vocabUnlockedWave: $vocabUnlockedWave, ')
+          ..write('dailyNewVocabCap: $dailyNewVocabCap')
           ..write(')'))
         .toString();
   }
@@ -636,6 +758,9 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
     appUserId,
     isPro,
     studyFocus,
+    favoriteTopicsJson,
+    vocabUnlockedWave,
+    dailyNewVocabCap,
   );
   @override
   bool operator ==(Object other) =>
@@ -654,7 +779,10 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
           other.linkedEmail == this.linkedEmail &&
           other.appUserId == this.appUserId &&
           other.isPro == this.isPro &&
-          other.studyFocus == this.studyFocus);
+          other.studyFocus == this.studyFocus &&
+          other.favoriteTopicsJson == this.favoriteTopicsJson &&
+          other.vocabUnlockedWave == this.vocabUnlockedWave &&
+          other.dailyNewVocabCap == this.dailyNewVocabCap);
 }
 
 class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
@@ -672,6 +800,9 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
   final Value<String?> appUserId;
   final Value<bool> isPro;
   final Value<String> studyFocus;
+  final Value<String> favoriteTopicsJson;
+  final Value<int> vocabUnlockedWave;
+  final Value<int> dailyNewVocabCap;
   final Value<int> rowid;
   const UserProfilesCompanion({
     this.createdAt = const Value.absent(),
@@ -688,6 +819,9 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
     this.appUserId = const Value.absent(),
     this.isPro = const Value.absent(),
     this.studyFocus = const Value.absent(),
+    this.favoriteTopicsJson = const Value.absent(),
+    this.vocabUnlockedWave = const Value.absent(),
+    this.dailyNewVocabCap = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   UserProfilesCompanion.insert({
@@ -705,6 +839,9 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
     this.appUserId = const Value.absent(),
     this.isPro = const Value.absent(),
     this.studyFocus = const Value.absent(),
+    this.favoriteTopicsJson = const Value.absent(),
+    this.vocabUnlockedWave = const Value.absent(),
+    this.dailyNewVocabCap = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : createdAt = Value(createdAt),
        updatedAt = Value(updatedAt),
@@ -724,6 +861,9 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
     Expression<String>? appUserId,
     Expression<bool>? isPro,
     Expression<String>? studyFocus,
+    Expression<String>? favoriteTopicsJson,
+    Expression<int>? vocabUnlockedWave,
+    Expression<int>? dailyNewVocabCap,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -743,6 +883,10 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
       if (appUserId != null) 'app_user_id': appUserId,
       if (isPro != null) 'is_pro': isPro,
       if (studyFocus != null) 'study_focus': studyFocus,
+      if (favoriteTopicsJson != null)
+        'favorite_topics_json': favoriteTopicsJson,
+      if (vocabUnlockedWave != null) 'vocab_unlocked_wave': vocabUnlockedWave,
+      if (dailyNewVocabCap != null) 'daily_new_vocab_cap': dailyNewVocabCap,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -762,6 +906,9 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
     Value<String?>? appUserId,
     Value<bool>? isPro,
     Value<String>? studyFocus,
+    Value<String>? favoriteTopicsJson,
+    Value<int>? vocabUnlockedWave,
+    Value<int>? dailyNewVocabCap,
     Value<int>? rowid,
   }) {
     return UserProfilesCompanion(
@@ -779,6 +926,9 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
       appUserId: appUserId ?? this.appUserId,
       isPro: isPro ?? this.isPro,
       studyFocus: studyFocus ?? this.studyFocus,
+      favoriteTopicsJson: favoriteTopicsJson ?? this.favoriteTopicsJson,
+      vocabUnlockedWave: vocabUnlockedWave ?? this.vocabUnlockedWave,
+      dailyNewVocabCap: dailyNewVocabCap ?? this.dailyNewVocabCap,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -828,6 +978,15 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
     if (studyFocus.present) {
       map['study_focus'] = Variable<String>(studyFocus.value);
     }
+    if (favoriteTopicsJson.present) {
+      map['favorite_topics_json'] = Variable<String>(favoriteTopicsJson.value);
+    }
+    if (vocabUnlockedWave.present) {
+      map['vocab_unlocked_wave'] = Variable<int>(vocabUnlockedWave.value);
+    }
+    if (dailyNewVocabCap.present) {
+      map['daily_new_vocab_cap'] = Variable<int>(dailyNewVocabCap.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -851,6 +1010,9 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
           ..write('appUserId: $appUserId, ')
           ..write('isPro: $isPro, ')
           ..write('studyFocus: $studyFocus, ')
+          ..write('favoriteTopicsJson: $favoriteTopicsJson, ')
+          ..write('vocabUnlockedWave: $vocabUnlockedWave, ')
+          ..write('dailyNewVocabCap: $dailyNewVocabCap, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5767,6 +5929,39 @@ class $VocabCardsTable extends VocabCards
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _canonicalTopicMeta = const VerificationMeta(
+    'canonicalTopic',
+  );
+  @override
+  late final GeneratedColumn<String> canonicalTopic = GeneratedColumn<String>(
+    'canonical_topic',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cefrLevelMeta = const VerificationMeta(
+    'cefrLevel',
+  );
+  @override
+  late final GeneratedColumn<String> cefrLevel = GeneratedColumn<String>(
+    'cefr_level',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _baseWaveOrderMeta = const VerificationMeta(
+    'baseWaveOrder',
+  );
+  @override
+  late final GeneratedColumn<int> baseWaveOrder = GeneratedColumn<int>(
+    'base_wave_order',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     createdAt,
@@ -5789,6 +5984,9 @@ class $VocabCardsTable extends VocabCards
     sourceSkill,
     sourceAttemptId,
     sourceRefLabel,
+    canonicalTopic,
+    cefrLevel,
+    baseWaveOrder,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5963,6 +6161,30 @@ class $VocabCardsTable extends VocabCards
         ),
       );
     }
+    if (data.containsKey('canonical_topic')) {
+      context.handle(
+        _canonicalTopicMeta,
+        canonicalTopic.isAcceptableOrUnknown(
+          data['canonical_topic']!,
+          _canonicalTopicMeta,
+        ),
+      );
+    }
+    if (data.containsKey('cefr_level')) {
+      context.handle(
+        _cefrLevelMeta,
+        cefrLevel.isAcceptableOrUnknown(data['cefr_level']!, _cefrLevelMeta),
+      );
+    }
+    if (data.containsKey('base_wave_order')) {
+      context.handle(
+        _baseWaveOrderMeta,
+        baseWaveOrder.isAcceptableOrUnknown(
+          data['base_wave_order']!,
+          _baseWaveOrderMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -6052,6 +6274,18 @@ class $VocabCardsTable extends VocabCards
         DriftSqlType.string,
         data['${effectivePrefix}source_ref_label'],
       ),
+      canonicalTopic: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}canonical_topic'],
+      ),
+      cefrLevel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cefr_level'],
+      ),
+      baseWaveOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}base_wave_order'],
+      ),
     );
   }
 
@@ -6121,6 +6355,15 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
 
   /// Reference label (e.g. "Task 2 Essay", "Part 2 Cue Card").
   final String? sourceRefLabel;
+
+  /// Canonical topic key aligned with backend taxonomy (`technology_ai`, etc.).
+  final String? canonicalTopic;
+
+  /// CEFR difficulty tier (`A1..C2`).
+  final String? cefrLevel;
+
+  /// Deterministic ordering seed within progressive vocab waves.
+  final int? baseWaveOrder;
   const VocabCardRow({
     required this.createdAt,
     required this.updatedAt,
@@ -6142,6 +6385,9 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
     this.sourceSkill,
     this.sourceAttemptId,
     this.sourceRefLabel,
+    this.canonicalTopic,
+    this.cefrLevel,
+    this.baseWaveOrder,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -6182,6 +6428,15 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
     if (!nullToAbsent || sourceRefLabel != null) {
       map['source_ref_label'] = Variable<String>(sourceRefLabel);
     }
+    if (!nullToAbsent || canonicalTopic != null) {
+      map['canonical_topic'] = Variable<String>(canonicalTopic);
+    }
+    if (!nullToAbsent || cefrLevel != null) {
+      map['cefr_level'] = Variable<String>(cefrLevel);
+    }
+    if (!nullToAbsent || baseWaveOrder != null) {
+      map['base_wave_order'] = Variable<int>(baseWaveOrder);
+    }
     return map;
   }
 
@@ -6221,6 +6476,15 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
       sourceRefLabel: sourceRefLabel == null && nullToAbsent
           ? const Value.absent()
           : Value(sourceRefLabel),
+      canonicalTopic: canonicalTopic == null && nullToAbsent
+          ? const Value.absent()
+          : Value(canonicalTopic),
+      cefrLevel: cefrLevel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cefrLevel),
+      baseWaveOrder: baseWaveOrder == null && nullToAbsent
+          ? const Value.absent()
+          : Value(baseWaveOrder),
     );
   }
 
@@ -6252,6 +6516,9 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
       sourceSkill: serializer.fromJson<String?>(json['sourceSkill']),
       sourceAttemptId: serializer.fromJson<String?>(json['sourceAttemptId']),
       sourceRefLabel: serializer.fromJson<String?>(json['sourceRefLabel']),
+      canonicalTopic: serializer.fromJson<String?>(json['canonicalTopic']),
+      cefrLevel: serializer.fromJson<String?>(json['cefrLevel']),
+      baseWaveOrder: serializer.fromJson<int?>(json['baseWaveOrder']),
     );
   }
   @override
@@ -6278,6 +6545,9 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
       'sourceSkill': serializer.toJson<String?>(sourceSkill),
       'sourceAttemptId': serializer.toJson<String?>(sourceAttemptId),
       'sourceRefLabel': serializer.toJson<String?>(sourceRefLabel),
+      'canonicalTopic': serializer.toJson<String?>(canonicalTopic),
+      'cefrLevel': serializer.toJson<String?>(cefrLevel),
+      'baseWaveOrder': serializer.toJson<int?>(baseWaveOrder),
     };
   }
 
@@ -6302,6 +6572,9 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
     Value<String?> sourceSkill = const Value.absent(),
     Value<String?> sourceAttemptId = const Value.absent(),
     Value<String?> sourceRefLabel = const Value.absent(),
+    Value<String?> canonicalTopic = const Value.absent(),
+    Value<String?> cefrLevel = const Value.absent(),
+    Value<int?> baseWaveOrder = const Value.absent(),
   }) => VocabCardRow(
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -6331,6 +6604,13 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
     sourceRefLabel: sourceRefLabel.present
         ? sourceRefLabel.value
         : this.sourceRefLabel,
+    canonicalTopic: canonicalTopic.present
+        ? canonicalTopic.value
+        : this.canonicalTopic,
+    cefrLevel: cefrLevel.present ? cefrLevel.value : this.cefrLevel,
+    baseWaveOrder: baseWaveOrder.present
+        ? baseWaveOrder.value
+        : this.baseWaveOrder,
   );
   VocabCardRow copyWithCompanion(VocabCardsCompanion data) {
     return VocabCardRow(
@@ -6376,6 +6656,13 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
       sourceRefLabel: data.sourceRefLabel.present
           ? data.sourceRefLabel.value
           : this.sourceRefLabel,
+      canonicalTopic: data.canonicalTopic.present
+          ? data.canonicalTopic.value
+          : this.canonicalTopic,
+      cefrLevel: data.cefrLevel.present ? data.cefrLevel.value : this.cefrLevel,
+      baseWaveOrder: data.baseWaveOrder.present
+          ? data.baseWaveOrder.value
+          : this.baseWaveOrder,
     );
   }
 
@@ -6401,13 +6688,16 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
           ..write('usageNote: $usageNote, ')
           ..write('sourceSkill: $sourceSkill, ')
           ..write('sourceAttemptId: $sourceAttemptId, ')
-          ..write('sourceRefLabel: $sourceRefLabel')
+          ..write('sourceRefLabel: $sourceRefLabel, ')
+          ..write('canonicalTopic: $canonicalTopic, ')
+          ..write('cefrLevel: $cefrLevel, ')
+          ..write('baseWaveOrder: $baseWaveOrder')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     createdAt,
     updatedAt,
     cardId,
@@ -6428,7 +6718,10 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
     sourceSkill,
     sourceAttemptId,
     sourceRefLabel,
-  );
+    canonicalTopic,
+    cefrLevel,
+    baseWaveOrder,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -6452,7 +6745,10 @@ class VocabCardRow extends DataClass implements Insertable<VocabCardRow> {
           other.usageNote == this.usageNote &&
           other.sourceSkill == this.sourceSkill &&
           other.sourceAttemptId == this.sourceAttemptId &&
-          other.sourceRefLabel == this.sourceRefLabel);
+          other.sourceRefLabel == this.sourceRefLabel &&
+          other.canonicalTopic == this.canonicalTopic &&
+          other.cefrLevel == this.cefrLevel &&
+          other.baseWaveOrder == this.baseWaveOrder);
 }
 
 class VocabCardsCompanion extends UpdateCompanion<VocabCardRow> {
@@ -6476,6 +6772,9 @@ class VocabCardsCompanion extends UpdateCompanion<VocabCardRow> {
   final Value<String?> sourceSkill;
   final Value<String?> sourceAttemptId;
   final Value<String?> sourceRefLabel;
+  final Value<String?> canonicalTopic;
+  final Value<String?> cefrLevel;
+  final Value<int?> baseWaveOrder;
   final Value<int> rowid;
   const VocabCardsCompanion({
     this.createdAt = const Value.absent(),
@@ -6498,6 +6797,9 @@ class VocabCardsCompanion extends UpdateCompanion<VocabCardRow> {
     this.sourceSkill = const Value.absent(),
     this.sourceAttemptId = const Value.absent(),
     this.sourceRefLabel = const Value.absent(),
+    this.canonicalTopic = const Value.absent(),
+    this.cefrLevel = const Value.absent(),
+    this.baseWaveOrder = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   VocabCardsCompanion.insert({
@@ -6521,6 +6823,9 @@ class VocabCardsCompanion extends UpdateCompanion<VocabCardRow> {
     this.sourceSkill = const Value.absent(),
     this.sourceAttemptId = const Value.absent(),
     this.sourceRefLabel = const Value.absent(),
+    this.canonicalTopic = const Value.absent(),
+    this.cefrLevel = const Value.absent(),
+    this.baseWaveOrder = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : createdAt = Value(createdAt),
        updatedAt = Value(updatedAt),
@@ -6550,6 +6855,9 @@ class VocabCardsCompanion extends UpdateCompanion<VocabCardRow> {
     Expression<String>? sourceSkill,
     Expression<String>? sourceAttemptId,
     Expression<String>? sourceRefLabel,
+    Expression<String>? canonicalTopic,
+    Expression<String>? cefrLevel,
+    Expression<int>? baseWaveOrder,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -6574,6 +6882,9 @@ class VocabCardsCompanion extends UpdateCompanion<VocabCardRow> {
       if (sourceSkill != null) 'source_skill': sourceSkill,
       if (sourceAttemptId != null) 'source_attempt_id': sourceAttemptId,
       if (sourceRefLabel != null) 'source_ref_label': sourceRefLabel,
+      if (canonicalTopic != null) 'canonical_topic': canonicalTopic,
+      if (cefrLevel != null) 'cefr_level': cefrLevel,
+      if (baseWaveOrder != null) 'base_wave_order': baseWaveOrder,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -6599,6 +6910,9 @@ class VocabCardsCompanion extends UpdateCompanion<VocabCardRow> {
     Value<String?>? sourceSkill,
     Value<String?>? sourceAttemptId,
     Value<String?>? sourceRefLabel,
+    Value<String?>? canonicalTopic,
+    Value<String?>? cefrLevel,
+    Value<int?>? baseWaveOrder,
     Value<int>? rowid,
   }) {
     return VocabCardsCompanion(
@@ -6622,6 +6936,9 @@ class VocabCardsCompanion extends UpdateCompanion<VocabCardRow> {
       sourceSkill: sourceSkill ?? this.sourceSkill,
       sourceAttemptId: sourceAttemptId ?? this.sourceAttemptId,
       sourceRefLabel: sourceRefLabel ?? this.sourceRefLabel,
+      canonicalTopic: canonicalTopic ?? this.canonicalTopic,
+      cefrLevel: cefrLevel ?? this.cefrLevel,
+      baseWaveOrder: baseWaveOrder ?? this.baseWaveOrder,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -6691,6 +7008,15 @@ class VocabCardsCompanion extends UpdateCompanion<VocabCardRow> {
     if (sourceRefLabel.present) {
       map['source_ref_label'] = Variable<String>(sourceRefLabel.value);
     }
+    if (canonicalTopic.present) {
+      map['canonical_topic'] = Variable<String>(canonicalTopic.value);
+    }
+    if (cefrLevel.present) {
+      map['cefr_level'] = Variable<String>(cefrLevel.value);
+    }
+    if (baseWaveOrder.present) {
+      map['base_wave_order'] = Variable<int>(baseWaveOrder.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -6720,6 +7046,9 @@ class VocabCardsCompanion extends UpdateCompanion<VocabCardRow> {
           ..write('sourceSkill: $sourceSkill, ')
           ..write('sourceAttemptId: $sourceAttemptId, ')
           ..write('sourceRefLabel: $sourceRefLabel, ')
+          ..write('canonicalTopic: $canonicalTopic, ')
+          ..write('cefrLevel: $cefrLevel, ')
+          ..write('baseWaveOrder: $baseWaveOrder, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -11536,6 +11865,1149 @@ class DroppedContentsCompanion extends UpdateCompanion<DroppedContentRow> {
   }
 }
 
+class $PersonalizationStatesTable extends PersonalizationStates
+    with TableInfo<$PersonalizationStatesTable, PersonalizationStateRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PersonalizationStatesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _stateKeyMeta = const VerificationMeta(
+    'stateKey',
+  );
+  @override
+  late final GeneratedColumn<String> stateKey = GeneratedColumn<String>(
+    'state_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadJsonMeta = const VerificationMeta(
+    'payloadJson',
+  );
+  @override
+  late final GeneratedColumn<String> payloadJson = GeneratedColumn<String>(
+    'payload_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtUtcMsMeta = const VerificationMeta(
+    'updatedAtUtcMs',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAtUtcMs = GeneratedColumn<int>(
+    'updated_at_utc_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [stateKey, payloadJson, updatedAtUtcMs];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'personalization_states';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PersonalizationStateRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('state_key')) {
+      context.handle(
+        _stateKeyMeta,
+        stateKey.isAcceptableOrUnknown(data['state_key']!, _stateKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_stateKeyMeta);
+    }
+    if (data.containsKey('payload_json')) {
+      context.handle(
+        _payloadJsonMeta,
+        payloadJson.isAcceptableOrUnknown(
+          data['payload_json']!,
+          _payloadJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadJsonMeta);
+    }
+    if (data.containsKey('updated_at_utc_ms')) {
+      context.handle(
+        _updatedAtUtcMsMeta,
+        updatedAtUtcMs.isAcceptableOrUnknown(
+          data['updated_at_utc_ms']!,
+          _updatedAtUtcMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtUtcMsMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {stateKey};
+  @override
+  PersonalizationStateRow map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PersonalizationStateRow(
+      stateKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}state_key'],
+      )!,
+      payloadJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload_json'],
+      )!,
+      updatedAtUtcMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at_utc_ms'],
+      )!,
+    );
+  }
+
+  @override
+  $PersonalizationStatesTable createAlias(String alias) {
+    return $PersonalizationStatesTable(attachedDatabase, alias);
+  }
+}
+
+class PersonalizationStateRow extends DataClass
+    implements Insertable<PersonalizationStateRow> {
+  /// Cache key (`primary`).
+  final String stateKey;
+
+  /// Full serialized `PersonalizationStateDto` JSON snapshot.
+  final String payloadJson;
+
+  /// Last UTC update epoch millis.
+  final int updatedAtUtcMs;
+  const PersonalizationStateRow({
+    required this.stateKey,
+    required this.payloadJson,
+    required this.updatedAtUtcMs,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['state_key'] = Variable<String>(stateKey);
+    map['payload_json'] = Variable<String>(payloadJson);
+    map['updated_at_utc_ms'] = Variable<int>(updatedAtUtcMs);
+    return map;
+  }
+
+  PersonalizationStatesCompanion toCompanion(bool nullToAbsent) {
+    return PersonalizationStatesCompanion(
+      stateKey: Value(stateKey),
+      payloadJson: Value(payloadJson),
+      updatedAtUtcMs: Value(updatedAtUtcMs),
+    );
+  }
+
+  factory PersonalizationStateRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PersonalizationStateRow(
+      stateKey: serializer.fromJson<String>(json['stateKey']),
+      payloadJson: serializer.fromJson<String>(json['payloadJson']),
+      updatedAtUtcMs: serializer.fromJson<int>(json['updatedAtUtcMs']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'stateKey': serializer.toJson<String>(stateKey),
+      'payloadJson': serializer.toJson<String>(payloadJson),
+      'updatedAtUtcMs': serializer.toJson<int>(updatedAtUtcMs),
+    };
+  }
+
+  PersonalizationStateRow copyWith({
+    String? stateKey,
+    String? payloadJson,
+    int? updatedAtUtcMs,
+  }) => PersonalizationStateRow(
+    stateKey: stateKey ?? this.stateKey,
+    payloadJson: payloadJson ?? this.payloadJson,
+    updatedAtUtcMs: updatedAtUtcMs ?? this.updatedAtUtcMs,
+  );
+  PersonalizationStateRow copyWithCompanion(
+    PersonalizationStatesCompanion data,
+  ) {
+    return PersonalizationStateRow(
+      stateKey: data.stateKey.present ? data.stateKey.value : this.stateKey,
+      payloadJson: data.payloadJson.present
+          ? data.payloadJson.value
+          : this.payloadJson,
+      updatedAtUtcMs: data.updatedAtUtcMs.present
+          ? data.updatedAtUtcMs.value
+          : this.updatedAtUtcMs,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PersonalizationStateRow(')
+          ..write('stateKey: $stateKey, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('updatedAtUtcMs: $updatedAtUtcMs')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(stateKey, payloadJson, updatedAtUtcMs);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PersonalizationStateRow &&
+          other.stateKey == this.stateKey &&
+          other.payloadJson == this.payloadJson &&
+          other.updatedAtUtcMs == this.updatedAtUtcMs);
+}
+
+class PersonalizationStatesCompanion
+    extends UpdateCompanion<PersonalizationStateRow> {
+  final Value<String> stateKey;
+  final Value<String> payloadJson;
+  final Value<int> updatedAtUtcMs;
+  final Value<int> rowid;
+  const PersonalizationStatesCompanion({
+    this.stateKey = const Value.absent(),
+    this.payloadJson = const Value.absent(),
+    this.updatedAtUtcMs = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PersonalizationStatesCompanion.insert({
+    required String stateKey,
+    required String payloadJson,
+    required int updatedAtUtcMs,
+    this.rowid = const Value.absent(),
+  }) : stateKey = Value(stateKey),
+       payloadJson = Value(payloadJson),
+       updatedAtUtcMs = Value(updatedAtUtcMs);
+  static Insertable<PersonalizationStateRow> custom({
+    Expression<String>? stateKey,
+    Expression<String>? payloadJson,
+    Expression<int>? updatedAtUtcMs,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (stateKey != null) 'state_key': stateKey,
+      if (payloadJson != null) 'payload_json': payloadJson,
+      if (updatedAtUtcMs != null) 'updated_at_utc_ms': updatedAtUtcMs,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PersonalizationStatesCompanion copyWith({
+    Value<String>? stateKey,
+    Value<String>? payloadJson,
+    Value<int>? updatedAtUtcMs,
+    Value<int>? rowid,
+  }) {
+    return PersonalizationStatesCompanion(
+      stateKey: stateKey ?? this.stateKey,
+      payloadJson: payloadJson ?? this.payloadJson,
+      updatedAtUtcMs: updatedAtUtcMs ?? this.updatedAtUtcMs,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (stateKey.present) {
+      map['state_key'] = Variable<String>(stateKey.value);
+    }
+    if (payloadJson.present) {
+      map['payload_json'] = Variable<String>(payloadJson.value);
+    }
+    if (updatedAtUtcMs.present) {
+      map['updated_at_utc_ms'] = Variable<int>(updatedAtUtcMs.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PersonalizationStatesCompanion(')
+          ..write('stateKey: $stateKey, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('updatedAtUtcMs: $updatedAtUtcMs, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LocalPronunciationPracticesTable extends LocalPronunciationPractices
+    with
+        TableInfo<
+          $LocalPronunciationPracticesTable,
+          LocalPronunciationPracticeRow
+        > {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalPronunciationPracticesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _practiceIdMeta = const VerificationMeta(
+    'practiceId',
+  );
+  @override
+  late final GeneratedColumn<String> practiceId = GeneratedColumn<String>(
+    'practice_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _targetTextMeta = const VerificationMeta(
+    'targetText',
+  );
+  @override
+  late final GeneratedColumn<String> targetText = GeneratedColumn<String>(
+    'target_text',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceRefIdMeta = const VerificationMeta(
+    'sourceRefId',
+  );
+  @override
+  late final GeneratedColumn<String> sourceRefId = GeneratedColumn<String>(
+    'source_ref_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _overallScoreMeta = const VerificationMeta(
+    'overallScore',
+  );
+  @override
+  late final GeneratedColumn<int> overallScore = GeneratedColumn<int>(
+    'overall_score',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _payloadJsonMeta = const VerificationMeta(
+    'payloadJson',
+  );
+  @override
+  late final GeneratedColumn<String> payloadJson = GeneratedColumn<String>(
+    'payload_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtUtcMsMeta = const VerificationMeta(
+    'createdAtUtcMs',
+  );
+  @override
+  late final GeneratedColumn<int> createdAtUtcMs = GeneratedColumn<int>(
+    'created_at_utc_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    practiceId,
+    targetText,
+    sourceRefId,
+    overallScore,
+    payloadJson,
+    createdAtUtcMs,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_pronunciation_practices';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LocalPronunciationPracticeRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('practice_id')) {
+      context.handle(
+        _practiceIdMeta,
+        practiceId.isAcceptableOrUnknown(data['practice_id']!, _practiceIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_practiceIdMeta);
+    }
+    if (data.containsKey('target_text')) {
+      context.handle(
+        _targetTextMeta,
+        targetText.isAcceptableOrUnknown(data['target_text']!, _targetTextMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_targetTextMeta);
+    }
+    if (data.containsKey('source_ref_id')) {
+      context.handle(
+        _sourceRefIdMeta,
+        sourceRefId.isAcceptableOrUnknown(
+          data['source_ref_id']!,
+          _sourceRefIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('overall_score')) {
+      context.handle(
+        _overallScoreMeta,
+        overallScore.isAcceptableOrUnknown(
+          data['overall_score']!,
+          _overallScoreMeta,
+        ),
+      );
+    }
+    if (data.containsKey('payload_json')) {
+      context.handle(
+        _payloadJsonMeta,
+        payloadJson.isAcceptableOrUnknown(
+          data['payload_json']!,
+          _payloadJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadJsonMeta);
+    }
+    if (data.containsKey('created_at_utc_ms')) {
+      context.handle(
+        _createdAtUtcMsMeta,
+        createdAtUtcMs.isAcceptableOrUnknown(
+          data['created_at_utc_ms']!,
+          _createdAtUtcMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtUtcMsMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {practiceId};
+  @override
+  LocalPronunciationPracticeRow map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalPronunciationPracticeRow(
+      practiceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}practice_id'],
+      )!,
+      targetText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_text'],
+      )!,
+      sourceRefId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_ref_id'],
+      ),
+      overallScore: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}overall_score'],
+      ),
+      payloadJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload_json'],
+      )!,
+      createdAtUtcMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at_utc_ms'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalPronunciationPracticesTable createAlias(String alias) {
+    return $LocalPronunciationPracticesTable(attachedDatabase, alias);
+  }
+}
+
+class LocalPronunciationPracticeRow extends DataClass
+    implements Insertable<LocalPronunciationPracticeRow> {
+  /// Practice session UUIDv4.
+  final String practiceId;
+
+  /// English phrase or sentence practiced.
+  final String targetText;
+
+  /// Optional linked vocab/question/mission identifier.
+  final String? sourceRefId;
+
+  /// Overall score `[0..100]`.
+  final int? overallScore;
+
+  /// Serialized `PronunciationPracticeItem` JSON.
+  final String payloadJson;
+
+  /// Creation timestamp UTC millis.
+  final int createdAtUtcMs;
+  const LocalPronunciationPracticeRow({
+    required this.practiceId,
+    required this.targetText,
+    this.sourceRefId,
+    this.overallScore,
+    required this.payloadJson,
+    required this.createdAtUtcMs,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['practice_id'] = Variable<String>(practiceId);
+    map['target_text'] = Variable<String>(targetText);
+    if (!nullToAbsent || sourceRefId != null) {
+      map['source_ref_id'] = Variable<String>(sourceRefId);
+    }
+    if (!nullToAbsent || overallScore != null) {
+      map['overall_score'] = Variable<int>(overallScore);
+    }
+    map['payload_json'] = Variable<String>(payloadJson);
+    map['created_at_utc_ms'] = Variable<int>(createdAtUtcMs);
+    return map;
+  }
+
+  LocalPronunciationPracticesCompanion toCompanion(bool nullToAbsent) {
+    return LocalPronunciationPracticesCompanion(
+      practiceId: Value(practiceId),
+      targetText: Value(targetText),
+      sourceRefId: sourceRefId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceRefId),
+      overallScore: overallScore == null && nullToAbsent
+          ? const Value.absent()
+          : Value(overallScore),
+      payloadJson: Value(payloadJson),
+      createdAtUtcMs: Value(createdAtUtcMs),
+    );
+  }
+
+  factory LocalPronunciationPracticeRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalPronunciationPracticeRow(
+      practiceId: serializer.fromJson<String>(json['practiceId']),
+      targetText: serializer.fromJson<String>(json['targetText']),
+      sourceRefId: serializer.fromJson<String?>(json['sourceRefId']),
+      overallScore: serializer.fromJson<int?>(json['overallScore']),
+      payloadJson: serializer.fromJson<String>(json['payloadJson']),
+      createdAtUtcMs: serializer.fromJson<int>(json['createdAtUtcMs']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'practiceId': serializer.toJson<String>(practiceId),
+      'targetText': serializer.toJson<String>(targetText),
+      'sourceRefId': serializer.toJson<String?>(sourceRefId),
+      'overallScore': serializer.toJson<int?>(overallScore),
+      'payloadJson': serializer.toJson<String>(payloadJson),
+      'createdAtUtcMs': serializer.toJson<int>(createdAtUtcMs),
+    };
+  }
+
+  LocalPronunciationPracticeRow copyWith({
+    String? practiceId,
+    String? targetText,
+    Value<String?> sourceRefId = const Value.absent(),
+    Value<int?> overallScore = const Value.absent(),
+    String? payloadJson,
+    int? createdAtUtcMs,
+  }) => LocalPronunciationPracticeRow(
+    practiceId: practiceId ?? this.practiceId,
+    targetText: targetText ?? this.targetText,
+    sourceRefId: sourceRefId.present ? sourceRefId.value : this.sourceRefId,
+    overallScore: overallScore.present ? overallScore.value : this.overallScore,
+    payloadJson: payloadJson ?? this.payloadJson,
+    createdAtUtcMs: createdAtUtcMs ?? this.createdAtUtcMs,
+  );
+  LocalPronunciationPracticeRow copyWithCompanion(
+    LocalPronunciationPracticesCompanion data,
+  ) {
+    return LocalPronunciationPracticeRow(
+      practiceId: data.practiceId.present
+          ? data.practiceId.value
+          : this.practiceId,
+      targetText: data.targetText.present
+          ? data.targetText.value
+          : this.targetText,
+      sourceRefId: data.sourceRefId.present
+          ? data.sourceRefId.value
+          : this.sourceRefId,
+      overallScore: data.overallScore.present
+          ? data.overallScore.value
+          : this.overallScore,
+      payloadJson: data.payloadJson.present
+          ? data.payloadJson.value
+          : this.payloadJson,
+      createdAtUtcMs: data.createdAtUtcMs.present
+          ? data.createdAtUtcMs.value
+          : this.createdAtUtcMs,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalPronunciationPracticeRow(')
+          ..write('practiceId: $practiceId, ')
+          ..write('targetText: $targetText, ')
+          ..write('sourceRefId: $sourceRefId, ')
+          ..write('overallScore: $overallScore, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('createdAtUtcMs: $createdAtUtcMs')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    practiceId,
+    targetText,
+    sourceRefId,
+    overallScore,
+    payloadJson,
+    createdAtUtcMs,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalPronunciationPracticeRow &&
+          other.practiceId == this.practiceId &&
+          other.targetText == this.targetText &&
+          other.sourceRefId == this.sourceRefId &&
+          other.overallScore == this.overallScore &&
+          other.payloadJson == this.payloadJson &&
+          other.createdAtUtcMs == this.createdAtUtcMs);
+}
+
+class LocalPronunciationPracticesCompanion
+    extends UpdateCompanion<LocalPronunciationPracticeRow> {
+  final Value<String> practiceId;
+  final Value<String> targetText;
+  final Value<String?> sourceRefId;
+  final Value<int?> overallScore;
+  final Value<String> payloadJson;
+  final Value<int> createdAtUtcMs;
+  final Value<int> rowid;
+  const LocalPronunciationPracticesCompanion({
+    this.practiceId = const Value.absent(),
+    this.targetText = const Value.absent(),
+    this.sourceRefId = const Value.absent(),
+    this.overallScore = const Value.absent(),
+    this.payloadJson = const Value.absent(),
+    this.createdAtUtcMs = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalPronunciationPracticesCompanion.insert({
+    required String practiceId,
+    required String targetText,
+    this.sourceRefId = const Value.absent(),
+    this.overallScore = const Value.absent(),
+    required String payloadJson,
+    required int createdAtUtcMs,
+    this.rowid = const Value.absent(),
+  }) : practiceId = Value(practiceId),
+       targetText = Value(targetText),
+       payloadJson = Value(payloadJson),
+       createdAtUtcMs = Value(createdAtUtcMs);
+  static Insertable<LocalPronunciationPracticeRow> custom({
+    Expression<String>? practiceId,
+    Expression<String>? targetText,
+    Expression<String>? sourceRefId,
+    Expression<int>? overallScore,
+    Expression<String>? payloadJson,
+    Expression<int>? createdAtUtcMs,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (practiceId != null) 'practice_id': practiceId,
+      if (targetText != null) 'target_text': targetText,
+      if (sourceRefId != null) 'source_ref_id': sourceRefId,
+      if (overallScore != null) 'overall_score': overallScore,
+      if (payloadJson != null) 'payload_json': payloadJson,
+      if (createdAtUtcMs != null) 'created_at_utc_ms': createdAtUtcMs,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalPronunciationPracticesCompanion copyWith({
+    Value<String>? practiceId,
+    Value<String>? targetText,
+    Value<String?>? sourceRefId,
+    Value<int?>? overallScore,
+    Value<String>? payloadJson,
+    Value<int>? createdAtUtcMs,
+    Value<int>? rowid,
+  }) {
+    return LocalPronunciationPracticesCompanion(
+      practiceId: practiceId ?? this.practiceId,
+      targetText: targetText ?? this.targetText,
+      sourceRefId: sourceRefId ?? this.sourceRefId,
+      overallScore: overallScore ?? this.overallScore,
+      payloadJson: payloadJson ?? this.payloadJson,
+      createdAtUtcMs: createdAtUtcMs ?? this.createdAtUtcMs,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (practiceId.present) {
+      map['practice_id'] = Variable<String>(practiceId.value);
+    }
+    if (targetText.present) {
+      map['target_text'] = Variable<String>(targetText.value);
+    }
+    if (sourceRefId.present) {
+      map['source_ref_id'] = Variable<String>(sourceRefId.value);
+    }
+    if (overallScore.present) {
+      map['overall_score'] = Variable<int>(overallScore.value);
+    }
+    if (payloadJson.present) {
+      map['payload_json'] = Variable<String>(payloadJson.value);
+    }
+    if (createdAtUtcMs.present) {
+      map['created_at_utc_ms'] = Variable<int>(createdAtUtcMs.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalPronunciationPracticesCompanion(')
+          ..write('practiceId: $practiceId, ')
+          ..write('targetText: $targetText, ')
+          ..write('sourceRefId: $sourceRefId, ')
+          ..write('overallScore: $overallScore, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('createdAtUtcMs: $createdAtUtcMs, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LocalBandEventsTable extends LocalBandEvents
+    with TableInfo<$LocalBandEventsTable, LocalBandEventRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalBandEventsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _eventIdMeta = const VerificationMeta(
+    'eventId',
+  );
+  @override
+  late final GeneratedColumn<String> eventId = GeneratedColumn<String>(
+    'event_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _skillMeta = const VerificationMeta('skill');
+  @override
+  late final GeneratedColumn<String> skill = GeneratedColumn<String>(
+    'skill',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceKindMeta = const VerificationMeta(
+    'sourceKind',
+  );
+  @override
+  late final GeneratedColumn<String> sourceKind = GeneratedColumn<String>(
+    'source_kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _rawScoreMeta = const VerificationMeta(
+    'rawScore',
+  );
+  @override
+  late final GeneratedColumn<double> rawScore = GeneratedColumn<double>(
+    'raw_score',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtUtcMsMeta = const VerificationMeta(
+    'createdAtUtcMs',
+  );
+  @override
+  late final GeneratedColumn<int> createdAtUtcMs = GeneratedColumn<int>(
+    'created_at_utc_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    eventId,
+    skill,
+    sourceKind,
+    rawScore,
+    createdAtUtcMs,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_band_events';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LocalBandEventRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('event_id')) {
+      context.handle(
+        _eventIdMeta,
+        eventId.isAcceptableOrUnknown(data['event_id']!, _eventIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_eventIdMeta);
+    }
+    if (data.containsKey('skill')) {
+      context.handle(
+        _skillMeta,
+        skill.isAcceptableOrUnknown(data['skill']!, _skillMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_skillMeta);
+    }
+    if (data.containsKey('source_kind')) {
+      context.handle(
+        _sourceKindMeta,
+        sourceKind.isAcceptableOrUnknown(data['source_kind']!, _sourceKindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceKindMeta);
+    }
+    if (data.containsKey('raw_score')) {
+      context.handle(
+        _rawScoreMeta,
+        rawScore.isAcceptableOrUnknown(data['raw_score']!, _rawScoreMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_rawScoreMeta);
+    }
+    if (data.containsKey('created_at_utc_ms')) {
+      context.handle(
+        _createdAtUtcMsMeta,
+        createdAtUtcMs.isAcceptableOrUnknown(
+          data['created_at_utc_ms']!,
+          _createdAtUtcMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtUtcMsMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {eventId};
+  @override
+  LocalBandEventRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalBandEventRow(
+      eventId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event_id'],
+      )!,
+      skill: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}skill'],
+      )!,
+      sourceKind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_kind'],
+      )!,
+      rawScore: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}raw_score'],
+      )!,
+      createdAtUtcMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at_utc_ms'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalBandEventsTable createAlias(String alias) {
+    return $LocalBandEventsTable(attachedDatabase, alias);
+  }
+}
+
+class LocalBandEventRow extends DataClass
+    implements Insertable<LocalBandEventRow> {
+  /// Unique band event UUIDv4.
+  final String eventId;
+
+  /// Target skill (`reading`, `listening`, `writing`, `speaking`).
+  final String skill;
+
+  /// Source kind (`diagnostic`, `practice_section`, `micro_drill`, etc.).
+  final String sourceKind;
+
+  /// Scaled score/band observed locally.
+  final double rawScore;
+
+  /// Creation timestamp UTC millis.
+  final int createdAtUtcMs;
+  const LocalBandEventRow({
+    required this.eventId,
+    required this.skill,
+    required this.sourceKind,
+    required this.rawScore,
+    required this.createdAtUtcMs,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['event_id'] = Variable<String>(eventId);
+    map['skill'] = Variable<String>(skill);
+    map['source_kind'] = Variable<String>(sourceKind);
+    map['raw_score'] = Variable<double>(rawScore);
+    map['created_at_utc_ms'] = Variable<int>(createdAtUtcMs);
+    return map;
+  }
+
+  LocalBandEventsCompanion toCompanion(bool nullToAbsent) {
+    return LocalBandEventsCompanion(
+      eventId: Value(eventId),
+      skill: Value(skill),
+      sourceKind: Value(sourceKind),
+      rawScore: Value(rawScore),
+      createdAtUtcMs: Value(createdAtUtcMs),
+    );
+  }
+
+  factory LocalBandEventRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalBandEventRow(
+      eventId: serializer.fromJson<String>(json['eventId']),
+      skill: serializer.fromJson<String>(json['skill']),
+      sourceKind: serializer.fromJson<String>(json['sourceKind']),
+      rawScore: serializer.fromJson<double>(json['rawScore']),
+      createdAtUtcMs: serializer.fromJson<int>(json['createdAtUtcMs']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'eventId': serializer.toJson<String>(eventId),
+      'skill': serializer.toJson<String>(skill),
+      'sourceKind': serializer.toJson<String>(sourceKind),
+      'rawScore': serializer.toJson<double>(rawScore),
+      'createdAtUtcMs': serializer.toJson<int>(createdAtUtcMs),
+    };
+  }
+
+  LocalBandEventRow copyWith({
+    String? eventId,
+    String? skill,
+    String? sourceKind,
+    double? rawScore,
+    int? createdAtUtcMs,
+  }) => LocalBandEventRow(
+    eventId: eventId ?? this.eventId,
+    skill: skill ?? this.skill,
+    sourceKind: sourceKind ?? this.sourceKind,
+    rawScore: rawScore ?? this.rawScore,
+    createdAtUtcMs: createdAtUtcMs ?? this.createdAtUtcMs,
+  );
+  LocalBandEventRow copyWithCompanion(LocalBandEventsCompanion data) {
+    return LocalBandEventRow(
+      eventId: data.eventId.present ? data.eventId.value : this.eventId,
+      skill: data.skill.present ? data.skill.value : this.skill,
+      sourceKind: data.sourceKind.present
+          ? data.sourceKind.value
+          : this.sourceKind,
+      rawScore: data.rawScore.present ? data.rawScore.value : this.rawScore,
+      createdAtUtcMs: data.createdAtUtcMs.present
+          ? data.createdAtUtcMs.value
+          : this.createdAtUtcMs,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalBandEventRow(')
+          ..write('eventId: $eventId, ')
+          ..write('skill: $skill, ')
+          ..write('sourceKind: $sourceKind, ')
+          ..write('rawScore: $rawScore, ')
+          ..write('createdAtUtcMs: $createdAtUtcMs')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(eventId, skill, sourceKind, rawScore, createdAtUtcMs);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalBandEventRow &&
+          other.eventId == this.eventId &&
+          other.skill == this.skill &&
+          other.sourceKind == this.sourceKind &&
+          other.rawScore == this.rawScore &&
+          other.createdAtUtcMs == this.createdAtUtcMs);
+}
+
+class LocalBandEventsCompanion extends UpdateCompanion<LocalBandEventRow> {
+  final Value<String> eventId;
+  final Value<String> skill;
+  final Value<String> sourceKind;
+  final Value<double> rawScore;
+  final Value<int> createdAtUtcMs;
+  final Value<int> rowid;
+  const LocalBandEventsCompanion({
+    this.eventId = const Value.absent(),
+    this.skill = const Value.absent(),
+    this.sourceKind = const Value.absent(),
+    this.rawScore = const Value.absent(),
+    this.createdAtUtcMs = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalBandEventsCompanion.insert({
+    required String eventId,
+    required String skill,
+    required String sourceKind,
+    required double rawScore,
+    required int createdAtUtcMs,
+    this.rowid = const Value.absent(),
+  }) : eventId = Value(eventId),
+       skill = Value(skill),
+       sourceKind = Value(sourceKind),
+       rawScore = Value(rawScore),
+       createdAtUtcMs = Value(createdAtUtcMs);
+  static Insertable<LocalBandEventRow> custom({
+    Expression<String>? eventId,
+    Expression<String>? skill,
+    Expression<String>? sourceKind,
+    Expression<double>? rawScore,
+    Expression<int>? createdAtUtcMs,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (eventId != null) 'event_id': eventId,
+      if (skill != null) 'skill': skill,
+      if (sourceKind != null) 'source_kind': sourceKind,
+      if (rawScore != null) 'raw_score': rawScore,
+      if (createdAtUtcMs != null) 'created_at_utc_ms': createdAtUtcMs,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalBandEventsCompanion copyWith({
+    Value<String>? eventId,
+    Value<String>? skill,
+    Value<String>? sourceKind,
+    Value<double>? rawScore,
+    Value<int>? createdAtUtcMs,
+    Value<int>? rowid,
+  }) {
+    return LocalBandEventsCompanion(
+      eventId: eventId ?? this.eventId,
+      skill: skill ?? this.skill,
+      sourceKind: sourceKind ?? this.sourceKind,
+      rawScore: rawScore ?? this.rawScore,
+      createdAtUtcMs: createdAtUtcMs ?? this.createdAtUtcMs,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (eventId.present) {
+      map['event_id'] = Variable<String>(eventId.value);
+    }
+    if (skill.present) {
+      map['skill'] = Variable<String>(skill.value);
+    }
+    if (sourceKind.present) {
+      map['source_kind'] = Variable<String>(sourceKind.value);
+    }
+    if (rawScore.present) {
+      map['raw_score'] = Variable<double>(rawScore.value);
+    }
+    if (createdAtUtcMs.present) {
+      map['created_at_utc_ms'] = Variable<int>(createdAtUtcMs.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalBandEventsCompanion(')
+          ..write('eventId: $eventId, ')
+          ..write('skill: $skill, ')
+          ..write('sourceKind: $sourceKind, ')
+          ..write('rawScore: $rawScore, ')
+          ..write('createdAtUtcMs: $createdAtUtcMs, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -11568,6 +13040,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $DroppedContentsTable droppedContents = $DroppedContentsTable(
     this,
   );
+  late final $PersonalizationStatesTable personalizationStates =
+      $PersonalizationStatesTable(this);
+  late final $LocalPronunciationPracticesTable localPronunciationPractices =
+      $LocalPronunciationPracticesTable(this);
+  late final $LocalBandEventsTable localBandEvents = $LocalBandEventsTable(
+    this,
+  );
   late final AttemptDao attemptDao = AttemptDao(this as AppDatabase);
   late final VocabDao vocabDao = VocabDao(this as AppDatabase);
   late final CatalogDao catalogDao = CatalogDao(this as AppDatabase);
@@ -11594,6 +13073,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     linguisticNodes,
     dailyMissions,
     droppedContents,
+    personalizationStates,
+    localPronunciationPractices,
+    localBandEvents,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -11637,6 +13119,9 @@ typedef $$UserProfilesTableCreateCompanionBuilder =
       Value<String?> appUserId,
       Value<bool> isPro,
       Value<String> studyFocus,
+      Value<String> favoriteTopicsJson,
+      Value<int> vocabUnlockedWave,
+      Value<int> dailyNewVocabCap,
       Value<int> rowid,
     });
 typedef $$UserProfilesTableUpdateCompanionBuilder =
@@ -11655,6 +13140,9 @@ typedef $$UserProfilesTableUpdateCompanionBuilder =
       Value<String?> appUserId,
       Value<bool> isPro,
       Value<String> studyFocus,
+      Value<String> favoriteTopicsJson,
+      Value<int> vocabUnlockedWave,
+      Value<int> dailyNewVocabCap,
       Value<int> rowid,
     });
 
@@ -11734,6 +13222,21 @@ class $$UserProfilesTableFilterComposer
 
   ColumnFilters<String> get studyFocus => $composableBuilder(
     column: $table.studyFocus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get favoriteTopicsJson => $composableBuilder(
+    column: $table.favoriteTopicsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get vocabUnlockedWave => $composableBuilder(
+    column: $table.vocabUnlockedWave,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get dailyNewVocabCap => $composableBuilder(
+    column: $table.dailyNewVocabCap,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -11816,6 +13319,21 @@ class $$UserProfilesTableOrderingComposer
     column: $table.studyFocus,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get favoriteTopicsJson => $composableBuilder(
+    column: $table.favoriteTopicsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get vocabUnlockedWave => $composableBuilder(
+    column: $table.vocabUnlockedWave,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get dailyNewVocabCap => $composableBuilder(
+    column: $table.dailyNewVocabCap,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$UserProfilesTableAnnotationComposer
@@ -11882,6 +13400,21 @@ class $$UserProfilesTableAnnotationComposer
     column: $table.studyFocus,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get favoriteTopicsJson => $composableBuilder(
+    column: $table.favoriteTopicsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get vocabUnlockedWave => $composableBuilder(
+    column: $table.vocabUnlockedWave,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get dailyNewVocabCap => $composableBuilder(
+    column: $table.dailyNewVocabCap,
+    builder: (column) => column,
+  );
 }
 
 class $$UserProfilesTableTableManager
@@ -11929,6 +13462,9 @@ class $$UserProfilesTableTableManager
                 Value<String?> appUserId = const Value.absent(),
                 Value<bool> isPro = const Value.absent(),
                 Value<String> studyFocus = const Value.absent(),
+                Value<String> favoriteTopicsJson = const Value.absent(),
+                Value<int> vocabUnlockedWave = const Value.absent(),
+                Value<int> dailyNewVocabCap = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => UserProfilesCompanion(
                 createdAt: createdAt,
@@ -11945,6 +13481,9 @@ class $$UserProfilesTableTableManager
                 appUserId: appUserId,
                 isPro: isPro,
                 studyFocus: studyFocus,
+                favoriteTopicsJson: favoriteTopicsJson,
+                vocabUnlockedWave: vocabUnlockedWave,
+                dailyNewVocabCap: dailyNewVocabCap,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -11963,6 +13502,9 @@ class $$UserProfilesTableTableManager
                 Value<String?> appUserId = const Value.absent(),
                 Value<bool> isPro = const Value.absent(),
                 Value<String> studyFocus = const Value.absent(),
+                Value<String> favoriteTopicsJson = const Value.absent(),
+                Value<int> vocabUnlockedWave = const Value.absent(),
+                Value<int> dailyNewVocabCap = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => UserProfilesCompanion.insert(
                 createdAt: createdAt,
@@ -11979,6 +13521,9 @@ class $$UserProfilesTableTableManager
                 appUserId: appUserId,
                 isPro: isPro,
                 studyFocus: studyFocus,
+                favoriteTopicsJson: favoriteTopicsJson,
+                vocabUnlockedWave: vocabUnlockedWave,
+                dailyNewVocabCap: dailyNewVocabCap,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -14710,6 +16255,9 @@ typedef $$VocabCardsTableCreateCompanionBuilder = VocabCardsCompanion Function({
   Value<String?> sourceSkill,
   Value<String?> sourceAttemptId,
   Value<String?> sourceRefLabel,
+  Value<String?> canonicalTopic,
+  Value<String?> cefrLevel,
+  Value<int?> baseWaveOrder,
   Value<int> rowid,
 });
 typedef $$VocabCardsTableUpdateCompanionBuilder = VocabCardsCompanion Function({
@@ -14733,6 +16281,9 @@ typedef $$VocabCardsTableUpdateCompanionBuilder = VocabCardsCompanion Function({
   Value<String?> sourceSkill,
   Value<String?> sourceAttemptId,
   Value<String?> sourceRefLabel,
+  Value<String?> canonicalTopic,
+  Value<String?> cefrLevel,
+  Value<int?> baseWaveOrder,
   Value<int> rowid,
 });
 
@@ -14870,6 +16421,21 @@ class $$VocabCardsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get canonicalTopic => $composableBuilder(
+    column: $table.canonicalTopic,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cefrLevel => $composableBuilder(
+    column: $table.cefrLevel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get baseWaveOrder => $composableBuilder(
+    column: $table.baseWaveOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> vocabReviewLogsRefs(
     Expression<bool> Function($$VocabReviewLogsTableFilterComposer f) f,
   ) {
@@ -15004,6 +16570,21 @@ class $$VocabCardsTableOrderingComposer
     column: $table.sourceRefLabel,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get canonicalTopic => $composableBuilder(
+    column: $table.canonicalTopic,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cefrLevel => $composableBuilder(
+    column: $table.cefrLevel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get baseWaveOrder => $composableBuilder(
+    column: $table.baseWaveOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$VocabCardsTableAnnotationComposer
@@ -15097,6 +16678,19 @@ class $$VocabCardsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get canonicalTopic => $composableBuilder(
+    column: $table.canonicalTopic,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get cefrLevel =>
+      $composableBuilder(column: $table.cefrLevel, builder: (column) => column);
+
+  GeneratedColumn<int> get baseWaveOrder => $composableBuilder(
+    column: $table.baseWaveOrder,
+    builder: (column) => column,
+  );
+
   Expression<T> vocabReviewLogsRefs<T extends Object>(
     Expression<T> Function($$VocabReviewLogsTableAnnotationComposer a) f,
   ) {
@@ -15171,6 +16765,9 @@ class $$VocabCardsTableTableManager
                 Value<String?> sourceSkill = const Value.absent(),
                 Value<String?> sourceAttemptId = const Value.absent(),
                 Value<String?> sourceRefLabel = const Value.absent(),
+                Value<String?> canonicalTopic = const Value.absent(),
+                Value<String?> cefrLevel = const Value.absent(),
+                Value<int?> baseWaveOrder = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => VocabCardsCompanion(
                 createdAt: createdAt,
@@ -15193,6 +16790,9 @@ class $$VocabCardsTableTableManager
                 sourceSkill: sourceSkill,
                 sourceAttemptId: sourceAttemptId,
                 sourceRefLabel: sourceRefLabel,
+                canonicalTopic: canonicalTopic,
+                cefrLevel: cefrLevel,
+                baseWaveOrder: baseWaveOrder,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -15217,6 +16817,9 @@ class $$VocabCardsTableTableManager
                 Value<String?> sourceSkill = const Value.absent(),
                 Value<String?> sourceAttemptId = const Value.absent(),
                 Value<String?> sourceRefLabel = const Value.absent(),
+                Value<String?> canonicalTopic = const Value.absent(),
+                Value<String?> cefrLevel = const Value.absent(),
+                Value<int?> baseWaveOrder = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => VocabCardsCompanion.insert(
                 createdAt: createdAt,
@@ -15239,6 +16842,9 @@ class $$VocabCardsTableTableManager
                 sourceSkill: sourceSkill,
                 sourceAttemptId: sourceAttemptId,
                 sourceRefLabel: sourceRefLabel,
+                canonicalTopic: canonicalTopic,
+                cefrLevel: cefrLevel,
+                baseWaveOrder: baseWaveOrder,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -17804,6 +19410,684 @@ typedef $$DroppedContentsTableProcessedTableManager =
       DroppedContentRow,
       PrefetchHooks Function()
     >;
+typedef $$PersonalizationStatesTableCreateCompanionBuilder =
+    PersonalizationStatesCompanion Function({
+      required String stateKey,
+      required String payloadJson,
+      required int updatedAtUtcMs,
+      Value<int> rowid,
+    });
+typedef $$PersonalizationStatesTableUpdateCompanionBuilder =
+    PersonalizationStatesCompanion Function({
+      Value<String> stateKey,
+      Value<String> payloadJson,
+      Value<int> updatedAtUtcMs,
+      Value<int> rowid,
+    });
+
+class $$PersonalizationStatesTableFilterComposer
+    extends Composer<_$AppDatabase, $PersonalizationStatesTable> {
+  $$PersonalizationStatesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get stateKey => $composableBuilder(
+    column: $table.stateKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAtUtcMs => $composableBuilder(
+    column: $table.updatedAtUtcMs,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PersonalizationStatesTableOrderingComposer
+    extends Composer<_$AppDatabase, $PersonalizationStatesTable> {
+  $$PersonalizationStatesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get stateKey => $composableBuilder(
+    column: $table.stateKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAtUtcMs => $composableBuilder(
+    column: $table.updatedAtUtcMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PersonalizationStatesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PersonalizationStatesTable> {
+  $$PersonalizationStatesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get stateKey =>
+      $composableBuilder(column: $table.stateKey, builder: (column) => column);
+
+  GeneratedColumn<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get updatedAtUtcMs => $composableBuilder(
+    column: $table.updatedAtUtcMs,
+    builder: (column) => column,
+  );
+}
+
+class $$PersonalizationStatesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PersonalizationStatesTable,
+          PersonalizationStateRow,
+          $$PersonalizationStatesTableFilterComposer,
+          $$PersonalizationStatesTableOrderingComposer,
+          $$PersonalizationStatesTableAnnotationComposer,
+          $$PersonalizationStatesTableCreateCompanionBuilder,
+          $$PersonalizationStatesTableUpdateCompanionBuilder,
+          (
+            PersonalizationStateRow,
+            BaseReferences<
+              _$AppDatabase,
+              $PersonalizationStatesTable,
+              PersonalizationStateRow
+            >,
+          ),
+          PersonalizationStateRow,
+          PrefetchHooks Function()
+        > {
+  $$PersonalizationStatesTableTableManager(
+    _$AppDatabase db,
+    $PersonalizationStatesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PersonalizationStatesTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$PersonalizationStatesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$PersonalizationStatesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> stateKey = const Value.absent(),
+                Value<String> payloadJson = const Value.absent(),
+                Value<int> updatedAtUtcMs = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PersonalizationStatesCompanion(
+                stateKey: stateKey,
+                payloadJson: payloadJson,
+                updatedAtUtcMs: updatedAtUtcMs,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String stateKey,
+                required String payloadJson,
+                required int updatedAtUtcMs,
+                Value<int> rowid = const Value.absent(),
+              }) => PersonalizationStatesCompanion.insert(
+                stateKey: stateKey,
+                payloadJson: payloadJson,
+                updatedAtUtcMs: updatedAtUtcMs,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<
+                    $PersonalizationStatesTable,
+                    PersonalizationStateRow
+                  >(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $PersonalizationStatesTable,
+                    PersonalizationStateRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PersonalizationStatesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PersonalizationStatesTable,
+      PersonalizationStateRow,
+      $$PersonalizationStatesTableFilterComposer,
+      $$PersonalizationStatesTableOrderingComposer,
+      $$PersonalizationStatesTableAnnotationComposer,
+      $$PersonalizationStatesTableCreateCompanionBuilder,
+      $$PersonalizationStatesTableUpdateCompanionBuilder,
+      (
+        PersonalizationStateRow,
+        BaseReferences<
+          _$AppDatabase,
+          $PersonalizationStatesTable,
+          PersonalizationStateRow
+        >,
+      ),
+      PersonalizationStateRow,
+      PrefetchHooks Function()
+    >;
+typedef $$LocalPronunciationPracticesTableCreateCompanionBuilder =
+    LocalPronunciationPracticesCompanion Function({
+      required String practiceId,
+      required String targetText,
+      Value<String?> sourceRefId,
+      Value<int?> overallScore,
+      required String payloadJson,
+      required int createdAtUtcMs,
+      Value<int> rowid,
+    });
+typedef $$LocalPronunciationPracticesTableUpdateCompanionBuilder =
+    LocalPronunciationPracticesCompanion Function({
+      Value<String> practiceId,
+      Value<String> targetText,
+      Value<String?> sourceRefId,
+      Value<int?> overallScore,
+      Value<String> payloadJson,
+      Value<int> createdAtUtcMs,
+      Value<int> rowid,
+    });
+
+class $$LocalPronunciationPracticesTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalPronunciationPracticesTable> {
+  $$LocalPronunciationPracticesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get practiceId => $composableBuilder(
+    column: $table.practiceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetText => $composableBuilder(
+    column: $table.targetText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceRefId => $composableBuilder(
+    column: $table.sourceRefId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get overallScore => $composableBuilder(
+    column: $table.overallScore,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAtUtcMs => $composableBuilder(
+    column: $table.createdAtUtcMs,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalPronunciationPracticesTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalPronunciationPracticesTable> {
+  $$LocalPronunciationPracticesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get practiceId => $composableBuilder(
+    column: $table.practiceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetText => $composableBuilder(
+    column: $table.targetText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceRefId => $composableBuilder(
+    column: $table.sourceRefId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get overallScore => $composableBuilder(
+    column: $table.overallScore,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAtUtcMs => $composableBuilder(
+    column: $table.createdAtUtcMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalPronunciationPracticesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalPronunciationPracticesTable> {
+  $$LocalPronunciationPracticesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get practiceId => $composableBuilder(
+    column: $table.practiceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get targetText => $composableBuilder(
+    column: $table.targetText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceRefId => $composableBuilder(
+    column: $table.sourceRefId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get overallScore => $composableBuilder(
+    column: $table.overallScore,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get createdAtUtcMs => $composableBuilder(
+    column: $table.createdAtUtcMs,
+    builder: (column) => column,
+  );
+}
+
+class $$LocalPronunciationPracticesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalPronunciationPracticesTable,
+          LocalPronunciationPracticeRow,
+          $$LocalPronunciationPracticesTableFilterComposer,
+          $$LocalPronunciationPracticesTableOrderingComposer,
+          $$LocalPronunciationPracticesTableAnnotationComposer,
+          $$LocalPronunciationPracticesTableCreateCompanionBuilder,
+          $$LocalPronunciationPracticesTableUpdateCompanionBuilder,
+          (
+            LocalPronunciationPracticeRow,
+            BaseReferences<
+              _$AppDatabase,
+              $LocalPronunciationPracticesTable,
+              LocalPronunciationPracticeRow
+            >,
+          ),
+          LocalPronunciationPracticeRow,
+          PrefetchHooks Function()
+        > {
+  $$LocalPronunciationPracticesTableTableManager(
+    _$AppDatabase db,
+    $LocalPronunciationPracticesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalPronunciationPracticesTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$LocalPronunciationPracticesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$LocalPronunciationPracticesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> practiceId = const Value.absent(),
+                Value<String> targetText = const Value.absent(),
+                Value<String?> sourceRefId = const Value.absent(),
+                Value<int?> overallScore = const Value.absent(),
+                Value<String> payloadJson = const Value.absent(),
+                Value<int> createdAtUtcMs = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalPronunciationPracticesCompanion(
+                practiceId: practiceId,
+                targetText: targetText,
+                sourceRefId: sourceRefId,
+                overallScore: overallScore,
+                payloadJson: payloadJson,
+                createdAtUtcMs: createdAtUtcMs,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String practiceId,
+                required String targetText,
+                Value<String?> sourceRefId = const Value.absent(),
+                Value<int?> overallScore = const Value.absent(),
+                required String payloadJson,
+                required int createdAtUtcMs,
+                Value<int> rowid = const Value.absent(),
+              }) => LocalPronunciationPracticesCompanion.insert(
+                practiceId: practiceId,
+                targetText: targetText,
+                sourceRefId: sourceRefId,
+                overallScore: overallScore,
+                payloadJson: payloadJson,
+                createdAtUtcMs: createdAtUtcMs,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<
+                    $LocalPronunciationPracticesTable,
+                    LocalPronunciationPracticeRow
+                  >(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $LocalPronunciationPracticesTable,
+                    LocalPronunciationPracticeRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalPronunciationPracticesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalPronunciationPracticesTable,
+      LocalPronunciationPracticeRow,
+      $$LocalPronunciationPracticesTableFilterComposer,
+      $$LocalPronunciationPracticesTableOrderingComposer,
+      $$LocalPronunciationPracticesTableAnnotationComposer,
+      $$LocalPronunciationPracticesTableCreateCompanionBuilder,
+      $$LocalPronunciationPracticesTableUpdateCompanionBuilder,
+      (
+        LocalPronunciationPracticeRow,
+        BaseReferences<
+          _$AppDatabase,
+          $LocalPronunciationPracticesTable,
+          LocalPronunciationPracticeRow
+        >,
+      ),
+      LocalPronunciationPracticeRow,
+      PrefetchHooks Function()
+    >;
+typedef $$LocalBandEventsTableCreateCompanionBuilder =
+    LocalBandEventsCompanion Function({
+      required String eventId,
+      required String skill,
+      required String sourceKind,
+      required double rawScore,
+      required int createdAtUtcMs,
+      Value<int> rowid,
+    });
+typedef $$LocalBandEventsTableUpdateCompanionBuilder =
+    LocalBandEventsCompanion Function({
+      Value<String> eventId,
+      Value<String> skill,
+      Value<String> sourceKind,
+      Value<double> rawScore,
+      Value<int> createdAtUtcMs,
+      Value<int> rowid,
+    });
+
+class $$LocalBandEventsTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalBandEventsTable> {
+  $$LocalBandEventsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get eventId => $composableBuilder(
+    column: $table.eventId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get skill => $composableBuilder(
+    column: $table.skill,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceKind => $composableBuilder(
+    column: $table.sourceKind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get rawScore => $composableBuilder(
+    column: $table.rawScore,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAtUtcMs => $composableBuilder(
+    column: $table.createdAtUtcMs,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalBandEventsTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalBandEventsTable> {
+  $$LocalBandEventsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get eventId => $composableBuilder(
+    column: $table.eventId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get skill => $composableBuilder(
+    column: $table.skill,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceKind => $composableBuilder(
+    column: $table.sourceKind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get rawScore => $composableBuilder(
+    column: $table.rawScore,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAtUtcMs => $composableBuilder(
+    column: $table.createdAtUtcMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalBandEventsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalBandEventsTable> {
+  $$LocalBandEventsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get eventId =>
+      $composableBuilder(column: $table.eventId, builder: (column) => column);
+
+  GeneratedColumn<String> get skill =>
+      $composableBuilder(column: $table.skill, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceKind => $composableBuilder(
+    column: $table.sourceKind,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get rawScore =>
+      $composableBuilder(column: $table.rawScore, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAtUtcMs => $composableBuilder(
+    column: $table.createdAtUtcMs,
+    builder: (column) => column,
+  );
+}
+
+class $$LocalBandEventsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalBandEventsTable,
+          LocalBandEventRow,
+          $$LocalBandEventsTableFilterComposer,
+          $$LocalBandEventsTableOrderingComposer,
+          $$LocalBandEventsTableAnnotationComposer,
+          $$LocalBandEventsTableCreateCompanionBuilder,
+          $$LocalBandEventsTableUpdateCompanionBuilder,
+          (
+            LocalBandEventRow,
+            BaseReferences<
+              _$AppDatabase,
+              $LocalBandEventsTable,
+              LocalBandEventRow
+            >,
+          ),
+          LocalBandEventRow,
+          PrefetchHooks Function()
+        > {
+  $$LocalBandEventsTableTableManager(
+    _$AppDatabase db,
+    $LocalBandEventsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalBandEventsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalBandEventsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LocalBandEventsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> eventId = const Value.absent(),
+                Value<String> skill = const Value.absent(),
+                Value<String> sourceKind = const Value.absent(),
+                Value<double> rawScore = const Value.absent(),
+                Value<int> createdAtUtcMs = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalBandEventsCompanion(
+                eventId: eventId,
+                skill: skill,
+                sourceKind: sourceKind,
+                rawScore: rawScore,
+                createdAtUtcMs: createdAtUtcMs,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String eventId,
+                required String skill,
+                required String sourceKind,
+                required double rawScore,
+                required int createdAtUtcMs,
+                Value<int> rowid = const Value.absent(),
+              }) => LocalBandEventsCompanion.insert(
+                eventId: eventId,
+                skill: skill,
+                sourceKind: sourceKind,
+                rawScore: rawScore,
+                createdAtUtcMs: createdAtUtcMs,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$LocalBandEventsTable, LocalBandEventRow>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $LocalBandEventsTable,
+                    LocalBandEventRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalBandEventsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalBandEventsTable,
+      LocalBandEventRow,
+      $$LocalBandEventsTableFilterComposer,
+      $$LocalBandEventsTableOrderingComposer,
+      $$LocalBandEventsTableAnnotationComposer,
+      $$LocalBandEventsTableCreateCompanionBuilder,
+      $$LocalBandEventsTableUpdateCompanionBuilder,
+      (
+        LocalBandEventRow,
+        BaseReferences<_$AppDatabase, $LocalBandEventsTable, LocalBandEventRow>,
+      ),
+      LocalBandEventRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -17842,4 +20126,14 @@ class $AppDatabaseManager {
       $$DailyMissionsTableTableManager(_db, _db.dailyMissions);
   $$DroppedContentsTableTableManager get droppedContents =>
       $$DroppedContentsTableTableManager(_db, _db.droppedContents);
+  $$PersonalizationStatesTableTableManager get personalizationStates =>
+      $$PersonalizationStatesTableTableManager(_db, _db.personalizationStates);
+  $$LocalPronunciationPracticesTableTableManager
+  get localPronunciationPractices =>
+      $$LocalPronunciationPracticesTableTableManager(
+        _db,
+        _db.localPronunciationPractices,
+      );
+  $$LocalBandEventsTableTableManager get localBandEvents =>
+      $$LocalBandEventsTableTableManager(_db, _db.localBandEvents);
 }

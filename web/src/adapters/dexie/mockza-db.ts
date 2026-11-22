@@ -25,6 +25,28 @@ export interface LocalPreferenceRecord {
   readonly updatedAtMs: number;
 }
 
+export interface PersonalizationCacheRecord {
+  readonly key: string;
+  readonly payloadJson: string;
+  readonly updatedAtMs: number;
+}
+
+export interface LocalPronunciationRecord {
+  readonly practiceId: string;
+  readonly targetText: string;
+  readonly overallScore: number | null;
+  readonly payloadJson: string;
+  readonly createdAtMs: number;
+}
+
+export interface LocalBandEventRecord {
+  readonly eventId: string;
+  readonly skill: string;
+  readonly sourceKind: string;
+  readonly rawScore: number;
+  readonly createdAtMs: number;
+}
+
 export const PREF_KEY_USER_PROFILE = 'userProfile' as const;
 export const PREF_KEY_APPEARANCE = 'appearance' as const;
 export const PREF_PREFIX_SPLIT_PANE = 'splitPane:' as const;
@@ -52,13 +74,15 @@ export const MOCKZA_DB_TABLE_NAMES = [
   'linguisticNodes',
   'dailyMissions',
   'droppedContents',
+  'personalizationState',
+  'pronunciationHistory',
+  'bandEventsLocal',
 ] as const;
 
 export type MockzaDbTableName = (typeof MOCKZA_DB_TABLE_NAMES)[number];
 
 /**
- * Dexie.js v4 offline store with exact 14 EntityTable definitions matching
- * Flutter AppDatabase parity and DESKTOP_WEB_PLAN.md Sec 9.1.
+ * Dexie.js v4 offline store matching Flutter Drift schema v10.
  */
 export class MockzaDexieDb extends Dexie {
   declare localPreferences: EntityTable<LocalPreferenceRecord, 'key'>;
@@ -78,6 +102,9 @@ export class MockzaDexieDb extends Dexie {
   declare linguisticNodes: EntityTable<LinguisticNodeRecord, 'nodeId'>;
   declare dailyMissions: EntityTable<DailyMissionRecord, 'missionId'>;
   declare droppedContents: EntityTable<DroppedContentRecord, 'dropId'>;
+  declare personalizationState: EntityTable<PersonalizationCacheRecord, 'key'>;
+  declare pronunciationHistory: EntityTable<LocalPronunciationRecord, 'practiceId'>;
+  declare bandEventsLocal: EntityTable<LocalBandEventRecord, 'eventId'>;
 
   constructor(dbName: string = MOCKZA_DB_DEFAULT_NAME) {
     super(dbName);
@@ -109,6 +136,15 @@ export class MockzaDexieDb extends Dexie {
       linguisticNodes: 'nodeId, edition, [edition+nodeKind], canonicalKey, lastSeenDaySerial',
       dailyMissions: 'missionId, edition, [missionDaySerial+edition], status',
       droppedContents: 'dropId, edition, inputKind, createdAtMs, completedAtMs',
+    });
+    this.version(4).stores({
+      ...v1Stores,
+      linguisticNodes: 'nodeId, edition, [edition+nodeKind], canonicalKey, lastSeenDaySerial',
+      dailyMissions: 'missionId, edition, [missionDaySerial+edition], status',
+      droppedContents: 'dropId, edition, inputKind, createdAtMs, completedAtMs',
+      personalizationState: 'key, updatedAtMs',
+      pronunciationHistory: 'practiceId, targetText, createdAtMs',
+      bandEventsLocal: 'eventId, [skill+createdAtMs], sourceKind',
     });
   }
 }

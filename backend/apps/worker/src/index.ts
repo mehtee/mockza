@@ -9,6 +9,10 @@ import { handleGradeSpeakingJob, SPEAKING_JOB_QUEUE } from './jobs/grade-speakin
 import { handleGradeWritingJob, WRITING_JOB_QUEUE } from './jobs/grade-writing.js';
 import { handlePurgeAudioJob, PURGE_AUDIO_QUEUE } from './jobs/purge-audio.js';
 import {
+  ANALYZE_PRONUNCIATION_JOB_QUEUE,
+  handleAnalyzePronunciationJob,
+} from './jobs/analyze-pronunciation.js';
+import {
   handleRegisterShifterJob,
   REGISTER_SHIFTER_JOB_QUEUE,
 } from './jobs/register-shifter.js';
@@ -47,9 +51,11 @@ export async function sweepPendingDispatchOutbox(db: MockzaDb, boss: PgBoss): Pr
           ? REGISTER_SHIFTER_JOB_QUEUE
           : job.taskType === 'drop_ingest'
             ? DROP_INGEST_JOB_QUEUE
-            : job.skill === 'speaking'
-              ? SPEAKING_JOB_QUEUE
-              : WRITING_JOB_QUEUE;
+            : job.taskType === 'pronunciation'
+              ? ANALYZE_PRONUNCIATION_JOB_QUEUE
+              : job.skill === 'speaking'
+                ? SPEAKING_JOB_QUEUE
+                : WRITING_JOB_QUEUE;
       const payload = {
         ...(job.inputJson as Record<string, unknown>),
         jobId: job.jobId,
@@ -175,6 +181,11 @@ export async function startWorker(): Promise<{ boss: PgBoss; stop: () => Promise
     retryLimit: 2,
     retryBackoff: true,
   });
+  await boss.createQueue(ANALYZE_PRONUNCIATION_JOB_QUEUE, {
+    name: ANALYZE_PRONUNCIATION_JOB_QUEUE,
+    retryLimit: 2,
+    retryBackoff: true,
+  });
   await boss.createQueue(PURGE_AUDIO_QUEUE, {
     name: PURGE_AUDIO_QUEUE,
     retryLimit: 2,
@@ -285,13 +296,46 @@ export async function startWorker(): Promise<{ boss: PgBoss; stop: () => Promise
     }
   });
 
+  await boss.work(ANALYZE_PRONUNCIATION_JOB_QUEUE, { batchSize, includeMetadata: true }, async (jobs) => {
+    const outcomes = await Promise.allSettled(
+      jobs.map(async (job) => {
+        const meta = job as { retryCount?: number; retryLimit?: number; data: unknown };
+        const attemptNumber = (meta.retryCount ?? 0) + 1;
+        const maxAttempts = (meta.retryLimit ?? 2) + 1;
+        await handleAnalyzePronunciationJob(
+          meta.data as Parameters<typeof handleAnalyzePronunciationJob>[0],
+          db,
+          s3Client,
+          env.S3_BUCKET,
+          { modelOverride: env.OPENROUTER_PRONUNCIATION_MODEL },
+          { attemptNumber, maxAttempts },
+        );
+      }),
+    );
+    for (const outcome of outcomes) {
+      if (outcome.status === 'rejected') {
+        throw outcome.reason;
+      }
+    }
+  });
+
   await boss.schedule(PURGE_AUDIO_QUEUE, '0 * * * *', {});
   await boss.work(PURGE_AUDIO_QUEUE, async () => {
     await handlePurgeAudioJob({ db, s3Client, bucket: env.S3_BUCKET });
   });
 
+  let sweepingOutbox = false;
   const outboxTimer = setInterval(() => {
-    void sweepPendingDispatchOutbox(db, boss);
+    if (sweepingOutbox) return;
+    sweepingOutbox = true;
+    void sweepPendingDispatchOutbox(db, boss)
+      .catch((err) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`outbox sweep error (retrying next tick): ${msg}\n`);
+      })
+      .finally(() => {
+        sweepingOutbox = false;
+      });
   }, 10_000).unref();
 
   process.stdout.write(

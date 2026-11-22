@@ -18,6 +18,7 @@ import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/compare_attempts.dart';
 import 'package:mockza/theme/components/empty_state.dart';
+import 'package:mockza/theme/components/inline_listen_button.dart';
 import 'package:mockza/theme/components/mz_bottom_sheet.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
@@ -25,8 +26,10 @@ import 'package:mockza/theme/components/mz_chip.dart';
 import 'package:mockza/theme/components/mz_form_field.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
 import 'package:mockza/theme/components/mz_toast.dart';
+import 'package:mockza/theme/components/plan_impact_card.dart';
 import 'package:mockza/theme/components/score_meter.dart';
 import 'package:mockza/theme/components/section_header.dart';
+import 'package:mockza/theme/components/speech_practice_sheet.dart';
 import 'package:mockza/theme/components/status_banner.dart';
 import 'package:mockza/theme/primitives.dart';
 import 'package:share_plus/share_plus.dart';
@@ -586,6 +589,11 @@ class _OverviewTab extends StatelessWidget {
             ),
           ),
         ],
+        const SizedBox(height: SpacingTokens.md),
+        PlanImpactCard(
+          skill: state.skill.name,
+          scoreBand: state.overallBand,
+        ),
         if (drill != null) ...<Widget>[
           const SectionHeader(title: 'Recommended Micro-Drill'),
           MzCard(
@@ -873,6 +881,39 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
                                   fontStyle: FontStyle.italic,
                                 ),
                               ),
+                              const SizedBox(height: SpacingTokens.xs),
+                              Wrap(
+                                spacing: SpacingTokens.xs,
+                                runSpacing: SpacingTokens.xs,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: <Widget>[
+                                  InlineListenButton(
+                                    text: q.evidenceQuote!,
+                                    sourceContext: state.skill == SkillKind.listening
+                                        ? 'listening_feedback'
+                                        : 'reading_feedback',
+                                  ),
+                                  ActionChip(
+                                    avatar: AppIcon(
+                                      LucideGlyph.mic,
+                                      size: 14,
+                                      color: colors.primary,
+                                    ),
+                                    label: Text(l10n.practiceSpeechCta),
+                                    onPressed: () => unawaited(
+                                      SpeechPracticeSheet.show(
+                                        ctx,
+                                        targetText: q.evidenceQuote!,
+                                        sourceRefType: 'evaluation_quote',
+                                        sourceRefId: cardId,
+                                        sourceContext: state.skill == SkillKind.listening
+                                            ? 'listening_feedback'
+                                            : 'reading_feedback',
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ],
                             if (state.skill == SkillKind.listening &&
                                 state.contentVersion != null &&
@@ -1140,9 +1181,43 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
           if ((res.modelRewrite ?? res.upgradedExcerpt).isNotEmpty) ...<Widget>[
             SectionHeader(title: _modelRewriteHeading(state.examTrack)),
             MzCard(
-              child: SelectableText(
-                res.modelRewrite ?? res.upgradedExcerpt,
-                style: typography.body,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  SelectableText(
+                    res.modelRewrite ?? res.upgradedExcerpt,
+                    style: typography.body,
+                  ),
+                  const SizedBox(height: SpacingTokens.sm),
+                  Wrap(
+                    spacing: SpacingTokens.xs,
+                    runSpacing: SpacingTokens.xs,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: <Widget>[
+                      InlineListenButton(
+                        text: res.modelRewrite ?? res.upgradedExcerpt,
+                        sourceContext: 'evaluation_rewrite',
+                      ),
+                      ActionChip(
+                        avatar: AppIcon(
+                          LucideGlyph.mic,
+                          size: 14,
+                          color: colors.primary,
+                        ),
+                        label: Text(AppLocalizations.of(context).practiceSpeechCta),
+                        onPressed: () => unawaited(
+                          SpeechPracticeSheet.show(
+                            context,
+                            targetText: res.modelRewrite ?? res.upgradedExcerpt,
+                            sourceRefType: 'evaluation_rewrite',
+                            sourceRefId: state.attemptId,
+                            sourceContext: 'evaluation_rewrite',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],

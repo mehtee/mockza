@@ -52,6 +52,11 @@ export function registerCatalogRoutes(
       contentOrigin: 'authored_original' | 'cc_by_sa_adapted' | 'open_corpus';
       humanQaReviewed: boolean;
       isFreeSample: boolean;
+      topicKeys: string[];
+      weaknessTargets: string[];
+      cefrMin: string;
+      cefrMax: string;
+      roadmapOrder: number;
     }> = [];
 
     if (db) {
@@ -94,6 +99,11 @@ export function registerCatalogRoutes(
             : 'authored_original',
         humanQaReviewed: r.humanQaReviewed,
         isFreeSample: r.isFreeSample,
+        topicKeys: r.topicKeysJson,
+        weaknessTargets: r.weaknessTargetsJson,
+        cefrMin: r.cefrMin,
+        cefrMax: r.cefrMax,
+        roadmapOrder: r.roadmapOrder,
       }));
     }
 

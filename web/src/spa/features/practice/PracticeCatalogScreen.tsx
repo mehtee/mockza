@@ -5,11 +5,12 @@ import {
   type SupportedExamId,
 } from '@mockza/domain';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { CheckCircle2, Download, HardDrive, Play, RefreshCw, Search } from 'lucide-react';
+import { CheckCircle2, Compass, Download, HardDrive, Play, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { MzBanner, MzButton, MzCard } from '@/components/ui';
+import { MzBanner, MzButton, MzCard, MzSegmentedControl } from '@/components/ui';
 import { formatByteSize } from '@/edition/bidi/format-bytes';
 import type { CacheUsageSummary } from '@/gateways/catalog.gateway';
+import type { PersonalizationStateDto } from '@/gateways/personalization.gateway';
 import type { CatalogPackRecord } from '@/gateways/storage.gateway';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
@@ -79,6 +80,8 @@ export function PracticeCatalogScreen({ initialTrack, initialSkill }: PracticeCa
   const [downloadingPackId, setDownloadingPackId] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [personalization, setPersonalization] = useState<PersonalizationStateDto | null>(null);
+  const [catalogTab, setCatalogTab] = useState<'for_you' | 'all'>('for_you');
 
   const hydratedRef = useRef(false);
 
@@ -96,12 +99,16 @@ export function PracticeCatalogScreen({ initialTrack, initialSkill }: PracticeCa
       const hadSwr = readSwrCatalogPacks(deps.catalog, deps.edition).length > 0;
       const syncPromise = !hadSwr ? ensureCatalogSynced(deps.catalog, deps.edition) : null;
 
-      const [packsRes, cacheRes, profileRes] = await Promise.all([
+      const [packsRes, cacheRes, profileRes, pRes] = await Promise.all([
         deps.catalog.listPacks(),
         deps.catalog.getCacheUsageSummary(),
         deps.attemptStore.getUserProfile(),
+        deps.personalization ? deps.personalization.getState() : Promise.resolve(null),
       ]);
       if (!mounted) return;
+      if (pRes && pRes.ok) {
+        setPersonalization(pRes.value);
+      }
 
       if (cacheRes.ok) {
         setCacheSummary(cacheRes.value);
@@ -129,7 +136,13 @@ export function PracticeCatalogScreen({ initialTrack, initialSkill }: PracticeCa
     return () => {
       mounted = false;
     };
-  }, [deps.attemptStore, deps.catalog, deps.edition]);
+  }, [
+    deps.attemptStore,
+    deps.catalog,
+    deps.edition,
+    deps.personalization,
+    initialTrack,
+  ]);
 
   const handleSyncCatalog = async () => {
     setSyncing(true);
@@ -171,7 +184,14 @@ export function PracticeCatalogScreen({ initialTrack, initialSkill }: PracticeCa
 
   const filteredPacks = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    return packs.filter((pack) => {
+    const recIds = new Set(personalization?.recommendedPacks.map((r) => r.packId) ?? []);
+    if (personalization?.nextRecommendedPack) {
+      recIds.add(personalization.nextRecommendedPack.packId);
+    }
+    const base = packs.filter((pack) => {
+      if (catalogTab === 'for_you' && recIds.size > 0 && !query && selectedSkill === 'all') {
+        if (!recIds.has(pack.packId)) return false;
+      }
       if (selectedExam !== 'all' && pack.examId !== selectedExam) return false;
       if (selectedSkill !== 'all' && pack.skill !== selectedSkill) return false;
       if (cachedOnly && pack.isCachedOffline !== 1) return false;
@@ -185,16 +205,97 @@ export function PracticeCatalogScreen({ initialTrack, initialSkill }: PracticeCa
       }
       return true;
     });
-  }, [cachedOnly, packs, searchQuery, selectedExam, selectedSkill]);
+    if (catalogTab === 'for_you' && recIds.size > 0 && base.length > 0) {
+      const order = new Map<string, number>();
+      personalization?.recommendedPacks.forEach((r, idx) => order.set(r.packId, idx));
+      return [...base].sort((a, b) => (order.get(a.packId) ?? 99) - (order.get(b.packId) ?? 99));
+    }
+    return base;
+  }, [cachedOnly, catalogTab, packs, personalization, searchQuery, selectedExam, selectedSkill]);
+
+  const isRtl = deps.edition === 'irn';
+  const recommendedByPackId = useMemo(() => {
+    const map = new Map<string, { readonly reason: string; readonly phase: string; readonly weaknessKey?: string | null }>();
+    for (const rec of personalization?.recommendedPacks ?? []) {
+      map.set(rec.packId, {
+        reason: isRtl ? rec.reasonFa : rec.reasonEn,
+        phase: rec.phase,
+        weaknessKey: rec.weaknessKey,
+      });
+    }
+    if (personalization?.nextRecommendedPack) {
+      const next = personalization.nextRecommendedPack;
+      map.set(next.packId, {
+        reason: isRtl ? next.reasonFa : next.reasonEn,
+        phase: next.phase,
+        weaknessKey: next.weaknessKey,
+      });
+    }
+    return map;
+  }, [isRtl, personalization]);
+
+  const spotlightPack = useMemo(() => {
+    const recId = personalization?.nextRecommendedPack?.packId;
+    if (!recId) return null;
+    return packs.find((p) => p.packId === recId) ?? null;
+  }, [packs, personalization?.nextRecommendedPack?.packId]);
+
+  const phaseLabelText =
+    personalization?.profile.activeWeaknessPhase === 'weakness_transfer'
+      ? t('roadmapPhaseWeaknessTransfer')
+      : personalization?.profile.activeWeaknessPhase === 'exam_breadth'
+        ? t('roadmapPhaseExamBreadth')
+        : t('roadmapPhaseFavoriteTopics');
 
   return (
     <div data-testid="practice-catalog-screen" className="mx-auto flex max-w-6xl flex-col gap-5 pb-12 text-start">
+      {personalization && spotlightPack ? (
+        <MzCard variant="hero" data-testid="practice-recommended-hero">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-[var(--mz-radius-pill)] bg-primary/15 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+                  <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{t('recommendedNextBadge')}</span>
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-[var(--mz-radius-pill)] border border-border-subtle bg-canvas px-2.5 py-0.5 text-[11px] font-semibold text-text-secondary">
+                  <Compass className="h-3 w-3 text-primary" aria-hidden="true" />
+                  <span>{phaseLabelText}</span>
+                </span>
+              </div>
+              <h2 className="text-lg font-bold text-text-primary">{spotlightPack.title}</h2>
+              <p className="text-xs text-text-secondary">
+                {recommendedByPackId.get(spotlightPack.packId)?.reason ?? spotlightPack.description}
+              </p>
+            </div>
+            <MzButton
+              variant="primary"
+              size="md"
+              data-testid="launch-recommended-pack-btn"
+              leadingIcon={<Play className="h-4 w-4" aria-hidden="true" />}
+              onClick={() => void navigate({ to: resolveSimulatorPath(spotlightPack.skill, spotlightPack.packId) })}
+            >
+              {t('practiceLaunchPackAction')}
+            </MzButton>
+          </div>
+        </MzCard>
+      ) : null}
+
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">{t('practiceCatalogTitle')}</h1>
           <p className="mt-1 text-sm text-text-secondary">{t('practiceCatalogSubtitle')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <MzSegmentedControl<'for_you' | 'all'>
+            ariaLabel={t('practiceCatalogTitle')}
+            value={catalogTab}
+            onChange={setCatalogTab}
+            options={[
+              { value: 'for_you', label: t('practiceTabForYourPath') },
+              { value: 'all', label: t('practiceTabAllTests') },
+            ]}
+          />
           <Link
             to="/practice/drills"
             data-testid="practice-goto-drills"
@@ -372,6 +473,11 @@ export function PracticeCatalogScreen({ initialTrack, initialSkill }: PracticeCa
                   </div>
                   <h2 className="mt-2 text-base font-bold text-text-primary">{pack.title}</h2>
                   <p className="mt-1 text-xs text-text-secondary">{pack.description}</p>
+                  {recommendedByPackId.has(pack.packId) ? (
+                    <p className="mt-1.5 rounded-[var(--mz-radius-compact)] bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary">
+                      {recommendedByPackId.get(pack.packId)?.reason}
+                    </p>
+                  ) : null}
                   <p className="mt-2 font-mono-exam text-[11px] text-text-tertiary">
                     {Math.round(pack.durationSeconds / 60)}m · {pack.questionCount} items ·{' '}
                     {formatByteSize(pack.byteLength, deps.edition)}

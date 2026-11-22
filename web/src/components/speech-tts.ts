@@ -1,63 +1,150 @@
+import type { ISpeechPracticeGateway } from '@/gateways/speech-practice.gateway';
+
+const TTS_ACCENT_STORAGE_KEY = 'mockza.ttsAccent';
+
+function readStoredTtsAccent(): 'us' | 'uk' {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return window.localStorage.getItem(TTS_ACCENT_STORAGE_KEY) === 'uk' ? 'uk' : 'us';
+    }
+  } catch {
+    // Ignore storage access restrictions
+  }
+  return 'us';
+}
+
+let activeGateway: ISpeechPracticeGateway | null = null;
+let activeAudioEl: HTMLAudioElement | null = null;
+let activeOwnerId: string | null = null;
+let defaultTtsAccent: 'us' | 'uk' = readStoredTtsAccent();
+
+export function setGlobalDefaultTtsAccent(accent: 'us' | 'uk'): void {
+  defaultTtsAccent = accent === 'uk' ? 'uk' : 'us';
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(TTS_ACCENT_STORAGE_KEY, defaultTtsAccent);
+    }
+  } catch {
+    // Ignore storage access restrictions
+  }
+}
+
+export function getGlobalDefaultTtsAccent(): 'us' | 'uk' {
+  return defaultTtsAccent;
+}
+
+export function getGlobalDefaultTtsVoice(): 'af_bella' | 'bf_emma' {
+  return defaultTtsAccent === 'uk' ? 'bf_emma' : 'af_bella';
+}
+
 /**
- * Lightweight browser Web Speech API helper for instant English model playback (`1.0x` / `0.8x`)
- * in Smart Coach screens without server roundtrips.
+ * Binds the OpenRouter Kokoro-82m API SpeechPractice gateway during app bootstrap.
+ * Browser Web Speech API (`window.speechSynthesis`) is NEVER used anywhere.
  */
+export function bindGlobalSpeechGateway(gateway: ISpeechPracticeGateway): void {
+  activeGateway = gateway;
+}
+
 export function isSpeechPlaybackSupported(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    typeof window.speechSynthesis !== 'undefined' &&
-    typeof SpeechSynthesisUtterance !== 'undefined'
-  );
+  return typeof Audio !== 'undefined' && activeGateway !== null;
 }
 
 export function stopEnglishSpeech(): void {
-  if (typeof window === 'undefined' || typeof window.speechSynthesis === 'undefined') return;
-  try {
-    window.speechSynthesis.cancel();
-  } catch {
-    // Ignore host browsers with restricted speech synthesis state.
+  if (activeAudioEl) {
+    try {
+      activeAudioEl.pause();
+      activeAudioEl.currentTime = 0;
+    } catch {
+      // Ignore cleanup errors
+    }
+    activeAudioEl = null;
+  }
+  activeOwnerId = null;
+}
+
+export function stopEnglishSpeechIfOwner(ownerId: string): void {
+  if (activeOwnerId && activeOwnerId === ownerId) {
+    stopEnglishSpeech();
   }
 }
 
 export function speakEnglishPhrase(
   text: string,
   options: {
-    readonly rate?: 0.8 | 1.0;
+    readonly ownerId?: string;
+    readonly rate?: 0.8 | 1.0 | 1.15;
+    readonly voice?: string;
+    readonly sourceContext?:
+      | 'vocab'
+      | 'reading'
+      | 'listening_feedback'
+      | 'speaking_feedback'
+      | 'writing_feedback'
+      | 'coach'
+      | 'pronunciation';
+    readonly gateway?: ISpeechPracticeGateway | null;
     readonly onStart?: () => void;
     readonly onEnd?: () => void;
     readonly onError?: () => void;
   } = {},
 ): boolean {
   const clean = text.trim();
-  if (!clean || !isSpeechPlaybackSupported()) {
+  const gw = options.gateway ?? activeGateway;
+  if (!clean || !gw || typeof Audio === 'undefined') {
     options.onError?.();
     return false;
   }
 
-  try {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(clean);
-    utterance.lang = 'en-US';
-    utterance.rate = options.rate ?? 1.0;
+  stopEnglishSpeech();
+  const owner = options.ownerId ?? `tts-${Date.now()}`;
+  activeOwnerId = owner;
+  options.onStart?.();
 
-    const voices = window.speechSynthesis.getVoices();
-    const preferredVoice =
-      voices.find((v) => v.lang.toLowerCase().startsWith('en-us') && v.localService) ??
-      voices.find((v) => v.lang.toLowerCase().startsWith('en-gb') && v.localService) ??
-      voices.find((v) => v.lang.toLowerCase().startsWith('en'));
-    if (preferredVoice) {
-      utterance.voice = preferredVoice;
-    }
+  void gw
+    .synthesizeTts({
+      text: clean,
+      voice: options.voice ?? getGlobalDefaultTtsVoice(),
+      speed: options.rate ?? 1.0,
+      sourceContext: options.sourceContext ?? 'coach',
+    })
+    .then((res) => {
+      if (!res.ok) {
+        if (activeOwnerId === owner) activeOwnerId = null;
+        options.onError?.();
+        return;
+      }
+      // If another caller superseded this owner before async TTS returned, abort quietly
+      if (activeOwnerId !== owner) {
+        return;
+      }
+      const audio = new Audio(res.value.audioUrl);
+      activeAudioEl = audio;
+      audio.onended = () => {
+        if (activeAudioEl === audio) {
+          activeAudioEl = null;
+          activeOwnerId = null;
+        }
+        options.onEnd?.();
+      };
+      audio.onerror = () => {
+        if (activeAudioEl === audio) {
+          activeAudioEl = null;
+          activeOwnerId = null;
+        }
+        options.onError?.();
+      };
+      void audio.play().catch(() => {
+        if (activeAudioEl === audio) {
+          activeAudioEl = null;
+          activeOwnerId = null;
+        }
+        options.onError?.();
+      });
+    })
+    .catch(() => {
+      if (activeOwnerId === owner) activeOwnerId = null;
+      options.onError?.();
+    });
 
-    utterance.onstart = () => options.onStart?.();
-    utterance.onend = () => options.onEnd?.();
-    utterance.onerror = () => options.onError?.();
-
-    options.onStart?.();
-    window.speechSynthesis.speak(utterance);
-    return true;
-  } catch {
-    options.onError?.();
-    return false;
-  }
+  return true;
 }

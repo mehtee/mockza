@@ -6,8 +6,11 @@ import 'package:go_router/go_router.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/features/micro_drills/presentation/micro_drills_notifier.dart';
 import 'package:mockza/features/micro_drills/presentation/micro_drills_providers.dart';
+import 'package:mockza/l10n/app_localizations.dart';
+import 'package:mockza/providers.dart';
 import 'package:mockza/routing/routes.dart';
 import 'package:mockza/routing/safe_pop.dart';
+import 'package:mockza/services/personalization_gateway.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
@@ -40,9 +43,13 @@ class MicroDrillsScreen extends ConsumerStatefulWidget {
 }
 
 class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
+  bool _pathOnly = true;
+  PersonalizationStateDto? _personalization;
+
   @override
   void initState() {
     super.initState();
+    unawaited(_loadPersonalization());
     unawaited(
       Future.microtask(
         () => ref
@@ -50,6 +57,23 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
             .loadDrill(widget.drillId),
       ),
     );
+  }
+
+  Future<void> _loadPersonalization() async {
+    try {
+      final cached = await ref
+          .read(personalizationRepositoryProvider)
+          .getCachedState();
+      if (mounted && cached != null) {
+        setState(() => _personalization = cached);
+      }
+      final remote = await ref.read(personalizationGatewayProvider).getState();
+      if (mounted && remote.valueOrNull != null) {
+        setState(() => _personalization = remote.valueOrNull);
+      }
+    } on Object {
+      // Offline safe.
+    }
   }
 
   @override
@@ -162,6 +186,17 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
     }
 
     if (!state.hasSelectedDrill || state.drillSpec == null) {
+      final l10n = AppLocalizations.of(context);
+      final recIds =
+          _personalization?.recommendedDrills.map((d) => d.id).toSet() ??
+          const <String>{};
+      final visibleDrills = (_pathOnly && recIds.isNotEmpty)
+          ? state.availableDrills
+                .where((d) => recIds.contains(d.drillId))
+                .toList(growable: false)
+          : state.availableDrills;
+      final listToRender =
+          visibleDrills.isNotEmpty ? visibleDrills : state.availableDrills;
       return ListView(
         padding: const EdgeInsetsDirectional.symmetric(
           vertical: SpacingTokens.lg,
@@ -178,8 +213,26 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
             'Target specific IELTS grading criteria with short high-yield exercises.',
             style: typography.body.copyWith(color: colors.textSecondary),
           ),
+          if (recIds.isNotEmpty) ...<Widget>[
+            const SizedBox(height: SpacingTokens.md),
+            Wrap(
+              spacing: SpacingTokens.xs,
+              children: <Widget>[
+                ChoiceChip(
+                  label: Text(l10n.practiceTabForYourPath),
+                  selected: _pathOnly,
+                  onSelected: (_) => setState(() => _pathOnly = true),
+                ),
+                ChoiceChip(
+                  label: Text(l10n.practiceTabAllTests),
+                  selected: !_pathOnly,
+                  onSelected: (_) => setState(() => _pathOnly = false),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: SpacingTokens.lg),
-          ...state.availableDrills.map(
+          ...listToRender.map(
             (drill) => Padding(
               padding: const EdgeInsetsDirectional.only(
                 bottom: SpacingTokens.md,

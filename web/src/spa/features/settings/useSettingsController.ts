@@ -1,8 +1,10 @@
 import {
+  DEFAULT_DAILY_NEW_CAP,
   EXAM_DESCRIPTORS,
   EXAM_TRACK_SPECS,
   formatExamScore,
   nextTargetWhenSwitchingFrom,
+  normalizeFavoriteTopicList,
   quantizeExamScore,
   SUPPORTED_EXAM_IDS,
   type SupportedExamId,
@@ -13,6 +15,8 @@ import type { ActiveDeviceSlot, AuthSession } from '@/gateways/auth.gateway';
 import type { EntitlementSnapshot } from '@/gateways/billing.gateway';
 import type { CacheUsageSummary } from '@/gateways/catalog.gateway';
 import type { UserProfileRecord } from '@/gateways/storage.gateway';
+import { pullCrossDeviceState } from '@/spa/cross-device-sync';
+import { setGlobalDefaultTtsAccent } from '@/components/speech-tts';
 import { useDeps } from '@/spa/deps';
 import { useAuthSession } from '@/spa/stores/auth-session';
 import type { ThemePresetId } from '@/theme/generated-presets';
@@ -40,6 +44,11 @@ export interface SettingsControllerState {
   readonly userProfile: UserProfileRecord | null;
   readonly activeTrack: SupportedExamId;
   readonly studyFocus: 'exams' | 'coach' | 'both';
+  readonly favoriteTopics: readonly string[];
+  readonly dailyNewVocabCap: number;
+  readonly preferredTtsAccent: 'us' | 'uk';
+  readonly lastSyncedAtIso: string | null;
+  readonly isSyncingCrossDevice: boolean;
   readonly targetScore: number;
   readonly appearance: AppearanceState;
   readonly activeDevices: readonly ActiveDeviceSlot[];
@@ -66,6 +75,10 @@ export interface SettingsControllerState {
 export interface SettingsControllerActions {
   readonly selectTrack: (track: SupportedExamId) => Promise<void>;
   readonly setStudyFocus: (focus: 'exams' | 'coach' | 'both') => Promise<void>;
+  readonly toggleFavoriteTopic: (topicKey: string) => Promise<void>;
+  readonly setDailyNewVocabCap: (cap: number) => Promise<void>;
+  readonly setPreferredTtsAccent: (accent: 'us' | 'uk') => Promise<void>;
+  readonly syncAcrossDevicesNow: () => Promise<void>;
   readonly setTargetScore: (nextScore: number) => Promise<void>;
   readonly stepTargetScore: (delta: -1 | 1) => Promise<void>;
   readonly setThemeMode: (mode: ThemeModePreference) => Promise<void>;
@@ -127,6 +140,10 @@ export function useSettingsController(options?: {
   const [cacheSummary, setCacheSummary] = useState<CacheUsageSummary | null>(null);
   const [isClearingCache, setIsClearingCache] = useState(false);
   const [isSyncingCatalog, setIsSyncingCatalog] = useState(false);
+  const [isSyncingCrossDevice, setIsSyncingCrossDevice] = useState(false);
+  const [lastSyncedAtIso, setLastSyncedAtIso] = useState<string | null>(null);
+  const [dailyNewVocabCap, setDailyNewVocabCapState] = useState<number>(DEFAULT_DAILY_NEW_CAP);
+  const [preferredTtsAccent, setPreferredTtsAccentState] = useState<'us' | 'uk'>('us');
   const [isExportingData, setIsExportingData] = useState(false);
   const [micStatus, setMicStatus] = useState<MicPreflightStatus | null>(null);
   const [isTestingMic, setIsTestingMic] = useState(false);
@@ -199,6 +216,16 @@ export function useSettingsController(options?: {
         setMicStatus(micRes.value);
       }
 
+      if (deps.personalization) {
+        const pRes = await deps.personalization.getState();
+        if (mounted && pRes.ok) {
+          const acc = pRes.value.profile.preferredTtsAccent === 'uk' ? 'uk' : 'us';
+          setDailyNewVocabCapState(pRes.value.profile.dailyNewVocabCap);
+          setPreferredTtsAccentState(acc);
+          setGlobalDefaultTtsAccent(acc);
+        }
+      }
+
       setIsLoading(false);
     }
 
@@ -214,6 +241,9 @@ export function useSettingsController(options?: {
 
   const activeTrack: SupportedExamId = userProfile?.examId ?? 'ielts_academic';
   const studyFocus: 'exams' | 'coach' | 'both' = userProfile?.studyFocus ?? 'both';
+  const favoriteTopics: readonly string[] = normalizeFavoriteTopicList(
+    userProfile?.favoriteTopics ?? [],
+  );
   const targetScore = userProfile?.targetBand ?? EXAM_TRACK_SPECS[activeTrack].targetScoreDefault;
 
   const persistProfile = useCallback(
@@ -230,9 +260,82 @@ export function useSettingsController(options?: {
       if (!res.ok) {
         setBanner({ tone: 'danger', kind: 'raw', message: res.error.message });
       }
+      if (deps.personalization) {
+        const pRes = await deps.personalization.updateProfile({
+          examTrack: next.examId,
+          targetBand: next.targetBand,
+          favoriteTopics: normalizeFavoriteTopicList(next.favoriteTopics ?? []),
+          studyFocus: next.studyFocus ?? 'both',
+        });
+        if (!pRes.ok) {
+          void deps.syncOutbox.enqueue({
+            idempotencyKey: `profile.update:${next.updatedAtMs}`,
+            actionType: 'profile.update',
+            entityKind: 'attempt',
+            payloadJson: JSON.stringify({
+              examTrack: next.examId,
+              targetBand: next.targetBand,
+              studyFocus: next.studyFocus ?? 'both',
+              favoriteTopics: normalizeFavoriteTopicList(next.favoriteTopics ?? []),
+            }),
+          });
+        }
+      }
     },
-    [deps.attemptStore, deps.clock, deviceId, session, userProfile],
+    [deps.attemptStore, deps.clock, deps.personalization, deps.syncOutbox, deviceId, session, userProfile],
   );
+
+  const setDailyNewVocabCap = useCallback(
+    async (cap: number) => {
+      setDailyNewVocabCapState(cap);
+      await deps.personalization?.updateProfile({ dailyNewVocabCap: cap });
+    },
+    [deps.personalization],
+  );
+
+  const setPreferredTtsAccent = useCallback(
+    async (accent: 'us' | 'uk') => {
+      setPreferredTtsAccentState(accent);
+      setGlobalDefaultTtsAccent(accent);
+      await deps.personalization?.updateProfile({ preferredTtsAccent: accent });
+    },
+    [deps.personalization],
+  );
+
+  const toggleFavoriteTopic = useCallback(
+    async (topicKey: string) => {
+      const current = normalizeFavoriteTopicList(userProfile?.favoriteTopics ?? []);
+      const nextTopics = current.includes(topicKey as never)
+        ? current.filter((t) => t !== topicKey)
+        : [...current, topicKey];
+      await persistProfile({ favoriteTopics: normalizeFavoriteTopicList(nextTopics) });
+    },
+    [persistProfile, userProfile?.favoriteTopics],
+  );
+
+  const syncAcrossDevicesNow = useCallback(async () => {
+    setIsSyncingCrossDevice(true);
+    const summary = await pullCrossDeviceState(deps);
+    setIsSyncingCrossDevice(false);
+    if (!summary.pulled) {
+      setBanner({
+        tone: 'warning',
+        kind: 'raw',
+        message: 'Cross-device sync requires sign-in and active connection.',
+      });
+      return;
+    }
+    setLastSyncedAtIso(summary.syncedAtIso);
+    const profileRes = await deps.attemptStore.getUserProfile();
+    if (profileRes.ok && profileRes.value) {
+      setUserProfile(profileRes.value);
+    }
+    setBanner({
+      tone: 'success',
+      kind: 'raw',
+      message: `Synced ${summary.attemptsMerged} attempts, ${summary.vocabStatesMerged} vocab states, ${summary.pronunciationMerged} voice takes.`,
+    });
+  }, [deps]);
 
   const selectTrack = useCallback(
     async (track: SupportedExamId) => {
@@ -513,6 +616,11 @@ export function useSettingsController(options?: {
     userProfile,
     activeTrack,
     studyFocus,
+    favoriteTopics,
+    dailyNewVocabCap,
+    preferredTtsAccent,
+    lastSyncedAtIso,
+    isSyncingCrossDevice,
     targetScore,
     appearance,
     activeDevices,
@@ -536,6 +644,10 @@ export function useSettingsController(options?: {
     banner,
     selectTrack,
     setStudyFocus,
+    toggleFavoriteTopic,
+    setDailyNewVocabCap,
+    setPreferredTtsAccent,
+    syncAcrossDevicesNow,
     setTargetScore,
     stepTargetScore,
     setThemeMode,

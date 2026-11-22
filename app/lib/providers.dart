@@ -10,6 +10,7 @@ import 'package:mockza/data/db/connection.dart';
 import 'package:mockza/data/repositories/attempt_repository.dart';
 import 'package:mockza/data/repositories/exam_catalog_repository.dart';
 import 'package:mockza/data/repositories/linguistic_repository.dart';
+import 'package:mockza/data/repositories/personalization_repository.dart';
 import 'package:mockza/data/repositories/profile_repository.dart';
 import 'package:mockza/data/repositories/progress_repository.dart';
 import 'package:mockza/data/repositories/vocab_repository.dart';
@@ -29,8 +30,10 @@ import 'package:mockza/services/native/platform_audio_channel.dart';
 import 'package:mockza/services/native/share_intent_bridge.dart';
 import 'package:mockza/services/network/dio_client.dart';
 import 'package:mockza/services/outbox_sync_service.dart';
+import 'package:mockza/services/personalization_gateway.dart';
 import 'package:mockza/services/secure_identity_service.dart';
 import 'package:mockza/services/social_auth_gateway.dart';
+import 'package:mockza/services/speech_practice_gateway.dart';
 
 /// Active edition runtime configuration (overridden in `bootstrap`).
 final Provider<EditionConfig> editionConfigProvider = Provider<EditionConfig>(
@@ -199,6 +202,7 @@ final Provider<OutboxSyncService> outboxSyncServiceProvider =
         crashLog: ref.watch(crashLogProvider),
         linguisticGateway: ref.watch(linguisticGatewayProvider),
         linguisticRepository: ref.watch(linguisticRepositoryProvider),
+        personalizationGateway: ref.watch(personalizationGatewayProvider),
         clock: ref.watch(clockProvider),
       );
       ref.onDispose(service.dispose);
@@ -288,6 +292,28 @@ final Provider<LinguisticRepository> linguisticRepositoryProvider =
       ),
     );
 
+/// Adaptive personalization, dynamic band & roadmap HTTP gateway provider.
+final Provider<PersonalizationGateway> personalizationGatewayProvider =
+    Provider<PersonalizationGateway>(
+      (ref) => HttpPersonalizationGateway(ref.watch(dioProvider)),
+    );
+
+/// Drift offline repository for personalization cache, pronunciation & cross-device sync.
+final Provider<PersonalizationRepository> personalizationRepositoryProvider =
+    Provider<PersonalizationRepository>(
+      (ref) => PersonalizationRepository(
+        db: ref.watch(appDatabaseProvider),
+        clock: ref.watch(clockProvider),
+        profileRepository: ref.watch(profileRepositoryProvider),
+      ),
+    );
+
+/// OpenRouter Kokoro TTS & Gemini Pronunciation Practice HTTP gateway provider.
+final Provider<SpeechPracticeGateway> speechPracticeGatewayProvider =
+    Provider<SpeechPracticeGateway>(
+      (ref) => HttpSpeechPracticeGateway(ref.watch(dioProvider)),
+    );
+
 /// Preloaded [AppearanceSettings] injected during `bootstrap`.
 final Provider<AppearanceSettings> initialAppearanceSettingsProvider =
     Provider<AppearanceSettings>((ref) => const AppearanceSettings());
@@ -333,3 +359,41 @@ appearanceSettingsProvider =
     NotifierProvider<AppearanceSettingsNotifier, AppearanceSettings>(
       AppearanceSettingsNotifier.new,
     );
+
+/// Holds the active global Kokoro TTS voice accent (`us` or `uk`) across all InlineListenButtons.
+class PreferredTtsAccentNotifier extends Notifier<String> {
+  bool _explicitlySet = false;
+
+  @override
+  String build() {
+    var disposed = false;
+    ref.onDispose(() => disposed = true);
+    unawaited(_hydrate(() => disposed));
+    return 'us';
+  }
+
+  Future<void> _hydrate(bool Function() isDisposed) async {
+    try {
+      final saved = await ref
+          .read(personalizationRepositoryProvider)
+          .getPreferredTtsAccent();
+      if (!isDisposed() && !_explicitlySet && saved != state) {
+        state = saved;
+      }
+    } on Object {
+      // Safe fallback in minimal widget tests without Drift bindings.
+    }
+  }
+
+  /// Updates active Kokoro voice accent (`us` or `uk`) synchronously.
+  void setAccent(String accent) {
+    _explicitlySet = true;
+    state = accent == 'uk' ? 'uk' : 'us';
+  }
+}
+
+/// Global Kokoro TTS accent provider (`us` -> `af_bella`, `uk` -> `bf_emma`).
+final NotifierProvider<PreferredTtsAccentNotifier, String>
+preferredTtsAccentProvider = NotifierProvider<PreferredTtsAccentNotifier, String>(
+  PreferredTtsAccentNotifier.new,
+);

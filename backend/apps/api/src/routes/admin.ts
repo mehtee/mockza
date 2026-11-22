@@ -7,13 +7,16 @@ import {
   catalogPacks,
   examQuestions,
   examSections,
+  getAdminUserTrace,
+  listAdminUsageExportRows,
+  listAdminUsageSummary,
   type MockzaDb,
   microDrills,
   vocabDeckCards,
 } from '@mockza/db';
 import { checkCleanRoomSafety, normalizeQuestionType } from '@mockza/domain';
 import { validateExamBundleIntegrity } from '@mockza/domain/node';
-import { contentTypeFromKey, putObjectBuffer } from '@mockza/storage';
+import { contentTypeFromKey, getMediaObject, putObjectBuffer } from '@mockza/storage';
 import { asc, eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { RequestVariables } from '../middleware/request-id.js';
@@ -560,6 +563,114 @@ export function createAdminRoutes(env: AppEnv, db?: MockzaDb, s3Client?: S3Clien
       { ok: true, objectKey, mediaUrl: `/v1/media/${objectKey}`, byteLength: buf.length },
       201,
     );
+  });
+
+  // Admin Usage & Exact Cost Summary across features, models & top accounts
+  router.get('/usage/summary', async (c) => {
+    if (!db) {
+      return c.json({ code: 'db_unavailable', message: 'Database unavailable.', requestId: c.get('requestId') }, 503);
+    }
+    const sinceDays = Number(c.req.query('sinceDays') ?? 30);
+    const fromIso = c.req.query('from') || undefined;
+    const toIso = c.req.query('to') || undefined;
+    const featureKind = c.req.query('featureKind') || undefined;
+    const editionParam = c.req.query('edition');
+    const accountKey = c.req.query('accountKey') || undefined;
+    const summary = await listAdminUsageSummary({
+      db,
+      sinceDays: Number.isFinite(sinceDays) ? sinceDays : 30,
+      fromIso,
+      toIso,
+      featureKind,
+      edition: editionParam === 'glb' || editionParam === 'irn' ? editionParam : undefined,
+      accountKey,
+    });
+    return c.json(summary, 200);
+  });
+
+  // Admin CSV export for OpenRouter billing & cost reconciliation
+  router.get('/usage/export.csv', async (c) => {
+    if (!db) {
+      return c.json({ code: 'db_unavailable', message: 'Database unavailable.', requestId: c.get('requestId') }, 503);
+    }
+    const sinceDays = Number(c.req.query('sinceDays') ?? 30);
+    const fromIso = c.req.query('from') || undefined;
+    const toIso = c.req.query('to') || undefined;
+    const featureKind = c.req.query('featureKind') || undefined;
+    const editionParam = c.req.query('edition');
+    const accountKey = c.req.query('accountKey') || undefined;
+    const rows = await listAdminUsageExportRows({
+      db,
+      sinceDays: Number.isFinite(sinceDays) ? sinceDays : 30,
+      fromIso,
+      toIso,
+      featureKind,
+      edition: editionParam === 'glb' || editionParam === 'irn' ? editionParam : undefined,
+      accountKey,
+    });
+    const escapeCsv = (val: unknown) => {
+      const s = String(val ?? '');
+      return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header =
+      'created_at,edition,account_key,feature_kind,entity_type,entity_id,model_id,provider_request_id,prompt_tokens,completion_tokens,cached_tokens,total_tokens,estimated_cost_usd,cost_source,latency_ms,tts_characters,audio_duration_ms';
+    const lines = rows.map((r) =>
+      [
+        r.createdAt.toISOString(),
+        r.edition,
+        r.accountKey,
+        r.featureKind,
+        r.entityType,
+        r.entityId,
+        r.modelId,
+        r.providerRequestId ?? '',
+        r.promptTokens,
+        r.completionTokens,
+        r.cachedTokens,
+        r.totalTokens,
+        (r.estimatedCostUsdMicros / 1_000_000).toFixed(6),
+        r.costUsdSource,
+        r.latencyMs,
+        r.ttsCharacters ?? '',
+        r.audioDurationMs ?? '',
+      ]
+        .map(escapeCsv)
+        .join(','),
+    );
+    c.header('Content-Type', 'text/csv; charset=utf-8');
+    c.header('Content-Disposition', 'attachment; filename="mockza-ai-usage.csv"');
+    return c.body([header, ...lines].join('\r\n'), 200);
+  });
+
+  // Admin Complete User Trace (activities, tests, recordings, feedback, tokens, exact cost)
+  router.get('/users/:accountKey/trace', async (c) => {
+    if (!db) {
+      return c.json({ code: 'db_unavailable', message: 'Database unavailable.', requestId: c.get('requestId') }, 503);
+    }
+    const accountKey = c.req.param('accountKey');
+    const trace = await getAdminUserTrace({ db, accountKey });
+    return c.json(trace, 200);
+  });
+
+  // Admin S3 Recording Playback Stream (`?key=users/...`)
+  router.get('/recordings/stream', async (c) => {
+    if (!s3Client) {
+      return c.json({ code: 'storage_unavailable', message: 'S3 client unavailable.', requestId: c.get('requestId') }, 503);
+    }
+    const objectKey = c.req.query('key') ?? '';
+    if (!objectKey.startsWith('users/') || objectKey.includes('..')) {
+      return c.json({ code: 'invalid_key', message: 'Invalid recording objectKey.', requestId: c.get('requestId') }, 400);
+    }
+    const obj = await getMediaObject({ client: s3Client, bucket: env.S3_BUCKET, objectKey });
+    if (!obj) {
+      return c.json({ code: 'not_found', message: 'Recording not found.', requestId: c.get('requestId') }, 404);
+    }
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of obj.body) {
+      chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : (chunk as Uint8Array));
+    }
+    c.header('Content-Type', obj.contentType || 'audio/mp4');
+    return c.body(Buffer.concat(chunks) as never, 200);
   });
 
   return router;

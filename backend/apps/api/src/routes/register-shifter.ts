@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { GetObjectCommand, type S3Client } from '@aws-sdk/client-s3';
 import { createRoute, type OpenAPIHono, z } from '@hono/zod-openapi';
 import {
+  type AiUsageRecord,
   bufferAudioStream,
   prepareAudioForModel,
   verifyRepeatAloud,
@@ -18,6 +19,8 @@ import {
   evaluationJobs,
   jobDispatchOutbox,
   type MockzaDb,
+  recordAiUsageLedger,
+  recordUserActivityLedger,
   reserveAdvancedQuotaAtomic,
   upsertLinguisticGraphSignals,
 } from '@mockza/db';
@@ -344,6 +347,7 @@ export function registerShifterRoutes(
       }
     }
 
+    const repeatUsages: AiUsageRecord[] = [];
     const result = await verifyRepeatAloud(
       {
         runId,
@@ -356,8 +360,44 @@ export function registerShifterRoutes(
       },
       {
         allowDemoEvaluator: env.ALLOW_DEMO_EVALUATOR || !env.OPENROUTER_API_KEY,
+        onUsage: (u) => {
+          repeatUsages.push(u);
+        },
       },
     );
+
+    if (db) {
+      for (const u of repeatUsages) {
+        await recordAiUsageLedger({
+          db,
+          accountKey,
+          deviceId,
+          edition: env.EDITION,
+          featureKind: u.featureKind,
+          entityType: 'register_shifter_repeat',
+          entityId: runId,
+          modelId: u.modelId,
+          providerRequestId: u.providerRequestId,
+          promptTokens: u.promptTokens,
+          completionTokens: u.completionTokens,
+          cachedTokens: u.cachedTokens,
+          totalTokens: u.totalTokens,
+          estimatedCostUsdMicros: u.estimatedCostUsdMicros,
+          costUsdSource: u.costUsdSource,
+          latencyMs: u.latencyMs,
+        }).catch(() => {});
+      }
+      await recordUserActivityLedger({
+        db,
+        accountKey,
+        deviceId,
+        edition: env.EDITION,
+        activityKind: 'repeat_aloud_verify',
+        entityType: 'register_shifter',
+        entityId: runId,
+        metadata: { fluencyScore1To5: result.fluencyScore1To5, objectKey: body.objectKey },
+      }).catch(() => {});
+    }
 
     if (db && result.matchedTargets.length > 0) {
       try {

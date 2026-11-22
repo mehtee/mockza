@@ -300,6 +300,145 @@ export function buildContractDocument(): Record<string, unknown> {
         },
       },
     }),
+    createRoute({
+      method: 'get',
+      path: '/v1/personalization/state',
+      summary: 'Get dynamic band score, weakness graph, roadmap plan, and wave schedule',
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.PersonalizationStateResponseSchema } },
+          description: 'Unified adaptive personalization state',
+        },
+      },
+    }),
+    createRoute({
+      method: 'put',
+      path: '/v1/personalization/profile',
+      summary: 'Update learner profile, favorite topics, target band/date, or unlock next vocab wave',
+      request: {
+        body: { content: { 'application/json': { schema: schemas.UpdatePersonalizationProfileRequestSchema } } },
+      },
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.PersonalizationStateResponseSchema } },
+          description: 'Updated personalization state',
+        },
+      },
+    }),
+    createRoute({
+      method: 'post',
+      path: '/v1/personalization/band-event',
+      summary: 'Record objective/practice band event and update weaknesses + roadmap',
+      request: {
+        body: { content: { 'application/json': { schema: schemas.RecordBandEventRequestSchema } } },
+      },
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.PersonalizationStateResponseSchema } },
+          description: 'Updated personalization state',
+        },
+      },
+    }),
+    createRoute({
+      method: 'post',
+      path: '/v1/personalization/band-shift/ack',
+      summary: 'Acknowledge recent band-shift celebration banner',
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.AckBandShiftResponseSchema } },
+          description: 'Acknowledged band shift state',
+        },
+      },
+    }),
+    createRoute({
+      method: 'post',
+      path: '/v1/tts/synthesize',
+      summary: 'Synthesize English speech via OpenRouter TTS API (Kokoro-82m) with S3 cache',
+      request: {
+        body: { content: { 'application/json': { schema: schemas.TtsSynthesizeRequestSchema } } },
+      },
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.TtsSynthesizeResponseSchema } },
+          description: 'Cached or freshly synthesized speech audio URL',
+        },
+      },
+    }),
+    createRoute({
+      method: 'post',
+      path: '/v1/pronunciation/presign',
+      summary: 'Issue bounded presigned upload URL for pronunciation practice recording',
+      request: {
+        body: { content: { 'application/json': { schema: schemas.PronunciationPresignRequestSchema } } },
+      },
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.PronunciationPresignResponseSchema } },
+          description: 'Presigned pronunciation audio upload target',
+        },
+      },
+    }),
+    createRoute({
+      method: 'post',
+      path: '/v1/pronunciation/analyze',
+      summary: 'Queue or analyze learner pronunciation recording using Gemini 3.1 Flash Lite',
+      request: {
+        body: { content: { 'application/json': { schema: schemas.AnalyzePronunciationRequestSchema } } },
+      },
+      responses: {
+        202: {
+          content: { 'application/json': { schema: schemas.JobEnqueueResponseSchema } },
+          description: 'Queued pronunciation analysis job',
+        },
+      },
+    }),
+    createRoute({
+      method: 'get',
+      path: '/v1/pronunciation/history',
+      summary: 'List pronunciation practices and audio replay links scoped to account and edition',
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.PronunciationHistoryResponseSchema } },
+          description: 'Pronunciation practice history',
+        },
+      },
+    }),
+    createRoute({
+      method: 'get',
+      path: '/v1/pronunciation/{practiceId}',
+      summary: 'Poll a single pronunciation practice analysis record by practiceId',
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.PronunciationPracticeItemSchema } },
+          description: 'Single pronunciation practice item',
+        },
+      },
+    }),
+    createRoute({
+      method: 'get',
+      path: '/v1/sync/pull',
+      summary: 'Pull synced profile, roadmap, attempts, SRS cards, pronunciation practices, and activity ledger',
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.SyncPullResponseSchema } },
+          description: 'Full cross-device state snapshot',
+        },
+      },
+    }),
+    createRoute({
+      method: 'post',
+      path: '/v1/sync/vocab-batch',
+      summary: 'Sync batch of local SM-2 vocab progress cards to PostgreSQL',
+      request: {
+        body: { content: { 'application/json': { schema: schemas.VocabBatchSyncRequestSchema } } },
+      },
+      responses: {
+        200: {
+          content: { 'application/json': { schema: schemas.VocabWaveSummarySchema } },
+          description: 'Merged wave summary after batch sync',
+        },
+      },
+    }),
   ];
 
   for (const r of authRoutesRegistry) {

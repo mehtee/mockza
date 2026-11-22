@@ -1,5 +1,6 @@
 export * from './audio/processor.js';
 export * from './errors.js';
+export * from './graphs/analyze-pronunciation.js';
 export * from './graphs/explain-question.js';
 export * from './graphs/grade-diagnostic.js';
 export * from './graphs/grade-speaking.js';
@@ -13,4 +14,5 @@ export * from './models/openrouter.js';
 export * from './models/openrouter-alpha.js';
 export * from './models/registry.js';
 export * from './observability/langfuse.js';
+export * from './observability/usage-extract.js';
 export * from './prompts/rubrics.js';

@@ -7,7 +7,9 @@ import 'package:mockza/core/exams/countdown_clock_tracker.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/exams/local_objective_scorer.dart';
 import 'package:mockza/core/models/attempt_status.dart';
+import 'package:mockza/core/personalization/topic_taxonomy.dart';
 import 'package:mockza/providers.dart';
+import 'package:mockza/services/personalization_gateway.dart';
 
 /// Immutable UI state for Postgres-synced IELTS micro-drills.
 @immutable
@@ -404,5 +406,49 @@ class MicroDrillsNotifier extends Notifier<MicroDrillsState> {
       studySeconds: elapsedSeconds,
       completedItems: 1,
     );
+
+    try {
+      final accuracy = state.score / spec.items.length;
+      final topicKey = CanonicalTopicKey.fromLegacyVocabTag(spec.weaknessCode).wireKey;
+      final normalizedSkill = switch (spec.weaknessCode.toLowerCase()) {
+        final k when k.contains('listening') => BandEventSkill.listening.wire,
+        final k when k.contains('writing') => BandEventSkill.writing.wire,
+        final k when k.contains('speaking') => BandEventSkill.speaking.wire,
+        _ => BandEventSkill.reading.wire,
+      };
+      final res = await ref
+          .read(personalizationGatewayProvider)
+          .recordBandEvent(
+            examTrack: track.id,
+            skill: normalizedSkill,
+            sourceKind: BandEventSourceKind.microDrill.wire,
+            sourceId: spec.drillId,
+            rawScore: scaledScore,
+            durationSeconds: elapsedSeconds,
+            accuracyRatio: accuracy,
+            topicKeys: <String>[topicKey],
+          );
+      final updated = res.valueOrNull;
+      if (updated != null) {
+        await ref.read(personalizationRepositoryProvider).cacheState(updated);
+      } else {
+        await attemptRepo.enqueueOutboxAction(
+          actionType: 'band.event',
+          payloadJson: jsonEncode(<String, Object?>{
+            'examTrack': track.id,
+            'skill': normalizedSkill,
+            'sourceKind': BandEventSourceKind.microDrill.wire,
+            'sourceId': spec.drillId,
+            'rawScore': scaledScore,
+            'durationSeconds': elapsedSeconds,
+            'accuracyRatio': accuracy,
+            'topicKeys': <String>[topicKey],
+          }),
+        );
+        ref.read(outboxSyncServiceProvider).notifyWorkEnqueued();
+      }
+    } on Object {
+      // Offline / isolated test fallback.
+    }
   }
 }

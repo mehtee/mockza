@@ -8,8 +8,9 @@ import {
 } from '@mockza/domain';
 import type { z } from 'zod';
 import { EvaluationModelError } from '../errors.js';
-import { OpenRouterClient } from '../models/openrouter.js';
+import { type AiUsageTelemetryCallback, OpenRouterClient } from '../models/openrouter.js';
 import { MODEL_REGISTRY } from '../models/registry.js';
+import { emitChatUsage } from '../observability/usage-extract.js';
 import { renderPromptFromYaml } from '../prompts/loader.js';
 import {
   buildEditionOverlayAppendix,
@@ -33,6 +34,7 @@ export type SpeakingGraphOutput = z.infer<typeof EvaluationOutputSchema>;
 export interface SpeakingInvokeOptions {
   client?: Pick<OpenRouterClient, 'createChatCompletion'>;
   allowDemoEvaluator?: boolean;
+  onUsage?: AiUsageTelemetryCallback;
 }
 
 /**
@@ -164,8 +166,10 @@ export const gradeSpeakingGraph = {
       },
     ];
 
+    const startedAt = Date.now();
     const response = await client.createChatCompletion({
       model: MODEL_REGISTRY.speakingAudioPrimary,
+      featureKind: 'speaking_eval',
       messages: [
         {
           role: 'user',
@@ -175,6 +179,13 @@ export const gradeSpeakingGraph = {
       response_format: { type: 'json_object' },
       temperature: 0.1,
     });
+    await emitChatUsage(
+      'speaking_eval',
+      MODEL_REGISTRY.speakingAudioPrimary,
+      response,
+      Date.now() - startedAt,
+      options.onUsage,
+    );
 
     const rawContent = response.choices[0]?.message.content ?? '';
     let parsed: Record<string, unknown>;

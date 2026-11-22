@@ -969,6 +969,258 @@ export async function attachE2eApiHarness(
       return;
     }
 
+    if (pathname === '/v1/personalization/state' || pathname === '/v1/personalization/profile' || pathname === '/v1/personalization/band-event' || pathname.startsWith('/v1/personalization/roadmap/')) {
+      const completedStep = pathname.includes('/action') && (req.postDataJSON() as { status?: string } | null)?.status === 'completed';
+      await route.fulfill(
+        jsonOk({
+          profile: {
+            examTrack: 'ielts_academic',
+            targetBand: 7.5,
+            targetDateIso: null,
+            dailyMinutesGoal: 25,
+            studyFocus: 'both',
+            favoriteTopics: ['technology_ai', 'science_climate'],
+            activeWeaknessPhase: 'favorite_topics',
+            vocabUnlockedWave: 1,
+            dailyNewVocabCap: 10,
+            onboardingCompleted: true,
+          },
+          liveBand: {
+            examTrack: 'ielts_academic',
+            currentBand: 6.5,
+            targetBand: 7.5,
+            bandShift: 0.5,
+            confidence: 'developing',
+            skills: {
+              reading: { score: 6.5, confidence: 'developing', evidenceCount: 2, lastUpdatedAt: nowIso, trendDelta: 0.5 },
+              listening: { score: 6.0, confidence: 'provisional', evidenceCount: 1, lastUpdatedAt: nowIso, trendDelta: 0 },
+              writing: { score: 6.5, confidence: 'developing', evidenceCount: 2, lastUpdatedAt: nowIso, trendDelta: 0.5 },
+              speaking: { score: 6.0, confidence: 'provisional', evidenceCount: 1, lastUpdatedAt: nowIso, trendDelta: 0 },
+            },
+          },
+          weaknesses: [
+            {
+              canonicalKey: 'cohesion_signposting',
+              skill: 'writing',
+              displayLabelEn: 'Cohesion & Signposting',
+              displayLabelFa: 'انسجام و ربط منطقی',
+              masteryScoreMilli: 480,
+              evidenceCount: 3,
+              status: 'active',
+            },
+          ],
+          roadmap: {
+            planId: 'plan-e2e-1',
+            examTrack: 'ielts_academic',
+            planRevision: 2,
+            baselineBand: 6.0,
+            targetBand: 7.5,
+            isSprintMode: false,
+            milestones: [
+              { index: 1, titleEn: 'Favorite Topics Foundation', titleFa: 'تثبیت روی موضوعات دلخواه', phaseLabelEn: 'Phase 1', phaseLabelFa: 'فاز ۱', targetBandDelta: 0.5, status: 'active' },
+              { index: 2, titleEn: 'Weakness Transfer', titleFa: 'انتقال به موضوعات جدید', phaseLabelEn: 'Phase 2', phaseLabelFa: 'فاز ۲', targetBandDelta: 0.5, status: 'locked' },
+              { index: 3, titleEn: 'Exam Breadth', titleFa: 'پوشش کامل آزمون', phaseLabelEn: 'Phase 3', phaseLabelFa: 'فاز ۳', targetBandDelta: 0.5, status: 'locked' },
+              { index: 4, titleEn: 'Full Mock Readiness', titleFa: 'آمادگی آزمون کامل', phaseLabelEn: 'Phase 4', phaseLabelFa: 'فاز ۴', targetBandDelta: 0.5, status: 'locked' },
+            ],
+            currentStep: completedStep
+              ? {
+                  stepId: 'step-2',
+                  milestoneIndex: 1,
+                  stepOrder: 2,
+                  stepKind: 'daily_mission',
+                  titleEn: 'Daily Coach in Science & Climate',
+                  titleFa: 'مربی روزانه در موضوع علم',
+                  reasonEn: 'Practise cohesion inside your second interest.',
+                  reasonFa: 'تمرین انسجام در موضوع علمی.',
+                  topicKey: 'science_climate',
+                  weaknessKey: 'cohesion_signposting',
+                  targetRoute: '/mission/today',
+                  targetEntityId: null,
+                  status: 'active',
+                  estimatedMinutes: 10,
+                }
+              : {
+                  stepId: 'step-1',
+                  milestoneIndex: 1,
+                  stepOrder: 1,
+                  stepKind: 'vocab_wave',
+                  titleEn: 'Wave 1 Academic Words (Technology & AI)',
+                  titleFa: 'موج ۱ واژگان آکادمیک',
+                  reasonEn: 'Start with your favorite topic before harder transfers.',
+                  reasonFa: 'شروع با موضوع مورد علاقه شما.',
+                  topicKey: 'technology_ai',
+                  weaknessKey: 'cohesion_signposting',
+                  targetRoute: '/vocabulary',
+                  targetEntityId: null,
+                  status: 'active',
+                  estimatedMinutes: 10,
+                },
+            steps: [
+              {
+                stepId: 'step-1',
+                milestoneIndex: 1,
+                stepOrder: 1,
+                stepKind: 'vocab_wave',
+                titleEn: 'Wave 1 Academic Words (Technology & AI)',
+                titleFa: 'موج ۱ واژگان آکادمیک',
+                reasonEn: 'Start with your favorite topic before harder transfers.',
+                reasonFa: 'شروع با موضوع مورد علاقه شما.',
+                topicKey: 'technology_ai',
+                weaknessKey: 'cohesion_signposting',
+                targetRoute: '/vocabulary',
+                targetEntityId: null,
+                status: completedStep ? 'completed' : 'active',
+                estimatedMinutes: 10,
+              },
+              {
+                stepId: 'step-2',
+                milestoneIndex: 1,
+                stepOrder: 2,
+                stepKind: 'daily_mission',
+                titleEn: 'Daily Coach in Science & Climate',
+                titleFa: 'مربی روزانه در موضوع علم',
+                reasonEn: 'Practise cohesion inside your second interest.',
+                reasonFa: 'تمرین انسجام در موضوع علمی.',
+                topicKey: 'science_climate',
+                weaknessKey: 'cohesion_signposting',
+                targetRoute: '/mission/today',
+                targetEntityId: null,
+                status: completedStep ? 'active' : 'locked',
+                estimatedMinutes: 10,
+              },
+            ],
+          },
+          nextRecommendedPack: null,
+          nextRecommendedDrill: null,
+          recommendedPacks: [],
+          recommendedDrills: [],
+          vocabWaveSummary: {
+            unlockedWave: 1,
+            totalWaves: 10,
+            currentWaveTotal: 15,
+            currentWaveLearned: 3,
+            readyToUnlockNext: false,
+            dailyNewRemaining: 8,
+          },
+          topicCoverageSummary: {
+            phase: 'favorite_topics',
+            masteredInFavoriteTopicsCount: 0,
+            transferredToOtherTopicsCount: 0,
+          },
+        }),
+      );
+      return;
+    }
+
+    if (pathname === '/v1/tts/synthesize') {
+      await route.fulfill(
+        jsonOk({
+          cacheId: 'tts-e2e-1',
+          audioUrl: `${url.origin}/v1/tts/audio/tts-e2e-1`,
+          contentType: 'audio/mpeg',
+          durationMs: 900,
+          cached: true,
+        }),
+      );
+      return;
+    }
+
+    if (pathname.startsWith('/v1/tts/audio/') || pathname.startsWith('/v1/pronunciation/audio/')) {
+      // Minimal valid silent WAV/MP3 bytes
+      const silentWav = Buffer.from('UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA', 'base64');
+      await route.fulfill({ status: 200, contentType: 'audio/wav', body: silentWav });
+      return;
+    }
+
+    if (pathname === '/v1/pronunciation/presign') {
+      await route.fulfill(
+        jsonOk({
+          uploadUrl: `${url.origin}/v1/mock-s3-put`,
+          objectKey: 'pronunciation/e2e/sample.webm',
+        }),
+      );
+      return;
+    }
+
+    if (pathname === '/v1/pronunciation/analyze') {
+      await route.fulfill(
+        jsonOk({
+          practiceId: 'pron-e2e-1',
+          targetText: 'ubiquitous',
+          practiceKind: 'word',
+          sourceRefType: 'vocab_card',
+          sourceRefId: null,
+          objectKey: 'pronunciation/e2e/sample.webm',
+          audioPlayUrl: '/v1/pronunciation/audio/pron-e2e-1',
+          referenceTtsUrl: '/v1/tts/audio/tts-e2e-1',
+          transcript: 'ubiquitous',
+          accuracyScore: 86,
+          fluencyScore: 84,
+          intonationScore: 82,
+          stressScore: 88,
+          overallScore: 85,
+          bandImpactLabel: 'Solid clarity (+0.5 potential)',
+          summaryEn: 'Clear secondary stress and crisp consonant release.',
+          summaryFa: 'تلفظ واضح با استرس صحیح روی بخش دوم.',
+          mouthTipEn: 'Keep the final -s lightly voicedless.',
+          mouthTipFa: 'در انتهای واژه صدای س را نرم و بدون لرزش ادا کنید.',
+          actionableRetryEn: 'Slow down slightly on the third syllable.',
+          actionableRetryFa: 'هجا سوم را با مکث کوتاه‌تری ادا کنید.',
+          wordsFeedback: [
+            {
+              word: 'ubiquitous',
+              status: 'accurate',
+              issueType: 'clear',
+              ipaTarget: '/juːˈbɪk.wɪ.təs/',
+              ipaObserved: '/juːˈbɪk.wɪ.təs/',
+              tipEn: 'Clean stress on -biq-.',
+              tipFa: 'استرس روی بخش دوم عالی است.',
+            },
+          ],
+          status: 'completed',
+          modelUsed: 'google/gemini-3.1-flash-lite',
+          estimatedCostUsdMicros: 140,
+          createdAt: nowIso,
+        }),
+      );
+      return;
+    }
+
+    if (pathname === '/v1/pronunciation/history') {
+      await route.fulfill(jsonOk({ items: [] }));
+      return;
+    }
+
+    if (pathname === '/v1/sync/pull') {
+      await route.fulfill(
+        jsonOk({
+          profile: null,
+          liveBand: null,
+          roadmap: null,
+          attempts: [],
+          vocabSrs: [],
+          pronunciationPractices: [],
+          recentActivities: [],
+          syncedAt: nowIso,
+        }),
+      );
+      return;
+    }
+
+    if (pathname === '/v1/sync/vocab-batch') {
+      await route.fulfill(
+        jsonOk({
+          unlockedWave: 1,
+          totalWaves: 10,
+          currentWaveTotal: 15,
+          currentWaveLearned: 4,
+          readyToUnlockNext: false,
+          dailyNewRemaining: 7,
+        }),
+      );
+      return;
+    }
+
     await route.fulfill(jsonOk({ ok: true }));
   });
 

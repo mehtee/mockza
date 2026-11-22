@@ -71,6 +71,13 @@ describe('W6.2 Virtualized SM-2 Vocabulary Hub, Keyboard Review & Detail', () =>
     render(<DesktopSimulatorApp router={router} dependencies={deps} />);
 
     await waitFor(() => {
+      // Progressive Wave 1 unlocks exactly 15 priority cards (saved mistake card + 14 top wave cards) out of 331 total
+      expect(screen.getByTestId('vocab-total-counter').textContent).toBe('15 / 331');
+    });
+
+    // Expand all waves to verify 330+ virtualized list performance (< 40 DOM rows)
+    fireEvent.click(screen.getByTestId('vocab-preview-all-waves'));
+    await waitFor(() => {
       expect(screen.getByTestId('vocab-total-counter').textContent).toBe('331 / 331');
     });
 

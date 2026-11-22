@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/models/attempt_status.dart';
+import 'package:mockza/core/personalization/topic_taxonomy.dart';
 import 'package:mockza/core/vocab/serial_day.dart';
 import 'package:mockza/providers.dart';
 import 'package:mockza/routing/app_router.dart';
@@ -215,12 +217,16 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       final resolvedTargetSerial =
           state.targetDateSerial ??
           (state.targetDays != null ? (todaySerial + state.targetDays!) : null);
+      final normalizedTopics = CanonicalTopicKey.normalizeList(
+        state.selectedTopics,
+      ).map((t) => t.wireKey).toList(growable: false);
       await profileRepo.saveTargetPreferences(
         deviceId: primary.deviceId,
         targetBand: state.targetBand,
         examModule: state.examModule,
         examId: state.selectedTrack.id,
         studyFocus: state.studyFocus,
+        favoriteTopics: normalizedTopics,
         targetDateSerial: resolvedTargetSerial,
         clearTargetDate: resolvedTargetSerial == null,
       );
@@ -232,14 +238,42 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       final authSession = ref.read(authSessionServiceProvider);
       final contentSync = ref.read(contentSyncServiceProvider);
       final linguisticGateway = ref.read(linguisticGatewayProvider);
-      final topicsToPin = List<String>.from(state.selectedTopics);
+      final personalizationGateway = ref.read(personalizationGatewayProvider);
+      final personalizationRepo = ref.read(personalizationRepositoryProvider);
+      final attemptRepo = ref.read(attemptRepositoryProvider);
+      final outboxSync = ref.read(outboxSyncServiceProvider);
       unawaited(
         Future<void>.delayed(const Duration(milliseconds: 250), () async {
           try {
             await authSession.ensureAuthenticated();
             await contentSync.syncAllCatalogData();
-            if (topicsToPin.isNotEmpty) {
-              await linguisticGateway.updateInterests(pinTopics: topicsToPin);
+            if (normalizedTopics.isNotEmpty) {
+              await linguisticGateway.updateInterests(
+                pinTopics: normalizedTopics,
+              );
+            }
+            final syncRes = await personalizationGateway.updateProfile(
+              examTrack: state.selectedTrack.id,
+              targetBand: state.targetBand,
+              studyFocus: state.studyFocus,
+              favoriteTopics: normalizedTopics,
+              onboardingCompleted: true,
+            );
+            final updatedState = syncRes.valueOrNull;
+            if (updatedState != null) {
+              await personalizationRepo.cacheState(updatedState);
+            } else {
+              await attemptRepo.enqueueOutboxAction(
+                actionType: 'profile.update',
+                payloadJson: jsonEncode(<String, Object?>{
+                  'examTrack': state.selectedTrack.id,
+                  'targetBand': state.targetBand,
+                  'studyFocus': state.studyFocus,
+                  'favoriteTopics': normalizedTopics,
+                  'onboardingCompleted': true,
+                }),
+              );
+              outboxSync.notifyWorkEnqueued();
             }
           } on Object {
             // Sync continues silently on home / reconnect.

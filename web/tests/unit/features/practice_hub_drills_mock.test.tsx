@@ -58,6 +58,11 @@ async function seedW55Workspace(edition: 'glb' | 'irn' = 'glb') {
     humanQaReviewed: true,
     accent: null,
     mediaUrl: null,
+    topicKeys: [],
+    weaknessTargets: [],
+    cefrMin: 'B1',
+    cefrMax: 'C1',
+    roadmapOrder: 0,
   };
   const readPack: CatalogPackRecord = {
     ...readPackSummary,
@@ -123,6 +128,11 @@ async function seedW55Workspace(edition: 'glb' | 'irn' = 'glb') {
     humanQaReviewed: true,
     accent: 'en-GB',
     mediaUrl: null,
+    topicKeys: [],
+    weaknessTargets: [],
+    cefrMin: 'B1',
+    cefrMax: 'C1',
+    roadmapOrder: 0,
   };
   bundleDeps.fakeCatalog.seedPackAndBundle(
     {

@@ -207,20 +207,7 @@ function setupSpeakingAudio({ panel, markers }) {
 
 function loadLandingClip(audio) {
   audio.removeAttribute("controls");
-  const container = audio.closest(".report-player, .speaking-audio");
-  function enableMetadata() { audio.preload = "metadata"; }
-  if (!("IntersectionObserver" in window) || !container) {
-    enableMetadata();
-    return;
-  }
-  const observer = new IntersectionObserver(entries => {
-    if (entries.some(entry => entry.isIntersecting)) {
-      observer.disconnect();
-      enableMetadata();
-    }
-  }, { rootMargin: "220px" });
-  observer.observe(container);
-  return () => observer.disconnect();
+  audio.preload = "none";
 }
 
 function setupSampleReport(panel) {

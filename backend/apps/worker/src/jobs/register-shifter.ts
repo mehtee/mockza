@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { GetObjectCommand, type S3Client } from '@aws-sdk/client-s3';
 import {
+  type AiUsageRecord,
   bufferAudioStream,
   EvaluationModelError,
   prepareAudioForModel,
@@ -12,6 +13,8 @@ import {
   commitQuotaReservationAtomic,
   evaluationJobs,
   type MockzaDb,
+  recordAiUsageLedger,
+  recordUserActivityLedger,
   refundQuotaAtomic,
 } from '@mockza/db';
 import { and, eq, isNull, lt, notInArray, or } from 'drizzle-orm';
@@ -109,6 +112,7 @@ export async function handleRegisterShifterJob(
       }
     }
 
+    const collectedUsages: AiUsageRecord[] = [];
     const result = await shiftRegisterGraph(
       {
         runId: payload.jobId,
@@ -124,10 +128,15 @@ export async function handleRegisterShifterJob(
         allowDemoEvaluator:
           invokeOptions?.allowDemoEvaluator ??
           (process.env['ALLOW_DEMO_EVALUATOR'] === 'true' || !process.env['OPENROUTER_API_KEY']),
+        onUsage: async (u) => {
+          collectedUsages.push(u);
+          await invokeOptions?.onUsage?.(u);
+        },
       },
     );
 
     const latencyMs = Date.now() - startMs;
+    const primaryUsage = collectedUsages[0] ?? null;
 
     if (db && payload.jobId) {
       await db.transaction(async (tx) => {
@@ -140,6 +149,8 @@ export async function handleRegisterShifterJob(
             modelId: 'google/gemini-3.1-flash-lite',
             rubricVersion: 'register-shifter-v1',
             latencyMs,
+            tokenUsageJson: primaryUsage,
+            estimatedCostUsdMicros: primaryUsage?.estimatedCostUsdMicros ?? 0,
             errorCode: null,
             claimToken: null,
             claimExpiresAt: null,
@@ -169,6 +180,37 @@ export async function handleRegisterShifterJob(
         textSample: result.sourceTranscript,
         topicHint: payload.topicHint,
       });
+
+      for (const u of collectedUsages) {
+        await recordAiUsageLedger({
+          db,
+          accountKey: payload.accountKey,
+          deviceId: payload.deviceId,
+          edition: payload.edition,
+          featureKind: u.featureKind,
+          entityType: 'register_shifter',
+          entityId: payload.jobId,
+          modelId: u.modelId,
+          providerRequestId: u.providerRequestId,
+          promptTokens: u.promptTokens,
+          completionTokens: u.completionTokens,
+          cachedTokens: u.cachedTokens,
+          totalTokens: u.totalTokens,
+          estimatedCostUsdMicros: u.estimatedCostUsdMicros,
+          costUsdSource: u.costUsdSource,
+          latencyMs: u.latencyMs,
+        }).catch(() => {});
+      }
+      await recordUserActivityLedger({
+        db,
+        accountKey: payload.accountKey,
+        deviceId: payload.deviceId,
+        edition: payload.edition,
+        activityKind: 'register_shifter_done',
+        entityType: 'register_shifter',
+        entityId: payload.jobId,
+        topicKey: payload.topicHint ?? null,
+      }).catch(() => {});
     }
 
     return result;

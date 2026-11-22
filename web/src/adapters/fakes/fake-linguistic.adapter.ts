@@ -92,7 +92,7 @@ export class FakeLinguisticAdapter implements ILinguisticGateway {
       missionId: '20000000-0000-4000-8000-000000000001',
       edition: this.edition,
       examTrack: 'ielts_academic',
-      missionDaySerial: 20778,
+      missionDaySerial: Math.floor(Date.now() / 86_400_000),
       status: 'ready',
       focusTopic: 'Artificial Intelligence',
       payload: {

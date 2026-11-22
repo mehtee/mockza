@@ -13,6 +13,11 @@ import {
 import { STARTER_MICRO_DRILLS } from './seed-data/starter-drills.js';
 import { STARTER_EXAM_BUNDLES } from './seed-data/starter-exams.js';
 import { STARTER_VOCAB_CARDS } from './seed-data/starter-vocab.js';
+import {
+  deriveVocabCardMetadata,
+  DRILL_METADATA_BY_ID,
+  PACK_METADATA_BY_ID,
+} from './seed-data/content-metadata.js';
 
 export interface SeedResult {
   packsUpserted: number;
@@ -99,10 +104,22 @@ export async function seedDatabase(
         })),
       });
 
+      const packMeta = PACK_METADATA_BY_ID[p.packId] ?? {
+        topicKeys: ['academic_core'],
+        weaknessTags: [],
+        cefrMin: 'B1',
+        cefrMax: 'C1',
+      };
+
       await tx
         .insert(catalogPacks)
         .values({
           ...p,
+          topicKeysJson: packMeta.topicKeys,
+          weaknessTargetsJson: packMeta.weaknessTags,
+          cefrMin: packMeta.cefrMin,
+          cefrMax: packMeta.cefrMax,
+          roadmapOrder: 100,
           sha256: digest.sha256,
           byteLength: digest.byteLength,
           publishedAt: p.isPublished ? now : null,
@@ -120,6 +137,11 @@ export async function seedDatabase(
             questionCount: p.questionCount,
             accent: p.accent,
             mediaObjectKey: p.mediaObjectKey,
+            topicKeysJson: packMeta.topicKeys,
+            weaknessTargetsJson: packMeta.weaknessTags,
+            cefrMin: packMeta.cefrMin,
+            cefrMax: packMeta.cefrMax,
+            roadmapOrder: 100,
             version: p.version,
             sha256: digest.sha256,
             byteLength: digest.byteLength,
@@ -177,9 +199,24 @@ export async function seedDatabase(
     }
 
     if (STARTER_MICRO_DRILLS.length > 0) {
+      const drillsWithMeta = STARTER_MICRO_DRILLS.map((d) => {
+        const meta = DRILL_METADATA_BY_ID[d.drillId] ?? {
+          topicKeys: ['academic_core'],
+          weaknessTags: [],
+          cefrMin: 'B1',
+          cefrMax: 'C1',
+        };
+        return {
+          ...d,
+          topicKeysJson: meta.topicKeys,
+          weaknessTargetsJson: meta.weaknessTags,
+          cefrMin: meta.cefrMin,
+          cefrMax: meta.cefrMax,
+        };
+      });
       await tx
         .insert(microDrills)
-        .values(STARTER_MICRO_DRILLS)
+        .values(drillsWithMeta)
         .onConflictDoUpdate({
           target: microDrills.drillId,
           set: {
@@ -189,6 +226,10 @@ export async function seedDatabase(
             skill: sql`excluded.skill`,
             durationSeconds: sql`excluded.duration_seconds`,
             itemsJson: sql`excluded.items_json`,
+            topicKeysJson: sql`excluded.topic_keys_json`,
+            weaknessTargetsJson: sql`excluded.weakness_targets_json`,
+            cefrMin: sql`excluded.cefr_min`,
+            cefrMax: sql`excluded.cefr_max`,
             isPublished: sql`excluded.is_published`,
           },
         });
@@ -196,10 +237,24 @@ export async function seedDatabase(
 
     const vocabBatchSize = 100;
     for (let i = 0; i < STARTER_VOCAB_CARDS.length; i += vocabBatchSize) {
-      const batch = STARTER_VOCAB_CARDS.slice(i, i + vocabBatchSize).map((c) => ({
-        ...c,
-        isPublished: true,
-      }));
+      const batch = STARTER_VOCAB_CARDS.slice(i, i + vocabBatchSize).map((c, idx) => {
+        const meta = deriveVocabCardMetadata(
+          {
+            cardId: c.cardId,
+            headword: c.headword,
+            topicTag: c.topicTag,
+            easeFactorMilli: c.easeFactorMilli,
+          },
+          i + idx,
+        );
+        return {
+          ...c,
+          canonicalTopic: meta.canonicalTopicKey,
+          cefrLevel: meta.cefrLevel,
+          baseWaveOrder: meta.waveOrder,
+          isPublished: true,
+        };
+      });
       await tx
         .insert(vocabDeckCards)
         .values(batch)
@@ -210,6 +265,9 @@ export async function seedDatabase(
             ipa: sql`excluded.ipa`,
             definition: sql`excluded.definition`,
             topicTag: sql`excluded.topic_tag`,
+            canonicalTopic: sql`excluded.canonical_topic`,
+            cefrLevel: sql`excluded.cefr_level`,
+            baseWaveOrder: sql`excluded.base_wave_order`,
             contextSentence: sql`excluded.context_sentence`,
             paraphrasesJson: sql`excluded.paraphrases_json`,
             collocationsJson: sql`excluded.collocations_json`,

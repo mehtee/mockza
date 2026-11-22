@@ -1,8 +1,9 @@
 import { createRoute, type OpenAPIHono } from '@hono/zod-openapi';
 import type { AppEnv } from '@mockza/config';
 import { ApiErrorSchema, QuotaStatusResponseSchema } from '@mockza/contracts';
-import type { MockzaDb } from '@mockza/db';
-import { getNextUtcDayReset, getNextUtcMonthReset } from '@mockza/domain';
+import { type MockzaDb, pronunciationPractices } from '@mockza/db';
+import { evaluatePronunciationQuota, getNextUtcDayReset, getNextUtcMonthReset } from '@mockza/domain';
+import { and, eq, gte, sql } from 'drizzle-orm';
 import { createDeviceAuthMiddleware } from '../middleware/auth.js';
 import type { RequestVariables } from '../middleware/request-id.js';
 import { getAccountQuotaStatus, getAdvancedQuotaSummary } from '../services/quota.js';
@@ -43,10 +44,25 @@ export function registerQuotaRoutes(
     const accountKey = c.get('accountKey') ?? deviceId;
 
     if (db) {
-      const [status, adv] = await Promise.all([
+      const todayMidnight = new Date();
+      todayMidnight.setUTCHours(0, 0, 0, 0);
+      const [status, adv, pronRows] = await Promise.all([
         getAccountQuotaStatus({ db, accountKey, deviceId }),
         getAdvancedQuotaSummary({ db, accountKey, deviceId, edition: env.EDITION }),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(pronunciationPractices)
+          .where(
+            and(
+              eq(pronunciationPractices.accountKey, accountKey),
+              gte(pronunciationPractices.createdAt, todayMidnight),
+            ),
+          ),
       ]);
+      const pronQuota = evaluatePronunciationQuota({
+        isPro: status.isPro,
+        usedToday: Number(pronRows[0]?.count ?? 0),
+      });
       const monthlyCap = env.EDITION === 'irn' ? 120 : 150;
       return c.json(
         QuotaStatusResponseSchema.parse({
@@ -68,6 +84,7 @@ export function registerQuotaRoutes(
             freeSampleUsed: adv.freeSampleUsed,
             shifterRemainingToday: adv.shifterRemainingToday,
             dropsRemainingToday: adv.dropsRemainingToday,
+            pronunciationRemainingToday: pronQuota.remaining,
             audioDropAllowed: adv.audioDropAllowed,
             monthlyRemaining: adv.monthlyRemaining,
           },

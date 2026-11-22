@@ -43,6 +43,16 @@ class UserProfiles extends Table with AuditColumns {
   /// Learner study focus from onboarding screening (`exams`, `coach`, or `both`).
   TextColumn get studyFocus => text().withDefault(const Constant('both'))();
 
+  /// JSON-encoded canonical favorite topic keys for adaptive personalization.
+  TextColumn get favoriteTopicsJson =>
+      text().withDefault(const Constant('[]'))();
+
+  /// Currently unlocked 15-word progressive vocabulary wave index (`1..N`).
+  IntColumn get vocabUnlockedWave => integer().withDefault(const Constant(1))();
+
+  /// Daily cap on brand-new vocabulary words introduced per UTC serial day.
+  IntColumn get dailyNewVocabCap => integer().withDefault(const Constant(10))();
+
   @override
   Set<Column<Object>> get primaryKey => {deviceId};
 }
@@ -312,6 +322,15 @@ class VocabCards extends Table with AuditColumns {
 
   /// Reference label (e.g. "Task 2 Essay", "Part 2 Cue Card").
   TextColumn get sourceRefLabel => text().nullable()();
+
+  /// Canonical topic key aligned with backend taxonomy (`technology_ai`, etc.).
+  TextColumn get canonicalTopic => text().nullable()();
+
+  /// CEFR difficulty tier (`A1..C2`).
+  TextColumn get cefrLevel => text().nullable()();
+
+  /// Deterministic ordering seed within progressive vocab waves.
+  IntColumn get baseWaveOrder => integer().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {cardId};
@@ -612,4 +631,67 @@ class DroppedContents extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => {dropId};
+}
+
+/// Cached full personalization state (live band, roadmap milestones/steps, recommendations).
+@DataClassName('PersonalizationStateRow')
+class PersonalizationStates extends Table {
+  /// Cache key (`primary`).
+  TextColumn get stateKey => text()();
+
+  /// Full serialized `PersonalizationStateDto` JSON snapshot.
+  TextColumn get payloadJson => text()();
+
+  /// Last UTC update epoch millis.
+  IntColumn get updatedAtUtcMs => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {stateKey};
+}
+
+/// Locally cached Shadow Pronunciation Studio recordings and Gemini feedback.
+@DataClassName('LocalPronunciationPracticeRow')
+class LocalPronunciationPractices extends Table {
+  /// Practice session UUIDv4.
+  TextColumn get practiceId => text()();
+
+  /// English phrase or sentence practiced.
+  TextColumn get targetText => text()();
+
+  /// Optional linked vocab/question/mission identifier.
+  TextColumn get sourceRefId => text().nullable()();
+
+  /// Overall score `[0..100]`.
+  IntColumn get overallScore => integer().nullable()();
+
+  /// Serialized `PronunciationPracticeItem` JSON.
+  TextColumn get payloadJson => text()();
+
+  /// Creation timestamp UTC millis.
+  IntColumn get createdAtUtcMs => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {practiceId};
+}
+
+/// Offline ledger of band score events pending synchronization.
+@DataClassName('LocalBandEventRow')
+class LocalBandEvents extends Table {
+  /// Unique band event UUIDv4.
+  TextColumn get eventId => text()();
+
+  /// Target skill (`reading`, `listening`, `writing`, `speaking`).
+  TextColumn get skill => text()();
+
+  /// Source kind (`diagnostic`, `practice_section`, `micro_drill`, etc.).
+  TextColumn get sourceKind => text()();
+
+  /// Scaled score/band observed locally.
+  RealColumn get rawScore => real()();
+
+  /// Creation timestamp UTC millis.
+  IntColumn get createdAtUtcMs => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {eventId};
 }

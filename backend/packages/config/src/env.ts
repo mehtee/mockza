@@ -83,6 +83,11 @@ export const BaseEnvSchema = z.object({
   AUDIO_TTL_DAYS: z.coerce.number().int().positive().max(30).default(30),
   TRUSTED_PROXY_IPS: z.string().default(''),
   OPENROUTER_ALPHA_BASE_URL: z.string().url().default('https://openrouter.ai/api/alpha'),
+  OPENROUTER_TTS_MODEL: z.string().min(1).default('hexgrad/kokoro-82m'),
+  OPENROUTER_TTS_DEFAULT_VOICE: z.string().min(1).default('af_bella'),
+  OPENROUTER_PRONUNCIATION_MODEL: z.string().min(1).default('google/gemini-3.1-flash-lite'),
+  OPENROUTER_PRICING_OVERRIDES_JSON: z.string().default(''),
+  TTS_MAX_CHARS: z.coerce.number().int().positive().max(2000).default(500),
   ENABLE_LINGUISTIC_GRAPH: z
     .enum(['true', 'false'])
     .default('true')

@@ -83,6 +83,14 @@ export function RegisterShifterScreen({ runId: _runId }: RegisterShifterScreenPr
         setQuota(res.value);
       }
     });
+    void deps.personalization?.getState().then((pRes) => {
+      if (!mountedRef.current || !pRes.ok) return;
+      const cur = pRes.value.liveBand.currentBand;
+      if (typeof cur === 'number') {
+        const gearIdx: 0 | 1 | 2 = cur >= 7.0 ? 2 : cur >= 5.5 ? 1 : 0;
+        setSelectedGear(gearIdx);
+      }
+    });
     return () => {
       mountedRef.current = false;
       stopEnglishSpeech();

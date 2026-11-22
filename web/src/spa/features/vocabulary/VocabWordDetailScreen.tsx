@@ -1,7 +1,9 @@
 import { Link } from '@tanstack/react-router';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Mic } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { MzBanner, MzCard } from '@/components/ui';
+import { InlineListenButton } from '@/components/speech/InlineListenButton';
+import { SpeechPracticeDrawer } from '@/components/speech/SpeechPracticeDrawer';
+import { MzBanner, MzButton, MzCard } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import { formatSerialDay } from '@/edition/calendar/jalali-edge';
 import type { VocabCardWithSrs } from '@/gateways/storage.gateway';
@@ -19,6 +21,7 @@ export function VocabWordDetailScreen({ wordId }: VocabWordDetailScreenProps) {
   const BackIcon = deps.edition === 'irn' ? ArrowRight : ArrowLeft;
   const [entry, setEntry] = useState<VocabCardWithSrs | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [practiceOpen, setPracticeOpen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -64,20 +67,47 @@ export function VocabWordDetailScreen({ wordId }: VocabWordDetailScreenProps) {
       </div>
 
       <MzCard variant="hero">
-        <LtrExamBoundary>
-          <h1 className="text-3xl font-bold text-text-primary">{card.headword}</h1>
-          {card.ipa ? <p className="mt-1 font-mono-exam text-sm text-text-tertiary">{card.ipa}</p> : null}
-        </LtrExamBoundary>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <LtrExamBoundary>
+            <h1 className="text-3xl font-bold text-text-primary">{card.headword}</h1>
+            {card.ipa ? <p className="mt-1 font-mono-exam text-sm text-text-tertiary">{card.ipa}</p> : null}
+          </LtrExamBoundary>
+          <div className="flex flex-wrap items-center gap-2">
+            <InlineListenButton
+              text={card.headword}
+              sourceContext="vocab"
+              testId="vocab-detail-listen-headword"
+              size="sm"
+            />
+            <MzButton
+              variant="primary"
+              size="sm"
+              data-testid="vocab-detail-practice-btn"
+              onClick={() => setPracticeOpen(true)}
+              leadingIcon={<Mic className="h-3.5 w-3.5" aria-hidden="true" />}
+            >
+              {t('vocabPracticePronunciationCta')}
+            </MzButton>
+          </div>
+        </div>
         <p className="mt-3 text-sm text-text-primary">{card.definition}</p>
         {deps.edition === 'irn' && card.glossFa ? (
           <p className="mt-2 text-base font-bold text-primary">{card.glossFa}</p>
         ) : null}
         {card.contextSentence ? (
-          <LtrExamBoundary>
-            <blockquote className="mt-4 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas/70 p-3 text-xs italic text-text-secondary">
-              {card.contextSentence}
-            </blockquote>
-          </LtrExamBoundary>
+          <div className="mt-4 space-y-2">
+            <LtrExamBoundary>
+              <blockquote className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas/70 p-3 text-xs italic text-text-secondary">
+                {card.contextSentence}
+              </blockquote>
+            </LtrExamBoundary>
+            <InlineListenButton
+              text={card.contextSentence}
+              sourceContext="vocab"
+              testId="vocab-detail-listen-sentence"
+              size="sm"
+            />
+          </div>
         ) : null}
       </MzCard>
 
@@ -125,6 +155,16 @@ export function VocabWordDetailScreen({ wordId }: VocabWordDetailScreenProps) {
           </dl>
         </MzCard>
       </div>
+
+      <SpeechPracticeDrawer
+        open={practiceOpen}
+        onClose={() => setPracticeOpen(false)}
+        targetText={card.contextSentence || card.headword}
+        practiceKind={card.contextSentence ? 'sentence' : 'word'}
+        sourceRefType="vocab_card"
+        sourceRefId={card.cardId}
+        examTrack={card.examId}
+      />
     </div>
   );
 }

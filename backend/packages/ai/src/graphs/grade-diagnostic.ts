@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { EvaluationModelError } from '../errors.js';
-import { OpenRouterClient } from '../models/openrouter.js';
+import { type AiUsageTelemetryCallback, OpenRouterClient } from '../models/openrouter.js';
 import { MODEL_REGISTRY } from '../models/registry.js';
+import { emitChatUsage } from '../observability/usage-extract.js';
 import { renderPromptFromYaml } from '../prompts/loader.js';
 import { buildEditionOverlayAppendix } from '../prompts/rubrics.js';
 
@@ -87,6 +88,7 @@ export const gradeWritingDiagnosticGraph = {
     options: {
       client?: Pick<OpenRouterClient, 'createChatCompletion'>;
       allowDemoEvaluator?: boolean;
+      onUsage?: AiUsageTelemetryCallback;
     } = {},
   ): Promise<DiagnosticWritingResult> {
     const combinedText = `${input.baseResponse}\n${input.followUpResponse ?? ''}`.trim();
@@ -141,12 +143,21 @@ export const gradeWritingDiagnosticGraph = {
       followUpResponse: input.followUpResponse?.trim() || 'None supplied',
     })}${buildEditionOverlayAppendix(input.edition)}`;
 
+    const startedAt = Date.now();
     const response = await client.createChatCompletion({
       model: MODEL_REGISTRY.writingPrimary,
+      featureKind: 'diagnostic_writing',
       messages: [{ role: 'user', content: prompt }],
       response_format: { type: 'json_object' },
       temperature: 0.1,
     });
+    await emitChatUsage(
+      'diagnostic_writing',
+      MODEL_REGISTRY.writingPrimary,
+      response,
+      Date.now() - startedAt,
+      options.onUsage,
+    );
 
     const rawContent = response.choices[0]?.message.content ?? '';
     let parsedJson: unknown;
@@ -201,6 +212,7 @@ export const gradeSpeakingDiagnosticGraph = {
     options: {
       client?: Pick<OpenRouterClient, 'createChatCompletion'>;
       allowDemoEvaluator?: boolean;
+      onUsage?: AiUsageTelemetryCallback;
     } = {},
   ): Promise<DiagnosticSpeakingResult> {
     const audioEntries = (input.turnAudios ?? []).filter((e) => e.base64AudioData.length > 0);
@@ -265,12 +277,21 @@ export const gradeSpeakingDiagnosticGraph = {
       { type: 'text' as const, text: promptText },
     ];
 
+    const startedAt = Date.now();
     const response = await client.createChatCompletion({
       model: MODEL_REGISTRY.speakingAudioPrimary,
+      featureKind: 'diagnostic_speaking',
       messages: [{ role: 'user', content: contentParts }],
       response_format: { type: 'json_object' },
       temperature: 0.1,
     });
+    await emitChatUsage(
+      'diagnostic_speaking',
+      MODEL_REGISTRY.speakingAudioPrimary,
+      response,
+      Date.now() - startedAt,
+      options.onUsage,
+    );
 
     const rawContent = response.choices[0]?.message.content ?? '';
     let parsedJson: unknown;

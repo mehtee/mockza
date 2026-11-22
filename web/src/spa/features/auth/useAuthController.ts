@@ -7,6 +7,7 @@ import type {
   AuthSession,
 } from '@/gateways/auth.gateway';
 import type { DeviceSlotOccupiedError, OccupyingDeviceInfo } from '@/gateways/result';
+import { pullCrossDeviceState } from '@/spa/cross-device-sync';
 import { useDeps } from '@/spa/deps';
 
 export type AuthMode = 'sign_in' | 'sign_up';
@@ -219,6 +220,7 @@ export function useAuthController(options: {
             return false;
           }
           setSession(res.value);
+          void pullCrossDeviceState(deps);
           options.onAuthenticated?.();
           return true;
         }
@@ -237,6 +239,7 @@ export function useAuthController(options: {
           return false;
         }
         setSession(res.value);
+        void pullCrossDeviceState(deps);
         options.onAuthenticated?.();
         return true;
       } finally {
@@ -281,13 +284,14 @@ export function useAuthController(options: {
           return false;
         }
         setSession(res.value);
+        void pullCrossDeviceState(deps);
         options.onAuthenticated?.();
         return true;
       } finally {
         setIsSubmitting(false);
       }
     },
-    [clearFeedback, deps.auth, handleAuthFailure, options, providers.apple, providers.google],
+    [clearFeedback, deps, handleAuthFailure, options, providers.apple, providers.google],
   );
 
   const requestSmsOtp = useCallback(
@@ -346,13 +350,14 @@ export function useAuthController(options: {
           return false;
         }
         setSession(res.value);
+        void pullCrossDeviceState(deps);
         options.onAuthenticated?.();
         return true;
       } finally {
         setIsSubmitting(false);
       }
     },
-    [clearFeedback, deps.auth, handleAuthFailure, options],
+    [clearFeedback, deps, handleAuthFailure, options],
   );
 
   const confirmSlotTakeover = useCallback(async (): Promise<boolean> => {

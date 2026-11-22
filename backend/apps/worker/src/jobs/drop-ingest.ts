@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { GetObjectCommand, type S3Client } from '@aws-sdk/client-s3';
 import {
+  type AiUsageRecord,
   bufferAudioStream,
   EvaluationModelError,
   ingestDroppedContentGraph,
@@ -13,6 +14,8 @@ import {
   droppedContents,
   evaluationJobs,
   type MockzaDb,
+  recordAiUsageLedger,
+  recordUserActivityLedger,
   refundQuotaAtomic,
 } from '@mockza/db';
 import {
@@ -210,6 +213,7 @@ export async function handleDropIngestJob(
         .catch(() => {});
     }
 
+    const collectedUsages: AiUsageRecord[] = [];
     const result = await ingestDroppedContentGraph(
       {
         dropId: payload.dropId,
@@ -228,8 +232,24 @@ export async function handleDropIngestJob(
         allowDemoEvaluator:
           invokeOptions?.allowDemoEvaluator ??
           (process.env['ALLOW_DEMO_EVALUATOR'] === 'true' || !process.env['OPENROUTER_API_KEY']),
+        onUsage: async (u) => {
+          collectedUsages.push(u);
+          await invokeOptions?.onUsage?.(u);
+        },
       },
     );
+
+    const primaryUsage = collectedUsages.reduce<AiUsageRecord | null>((acc, u) => {
+      if (!acc) return { ...u };
+      return {
+        ...acc,
+        promptTokens: acc.promptTokens + u.promptTokens,
+        completionTokens: acc.completionTokens + u.completionTokens,
+        cachedTokens: acc.cachedTokens + u.cachedTokens,
+        totalTokens: acc.totalTokens + u.totalTokens,
+        estimatedCostUsdMicros: acc.estimatedCostUsdMicros + u.estimatedCostUsdMicros,
+      };
+    }, null);
 
     const now = new Date();
     const expiresAt = new Date(now.getTime() + ttlDays * 24 * 60 * 60 * 1000);
@@ -283,6 +303,8 @@ export async function handleDropIngestJob(
               req.inputKind === 'audio' ? 'google/gemini-3.1-flash-lite' : 'cloudflare/clairic',
             rubricVersion: 'drop-ingest-v1',
             latencyMs,
+            tokenUsageJson: primaryUsage,
+            estimatedCostUsdMicros: primaryUsage?.estimatedCostUsdMicros ?? 0,
             errorCode: null,
             claimToken: null,
             claimExpiresAt: null,
@@ -312,6 +334,37 @@ export async function handleDropIngestJob(
         textSample: result.excerptForGraph,
         topicHint: result.detectedTopics[0],
       });
+
+      for (const u of collectedUsages) {
+        await recordAiUsageLedger({
+          db,
+          accountKey: payload.accountKey,
+          deviceId: payload.deviceId,
+          edition: payload.edition,
+          featureKind: u.featureKind,
+          entityType: 'drop_anything',
+          entityId: payload.dropId,
+          modelId: u.modelId,
+          providerRequestId: u.providerRequestId,
+          promptTokens: u.promptTokens,
+          completionTokens: u.completionTokens,
+          cachedTokens: u.cachedTokens,
+          totalTokens: u.totalTokens,
+          estimatedCostUsdMicros: u.estimatedCostUsdMicros,
+          costUsdSource: u.costUsdSource,
+          latencyMs: u.latencyMs,
+        }).catch(() => {});
+      }
+      await recordUserActivityLedger({
+        db,
+        accountKey: payload.accountKey,
+        deviceId: payload.deviceId,
+        edition: payload.edition,
+        activityKind: 'drop_ingest_done',
+        entityType: 'dropped_content',
+        entityId: payload.dropId,
+        topicKey: result.detectedTopics[0] ?? null,
+      }).catch(() => {});
     }
 
     return responseDto;

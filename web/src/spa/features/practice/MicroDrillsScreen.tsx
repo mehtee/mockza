@@ -10,6 +10,7 @@ import { BookmarkPlus, CheckCircle2, Flame, Play, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MzBanner, MzButton, MzCard } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
+import type { PersonalizationStateDto } from '@/gateways/personalization.gateway';
 import type { CachedDrillRecord, MicroDrillDto } from '@/gateways/storage.gateway';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
@@ -63,6 +64,7 @@ export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: Micro
   const [isFinished, setIsFinished] = useState(false);
   const [savedToast, setSavedToast] = useState<string | null>(null);
   const [startedAtMs, setStartedAtMs] = useState<number>(deps.clock.nowMs());
+  const [personalization, setPersonalization] = useState<PersonalizationStateDto | null>(null);
 
   const finishDrillRef = useRef<() => Promise<void>>(async () => {});
   const { remainingSeconds, resetClock } = useCountdownClock({
@@ -77,11 +79,15 @@ export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: Micro
   useEffect(() => {
     let mounted = true;
     async function hydrate() {
-      const [cachedRes, profileRes] = await Promise.all([
+      const [cachedRes, profileRes, pRes] = await Promise.all([
         deps.catalog.listCachedDrills(),
         deps.attemptStore.getUserProfile(),
+        deps.personalization ? deps.personalization.getState() : Promise.resolve(null),
       ]);
       if (!mounted) return;
+      if (pRes && pRes.ok) {
+        setPersonalization(pRes.value);
+      }
       if (!initialTrack && profileRes.ok && profileRes.value?.examId) {
         setProfileExamId(profileRes.value.examId);
       }
@@ -161,7 +167,29 @@ export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: Micro
       addSeconds: durationSec,
       addCompletedItems: 1,
     });
-  }, [activeDrill, answersById, deps.attemptStore, deps.clock, isFinished, profileExamId, startedAtMs]);
+    const bandSkill = activeDrill.skill === 'listening' ? 'listening' : 'reading';
+    const bandPayload = {
+      examTrack: profileExamId,
+      skill: bandSkill as 'reading' | 'listening',
+      sourceKind: 'micro_drill' as const,
+      sourceId: `${activeDrill.drillId}:${nowMs}`,
+      rawScore: scoreReport.bandScore,
+      durationSeconds: durationSec,
+      accuracyRatio: scoreReport.correctCount / Math.max(1, scoreReport.totalCount),
+      topicKeys: [],
+    };
+    if (deps.personalization) {
+      const bRes = await deps.personalization.recordBandEvent(bandPayload);
+      if (!bRes.ok) {
+        void deps.syncOutbox.enqueue({
+          idempotencyKey: `band.event:drill:${activeDrill.drillId}:${nowMs}`,
+          actionType: 'band.event',
+          entityKind: 'attempt',
+          payloadJson: JSON.stringify(bandPayload),
+        });
+      }
+    }
+  }, [activeDrill, answersById, deps.attemptStore, deps.clock, deps.personalization, deps.syncOutbox, isFinished, profileExamId, startedAtMs]);
 
   finishDrillRef.current = finishDrill;
 
@@ -236,6 +264,38 @@ export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: Micro
           <h1 className="text-2xl font-bold text-text-primary">{t('drillsHubTitle')}</h1>
           <p className="mt-1 text-sm text-text-secondary">{t('drillsHubSubtitle')}</p>
         </div>
+
+        {personalization?.nextRecommendedDrill ? (() => {
+          const recDrill = drills.find((d) => d.drillId === personalization.nextRecommendedDrill?.drillId);
+          if (!recDrill) return null;
+          const isRtl = deps.edition === 'irn';
+          return (
+            <MzCard variant="hero" data-testid="drill-recommended-hero">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <span className="inline-flex rounded-[var(--mz-radius-pill)] bg-primary/15 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+                    {t('recommendedNextBadge')}
+                  </span>
+                  <h2 className="text-base font-bold text-text-primary">{recDrill.title}</h2>
+                  <p className="text-xs text-text-secondary">
+                    {isRtl
+                      ? personalization.nextRecommendedDrill.reasonFa
+                      : personalization.nextRecommendedDrill.reasonEn}
+                  </p>
+                </div>
+                <MzButton
+                  variant="primary"
+                  size="sm"
+                  data-testid="start-recommended-drill-btn"
+                  leadingIcon={<Play className="h-3.5 w-3.5" aria-hidden="true" />}
+                  onClick={() => startDrill(recDrill)}
+                >
+                  {t('drillsStartAction')}
+                </MzButton>
+              </div>
+            </MzCard>
+          );
+        })() : null}
 
         {initialDrillId && !isLoadingCatalog && !drills.some((drill) => drill.drillId === initialDrillId) ? (
           <MzBanner tone="info">{t('drillsRecommendedUnavailable')}</MzBanner>

@@ -15,12 +15,14 @@ import 'package:mockza/services/media_bytes_platform.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_typography.dart';
+import 'package:mockza/theme/components/inline_listen_button.dart';
 import 'package:mockza/theme/components/linguistic_cards.dart';
 import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
+import 'package:mockza/theme/components/speech_practice_sheet.dart';
 import 'package:mockza/theme/primitives.dart';
 
 /// Closed-loop 10-Min Daily Transfer Mission workspace (`/mission/:missionId`).
@@ -552,6 +554,35 @@ class _DailyMissionScreenState extends ConsumerState<DailyMissionScreen> {
                                 ),
                               ),
                             ],
+                          ],
+                        ),
+                        const SizedBox(height: SpacingTokens.xs),
+                        Wrap(
+                          spacing: SpacingTokens.xs,
+                          runSpacing: SpacingTokens.xs,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: <Widget>[
+                            InlineListenButton(
+                              text: m.promptTextEn,
+                              sourceContext: 'daily_mission',
+                            ),
+                            ActionChip(
+                              avatar: AppIcon(
+                                LucideGlyph.mic,
+                                size: 14,
+                                color: colors.primary,
+                              ),
+                              label: Text(l10n.practiceSpeechCta),
+                              onPressed: () => unawaited(
+                                SpeechPracticeSheet.show(
+                                  context,
+                                  targetText: m.promptTextEn,
+                                  sourceRefType: 'daily_mission',
+                                  sourceRefId: m.missionId,
+                                  sourceContext: 'daily_mission',
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: SpacingTokens.xs),

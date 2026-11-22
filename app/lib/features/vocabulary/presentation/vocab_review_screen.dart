@@ -125,6 +125,7 @@ class _VocabReviewScreenState extends ConsumerState<VocabReviewScreen> {
       child: Column(
         children: <Widget>[
           VocabFlipCard(
+            cardId: card.cardId,
             headword: card.headword,
             definition: card.definition,
             glossFa: card.glossFa,

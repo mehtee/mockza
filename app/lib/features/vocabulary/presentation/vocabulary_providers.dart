@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mockza/data/repositories/vocab_repository.dart';
 import 'package:mockza/features/vocabulary/presentation/vocabulary_notifier.dart';
 import 'package:mockza/providers.dart';
+import 'package:mockza/services/personalization_gateway.dart';
 
 /// Provides [VocabularyState] via [VocabularyNotifier].
 final NotifierProvider<VocabularyNotifier, VocabularyState>
@@ -78,4 +79,52 @@ class VocabBatchSizeNotifier extends Notifier<int?> {
 final NotifierProvider<VocabBatchSizeNotifier, int?> vocabBatchSizeProvider =
     NotifierProvider<VocabBatchSizeNotifier, int?>(
       VocabBatchSizeNotifier.new,
+    );
+
+/// Selected 3-tab view in Vocabulary Hub (`wave`, `mistakes`, or `full`).
+class VocabTabModeNotifier extends Notifier<String> {
+  @override
+  String build() => 'wave';
+
+  /// Sets the active vocabulary hub tab.
+  void setTab(String tab) {
+    if (state == tab) return;
+    state = tab;
+  }
+}
+
+/// Provides active 3-tab selector state (`wave`, `mistakes`, `full`).
+final NotifierProvider<VocabTabModeNotifier, String> vocabTabModeProvider =
+    NotifierProvider<VocabTabModeNotifier, String>(VocabTabModeNotifier.new);
+
+/// Toggle state for previewing locked future waves in Vocabulary Deck.
+class VocabPreviewAllWavesNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  /// Toggles showing all locked future vocab waves vs current unlocked wave.
+  void toggle() => state = !state;
+}
+
+/// Provides whether all locked vocab waves are previewed in the UI list.
+final NotifierProvider<VocabPreviewAllWavesNotifier, bool>
+vocabPreviewAllWavesProvider =
+    NotifierProvider<VocabPreviewAllWavesNotifier, bool>(
+      VocabPreviewAllWavesNotifier.new,
+    );
+
+/// Local count of distinct new cards introduced today against the 10/day cap.
+final FutureProvider<int> vocabNewReviewedTodayProvider = FutureProvider<int>(
+  (ref) async {
+    final ids = await ref
+        .watch(vocabRepositoryProvider)
+        .getReviewedCardIdsToday();
+    return ids.length;
+  },
+);
+
+/// Cached Personalization snapshot used for wave unlocking and topic sorting.
+final FutureProvider<PersonalizationStateDto?> vocabPersonalizationProvider =
+    FutureProvider<PersonalizationStateDto?>(
+      (ref) => ref.watch(personalizationRepositoryProvider).getCachedState(),
     );

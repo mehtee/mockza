@@ -328,6 +328,8 @@ export function ReadingSimulatorScreen({
                 title={activeSection?.title}
                 rawText={activeSection?.contentText ?? ''}
                 annotations={passageAnnotations}
+                allowSpeechPractice={examMode === 'study'}
+                packId={packId}
                 onAddAnnotation={(ann) => void handleAddAnnotation(ann)}
                 onUpdateAnnotationNote={(id, note) => void handleUpdateAnnotationNote(id, note)}
                 onDeleteAnnotation={(id) => void handleDeleteAnnotation(id)}

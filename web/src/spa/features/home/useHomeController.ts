@@ -16,6 +16,7 @@ import {
 } from '@mockza/domain';
 import { useCallback, useEffect, useState } from 'react';
 import type { DiagnosticSessionDto } from '@/gateways/diagnostic.gateway';
+import type { PersonalizationStateDto } from '@/gateways/personalization.gateway';
 import type {
   AttemptDraftRecord,
   CompletedAttemptRecord,
@@ -62,17 +63,22 @@ export function useHomeController() {
   const [latestDiagnostic, setLatestDiagnostic] = useState<DiagnosticSessionDto | null>(
     () => initialSnapshot?.latestDiagnostic ?? null,
   );
+  const [personalization, setPersonalization] = useState<PersonalizationStateDto | null>(null);
 
   const hydrate = useCallback(async () => {
     const today = deps.clock.todaySerialDay();
-    const [idRes, profileRes, attemptsRes, studyRes, dueRes, diagRes] = await Promise.all([
+    const [idRes, profileRes, attemptsRes, studyRes, dueRes, diagRes, pRes] = await Promise.all([
       deps.auth.getDeviceIdentity(),
       deps.attemptStore.getUserProfile(),
       deps.attemptStore.listCompletedAttempts(),
       deps.attemptStore.listRecentDailyStudyLogs(30),
       deps.vocabStore.getDueCards(today, 200),
       deps.attemptStore.getLatestDiagnosticSession(),
+      deps.personalization ? deps.personalization.getState() : Promise.resolve(null),
     ]);
+    if (pRes && pRes.ok) {
+      setPersonalization(pRes.value);
+    }
 
     let nextProfile: UserProfileRecord | null = null;
     let nextAttempts: readonly CompletedAttemptRecord[] = [];
@@ -144,7 +150,15 @@ export function useHomeController() {
         });
       }
     }
-  }, [deps.attemptStore, deps.auth, deps.catalog, deps.clock, deps.edition, deps.vocabStore]);
+  }, [
+    deps.attemptStore,
+    deps.auth,
+    deps.catalog,
+    deps.clock,
+    deps.edition,
+    deps.personalization,
+    deps.vocabStore,
+  ]);
 
   useEffect(() => {
     void hydrate();
@@ -290,6 +304,19 @@ export function useHomeController() {
         ? estimateToeflLegacy120(targetScore)
         : null;
 
+  const ackBandShift = useCallback(async () => {
+    setPersonalization((prev) =>
+      prev
+        ? {
+            ...prev,
+            profile: { ...prev.profile, bandShiftAcknowledged: true },
+            liveBand: { ...prev.liveBand, bandShift: 0 },
+          }
+        : prev,
+    );
+    await deps.personalization?.ackBandShift?.();
+  }, [deps.personalization]);
+
   return {
     resumableDraft: resumableDraft?.examId === activeTrack ? resumableDraft : null,
     isLoading,
@@ -307,6 +334,8 @@ export function useHomeController() {
     latestDiagnostic,
     detSubscores,
     toeflLegacy120,
+    personalization,
+    ackBandShift,
     switchTrack,
     refresh: hydrate,
   };

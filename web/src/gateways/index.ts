@@ -4,6 +4,8 @@ export * from './billing.gateway';
 export * from './catalog.gateway';
 export * from './diagnostic.gateway';
 export * from './evaluation.gateway';
+export * from './personalization.gateway';
 export * from './result';
+export * from './speech-practice.gateway';
 export * from './storage.gateway';
 export * from './telemetry.gateway';

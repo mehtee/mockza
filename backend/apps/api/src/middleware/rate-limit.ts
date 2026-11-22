@@ -9,6 +9,7 @@ export interface RateLimitOptions {
   windowMs?: number; // e.g. 60_000 (1 minute)
   maxRequests?: number; // e.g. 60
   trustedProxyIps?: Set<string>;
+  keyByAccount?: boolean;
 }
 
 export function resolveClientKey(params: {
@@ -53,6 +54,7 @@ export function createRateLimitMiddleware(
   const windowMs = options.windowMs ?? 60_000;
   const maxRequests = options.maxRequests ?? 60;
   const trustedProxyIps = options.trustedProxyIps;
+  const keyByAccount = options.keyByAccount ?? false;
   const store = new Map<string, RateLimitEntry>();
 
   // Cleanup old entries every 5 minutes
@@ -70,7 +72,7 @@ export function createRateLimitMiddleware(
     const rawIncoming = (
       c.env as { incoming?: { socket?: { remoteAddress?: string } } } | undefined
     )?.incoming;
-    const ip = resolveClientKey({
+    const resolvedIp = resolveClientKey({
       forwardedFor: c.req.header('x-forwarded-for'),
       realIp: c.req.header('x-real-ip'),
       cfIp: c.req.header('cf-connecting-ip'),
@@ -78,6 +80,9 @@ export function createRateLimitMiddleware(
       deviceId: c.get('deviceId'),
       trustedProxyIps,
     });
+    const ip = keyByAccount
+      ? (c.get('accountKey') ?? c.get('deviceId') ?? resolvedIp)
+      : resolvedIp;
     const now = Date.now();
     const threshold = now - windowMs;
 

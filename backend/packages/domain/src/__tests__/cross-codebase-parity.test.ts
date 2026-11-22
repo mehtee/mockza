@@ -5,9 +5,12 @@ import { describe, expect, it } from 'vitest';
 import {
   AUTHORING_TIERS,
   type AuthoringTier,
+  assignVocabWaves,
   addSerialDays,
+  type BandEvidenceEvent,
   type BlockAttemptRecord,
   buildScoreInsights,
+  type CanonicalTopicKey,
   CountdownClockTracker,
   calculateCurrentStreak,
   calculateEstimatedOverallBand,
@@ -18,6 +21,7 @@ import {
   computeBoundedStageDeadlineUtcMs,
   computeDetSubscores,
   computeDiagnosticRemainingSeconds,
+  computeLiveBandProfile,
   computeNextMasteryMilli,
   computeOverallWritingBand,
   DIAGNOSTIC_BUDGET_SECONDS,
@@ -30,15 +34,18 @@ import {
   evaluateAdvancedFeatureQuota,
   type ExamModuleType,
   estimateToeflLegacy120,
+  extractObjectiveWeaknesses,
   formatExamScore,
   formatExamScoreWithUnit,
   formatSm2IntervalDays,
+  generateOrRecalibrateRoadmap,
   getExamDescriptor,
   getWritingTaskSpec,
   type LinguisticNodeSummary,
   listeningBandFor,
   type NoEvidenceReason,
   nextTargetWhenSwitchingFrom,
+  normalizeCanonicalTopicKey,
   normalizeObjectiveAnswer,
   normalizeObjectiveSequence,
   normalizeScoreToQualityRatio,
@@ -60,8 +67,11 @@ import {
   scoreFromNormalizedQuality,
   scoreObjectiveAnswers,
   scoreObjectiveForTrack,
+  selectDailyReviewQueue,
+  selectNextCoachTopic,
   selectNextObjectiveBlock,
   serialDayFromUtcDate,
+  type TopicWeaknessCoverageEntry,
   validateBoundedAudioInput,
   validateDropTextSnippet,
   validateDropUrlPreFlight,
@@ -991,5 +1001,142 @@ describe('Cross-Codebase Golden Parity Suite (@mockza/domain <-> shared-fixtures
         expect(checkClozeAnswer(v.input, v.expected)).toBe(v.matches);
       });
     }
+  });
+
+  describe('8. Adaptive Personalization, Live Band, Rotation & Vocab Wave Parity', () => {
+    interface PersonalizationVectors {
+      topicNormalizationCases: Array<{ id: string; input: string; expected: string }>;
+      liveBandCases: Array<{
+        id: string;
+        examId: SupportedExamId;
+        targetBand: number;
+        nowUtcMs: number;
+        previousOverallScore: number | null;
+        events: BandEvidenceEvent[];
+        expectedOverall: number;
+        expectedConfidence: string;
+        expectedBandShiftDelta: number | null;
+      }>;
+      phaseRotationCases: Array<{
+        id: string;
+        favoriteTopics: CanonicalTopicKey[];
+        currentDaySerial: number;
+        weaknessNodes: LinguisticNodeSummary[];
+        coverage: TopicWeaknessCoverageEntry[];
+        expectedTopic: string;
+        expectedPhase: string;
+      }>;
+      vocabWaveCase: {
+        id: string;
+        favoriteTopics: string[];
+        examId: SupportedExamId;
+        currentBand: number;
+        targetBand: number;
+        activeWeaknessKeys: string[];
+        unlockedWave: number;
+        waveSize: number;
+        dailyNewCap: number;
+        todaySerialDay: number;
+        cards: Array<{
+          cardId: string;
+          headword: string;
+          legacyTopicTag: string;
+          cefrLevel: AuthoringTier;
+          repetitions: number;
+          dueSerialDay: number;
+        }>;
+        expectedQueueLength: number;
+        expectedReadyToUnlockNext: boolean;
+      };
+    }
+
+    const pFixtures = loadFixture<PersonalizationVectors>('personalization_vectors.json');
+
+    for (const v of pFixtures.topicNormalizationCases) {
+      it(`normalizeCanonicalTopicKey [${v.id}]`, () => {
+        expect(normalizeCanonicalTopicKey(v.input)).toBe(v.expected);
+      });
+    }
+
+    for (const v of pFixtures.liveBandCases) {
+      it(`computeLiveBandProfile [${v.id}]`, () => {
+        const res = computeLiveBandProfile({
+          events: v.events,
+          examId: v.examId,
+          targetBand: v.targetBand,
+          nowUtcMs: v.nowUtcMs,
+          previousOverallScore: v.previousOverallScore,
+        });
+        expect(res.overallScore).toBe(v.expectedOverall);
+        expect(res.overallConfidence).toBe(v.expectedConfidence);
+        expect(res.bandShift?.delta ?? null).toBe(v.expectedBandShiftDelta);
+      });
+    }
+
+    for (const v of pFixtures.phaseRotationCases) {
+      it(`selectNextCoachTopic [${v.id}]`, () => {
+        const sel = selectNextCoachTopic({
+          weaknessNodes: v.weaknessNodes,
+          favoriteTopics: v.favoriteTopics,
+          coverage: v.coverage,
+          currentDaySerial: v.currentDaySerial,
+        });
+        expect(sel.topicKey).toBe(v.expectedTopic);
+        expect(sel.phase).toBe(v.expectedPhase);
+      });
+    }
+
+    it(`assignVocabWaves & selectDailyReviewQueue [${pFixtures.vocabWaveCase.id}]`, () => {
+      const vc = pFixtures.vocabWaveCase;
+      const waves = assignVocabWaves({
+        cards: vc.cards,
+        favoriteTopics: vc.favoriteTopics,
+        examId: vc.examId,
+        currentBand: vc.currentBand,
+        targetBand: vc.targetBand,
+        activeWeaknessKeys: vc.activeWeaknessKeys,
+        unlockedWave: vc.unlockedWave,
+        waveSize: vc.waveSize,
+      });
+      const daily = selectDailyReviewQueue({
+        assigned: waves.assigned,
+        todaySerialDay: vc.todaySerialDay,
+        newCardsIntroducedToday: 0,
+        dailyNewCap: vc.dailyNewCap,
+        unlockedWave: vc.unlockedWave,
+      });
+      expect(daily.queue.length).toBe(vc.expectedQueueLength);
+      expect(daily.summary.readyToUnlockNext).toBe(vc.expectedReadyToUnlockNext);
+    });
+
+    it('extractObjectiveWeaknesses & generateOrRecalibrateRoadmap preserve completed steps', () => {
+      const weaknesses = extractObjectiveWeaknesses({
+        skill: 'reading',
+        questionTypeStats: [{ questionType: 'tfng', correct: 1, total: 5 }],
+      });
+      expect(weaknesses[0]?.canonicalKey).toBe('reading:tfng_trap');
+      expect(weaknesses[0]?.observedPolarity).toBe('gap_observed');
+
+      const roadmap = generateOrRecalibrateRoadmap({
+        examId: 'ielts_academic',
+        currentBand: 6.0,
+        targetBand: 7.5,
+        targetDateSerial: 20810,
+        todaySerial: 20780,
+        studyFocus: 'both',
+        dailyMinutesGoal: 30,
+        favoriteTopics: ['technology_ai', 'health_sports'],
+        weaknessNodes: [],
+        coverage: [],
+        packs: [],
+        drills: [],
+        diagnosticDone: false,
+        currentVocabWave: 1,
+        existingCompletedStepKeys: new Set(['m1:vocab:wave1']),
+      });
+      expect(roadmap.milestones).toHaveLength(4);
+      expect(roadmap.activeStep?.stepKey).toBe('m1:diagnostic');
+      expect(roadmap.steps.find((s) => s.stepKey === 'm1:vocab:wave1')?.status).toBe('completed');
+    });
   });
 });

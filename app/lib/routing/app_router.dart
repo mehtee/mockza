@@ -25,6 +25,7 @@ import 'package:mockza/features/progress/presentation/progress_screen.dart';
 import 'package:mockza/features/progress/presentation/progress_skill_screen.dart';
 import 'package:mockza/features/reading_sim/presentation/reading_sim_screen.dart';
 import 'package:mockza/features/register_shifter/presentation/register_shifter_screen.dart';
+import 'package:mockza/features/roadmap/presentation/roadmap_screen.dart';
 import 'package:mockza/features/settings/presentation/settings_screen.dart';
 import 'package:mockza/features/speaking_sim/presentation/speaking_sim_screen.dart';
 import 'package:mockza/features/vocabulary/presentation/vocab_review_screen.dart';
@@ -372,6 +373,10 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => DropDrillScreen(
           dropId: state.pathParameters['dropId'] ?? '',
         ),
+      ),
+      GoRoute(
+        path: AppRoutes.roadmap,
+        builder: (context, state) => const RoadmapScreen(),
       ),
     ],
     errorBuilder: (context, state) {

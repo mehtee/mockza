@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { EvaluationModelError } from '../errors.js';
-import { OpenRouterClient, type OpenRouterMessage } from './openrouter.js';
+import { emitChatUsage } from '../observability/usage-extract.js';
+import {
+  type AiUsageRecord,
+  type AiUsageTelemetryCallback,
+  OpenRouterClient,
+  type OpenRouterMessage,
+} from './openrouter.js';
 import { ALPHA_FALLBACK_REGISTRY, MODEL_REGISTRY } from './registry.js';
 
 export const DecisionQuestionSchema = z.discriminatedUnion('kind', [
@@ -148,6 +154,7 @@ export interface OpenRouterAlphaClientOptions {
   decisionBreaker?: SlidingWindowCircuitBreaker;
   extractionBreaker?: SlidingWindowCircuitBreaker;
   fetchFn?: typeof fetch;
+  onUsage?: AiUsageTelemetryCallback;
 }
 
 const RawAlphaDecisionWireSchema = z.object({
@@ -239,6 +246,7 @@ export class OpenRouterAlphaClient {
   readonly decisionBreaker: SlidingWindowCircuitBreaker;
   readonly extractionBreaker: SlidingWindowCircuitBreaker;
   private readonly fetchFn: typeof fetch;
+  private readonly onUsage?: AiUsageTelemetryCallback;
 
   constructor(options: OpenRouterAlphaClientOptions = {}) {
     this.apiKey = options.apiKey ?? process.env['OPENROUTER_API_KEY'] ?? '';
@@ -248,12 +256,14 @@ export class OpenRouterAlphaClient {
       'https://openrouter.ai/api/alpha'
     ).replace(/\/+$/, '');
     this.alphaTimeoutMs = options.alphaTimeoutMs ?? 4_000;
+    this.onUsage = options.onUsage;
     this.gaClient =
       options.gaFallbackClient ??
       new OpenRouterClient({
         apiKey: this.apiKey,
         baseUrl: options.gaBaseUrl,
         timeoutMs: 20_000,
+        onUsage: options.onUsage,
       });
     this.decisionBreaker = options.decisionBreaker ?? sharedDecisionBreaker;
     this.extractionBreaker = options.extractionBreaker ?? sharedExtractionBreaker;
@@ -264,7 +274,9 @@ export class OpenRouterAlphaClient {
     messages: OpenRouterMessage[];
     questions: DecisionQuestion[];
     routingTier?: 'standard' | 'flex';
-  }): Promise<DecisionResponse> {
+    onUsage?: AiUsageTelemetryCallback;
+    featureKind?: string;
+  }): Promise<DecisionResponse & { usage?: AiUsageRecord }> {
     const startMs = Date.now();
     const isMultimodal = hasAudioParts(params.messages) || hasImageParts(params.messages);
 
@@ -299,17 +311,31 @@ export class OpenRouterAlphaClient {
           throw new Error(`Alpha decisions HTTP ${res.status}`);
         }
 
-        const wireJson = await res.json();
+        const wireJson = (await res.json()) as {
+          usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number; cost?: number };
+          id?: string;
+        };
         const parsed = RawAlphaDecisionWireSchema.parse(wireJson);
         const outcomes = this.normalizeDecisionOutcomes(params.questions, parsed);
         this.decisionBreaker.recordSuccess();
+        const latencyMs = Math.max(0, Date.now() - startMs);
+        const usage = await emitChatUsage(
+          params.featureKind ?? 'alpha_decision',
+          MODEL_REGISTRY.system1Decision,
+          { id: wireJson?.id ?? '', usage: wireJson?.usage as never },
+          latencyMs,
+          params.onUsage ?? this.onUsage,
+        );
 
-        return DecisionResponseSchema.parse({
-          modelUsed: MODEL_REGISTRY.system1Decision,
-          usedFallback: false,
-          latencyMs: Math.max(0, Date.now() - startMs),
-          outcomes,
-        });
+        return {
+          ...DecisionResponseSchema.parse({
+            modelUsed: MODEL_REGISTRY.system1Decision,
+            usedFallback: false,
+            latencyMs,
+            outcomes,
+          }),
+          usage,
+        };
       } catch (err) {
         this.decisionBreaker.recordFailure();
         const reason = err instanceof Error ? err.message.slice(0, 120) : 'alpha_decision_error';
@@ -320,6 +346,8 @@ export class OpenRouterAlphaClient {
           routingTier: params.routingTier,
           fallbackReason: reason,
           startMs,
+          onUsage: params.onUsage,
+          featureKind: params.featureKind,
         });
       } finally {
         clearTimeout(timer);
@@ -333,6 +361,8 @@ export class OpenRouterAlphaClient {
       routingTier: params.routingTier,
       fallbackReason: 'circuit_open',
       startMs,
+      onUsage: params.onUsage,
+      featureKind: params.featureKind,
     });
   }
 
@@ -392,7 +422,9 @@ export class OpenRouterAlphaClient {
     routingTier?: 'standard' | 'flex';
     fallbackReason: string;
     startMs: number;
-  }): Promise<DecisionResponse> {
+    onUsage?: AiUsageTelemetryCallback;
+    featureKind?: string;
+  }): Promise<DecisionResponse & { usage?: AiUsageRecord }> {
     const fallbackModel = params.isMultimodal
       ? ALPHA_FALLBACK_REGISTRY['google/gemini-decision-1'].multimodal
       : ALPHA_FALLBACK_REGISTRY['google/gemini-decision-1'].text;
@@ -410,6 +442,7 @@ export class OpenRouterAlphaClient {
     const chatRes = await this.gaClient.createChatCompletion({
       model: fallbackModel,
       routingTier: params.routingTier,
+      featureKind: params.featureKind ?? 'alpha_decision_fallback',
       response_format: { type: 'json_object' },
       temperature: 0,
       max_tokens: 512,
@@ -421,6 +454,14 @@ export class OpenRouterAlphaClient {
         },
       ],
     });
+    const latencyMs = Math.max(0, Date.now() - params.startMs);
+    const usage = await emitChatUsage(
+      params.featureKind ?? 'alpha_decision_fallback',
+      fallbackModel,
+      chatRes,
+      latencyMs,
+      params.onUsage,
+    );
 
     const content = stripJsonCodeFences(chatRes.choices[0]?.message?.content ?? '{}');
     const parsedJson = JSON.parse(content) as {
@@ -461,20 +502,25 @@ export class OpenRouterAlphaClient {
       }
     }
 
-    return DecisionResponseSchema.parse({
-      modelUsed: fallbackModel,
-      usedFallback: true,
-      fallbackReason: params.fallbackReason,
-      latencyMs: Math.max(0, Date.now() - params.startMs),
-      outcomes,
-    });
+    return {
+      ...DecisionResponseSchema.parse({
+        modelUsed: fallbackModel,
+        usedFallback: true,
+        fallbackReason: params.fallbackReason,
+        latencyMs,
+        outcomes,
+      }),
+      usage,
+    };
   }
 
   async callExtractionsApi(params: {
     messages: OpenRouterMessage[];
     fields: ExtractionFieldSpec[];
     routingTier?: 'standard' | 'flex';
-  }): Promise<ExtractionResponse> {
+    onUsage?: AiUsageTelemetryCallback;
+    featureKind?: string;
+  }): Promise<ExtractionResponse & { usage?: AiUsageRecord }> {
     const startMs = Date.now();
     if (hasAudioParts(params.messages)) {
       throw new EvaluationModelError(
@@ -519,7 +565,10 @@ export class OpenRouterAlphaClient {
           throw new Error(`Alpha extractions HTTP ${res.status}`);
         }
 
-        const wireJson = await res.json();
+        const wireJson = (await res.json()) as {
+          usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number; cost?: number };
+          id?: string;
+        };
         const parsed = RawAlphaExtractionWireSchema.parse(wireJson);
         const normalizedFields: ExtractionResponse['fields'] = {};
 
@@ -562,12 +611,23 @@ export class OpenRouterAlphaClient {
         }
 
         this.extractionBreaker.recordSuccess();
-        return ExtractionResponseSchema.parse({
-          modelUsed: MODEL_REGISTRY.system1Extractor,
-          usedFallback: false,
-          latencyMs: Math.max(0, Date.now() - startMs),
-          fields: normalizedFields,
-        });
+        const latencyMs = Math.max(0, Date.now() - startMs);
+        const usage = await emitChatUsage(
+          params.featureKind ?? 'alpha_extraction',
+          MODEL_REGISTRY.system1Extractor,
+          { id: wireJson?.id ?? '', usage: wireJson?.usage as never },
+          latencyMs,
+          params.onUsage ?? this.onUsage,
+        );
+        return {
+          ...ExtractionResponseSchema.parse({
+            modelUsed: MODEL_REGISTRY.system1Extractor,
+            usedFallback: false,
+            latencyMs,
+            fields: normalizedFields,
+          }),
+          usage,
+        };
       } catch (err) {
         this.extractionBreaker.recordFailure();
         const reason = err instanceof Error ? err.message.slice(0, 120) : 'alpha_extraction_error';
@@ -578,6 +638,8 @@ export class OpenRouterAlphaClient {
           routingTier: params.routingTier,
           fallbackReason: reason,
           startMs,
+          onUsage: params.onUsage,
+          featureKind: params.featureKind,
         });
       } finally {
         clearTimeout(timer);
@@ -591,6 +653,8 @@ export class OpenRouterAlphaClient {
       routingTier: params.routingTier,
       fallbackReason: 'circuit_open',
       startMs,
+      onUsage: params.onUsage,
+      featureKind: params.featureKind,
     });
   }
 
@@ -601,7 +665,9 @@ export class OpenRouterAlphaClient {
     routingTier?: 'standard' | 'flex';
     fallbackReason: string;
     startMs: number;
-  }): Promise<ExtractionResponse> {
+    onUsage?: AiUsageTelemetryCallback;
+    featureKind?: string;
+  }): Promise<ExtractionResponse & { usage?: AiUsageRecord }> {
     const fallbackModel = params.withImages
       ? ALPHA_FALLBACK_REGISTRY['cloudflare/clairic'].image
       : ALPHA_FALLBACK_REGISTRY['cloudflare/clairic'].text;
@@ -613,6 +679,7 @@ export class OpenRouterAlphaClient {
     const chatRes = await this.gaClient.createChatCompletion({
       model: fallbackModel,
       routingTier: params.routingTier,
+      featureKind: params.featureKind ?? 'alpha_extraction_fallback',
       response_format: { type: 'json_object' },
       temperature: 0,
       max_tokens: 700,
@@ -624,6 +691,14 @@ export class OpenRouterAlphaClient {
         },
       ],
     });
+    const latencyMs = Math.max(0, Date.now() - params.startMs);
+    const usage = await emitChatUsage(
+      params.featureKind ?? 'alpha_extraction_fallback',
+      fallbackModel,
+      chatRes,
+      latencyMs,
+      params.onUsage,
+    );
 
     const content = stripJsonCodeFences(chatRes.choices[0]?.message?.content ?? '{}');
     const parsedJson = JSON.parse(content) as { fields?: Record<string, unknown> };
@@ -646,12 +721,15 @@ export class OpenRouterAlphaClient {
       }
     }
 
-    return ExtractionResponseSchema.parse({
-      modelUsed: fallbackModel,
-      usedFallback: true,
-      fallbackReason: params.fallbackReason,
-      latencyMs: Math.max(0, Date.now() - params.startMs),
-      fields: normalizedFields,
-    });
+    return {
+      ...ExtractionResponseSchema.parse({
+        modelUsed: fallbackModel,
+        usedFallback: true,
+        fallbackReason: params.fallbackReason,
+        latencyMs,
+        fields: normalizedFields,
+      }),
+      usage,
+    };
   }
 }

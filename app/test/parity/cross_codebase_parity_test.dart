@@ -19,6 +19,12 @@ import 'package:mockza/core/exams/local_objective_scorer.dart';
 import 'package:mockza/core/exams/study_metrics_calculator.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/core/models/writing_evaluation.dart';
+import 'package:mockza/core/personalization/live_band_engine.dart';
+import 'package:mockza/core/personalization/objective_weakness_extractor.dart';
+import 'package:mockza/core/personalization/roadmap_generator.dart';
+import 'package:mockza/core/personalization/topic_taxonomy.dart';
+import 'package:mockza/core/personalization/topic_weakness_rotator.dart';
+import 'package:mockza/core/personalization/vocab_wave_scheduler.dart';
 import 'package:mockza/core/vocab/serial_day.dart';
 import 'package:mockza/core/vocab/sm2_scheduler.dart';
 import 'package:test/test.dart';
@@ -1221,6 +1227,175 @@ void main() {
           );
         });
       }
+    });
+
+    group('8. Adaptive Personalization, Live Band, Rotation & Vocab Wave Parity', () {
+      final pFixtures = _asMap(
+        jsonDecode(
+          File('$fixturesDir/personalization_vectors.json').readAsStringSync(),
+        ),
+      );
+
+      for (final raw in _asList(pFixtures['topicNormalizationCases'])) {
+        final v = _asMap(raw);
+        test('CanonicalTopicKey.normalize [${_asString(v['id'])}]', () {
+          expect(
+            CanonicalTopicKey.normalize(_asString(v['input'])).wireKey,
+            _asString(v['expected']),
+          );
+        });
+      }
+
+      for (final raw in _asList(pFixtures['liveBandCases'])) {
+        final v = _asMap(raw);
+        test('LiveBandEngine.computeLiveBandProfile [${_asString(v['id'])}]', () {
+          final events = _asList(v['events']).map((eRaw) {
+            final e = _asMap(eRaw);
+            return BandEvidenceEvent(
+              skill: _asString(e['skill']),
+              sourceKind: BandEventSourceKind.fromWire(_asString(e['sourceKind'])),
+              rawScore: _asDouble(e['rawScore']),
+              recordedAtMs: _asInt(e['recordedAtMs']),
+            );
+          }).toList(growable: false);
+
+          final res = LiveBandEngine.computeLiveBandProfile(
+            events: events,
+            track: ExamTrack.fromId(_asString(v['examId'])),
+            targetBand: _asDouble(v['targetBand']),
+            nowUtcMs: _asInt(v['nowUtcMs']),
+            previousOverallScore: _asNullableDouble(v['previousOverallScore']),
+          );
+          expect(res.overallScore, _asDouble(v['expectedOverall']));
+          expect(
+            res.overallConfidence.wireValue,
+            _asString(v['expectedConfidence']),
+          );
+          expect(
+            res.bandShift?.delta,
+            _asNullableDouble(v['expectedBandShiftDelta']),
+          );
+        });
+      }
+
+      for (final raw in _asList(pFixtures['phaseRotationCases'])) {
+        final v = _asMap(raw);
+        test('TopicWeaknessRotator.selectNextCoachTopic [${_asString(v['id'])}]', () {
+          final nodes = _asList(v['weaknessNodes']).map((nRaw) {
+            final n = _asMap(nRaw);
+            return LinguisticNodeSummary(
+              nodeId: _asString(n['nodeId']),
+              nodeKind: LinguisticNodeKind.fromWire(_asString(n['nodeKind'])),
+              canonicalKey: _asString(n['canonicalKey']),
+              masteryScoreMilli: _asInt(n['masteryScoreMilli']),
+              signalWeightMilli: _asInt(n['signalWeightMilli']),
+              evidenceCount: _asInt(n['evidenceCount']),
+              lastSeenDaySerial: _asInt(n['lastSeenDaySerial']),
+            );
+          }).toList(growable: false);
+
+          final coverage = _asList(v['coverage']).map((cRaw) {
+            final c = _asMap(cRaw);
+            return TopicWeaknessCoverageEntry(
+              weaknessKey: _asString(c['weaknessKey']),
+              topicKey: CanonicalTopicKey.normalize(_asString(c['topicKey'])),
+              practiceCount: _asInt(c['practiceCount']),
+              passCount: _asInt(c['passCount']),
+              lastMasteryMilli: _asInt(c['lastMasteryMilli']),
+              lastPracticedDaySerial: _asInt(c['lastPracticedDaySerial']),
+            );
+          }).toList(growable: false);
+
+          final favs = _asList(v['favoriteTopics'])
+              .map((t) => CanonicalTopicKey.normalize(_asString(t)))
+              .toList(growable: false);
+
+          final sel = TopicWeaknessRotator.selectNextCoachTopic(
+            weaknessNodes: nodes,
+            favoriteTopics: favs,
+            coverage: coverage,
+            currentDaySerial: _asInt(v['currentDaySerial']),
+          );
+          expect(sel.topicKey.wireKey, _asString(v['expectedTopic']));
+          expect(sel.phase.wireValue, _asString(v['expectedPhase']));
+        });
+      }
+
+      test('VocabWaveScheduler matches TS wave & daily cap parity', () {
+        final vc = _asMap(pFixtures['vocabWaveCase']);
+        final cards = _asList(vc['cards']).map((cRaw) {
+          final c = _asMap(cRaw);
+          return VocabWaveCardInput(
+            cardId: _asString(c['cardId']),
+            headword: _asString(c['headword']),
+            legacyTopicTag: _asString(c['legacyTopicTag']),
+            cefrLevel: AuthoringTier.fromCode(_asString(c['cefrLevel'])),
+            repetitions: _asInt(c['repetitions']),
+            dueSerialDay: _asInt(c['dueSerialDay']),
+          );
+        }).toList(growable: false);
+
+        final waves = VocabWaveScheduler.assignWaves(
+          cards: cards,
+          favoriteTopics: _asList(vc['favoriteTopics']).map(_asString).toList(),
+          track: ExamTrack.fromId(_asString(vc['examId'])),
+          currentBand: _asDouble(vc['currentBand']),
+          targetBand: _asDouble(vc['targetBand']),
+          activeWeaknessKeys:
+              _asList(vc['activeWeaknessKeys']).map(_asString).toList(),
+          unlockedWave: _asInt(vc['unlockedWave']),
+          waveSize: _asInt(vc['waveSize']),
+        );
+        final daily = VocabWaveScheduler.selectDailyReviewQueue(
+          assigned: waves.assigned,
+          todaySerialDay: _asInt(vc['todaySerialDay']),
+          newCardsIntroducedToday: 0,
+          unlockedWave: _asInt(vc['unlockedWave']),
+          dailyNewCap: _asInt(vc['dailyNewCap']),
+        );
+        expect(daily.queue.length, _asInt(vc['expectedQueueLength']));
+        expect(
+          daily.summary.readyToUnlockNext,
+          _asBool(vc['expectedReadyToUnlockNext']),
+        );
+      });
+
+      test('ObjectiveWeaknessExtractor & RoadmapGenerator parity', () {
+        final weaknesses = ObjectiveWeaknessExtractor.extract(
+          skill: 'reading',
+          questionTypeStats: const <QuestionTypeStatInput>[
+            QuestionTypeStatInput(questionType: 'tfng', correct: 1, total: 5),
+          ],
+        );
+        expect(weaknesses.first.canonicalKey, 'reading:tfng_trap');
+        expect(weaknesses.first.observedPolarity, EvidencePolarity.gapObserved);
+
+        final roadmap = RoadmapGenerator.generateOrRecalibrate(
+          track: ExamTrack.ieltsAcademic,
+          currentBand: 6,
+          targetBand: 7.5,
+          targetDateSerial: 20810,
+          todaySerial: 20780,
+          studyFocus: 'both',
+          dailyMinutesGoal: 30,
+          favoriteTopics: const <String>['technology_ai', 'health_sports'],
+          weaknessNodes: const <LinguisticNodeSummary>[],
+          coverage: const <TopicWeaknessCoverageEntry>[],
+          packs: const <RoadmapPackInventoryItem>[],
+          drills: const <RoadmapDrillInventoryItem>[],
+          diagnosticDone: false,
+          currentVocabWave: 1,
+          existingCompletedStepKeys: const <String>{'m1:vocab:wave1'},
+        );
+        expect(roadmap.milestones.length, 4);
+        expect(roadmap.activeStep?.stepKey, 'm1:diagnostic');
+        expect(
+          roadmap.steps
+              .firstWhere((s) => s.stepKey == 'm1:vocab:wave1')
+              .status,
+          RoadmapStepStatus.completed,
+        );
+      });
     });
   });
 }

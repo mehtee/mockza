@@ -639,6 +639,10 @@ export class OpfsCatalogAdapter implements ICatalogMediaGateway {
           readonly sha256: string;
           readonly byteLength: number;
           readonly isFreeSample: boolean;
+          readonly topicKeys?: readonly string[];
+          readonly weaknessTargets?: readonly string[];
+          readonly cefrMin?: string;
+          readonly cefrMax?: string;
         }>;
       };
 
@@ -688,6 +692,10 @@ export class OpfsCatalogAdapter implements ICatalogMediaGateway {
           sha256: pack.sha256,
           byteLength: pack.byteLength,
           isFreeSample: pack.isFreeSample,
+          topicKeys: pack.topicKeys ?? existing?.topicKeys ?? [],
+          weaknessTargets: pack.weaknessTargets ?? existing?.weaknessTargets ?? [],
+          cefrMin: pack.cefrMin ?? existing?.cefrMin,
+          cefrMax: pack.cefrMax ?? existing?.cefrMax,
           isCachedOffline: existing?.isCachedOffline ?? 0,
           bundleJson: existing?.bundleJson ?? null,
           cachedMediaInline: existing?.cachedMediaInline ?? null,
@@ -1051,6 +1059,9 @@ export class OpfsCatalogAdapter implements ICatalogMediaGateway {
           readonly paraphraseHints?: readonly string[];
           readonly collocations?: readonly string[];
           readonly usageNote?: string | null;
+          readonly canonicalTopic?: string;
+          readonly cefrLevel?: string;
+          readonly baseWaveOrder?: number;
         }>;
       };
 
@@ -1102,6 +1113,9 @@ export class OpfsCatalogAdapter implements ICatalogMediaGateway {
           sourceSkill: null,
           sourceAttemptId: null,
           sourceRefLabel: null,
+          canonicalTopic: card.canonicalTopic,
+          cefrLevel: card.cefrLevel,
+          baseWaveOrder: card.baseWaveOrder,
           createdAtMs: now,
           updatedAtMs: now,
         };

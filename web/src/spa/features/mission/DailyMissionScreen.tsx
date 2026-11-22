@@ -14,6 +14,7 @@ import {
   Volume2,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { SpeechPracticeDrawer } from '@/components/speech/SpeechPracticeDrawer';
 import { MzCard } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import { toPersianDigits } from '@/edition/bidi/numerals';
@@ -65,6 +66,7 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
   const [customTopic, setCustomTopic] = useState('');
   const [savedUpgradeKeys, setSavedUpgradeKeys] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [practiceRewriteOpen, setPracticeRewriteOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -180,6 +182,19 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
     if (res.ok) {
       setMission(res.value);
       void recordCoachStudyActivity(deps, 180, 1);
+      if (deps.personalization && res.value.evaluationResult) {
+        const clarity = res.value.evaluationResult.clarityScore1To5 ?? 3;
+        const estimatedScore = examTrack === 'det' ? 85 + clarity * 12 : examTrack === 'pte_academic' ? 45 + clarity * 8 : examTrack === 'toefl_ibt' ? Math.min(30, 16 + clarity * 2.5) : 4.5 + clarity * 0.6;
+        void deps.personalization.recordBandEvent({
+          examTrack,
+          skill: responseMode === 'speaking' ? 'speaking' : 'writing',
+          sourceKind: 'mission',
+          sourceId: `${res.value.missionId}:${deps.clock.nowMs()}`,
+          rawScore: Number(estimatedScore.toFixed(1)),
+          durationSeconds: 180,
+          topicKeys: [],
+        });
+      }
     } else {
       setError(res.error.message);
     }
@@ -648,6 +663,15 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
                         >
                           0.8x
                         </button>
+                        <button
+                          type="button"
+                          data-testid="mission-rewrite-practice-btn"
+                          onClick={() => setPracticeRewriteOpen(true)}
+                          className="inline-flex items-center gap-1 rounded border border-primary/50 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/20"
+                        >
+                          <Mic className="h-3 w-3" aria-hidden="true" />
+                          <span>{t('speechPracticeBtn')}</span>
+                        </button>
                       </div>
                     </div>
                     <LtrExamBoundary className="mt-1.5 leading-relaxed text-text-primary">
@@ -660,6 +684,16 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
           ) : null}
         </>
       ) : null}
+
+      <SpeechPracticeDrawer
+        open={practiceRewriteOpen}
+        onClose={() => setPracticeRewriteOpen(false)}
+        targetText={mission?.evaluationResult?.modelRewriteEn ?? ''}
+        practiceKind="feedback_shadow"
+        sourceRefType="coach"
+        sourceRefId={mission?.missionId}
+        examTrack={examTrack}
+      />
     </div>
   );
 }

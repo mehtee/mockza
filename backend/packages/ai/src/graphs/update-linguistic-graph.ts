@@ -3,6 +3,7 @@ import {
   type DecisionOutcome,
   type DecisionQuestion,
 } from '../models/openrouter-alpha.js';
+import type { AiUsageTelemetryCallback } from '../models/openrouter.js';
 import { EvaluationModelError } from '../errors.js';
 
 export type LinguisticSourceKind =
@@ -42,6 +43,7 @@ export interface UpdateLinguisticGraphOutput {
 export interface UpdateLinguisticGraphOptions {
   alphaClient?: OpenRouterAlphaClient;
   allowDemoEvaluator?: boolean;
+  onUsage?: AiUsageTelemetryCallback;
 }
 
 const TOPIC_CATALOG: ReadonlyArray<{
@@ -387,6 +389,8 @@ export async function updateLinguisticGraphSignals(
 
   const decisionRes = await alphaClient.callDecisionsApi({
     routingTier: 'flex',
+    featureKind: 'linguistic_graph_update',
+    onUsage: options.onUsage,
     messages: [
       {
         role: 'system',

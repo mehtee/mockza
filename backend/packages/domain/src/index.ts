@@ -13,6 +13,7 @@ export * from './exams/exam-spec.js';
 export * from './exams/local-objective-scorer.js';
 export * from './exams/study-metrics-calculator.js';
 export * from './quota.js';
+export * from './personalization/index.js';
 export * from './rubrics.js';
 export * from './vocab/serial-day.js';
 export * from './vocab/sm2-scheduler.js';

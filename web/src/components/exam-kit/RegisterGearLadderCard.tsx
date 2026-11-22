@@ -1,5 +1,6 @@
-import { BookmarkPlus, ArrowUpRight, CheckCircle2, Volume2 } from 'lucide-react';
+import { BookmarkPlus, ArrowUpRight, CheckCircle2, Mic, Volume2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { SpeechPracticeDrawer } from '@/components/speech/SpeechPracticeDrawer';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import type { RegisterShifterResult } from '@/gateways/linguistic.gateway';
 import { isSpeechPlaybackSupported, speakEnglishPhrase, stopEnglishSpeech } from '@/components/speech-tts';
@@ -33,6 +34,7 @@ export function RegisterGearLadderCard({
   savedPhrases = [],
 }: RegisterGearLadderCardProps) {
   const [speakingRate, setSpeakingRate] = useState<0.8 | 1.0 | null>(null);
+  const [practiceOpen, setPracticeOpen] = useState(false);
   const canSpeak = isSpeechPlaybackSupported();
 
   const activeSentence =
@@ -150,6 +152,15 @@ export function RegisterGearLadderCard({
                 {isRtl ? 'نسخه هدف برای تکرار شفاهی' : 'Target Register Output'}
               </span>
             )}
+            <button
+              type="button"
+              data-testid="gear-practice-pronunciation"
+              onClick={() => setPracticeOpen(true)}
+              className="inline-flex h-7 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-primary/50 bg-primary/10 px-2 text-[11px] font-semibold text-primary hover:bg-primary/20"
+            >
+              <Mic className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{isRtl ? 'تمرین تلفظ' : 'Practice'}</span>
+            </button>
           </div>
         </div>
 
@@ -216,6 +227,14 @@ export function RegisterGearLadderCard({
           </div>
         </div>
       ) : null}
+
+      <SpeechPracticeDrawer
+        open={practiceOpen}
+        onClose={() => setPracticeOpen(false)}
+        targetText={activeSentence}
+        practiceKind="sentence"
+        sourceRefType="coach"
+      />
     </section>
   );
 }

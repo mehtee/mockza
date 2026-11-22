@@ -315,6 +315,39 @@ export class ApiClient {
     return `${this.apiBaseUrl}${normalized}`;
   }
 
+  async fetchBinary(pathOrUrl: string): Promise<Result<{ readonly blob: Blob; readonly contentType: string }, ApiClientError>> {
+    const resolvedUrl = this.resolveUrl(pathOrUrl);
+    const sameOrigin = isSameApiOrigin(resolvedUrl, this.apiBaseUrl);
+    const headers: Record<string, string> = {};
+    if (sameOrigin) {
+      headers['x-mockza-edition'] = this.edition;
+      const token = await this.readAccessToken();
+      if (token && token.length > 0) {
+        headers['authorization'] = `Bearer ${token}`;
+      }
+    }
+    try {
+      const response = await this.fetchFn(resolvedUrl, { method: 'GET', headers });
+      if (!response.ok) {
+        return err({
+          kind: 'network',
+          message: `Audio stream failed (HTTP ${response.status})`,
+          retryable: response.status >= 500,
+          status: response.status,
+        });
+      }
+      const blob = await response.blob();
+      const contentType = response.headers.get('content-type') ?? blob.type ?? 'audio/mpeg';
+      return ok({ blob, contentType });
+    } catch (cause) {
+      return err({
+        kind: 'network',
+        message: cause instanceof Error ? cause.message : 'Binary audio download failed',
+        retryable: true,
+      });
+    }
+  }
+
   private async runSingleFlightRefresh(): Promise<string | null> {
     if (!this.refreshAccessToken) {
       return null;
@@ -595,6 +628,18 @@ export function createHttpOutboxTransport(client: ApiClient): OutboxTransport {
         `/v1/register-shifter/${encodeURIComponent(runId)}/verify-repeat`,
         payload,
       );
+      return res.ok ? ok(undefined) : err(mapGatewayErrorToSyncOutboxError(res.error));
+    },
+    async syncVocabLogs(payload) {
+      const res = await client.post<unknown>('/v1/sync/vocab-batch', payload);
+      return res.ok ? ok(undefined) : err(mapGatewayErrorToSyncOutboxError(res.error));
+    },
+    async recordBandEvent(payload) {
+      const res = await client.post<unknown>('/v1/personalization/band-event', payload);
+      return res.ok ? ok(undefined) : err(mapGatewayErrorToSyncOutboxError(res.error));
+    },
+    async updateProfile(payload) {
+      const res = await client.put<unknown>('/v1/personalization/profile', payload);
       return res.ok ? ok(undefined) : err(mapGatewayErrorToSyncOutboxError(res.error));
     },
   };

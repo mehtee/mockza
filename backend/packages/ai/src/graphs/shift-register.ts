@@ -6,8 +6,13 @@ import { getExamRubricSpec, normalizeSupportedExamId } from '@mockza/domain';
 import type { z } from 'zod';
 import { EvaluationModelError } from '../errors.js';
 import { OpenRouterAlphaClient, type DecisionQuestion } from '../models/openrouter-alpha.js';
-import { OpenRouterClient, type OpenRouterMessage } from '../models/openrouter.js';
+import {
+  type AiUsageTelemetryCallback,
+  OpenRouterClient,
+  type OpenRouterMessage,
+} from '../models/openrouter.js';
 import { MODEL_REGISTRY } from '../models/registry.js';
+import { emitChatUsage } from '../observability/usage-extract.js';
 
 export type RegisterShifterResult = z.infer<typeof RegisterShifterResultSchema>;
 export type VerifyRepeatAloudResult = z.infer<typeof VerifyRepeatAloudResponseSchema>;
@@ -25,6 +30,7 @@ export interface ShiftRegisterInput {
 export interface ShiftRegisterOptions {
   client?: Pick<OpenRouterClient, 'createChatCompletion'>;
   allowDemoEvaluator?: boolean;
+  onUsage?: AiUsageTelemetryCallback;
 }
 
 function stripJsonCodeFences(raw: string): string {
@@ -153,9 +159,11 @@ export async function shiftRegisterGraph(
   let lastError: unknown;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
+      const startedAt = Date.now();
       const res = await client.createChatCompletion({
         model: MODEL_REGISTRY.speakingAudioPrimary,
         routingTier: 'standard',
+        featureKind: 'register_shifter',
         response_format: { type: 'json_object' },
         temperature: 0.25,
         max_tokens: 1200,
@@ -172,6 +180,13 @@ export async function shiftRegisterGraph(
             : []),
         ],
       });
+      await emitChatUsage(
+        'register_shifter',
+        MODEL_REGISTRY.speakingAudioPrimary,
+        res,
+        Date.now() - startedAt,
+        options.onUsage,
+      );
 
       const raw = stripJsonCodeFences(res.choices[0]?.message?.content ?? '{}');
       const jsonObj = JSON.parse(raw) as Record<string, unknown>;
@@ -214,7 +229,11 @@ export interface VerifyRepeatAloudInput {
 
 export async function verifyRepeatAloud(
   input: VerifyRepeatAloudInput,
-  options: { alphaClient?: OpenRouterAlphaClient; allowDemoEvaluator?: boolean } = {},
+  options: {
+    alphaClient?: OpenRouterAlphaClient;
+    allowDemoEvaluator?: boolean;
+    onUsage?: AiUsageTelemetryCallback;
+  } = {},
 ): Promise<VerifyRepeatAloudResult> {
   const apiKey = process.env['OPENROUTER_API_KEY'] ?? '';
   if (!apiKey && options.allowDemoEvaluator) {
@@ -278,6 +297,8 @@ export async function verifyRepeatAloud(
 
   const res = await alphaClient.callDecisionsApi({
     routingTier: 'standard',
+    featureKind: 'repeat_aloud_verify',
+    onUsage: options.onUsage,
     messages: [
       {
         role: 'system',

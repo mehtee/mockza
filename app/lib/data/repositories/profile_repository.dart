@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:clock/clock.dart';
 import 'package:drift/drift.dart';
 import 'package:mockza/core/models/attempt_status.dart';
@@ -33,6 +35,9 @@ final class ProfileRepository {
         isPro: row.isPro,
         examId: row.examId,
         studyFocus: row.studyFocus,
+        favoriteTopics: _decodeStringList(row.favoriteTopicsJson),
+        vocabUnlockedWave: row.vocabUnlockedWave,
+        dailyNewVocabCap: row.dailyNewVocabCap,
         targetDateSerial: row.targetDateSerial,
         onboardingCompleted: row.onboardingCompleted,
         freeDiagnosticUsed: row.freeDiagnosticUsed,
@@ -67,6 +72,18 @@ final class ProfileRepository {
     );
   }
 
+  List<String> _decodeStringList(String rawJson) {
+    try {
+      final decoded = jsonDecode(rawJson);
+      if (decoded is List<dynamic>) {
+        return decoded.whereType<String>().toList(growable: false);
+      }
+    } on Object {
+      // Fall back to empty topic list if malformed.
+    }
+    return const <String>[];
+  }
+
   /// Persists updated target band and track preference for [deviceId].
   Future<void> saveTargetPreferences({
     required String deviceId,
@@ -74,6 +91,9 @@ final class ProfileRepository {
     required ExamModuleType examModule,
     String? examId,
     String? studyFocus,
+    List<String>? favoriteTopics,
+    int? vocabUnlockedWave,
+    int? dailyNewVocabCap,
     int? targetDateSerial,
     bool clearTargetDate = false,
   }) async {
@@ -87,6 +107,17 @@ final class ProfileRepository {
         isPro: Value(existing?.isPro ?? false),
         examId: Value(examId ?? existing?.examId ?? 'ielts_academic'),
         studyFocus: Value(studyFocus ?? existing?.studyFocus ?? 'both'),
+        favoriteTopicsJson: Value(
+          favoriteTopics != null
+              ? jsonEncode(favoriteTopics)
+              : (existing?.favoriteTopicsJson ?? '[]'),
+        ),
+        vocabUnlockedWave: Value(
+          vocabUnlockedWave ?? existing?.vocabUnlockedWave ?? 1,
+        ),
+        dailyNewVocabCap: Value(
+          dailyNewVocabCap ?? existing?.dailyNewVocabCap ?? 10,
+        ),
         targetDateSerial: Value(
           clearTargetDate
               ? null
@@ -136,6 +167,9 @@ final class ProfileRepository {
         isPro: row.isPro,
         examId: row.examId,
         studyFocus: row.studyFocus,
+        favoriteTopics: _decodeStringList(row.favoriteTopicsJson),
+        vocabUnlockedWave: row.vocabUnlockedWave,
+        dailyNewVocabCap: row.dailyNewVocabCap,
         targetDateSerial: row.targetDateSerial,
         onboardingCompleted: row.onboardingCompleted,
         freeDiagnosticUsed: row.freeDiagnosticUsed,

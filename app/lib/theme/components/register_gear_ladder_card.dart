@@ -8,10 +8,12 @@ import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
+import 'package:mockza/theme/components/inline_listen_button.dart';
 import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_toast.dart';
+import 'package:mockza/theme/components/speech_practice_sheet.dart';
 import 'package:mockza/theme/primitives.dart';
 
 /// Shared 3-Gear Register Ladder card (`Casual` -> `Workplace` -> `Academic Band 8.5`)
@@ -120,8 +122,34 @@ class RegisterGearLadderCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: SpacingTokens.xs),
-                Row(
+                Wrap(
+                  spacing: SpacingTokens.xs,
+                  runSpacing: SpacingTokens.xs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: <Widget>[
+                    InlineListenButton(
+                      text: activeSentence,
+                      sourceContext: 'register_shifter',
+                    ),
+                    ActionChip(
+                      avatar: AppIcon(
+                        LucideGlyph.mic,
+                        size: 14,
+                        color: colors.primary,
+                      ),
+                      label: Text(
+                        AppLocalizations.of(context).practiceSpeechCta,
+                      ),
+                      onPressed: () => unawaited(
+                        SpeechPracticeSheet.show(
+                          context,
+                          targetText: activeSentence,
+                          sourceRefType: 'register_shifter',
+                          sourceRefId: 'gear_$selectedGear',
+                          sourceContext: 'register_shifter',
+                        ),
+                      ),
+                    ),
                     ActionChip(
                       avatar: const AppIcon(LucideGlyph.check, size: 14),
                       label: Text(isRtl ? 'کپی جمله' : 'Copy line'),

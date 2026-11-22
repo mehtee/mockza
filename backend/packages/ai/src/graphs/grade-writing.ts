@@ -7,8 +7,9 @@ import {
 } from '@mockza/domain';
 import type { z } from 'zod';
 import { EvaluationModelError } from '../errors.js';
-import { OpenRouterClient } from '../models/openrouter.js';
+import { type AiUsageTelemetryCallback, OpenRouterClient } from '../models/openrouter.js';
 import { MODEL_REGISTRY } from '../models/registry.js';
+import { emitChatUsage } from '../observability/usage-extract.js';
 import {
   buildEditionOverlayAppendix,
   buildWritingRubricPrompt,
@@ -25,6 +26,7 @@ export type WritingGraphOutput = z.infer<typeof EvaluationOutputSchema>;
 export interface WritingInvokeOptions {
   client?: Pick<OpenRouterClient, 'createChatCompletion'>;
   allowDemoEvaluator?: boolean;
+  onUsage?: AiUsageTelemetryCallback;
 }
 
 /**
@@ -186,12 +188,21 @@ ${criteriaJsonTemplate}
 }
 `;
 
+    const startedAt = Date.now();
     const response = await client.createChatCompletion({
       model: MODEL_REGISTRY.writingPrimary,
+      featureKind: 'writing_eval',
       messages: [{ role: 'user', content: prompt }],
       response_format: { type: 'json_object' },
       temperature: 0.1,
     });
+    await emitChatUsage(
+      'writing_eval',
+      MODEL_REGISTRY.writingPrimary,
+      response,
+      Date.now() - startedAt,
+      options.onUsage,
+    );
 
     const rawContent = response.choices[0]?.message.content ?? '';
     let parsed: Record<string, unknown>;

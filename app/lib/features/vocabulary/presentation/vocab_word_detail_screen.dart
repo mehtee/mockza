@@ -5,18 +5,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mockza/core/vocab/sm2_scheduler.dart';
 import 'package:mockza/data/repositories/vocab_repository.dart';
 import 'package:mockza/features/vocabulary/presentation/vocabulary_providers.dart';
+import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/routing/routes.dart';
 import 'package:mockza/routing/safe_pop.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/empty_state.dart';
+import 'package:mockza/theme/components/inline_listen_button.dart';
 import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
 import 'package:mockza/theme/components/mz_toast.dart';
+import 'package:mockza/theme/components/speech_practice_sheet.dart';
 import 'package:mockza/theme/primitives.dart';
 
 /// Detailed lexical view and SM-2 metadata for a saved vocabulary word (Screen 19).
@@ -167,6 +170,40 @@ class VocabWordDetailScreen extends ConsumerWidget {
                     ),
                   ),
                 ],
+                const SizedBox(height: SpacingTokens.md),
+                Wrap(
+                  spacing: SpacingTokens.sm,
+                  runSpacing: SpacingTokens.xs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: <Widget>[
+                    InlineListenButton(
+                      text: card.headword,
+                      sourceContext: 'vocab_detail',
+                    ),
+                    ActionChip(
+                      avatar: AppIcon(
+                        LucideGlyph.mic,
+                        size: 14,
+                        color: colors.primary,
+                      ),
+                      label: Text(
+                        AppLocalizations.of(context).practiceSpeechCta,
+                      ),
+                      onPressed: () => unawaited(
+                        SpeechPracticeSheet.show(
+                          context,
+                          targetText: card.headword,
+                          practiceKind: card.headword.contains(' ')
+                              ? 'collocation'
+                              : 'word',
+                          sourceRefType: 'vocab_card',
+                          sourceRefId: card.cardId,
+                          sourceContext: 'vocab_detail',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -235,6 +272,37 @@ class VocabWordDetailScreen extends ConsumerWidget {
                 height: 1.45,
               ),
             ),
+          ),
+          const SizedBox(height: SpacingTokens.sm),
+          Wrap(
+            spacing: SpacingTokens.sm,
+            runSpacing: SpacingTokens.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: <Widget>[
+              InlineListenButton(
+                text: card.contextSentence!,
+                sourceContext: 'vocab_detail_sentence',
+              ),
+              ActionChip(
+                avatar: AppIcon(
+                  LucideGlyph.mic,
+                  size: 14,
+                  color: colors.primary,
+                ),
+                label: Text(
+                  AppLocalizations.of(context).practiceSpeechCta,
+                ),
+                onPressed: () => unawaited(
+                  SpeechPracticeSheet.show(
+                    context,
+                    targetText: card.contextSentence!,
+                    sourceRefType: 'vocab_example',
+                    sourceRefId: card.cardId,
+                    sourceContext: 'vocab_detail_sentence',
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

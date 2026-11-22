@@ -13,6 +13,7 @@ import 'package:mockza/services/crash_log.dart';
 import 'package:mockza/services/grading_gateway.dart';
 import 'package:mockza/services/linguistic_gateway.dart';
 import 'package:mockza/services/media_bytes_platform.dart';
+import 'package:mockza/services/personalization_gateway.dart';
 
 /// Processes offline-queued uploads/evaluations with foreground scheduling,
 /// full-batch draining, per-turn upload checkpointing, and pending-media protection.
@@ -25,6 +26,7 @@ final class OutboxSyncService {
     required this._crashLog,
     this._linguisticGateway,
     this._linguisticRepository,
+    this._personalizationGateway,
     this.clock = const Clock(),
   });
 
@@ -34,6 +36,7 @@ final class OutboxSyncService {
   final CrashLog _crashLog;
   final LinguisticGateway? _linguisticGateway;
   final LinguisticRepository? _linguisticRepository;
+  final PersonalizationGateway? _personalizationGateway;
 
   /// Wall clock used for scheduling retry timers.
   final Clock clock;
@@ -251,6 +254,85 @@ final class OutboxSyncService {
           final dropId = payload['dropId'] as String? ?? '';
           if (dropId.isNotEmpty) {
             await _linguisticRepository?.markDropCompleted(dropId);
+          }
+          await _attemptRepository.deleteOutboxItem(id);
+          return true;
+        case 'vocab.srs_batch':
+          final rawCards =
+              (payload['cards'] as List<dynamic>?) ??
+              (payload['items'] as List<dynamic>?) ??
+              const <dynamic>[];
+          final items = rawCards
+              .whereType<Map<dynamic, dynamic>>()
+              .map((m) => m.cast<String, Object?>())
+              .toList(growable: false);
+          if (_personalizationGateway != null && items.isNotEmpty) {
+            final res = await _personalizationGateway.pushVocabBatch(items);
+            if (res case Err<VocabWaveSummaryDto, Failure>(:final failure)) {
+              return await _handleNonAttemptDispatchFailure(
+                outboxId: id,
+                retryCount: retryCount,
+                failure: failure,
+              );
+            }
+          }
+          await _attemptRepository.deleteOutboxItem(id);
+          return true;
+        case 'band.event':
+          if (_personalizationGateway != null) {
+            final rawTopics =
+                (payload['topicKeys'] as List<dynamic>?) ?? const <dynamic>[];
+            final rawStats =
+                (payload['questionTypeStats'] as List<dynamic>?)
+                    ?.whereType<Map<dynamic, dynamic>>()
+                    .map((m) => m.cast<String, Object?>())
+                    .toList(growable: false);
+            final res = await _personalizationGateway.recordBandEvent(
+              examTrack: '${payload['examTrack'] ?? 'ielts_academic'}',
+              skill: '${payload['skill'] ?? 'reading'}',
+              sourceKind: '${payload['sourceKind'] ?? 'practice_section'}',
+              sourceId: '${payload['sourceId'] ?? '$id'}',
+              rawScore: (payload['rawScore'] as num?)?.toDouble() ?? 5.5,
+              durationSeconds: (payload['durationSeconds'] as num?)?.toInt(),
+              accuracyRatio: (payload['accuracyRatio'] as num?)?.toDouble(),
+              topicKeys: rawTopics.whereType<String>().toList(growable: false),
+              questionTypeStats: rawStats,
+              packId: payload['packId'] as String?,
+              attemptId: payload['attemptId'] as String?,
+              scoreBand: (payload['scoreBand'] as num?)?.toDouble(),
+            );
+            if (res case Err<PersonalizationStateDto, Failure>(:final failure)) {
+              return await _handleNonAttemptDispatchFailure(
+                outboxId: id,
+                retryCount: retryCount,
+                failure: failure,
+              );
+            }
+          }
+          await _attemptRepository.deleteOutboxItem(id);
+          return true;
+        case 'profile.update':
+          if (_personalizationGateway != null) {
+            final rawFavs =
+                (payload['favoriteTopics'] as List<dynamic>?) ?? const <dynamic>[];
+            final res = await _personalizationGateway.updateProfile(
+              examTrack: payload['examTrack'] as String?,
+              targetBand: (payload['targetBand'] as num?)?.toDouble(),
+              targetDateIso: payload['targetDateIso'] as String?,
+              studyFocus: payload['studyFocus'] as String?,
+              favoriteTopics: rawFavs.whereType<String>().toList(growable: false),
+              dailyNewVocabCap:
+                  (payload['dailyNewVocabCap'] as num?)?.toInt(),
+              preferredTtsAccent: payload['preferredTtsAccent'] as String?,
+              onboardingCompleted: payload['onboardingCompleted'] as bool?,
+            );
+            if (res case Err<PersonalizationStateDto, Failure>(:final failure)) {
+              return await _handleNonAttemptDispatchFailure(
+                outboxId: id,
+                retryCount: retryCount,
+                failure: failure,
+              );
+            }
           }
           await _attemptRepository.deleteOutboxItem(id);
           return true;
@@ -500,6 +582,26 @@ final class OutboxSyncService {
         status: AttemptStatus.failedRetryable,
         errorCode: failure.message,
       );
+      await _attemptRepository.deleteOutboxItem(outboxId);
+      return false;
+    }
+    await _attemptRepository.scheduleOutboxRetry(
+      id: outboxId,
+      currentRetryCount: retryCount,
+    );
+    return false;
+  }
+
+  Future<bool> _handleNonAttemptDispatchFailure({
+    required int outboxId,
+    required int retryCount,
+    required Failure failure,
+  }) async {
+    if (failure is QuotaExceededFailure ||
+        failure is EntitlementRequiredFailure ||
+        failure is UnauthorizedFailure ||
+        failure is ValidationFailure ||
+        retryCount >= 6) {
       await _attemptRepository.deleteOutboxItem(outboxId);
       return false;
     }

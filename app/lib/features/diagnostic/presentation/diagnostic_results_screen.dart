@@ -6,8 +6,12 @@ import 'package:go_router/go_router.dart';
 import 'package:mockza/core/diagnostic/diagnostic_models.dart';
 import 'package:mockza/features/diagnostic/presentation/diagnostic_help_sheet.dart';
 import 'package:mockza/features/diagnostic/presentation/diagnostic_providers.dart';
+import 'package:mockza/l10n/app_localizations.dart';
+import 'package:mockza/providers.dart';
+import 'package:mockza/routing/roadmap_route_resolver.dart';
 import 'package:mockza/routing/routes.dart';
 import 'package:mockza/services/diagnostic_gateway.dart';
+import 'package:mockza/services/personalization_gateway.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_typography.dart';
@@ -38,6 +42,8 @@ class DiagnosticResultsScreen extends ConsumerStatefulWidget {
 
 class _DiagnosticResultsScreenState
     extends ConsumerState<DiagnosticResultsScreen> {
+  PersonalizationStateDto? _personalization;
+
   static const List<DiagnosticExamScaleInfo> _defaultExamScales =
       <DiagnosticExamScaleInfo>[
         DiagnosticExamScaleInfo(
@@ -73,8 +79,27 @@ class _DiagnosticResultsScreenState
               .read(diagnosticNotifierProvider.notifier)
               .openResults(widget.diagId),
         );
+        unawaited(_loadPersonalization());
       }),
     );
+  }
+
+  Future<void> _loadPersonalization() async {
+    try {
+      final repo = ref.read(personalizationRepositoryProvider);
+      final cached = await repo.getCachedState();
+      if (mounted && cached != null) {
+        setState(() => _personalization = cached);
+      }
+      final remote = await ref.read(personalizationGatewayProvider).getState();
+      final fresh = remote.valueOrNull;
+      if (fresh != null) {
+        await repo.cacheState(fresh);
+        if (mounted) setState(() => _personalization = fresh);
+      }
+    } on Object {
+      // Offline fallback.
+    }
   }
 
   @override
@@ -115,12 +140,24 @@ class _DiagnosticResultsScreenState
                     ),
                   ),
                   const SizedBox(height: SpacingTokens.xs),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: SpacingTokens.sm,
+                    runSpacing: SpacingTokens.xs,
                     children: <Widget>[
                       TextButton(
+                        onPressed: () => context.push(AppRoutes.roadmap),
+                        child: Text(
+                          Localizations.of<AppLocalizations>(
+                                context,
+                                AppLocalizations,
+                              )?.roadmapViewFullCta ??
+                              'View Full Roadmap',
+                        ),
+                      ),
+                      TextButton(
                         onPressed: () => context.go(AppRoutes.home),
-                        child: const Text('Continue to practice'),
+                        child: const Text('Continue Home'),
                       ),
                     ],
                   ),
@@ -195,7 +232,90 @@ class _DiagnosticResultsScreenState
                     const SizedBox(height: SpacingTokens.md),
                   ],
 
-                  // Recommended First Action
+                  // Recommended First Action + Adaptive Roadmap Preview
+                  if (_personalization != null) ...<Widget>[
+                    MzCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: SpacingTokens.sm,
+                            children: <Widget>[
+                              Text(
+                                Localizations.of<AppLocalizations>(
+                                      context,
+                                      AppLocalizations,
+                                    )?.liveBandTitle ??
+                                    'Live Estimated Band',
+                                style: typography.secondary.copyWith(
+                                  color: colors.textSecondary,
+                                ),
+                              ),
+                              Text(
+                                '${_personalization!.liveBand.currentBand?.toStringAsFixed(1) ?? '--'} → ${_personalization!.targetBand.toStringAsFixed(1)}',
+                                style: typography.cardScore.copyWith(
+                                  color: colors.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (_personalization!.weaknesses.isNotEmpty) ...<Widget>[
+                            const SizedBox(height: SpacingTokens.sm),
+                            Wrap(
+                              spacing: SpacingTokens.xs,
+                              runSpacing: SpacingTokens.xs,
+                              children: _personalization!.weaknesses
+                                  .take(2)
+                                  .map(
+                                    (w) => MzChip(
+                                      label: Localizations.localeOf(context)
+                                                  .languageCode ==
+                                              'fa'
+                                          ? w.displayLabelFa
+                                          : w.displayLabelEn,
+                                    ),
+                                  )
+                                  .toList(growable: false),
+                            ),
+                          ],
+                          if (_personalization!.milestones.isNotEmpty) ...<Widget>[
+                            const SizedBox(height: SpacingTokens.sm),
+                            Wrap(
+                              spacing: SpacingTokens.xs,
+                              children: _personalization!.milestones
+                                  .map(
+                                    (m) => MzChip(
+                                      label: 'M${m.index}',
+                                      isSelected: m.status == 'active',
+                                    ),
+                                  )
+                                  .toList(growable: false),
+                            ),
+                          ],
+                          if (_personalization!.currentStep != null) ...<Widget>[
+                            const SizedBox(height: SpacingTokens.sm),
+                            PrimaryButton(
+                              label:
+                                  Localizations.of<AppLocalizations>(
+                                    context,
+                                    AppLocalizations,
+                                  )?.diagStartStepCta ??
+                                  'Start Step 1 on Your Roadmap',
+                              glyph: LucideGlyph.arrowRight,
+                              onPressed: () => context.go(
+                                resolveFlutterRoadmapStepRoute(
+                                  _personalization!.currentStep!,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: SpacingTokens.md),
+                  ],
                   MzCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,

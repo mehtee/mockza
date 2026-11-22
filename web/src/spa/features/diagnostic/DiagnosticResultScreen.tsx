@@ -4,6 +4,7 @@ import {
   BookOpen,
   CheckCircle2,
   Clock,
+  Compass,
   Headphones,
   Mic,
   PenTool,
@@ -13,8 +14,10 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { MzBanner, MzButton, MzCard } from '@/components/ui';
 import type { DiagnosticSessionDto } from '@/gateways/diagnostic.gateway';
+import type { PersonalizationStateDto } from '@/gateways/personalization.gateway';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
+import { resolveWebRoadmapStepPath } from '@/spa/roadmap-route-resolver';
 import { parseDiagnosticStateJson } from './diagnostic-state';
 
 export interface DiagnosticResultScreenProps {
@@ -38,6 +41,7 @@ export function DiagnosticResultScreen({ diagId: routeDiagId }: DiagnosticResult
   const navigate = useNavigate();
 
   const [session, setSession] = useState<DiagnosticSessionDto | null>(null);
+  const [personalization, setPersonalization] = useState<PersonalizationStateDto | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const loadResults = useCallback(async () => {
@@ -60,10 +64,14 @@ export function DiagnosticResultScreen({ diagId: routeDiagId }: DiagnosticResult
     const remoteRes = await deps.diagnostic.getSession(targetDiagId);
     if (remoteRes.ok) {
       setSession(remoteRes.value);
+      const pRes = await deps.personalization?.getState();
+      if (pRes && pRes.ok) {
+        setPersonalization(pRes.value);
+      }
     } else if (!session) {
       setErrorMsg(remoteRes.error.message);
     }
-  }, [deps.attemptStore, deps.diagnostic, routeDiagId, session]);
+  }, [deps.attemptStore, deps.diagnostic, deps.personalization, routeDiagId, session]);
 
   useEffect(() => {
     void loadResults();
@@ -137,10 +145,28 @@ export function DiagnosticResultScreen({ diagId: routeDiagId }: DiagnosticResult
           </div>
 
           <div className="flex flex-wrap gap-2">
+            {personalization?.roadmap.currentStep ? (
+              <Link
+                to={resolveWebRoadmapStepPath(personalization.roadmap.currentStep) as never}
+                data-testid="diag-start-step1-cta"
+                className="inline-flex h-9 items-center gap-1.5 justify-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
+              >
+                <Compass className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>{t('roadmapOpenStepCta')}</span>
+              </Link>
+            ) : null}
+            <Link
+              to="/roadmap"
+              data-testid="diag-open-roadmap-cta"
+              className="inline-flex h-9 items-center gap-1.5 justify-center rounded-[var(--mz-radius-compact)] border border-border-strong bg-canvas px-4 text-xs font-semibold text-primary hover:bg-surface-hover"
+            >
+              <Compass className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{t('roadmapEmptyCta')}</span>
+            </Link>
             <Link
               to="/practice/drills"
               data-testid="diag-recommended-cta"
-              className="inline-flex h-9 items-center justify-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
+              className="inline-flex h-9 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-4 text-xs font-semibold text-text-secondary hover:bg-surface-hover"
             >
               {t('diagStartRecommendedAction')}
             </Link>
@@ -153,6 +179,40 @@ export function DiagnosticResultScreen({ diagId: routeDiagId }: DiagnosticResult
             </Link>
           </div>
         </div>
+
+        {/* Provisional Live Band + Top Weaknesses + 4-Milestone Roadmap Reveal */}
+        {personalization ? (
+          <div className="mt-4 space-y-3 border-t border-border-subtle pt-4">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {personalization.liveBand.currentBand !== null ? (
+                <span className="rounded-[var(--mz-radius-pill)] bg-primary/15 px-3 py-1 font-mono font-bold text-primary">
+                  {t('planImpactBandLabel')}: {personalization.liveBand.currentBand} · {t('confidenceSeeded')}
+                </span>
+              ) : null}
+              {personalization.weaknesses.slice(0, 2).map((w) => (
+                <span
+                  key={w.canonicalKey}
+                  className="rounded-[var(--mz-radius-pill)] border border-warning/40 bg-amber-bg px-2.5 py-0.5 font-semibold text-warning"
+                >
+                  {deps.edition === 'irn' ? w.displayLabelFa : w.displayLabelEn}
+                </span>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {personalization.roadmap.milestones.map((ms) => (
+                <div
+                  key={ms.index}
+                  className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-2.5 py-2 text-xs"
+                >
+                  <p className="font-mono text-[10px] font-bold text-primary">M{ms.index}</p>
+                  <p className="mt-0.5 font-semibold text-text-primary">
+                    {deps.edition === 'irn' ? ms.titleFa : ms.titleEn}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </MzCard>
 
       {/* 4-Skill Baseline Grid with Single-Skill Retake */}

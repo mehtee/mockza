@@ -45,8 +45,16 @@
 		}
 	}
 
+	handle /sample-media/* {
+		header Cache-Control "public, max-age=604800"
+		root * /srv/web
+		file_server {
+			precompressed br gzip
+		}
+	}
+
 	handle /app/* {
-		header Cache-Control "no-cache, no-store, must-revalidate"
+		header Cache-Control "no-cache, must-revalidate"
 		root * /srv/web
 		try_files {path} {path}/index.html /app/index.html
 		file_server {

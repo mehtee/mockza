@@ -6,11 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/core/personalization/topic_taxonomy.dart';
 import 'package:mockza/core/result/failure.dart';
 import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/providers.dart';
 import 'package:mockza/routing/routes.dart';
 import 'package:mockza/services/linguistic_gateway.dart';
+import 'package:mockza/services/personalization_gateway.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_typography.dart';
@@ -18,6 +20,7 @@ import 'package:mockza/theme/components/linguistic_cards.dart';
 import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
+import 'package:mockza/theme/components/mz_chip.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
 import 'package:mockza/theme/primitives.dart';
 
@@ -31,17 +34,10 @@ class LinguisticGraphScreen extends ConsumerStatefulWidget {
       _LinguisticGraphScreenState();
 }
 
-const List<String> _kStarterTopics = <String>[
-  'Technology & AI',
-  'Career & Workplace',
-  'Travel & Culture',
-  'Science & Climate',
-  'Sports',
-];
-
 class _LinguisticGraphScreenState extends ConsumerState<LinguisticGraphScreen> {
   final TextEditingController _topicCtrl = TextEditingController();
   LinguisticGraphSnapshot? _graph;
+  PersonalizationStateDto? _pState;
   bool _loading = true;
 
   @override
@@ -69,8 +65,22 @@ class _LinguisticGraphScreenState extends ConsumerState<LinguisticGraphScreen> {
       });
     }
 
+    final pCached = await ref
+        .read(personalizationRepositoryProvider)
+        .getCachedState();
+    if (mounted && pCached != null) {
+      setState(() => _pState = pCached);
+    }
+
     final res = await ref.read(linguisticGatewayProvider).getMyGraph();
+    final pRes = await ref.read(personalizationGatewayProvider).getState();
     if (!mounted) return;
+    if (pRes.valueOrNull != null) {
+      await ref
+          .read(personalizationRepositoryProvider)
+          .cacheState(pRes.valueOrNull!);
+      if (mounted) setState(() => _pState = pRes.valueOrNull);
+    }
     res.when(
       success: (snapshot) {
         unawaited(
@@ -264,6 +274,46 @@ class _LinguisticGraphScreenState extends ConsumerState<LinguisticGraphScreen> {
                   ),
                 ),
                 const SizedBox(height: SpacingTokens.lg),
+                if (_pState != null) ...<Widget>[
+                  MzCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: <Widget>[
+                            Expanded(
+                              child: Text(
+                                l10n.graphCoverageTitle,
+                                style: typography.cardTitle.copyWith(
+                                  color: colors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            MzChip(label: _pState!.activeWeaknessPhase),
+                          ],
+                        ),
+                        const SizedBox(height: SpacingTokens.sm),
+                        Text(
+                          '${l10n.graphCoverageFavoriteMastered}: '
+                          '${EdgeNumerals.formatChromeNumber(_pState!.masteredInFavoriteTopicsCount, ref.watch(editionConfigProvider).edition)}',
+                          style: typography.caption.copyWith(
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: SpacingTokens.xs),
+                        Text(
+                          '${l10n.graphCoverageTransferred}: '
+                          '${EdgeNumerals.formatChromeNumber(_pState!.transferredToOtherTopicsCount, ref.watch(editionConfigProvider).edition)}',
+                          style: typography.caption.copyWith(
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: SpacingTokens.lg),
+                ],
                 MzCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -278,7 +328,7 @@ class _LinguisticGraphScreenState extends ConsumerState<LinguisticGraphScreen> {
                       Wrap(
                         spacing: SpacingTokens.xs,
                         runSpacing: SpacingTokens.xs,
-                        children: _kStarterTopics
+                        children: CanonicalTopicKey.values
                             .where(
                               (s) =>
                                   !(g?.interestTopics ??
@@ -286,8 +336,10 @@ class _LinguisticGraphScreenState extends ConsumerState<LinguisticGraphScreen> {
                                       .any(
                                         (t) =>
                                             !t.isMuted &&
-                                            t.displayLabelEn.toLowerCase() ==
-                                                s.toLowerCase(),
+                                            (t.displayLabelEn.toLowerCase() ==
+                                                    s.labelEn.toLowerCase() ||
+                                                t.displayLabelEn.toLowerCase() ==
+                                                    s.wireKey),
                                       ),
                             )
                             .map(
@@ -296,9 +348,9 @@ class _LinguisticGraphScreenState extends ConsumerState<LinguisticGraphScreen> {
                                   LucideGlyph.plus,
                                   size: 14,
                                 ),
-                                label: Text(topic),
+                                label: Text(topic.labelFor(isIran: isRtl)),
                                 onPressed: () =>
-                                    unawaited(_pinTopicValue(topic)),
+                                    unawaited(_pinTopicValue(topic.wireKey)),
                               ),
                             )
                             .toList(growable: false),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,7 @@ import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/core/models/user_profile.dart';
+import 'package:mockza/core/personalization/topic_taxonomy.dart';
 import 'package:mockza/core/preferences/appearance_settings.dart';
 import 'package:mockza/core/result/failure.dart';
 import 'package:mockza/core/result/result.dart';
@@ -30,12 +32,16 @@ class SettingsState {
     required this.appUserId,
     this.track = ExamTrack.ieltsAcademic,
     this.studyFocus = 'both',
+    this.favoriteTopics = const <String>[],
+    this.dailyNewVocabCap = 10,
+    this.preferredTtsAccent = 'us',
     this.targetDateSerial,
     this.presetId = AppearanceSettings.defaultPresetId,
     this.appVersionLabel = 'v1.0.0',
     this.isBusy = false,
     this.isClearingCache = false,
     this.isSyncingCatalog = false,
+    this.isSyncingDevices = false,
     this.isLoadingSessions = false,
     this.isManagingSession = false,
     this.accountSessions,
@@ -50,6 +56,15 @@ class SettingsState {
 
   /// Learner study focus preference (`exams`, `coach`, or `both`).
   final String studyFocus;
+
+  /// Canonical favorite topic wire keys seeded in onboarding/settings.
+  final List<String> favoriteTopics;
+
+  /// Daily cap on brand-new vocabulary cards (`5 | 10 | 20`).
+  final int dailyNewVocabCap;
+
+  /// Preferred reference Kokoro voice accent (`us` or `uk`).
+  final String preferredTtsAccent;
 
   /// Active IELTS track.
   final ExamModuleType examModule;
@@ -90,6 +105,9 @@ class SettingsState {
   /// Whether catalog sync is currently executing.
   final bool isSyncingCatalog;
 
+  /// Whether cross-device pull/push sync is currently executing.
+  final bool isSyncingDevices;
+
   /// Whether signed-in account devices are currently loading.
   final bool isLoadingSessions;
 
@@ -107,6 +125,9 @@ class SettingsState {
     AppEdition? edition,
     ExamTrack? track,
     String? studyFocus,
+    List<String>? favoriteTopics,
+    int? dailyNewVocabCap,
+    String? preferredTtsAccent,
     ExamModuleType? examModule,
     double? targetBand,
     int? targetDateSerial,
@@ -121,6 +142,7 @@ class SettingsState {
     bool? isBusy,
     bool? isClearingCache,
     bool? isSyncingCatalog,
+    bool? isSyncingDevices,
     bool? isLoadingSessions,
     bool? isManagingSession,
     AccountSessionsSnapshot? accountSessions,
@@ -131,6 +153,9 @@ class SettingsState {
     edition: edition ?? this.edition,
     track: track ?? this.track,
     studyFocus: studyFocus ?? this.studyFocus,
+    favoriteTopics: favoriteTopics ?? this.favoriteTopics,
+    dailyNewVocabCap: dailyNewVocabCap ?? this.dailyNewVocabCap,
+    preferredTtsAccent: preferredTtsAccent ?? this.preferredTtsAccent,
     examModule: examModule ?? this.examModule,
     targetBand: targetBand ?? this.targetBand,
     targetDateSerial: clearTargetDateSerial
@@ -146,6 +171,7 @@ class SettingsState {
     isBusy: isBusy ?? this.isBusy,
     isClearingCache: isClearingCache ?? this.isClearingCache,
     isSyncingCatalog: isSyncingCatalog ?? this.isSyncingCatalog,
+    isSyncingDevices: isSyncingDevices ?? this.isSyncingDevices,
     isLoadingSessions: isLoadingSessions ?? this.isLoadingSessions,
     isManagingSession: isManagingSession ?? this.isManagingSession,
     accountSessions: clearAccountSessions
@@ -198,6 +224,8 @@ class SettingsNotifier extends Notifier<SettingsState> {
               state = state.copyWith(
                 track: ExamTrack.fromId(profile.examId),
                 studyFocus: profile.studyFocus,
+                favoriteTopics: profile.favoriteTopics,
+                dailyNewVocabCap: profile.dailyNewVocabCap,
                 examModule: profile.examModule,
                 targetBand: profile.targetBand,
                 targetDateSerial: profile.targetDateSerial,
@@ -236,10 +264,17 @@ class SettingsNotifier extends Notifier<SettingsState> {
       final profile = await profileRepo.loadOrInitializePrimary(
         fallbackDeviceId: deviceIdRes.valueOrNull,
       );
+      final savedAccent = await ref
+          .read(personalizationRepositoryProvider)
+          .getPreferredTtsAccent();
+      ref.read(preferredTtsAccentProvider.notifier).setAccent(savedAccent);
       if (!_isDisposed) {
         state = state.copyWith(
           track: ExamTrack.fromId(profile.examId),
           studyFocus: profile.studyFocus,
+          favoriteTopics: profile.favoriteTopics,
+          dailyNewVocabCap: profile.dailyNewVocabCap,
+          preferredTtsAccent: savedAccent,
           examModule: profile.examModule,
           targetBand: profile.targetBand,
           targetDateSerial: profile.targetDateSerial,
@@ -647,6 +682,143 @@ class SettingsNotifier extends Notifier<SettingsState> {
         state = state.copyWith(
           isSyncingCatalog: false,
           statusMessage: 'Catalog sync unavailable right now.',
+        );
+      }
+    }
+  }
+
+  /// Toggles one of the 10 canonical favorite topics & recalibrates server roadmap.
+  Future<void> toggleFavoriteTopic(String rawWireKey) async {
+    final normalized = CanonicalTopicKey.normalize(rawWireKey).wireKey;
+    final next = List<String>.from(state.favoriteTopics);
+    if (next.contains(normalized)) {
+      next.remove(normalized);
+    } else {
+      next.add(normalized);
+    }
+    state = state.copyWith(favoriteTopics: next, clearStatusMessage: true);
+    try {
+      final profileRepo = ref.read(profileRepositoryProvider);
+      final primary = await profileRepo.loadOrInitializePrimary();
+      await profileRepo.saveTargetPreferences(
+        deviceId: primary.deviceId,
+        targetBand: state.targetBand,
+        examModule: state.examModule,
+        examId: state.track.id,
+        favoriteTopics: next,
+        targetDateSerial: primary.targetDateSerial,
+      );
+      final remote = await ref
+          .read(personalizationGatewayProvider)
+          .updateProfile(favoriteTopics: next);
+      final updated = remote.valueOrNull;
+      if (updated != null) {
+        await ref.read(personalizationRepositoryProvider).cacheState(updated);
+      } else {
+        await ref
+            .read(attemptRepositoryProvider)
+            .enqueueOutboxAction(
+              actionType: 'profile.update',
+              payloadJson: jsonEncode(<String, Object?>{
+                'favoriteTopics': next,
+              }),
+            );
+        ref.read(outboxSyncServiceProvider).notifyWorkEnqueued();
+      }
+    } on Object {
+      // Safe offline / widget test fallback.
+    }
+  }
+
+  /// Updates daily new vocab cap (`5`, `10`, `20`) locally & remotely.
+  Future<void> setDailyNewVocabCap(int cap) async {
+    state = state.copyWith(dailyNewVocabCap: cap, clearStatusMessage: true);
+    try {
+      final profileRepo = ref.read(profileRepositoryProvider);
+      final primary = await profileRepo.loadOrInitializePrimary();
+      await profileRepo.saveTargetPreferences(
+        deviceId: primary.deviceId,
+        targetBand: state.targetBand,
+        examModule: state.examModule,
+        examId: state.track.id,
+        dailyNewVocabCap: cap,
+        targetDateSerial: primary.targetDateSerial,
+      );
+      final remote = await ref
+          .read(personalizationGatewayProvider)
+          .updateProfile(dailyNewVocabCap: cap);
+      final updated = remote.valueOrNull;
+      if (updated != null) {
+        await ref.read(personalizationRepositoryProvider).cacheState(updated);
+      }
+    } on Object {
+      // Offline safe.
+    }
+  }
+
+  /// Updates preferred Kokoro voice accent (`us` or `uk`) locally & remotely.
+  Future<void> setPreferredTtsAccent(String accent) async {
+    final normalized = accent == 'uk' ? 'uk' : 'us';
+    ref.read(preferredTtsAccentProvider.notifier).setAccent(normalized);
+    state = state.copyWith(
+      preferredTtsAccent: normalized,
+      clearStatusMessage: true,
+    );
+    try {
+      await ref
+          .read(personalizationRepositoryProvider)
+          .savePreferredTtsAccent(normalized);
+      final remote = await ref
+          .read(personalizationGatewayProvider)
+          .updateProfile(preferredTtsAccent: normalized);
+      final updated = remote.valueOrNull;
+      if (updated != null) {
+        await ref.read(personalizationRepositoryProvider).cacheState(updated);
+      }
+    } on Object {
+      // Offline safe.
+    }
+  }
+
+  /// Drains local outbox and pulls cross-device state incrementally from `/v1/sync/pull`.
+  Future<void> syncAcrossDevicesNow() async {
+    if (state.isSyncingDevices) return;
+    state = state.copyWith(isSyncingDevices: true, clearStatusMessage: true);
+    try {
+      await ref.read(authSessionServiceProvider).ensureAuthenticated();
+      await ref.read(outboxSyncServiceProvider).processPendingQueue();
+      final repo = ref.read(personalizationRepositoryProvider);
+      final cursor = await repo.getSyncCursor();
+      final res = await ref
+          .read(personalizationGatewayProvider)
+          .pullSyncRaw(sinceIso: cursor);
+      if (_isDisposed) return;
+      switch (res) {
+        case Ok<Map<String, Object?>, Failure>(:final value):
+          final summary = await ref
+              .read(personalizationRepositoryProvider)
+              .applyCrossDevicePull(value);
+          final syncedAccent = await repo.getPreferredTtsAccent();
+          ref.read(preferredTtsAccentProvider.notifier).setAccent(syncedAccent);
+          if (!_isDisposed) {
+            state = state.copyWith(
+              isSyncingDevices: false,
+              preferredTtsAccent: syncedAccent,
+              statusMessage:
+                  'Synced (${summary.attemptsMerged} attempts, ${summary.vocabStatesMerged} vocab, ${summary.pronunciationMerged} recordings).',
+            );
+          }
+        case Err<Map<String, Object?>, Failure>(:final failure):
+          state = state.copyWith(
+            isSyncingDevices: false,
+            statusMessage: 'Device sync unavailable: ${failure.message}',
+          );
+      }
+    } on Object {
+      if (!_isDisposed) {
+        state = state.copyWith(
+          isSyncingDevices: false,
+          statusMessage: 'Device sync unavailable right now.',
         );
       }
     }

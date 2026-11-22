@@ -12,6 +12,7 @@ import 'package:mockza/data/repositories/exam_catalog_repository.dart';
 import 'package:mockza/data/repositories/progress_repository.dart';
 import 'package:mockza/providers.dart';
 import 'package:mockza/routing/routes.dart';
+import 'package:mockza/services/personalization_gateway.dart';
 
 /// Immutable UI state for the Home Dashboard screen (01_*).
 @immutable
@@ -32,6 +33,8 @@ class HomeState {
     this.daysUntilExam,
     this.latestDiagnosticId,
     this.latestDiagnosticStatus,
+    this.personalization,
+    this.bandShiftDismissed = false,
   });
 
   /// Selected exam track (e.g. IELTS Academic).
@@ -76,6 +79,12 @@ class HomeState {
   /// Status of [latestDiagnosticId] (`in_progress`, `submitted`, `completed`).
   final String? latestDiagnosticStatus;
 
+  /// Cached + server-refreshed personalization, live band & roadmap snapshot.
+  final PersonalizationStateDto? personalization;
+
+  /// Local optimistic dismissal flag for band-shift celebration banner.
+  final bool bandShiftDismissed;
+
   /// Returns a copy with updated dashboard properties.
   HomeState copyWith({
     ExamTrack? track,
@@ -94,6 +103,8 @@ class HomeState {
     bool clearDaysUntilExam = false,
     String? latestDiagnosticId,
     String? latestDiagnosticStatus,
+    PersonalizationStateDto? personalization,
+    bool? bandShiftDismissed,
   }) => HomeState(
     track: track ?? this.track,
     targetBand: targetBand ?? this.targetBand,
@@ -114,6 +125,8 @@ class HomeState {
     latestDiagnosticId: latestDiagnosticId ?? this.latestDiagnosticId,
     latestDiagnosticStatus:
         latestDiagnosticStatus ?? this.latestDiagnosticStatus,
+    personalization: personalization ?? this.personalization,
+    bandShiftDismissed: bandShiftDismissed ?? this.bandShiftDismissed,
   );
 }
 
@@ -195,8 +208,27 @@ class HomeNotifier extends Notifier<HomeState> {
         clearDaysUntilExam: profile.targetDateSerial == null,
       );
       _recomputeDashboard();
+      unawaited(_loadPersonalization());
     } on Object {
       // Ignore in isolated widget tests without database plugin.
+    }
+  }
+
+  Future<void> _loadPersonalization() async {
+    try {
+      final repo = ref.read(personalizationRepositoryProvider);
+      final cached = await repo.getCachedState();
+      if (cached != null) {
+        state = state.copyWith(personalization: cached);
+      }
+      final remote = await ref.read(personalizationGatewayProvider).getState();
+      final fresh = remote.valueOrNull;
+      if (fresh != null) {
+        await repo.cacheState(fresh);
+        state = state.copyWith(personalization: fresh);
+      }
+    } on Object {
+      // Safe no-op in offline/isolated tests.
     }
   }
 
@@ -403,6 +435,17 @@ class HomeNotifier extends Notifier<HomeState> {
     unawaited(_progressSub?.cancel());
     unawaited(_packsSub?.cancel());
     unawaited(_diagSub?.cancel());
+  }
+
+  /// Persists band-shift banner dismissal remotely and clears locally.
+  Future<void> acknowledgeBandShift() async {
+    state = state.copyWith(bandShiftDismissed: true);
+    try {
+      await ref.read(personalizationGatewayProvider).ackBandShift();
+      await _loadPersonalization();
+    } on Object {
+      // Safe offline fallback.
+    }
   }
 
   /// Changes the active exam track from the header chip and persists to SQLite.

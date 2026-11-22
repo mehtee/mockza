@@ -643,6 +643,342 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Saved Study Materials'**
   String get recentDropsLabel;
+
+  /// No description provided for @roadmapTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Learning Roadmap'**
+  String get roadmapTitle;
+
+  /// No description provided for @roadmapPanoramaLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'4-Milestone Panorama'**
+  String get roadmapPanoramaLabel;
+
+  /// No description provided for @roadmapActiveStepsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Step-by-Step Next Actions'**
+  String get roadmapActiveStepsLabel;
+
+  /// No description provided for @roadmapUpcomingLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming Steps'**
+  String get roadmapUpcomingLabel;
+
+  /// No description provided for @roadmapViewFullCta.
+  ///
+  /// In en, this message translates to:
+  /// **'View Full Roadmap'**
+  String get roadmapViewFullCta;
+
+  /// No description provided for @roadmapCompleteStepCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark Step Done'**
+  String get roadmapCompleteStepCta;
+
+  /// No description provided for @roadmapSkipStepCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get roadmapSkipStepCta;
+
+  /// No description provided for @liveBandTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Live Estimated Band'**
+  String get liveBandTitle;
+
+  /// No description provided for @confidenceProvisional.
+  ///
+  /// In en, this message translates to:
+  /// **'Provisional · Initial Check'**
+  String get confidenceProvisional;
+
+  /// No description provided for @confidenceDeveloping.
+  ///
+  /// In en, this message translates to:
+  /// **'Developing · Updating'**
+  String get confidenceDeveloping;
+
+  /// No description provided for @confidenceCalibrated.
+  ///
+  /// In en, this message translates to:
+  /// **'Calibrated · High Confidence'**
+  String get confidenceCalibrated;
+
+  /// No description provided for @listenCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Listen'**
+  String get listenCta;
+
+  /// No description provided for @listenSlowCta.
+  ///
+  /// In en, this message translates to:
+  /// **'0.8×'**
+  String get listenSlowCta;
+
+  /// No description provided for @practiceSpeechCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Practice Pronunciation'**
+  String get practiceSpeechCta;
+
+  /// No description provided for @speechStudioTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pronunciation Practice Studio'**
+  String get speechStudioTitle;
+
+  /// No description provided for @speechRecordStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Record My Voice'**
+  String get speechRecordStart;
+
+  /// No description provided for @speechRecordStop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop Recording'**
+  String get speechRecordStop;
+
+  /// No description provided for @speechAnalyzeCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Analyze Pronunciation'**
+  String get speechAnalyzeCta;
+
+  /// No description provided for @speechAnalyzing.
+  ///
+  /// In en, this message translates to:
+  /// **'Analyzing articulation, stress & fluency...'**
+  String get speechAnalyzing;
+
+  /// No description provided for @speechReplayMine.
+  ///
+  /// In en, this message translates to:
+  /// **'Play My Take'**
+  String get speechReplayMine;
+
+  /// No description provided for @speechHistoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Past Synced Takes'**
+  String get speechHistoryTitle;
+
+  /// No description provided for @vocabWaveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Wave {current} of {total}'**
+  String vocabWaveTitle(int current, int total);
+
+  /// No description provided for @vocabUnlockNextWave.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock Next 15 Words'**
+  String get vocabUnlockNextWave;
+
+  /// No description provided for @vocabPreviewAllWaves.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview All Waves'**
+  String get vocabPreviewAllWaves;
+
+  /// No description provided for @syncDevicesNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync Across Devices Now'**
+  String get syncDevicesNow;
+
+  /// No description provided for @syncSuccessBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Synced across devices'**
+  String get syncSuccessBanner;
+
+  /// No description provided for @favoriteTopicsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorite Topics (Start Here)'**
+  String get favoriteTopicsLabel;
+
+  /// No description provided for @roadmapBandUpTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'+{delta} Band Up! Live estimate rose to {band}'**
+  String roadmapBandUpTitle(String delta, String band);
+
+  /// No description provided for @roadmapBandUpBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your roadmap has been recalibrated for your next target.'**
+  String get roadmapBandUpBody;
+
+  /// No description provided for @roadmapCollapseCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed Milestone · {count} steps'**
+  String roadmapCollapseCompleted(int count);
+
+  /// No description provided for @roadmapJumpAheadCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Jump ahead anyway'**
+  String get roadmapJumpAheadCta;
+
+  /// No description provided for @roadmapEditTopicsPace.
+  ///
+  /// In en, this message translates to:
+  /// **'Topics & Pace'**
+  String get roadmapEditTopicsPace;
+
+  /// No description provided for @planImpactTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How This Updated Your Plan'**
+  String get planImpactTitle;
+
+  /// No description provided for @planImpactBandLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Live Band Estimate'**
+  String get planImpactBandLabel;
+
+  /// No description provided for @planImpactNextStepCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue Next Roadmap Step'**
+  String get planImpactNextStepCta;
+
+  /// No description provided for @practiceTabForYourPath.
+  ///
+  /// In en, this message translates to:
+  /// **'For Your Path'**
+  String get practiceTabForYourPath;
+
+  /// No description provided for @practiceTabAllTests.
+  ///
+  /// In en, this message translates to:
+  /// **'All Tests'**
+  String get practiceTabAllTests;
+
+  /// No description provided for @vocabTabTodaysWave.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s Wave'**
+  String get vocabTabTodaysWave;
+
+  /// No description provided for @vocabTabSavedMistakes.
+  ///
+  /// In en, this message translates to:
+  /// **'My Saved Mistakes'**
+  String get vocabTabSavedMistakes;
+
+  /// No description provided for @vocabTabFullDeck.
+  ///
+  /// In en, this message translates to:
+  /// **'Full Deck'**
+  String get vocabTabFullDeck;
+
+  /// No description provided for @vocabWhyThisWord.
+  ///
+  /// In en, this message translates to:
+  /// **'Why this word'**
+  String get vocabWhyThisWord;
+
+  /// No description provided for @vocabWaveAutoUnlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'60% of Wave {wave} learned! Wave {next} is now unlocked.'**
+  String vocabWaveAutoUnlocked(int wave, int next);
+
+  /// No description provided for @speechPreviewHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Listen back to your recording before analyzing, or re-record for free.'**
+  String get speechPreviewHint;
+
+  /// No description provided for @speechQuotaRemaining.
+  ///
+  /// In en, this message translates to:
+  /// **'{remaining}/{limit} analyses left today'**
+  String speechQuotaRemaining(int remaining, int limit);
+
+  /// No description provided for @speechWordTapHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap any highlighted word for IPA comparison & 0.8x audio'**
+  String get speechWordTapHint;
+
+  /// No description provided for @speechListenWordSlow.
+  ///
+  /// In en, this message translates to:
+  /// **'Listen to \"{word}\" (0.8x)'**
+  String speechListenWordSlow(String word);
+
+  /// No description provided for @settingsDailyNewCapTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily New Vocab Cap'**
+  String get settingsDailyNewCapTitle;
+
+  /// No description provided for @settingsTtsAccentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reference Voice Accent (Kokoro AI)'**
+  String get settingsTtsAccentTitle;
+
+  /// No description provided for @settingsTtsAccentUs.
+  ///
+  /// In en, this message translates to:
+  /// **'American (af_bella)'**
+  String get settingsTtsAccentUs;
+
+  /// No description provided for @settingsTtsAccentUk.
+  ///
+  /// In en, this message translates to:
+  /// **'British (bf_emma)'**
+  String get settingsTtsAccentUk;
+
+  /// No description provided for @graphCoverageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Topic × Weakness Adaptation Matrix'**
+  String get graphCoverageTitle;
+
+  /// No description provided for @graphCoveragePhaseLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Current Phase'**
+  String get graphCoveragePhaseLabel;
+
+  /// No description provided for @graphCoverageFavoriteMastered.
+  ///
+  /// In en, this message translates to:
+  /// **'Mastered in Favorite Topics'**
+  String get graphCoverageFavoriteMastered;
+
+  /// No description provided for @graphCoverageTransferred.
+  ///
+  /// In en, this message translates to:
+  /// **'Transferred to Other Topics'**
+  String get graphCoverageTransferred;
+
+  /// No description provided for @diagStartStepCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Start Step 1 on Your Roadmap'**
+  String get diagStartStepCta;
+
+  /// No description provided for @audioLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio load failed'**
+  String get audioLoadFailed;
 }
 
 class _AppLocalizationsDelegate

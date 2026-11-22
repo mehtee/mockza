@@ -292,4 +292,187 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get recentDropsLabel => 'Saved Study Materials';
+
+  @override
+  String get roadmapTitle => 'Your Learning Roadmap';
+
+  @override
+  String get roadmapPanoramaLabel => '4-Milestone Panorama';
+
+  @override
+  String get roadmapActiveStepsLabel => 'Step-by-Step Next Actions';
+
+  @override
+  String get roadmapUpcomingLabel => 'Upcoming Steps';
+
+  @override
+  String get roadmapViewFullCta => 'View Full Roadmap';
+
+  @override
+  String get roadmapCompleteStepCta => 'Mark Step Done';
+
+  @override
+  String get roadmapSkipStepCta => 'Skip';
+
+  @override
+  String get liveBandTitle => 'Live Estimated Band';
+
+  @override
+  String get confidenceProvisional => 'Provisional · Initial Check';
+
+  @override
+  String get confidenceDeveloping => 'Developing · Updating';
+
+  @override
+  String get confidenceCalibrated => 'Calibrated · High Confidence';
+
+  @override
+  String get listenCta => 'Listen';
+
+  @override
+  String get listenSlowCta => '0.8×';
+
+  @override
+  String get practiceSpeechCta => 'Practice Pronunciation';
+
+  @override
+  String get speechStudioTitle => 'Pronunciation Practice Studio';
+
+  @override
+  String get speechRecordStart => 'Record My Voice';
+
+  @override
+  String get speechRecordStop => 'Stop Recording';
+
+  @override
+  String get speechAnalyzeCta => 'Analyze Pronunciation';
+
+  @override
+  String get speechAnalyzing => 'Analyzing articulation, stress & fluency...';
+
+  @override
+  String get speechReplayMine => 'Play My Take';
+
+  @override
+  String get speechHistoryTitle => 'Past Synced Takes';
+
+  @override
+  String vocabWaveTitle(int current, int total) {
+    return 'Wave $current of $total';
+  }
+
+  @override
+  String get vocabUnlockNextWave => 'Unlock Next 15 Words';
+
+  @override
+  String get vocabPreviewAllWaves => 'Preview All Waves';
+
+  @override
+  String get syncDevicesNow => 'Sync Across Devices Now';
+
+  @override
+  String get syncSuccessBanner => 'Synced across devices';
+
+  @override
+  String get favoriteTopicsLabel => 'Favorite Topics (Start Here)';
+
+  @override
+  String roadmapBandUpTitle(String delta, String band) {
+    return '+$delta Band Up! Live estimate rose to $band';
+  }
+
+  @override
+  String get roadmapBandUpBody =>
+      'Your roadmap has been recalibrated for your next target.';
+
+  @override
+  String roadmapCollapseCompleted(int count) {
+    return 'Completed Milestone · $count steps';
+  }
+
+  @override
+  String get roadmapJumpAheadCta => 'Jump ahead anyway';
+
+  @override
+  String get roadmapEditTopicsPace => 'Topics & Pace';
+
+  @override
+  String get planImpactTitle => 'How This Updated Your Plan';
+
+  @override
+  String get planImpactBandLabel => 'Live Band Estimate';
+
+  @override
+  String get planImpactNextStepCta => 'Continue Next Roadmap Step';
+
+  @override
+  String get practiceTabForYourPath => 'For Your Path';
+
+  @override
+  String get practiceTabAllTests => 'All Tests';
+
+  @override
+  String get vocabTabTodaysWave => 'Today\'s Wave';
+
+  @override
+  String get vocabTabSavedMistakes => 'My Saved Mistakes';
+
+  @override
+  String get vocabTabFullDeck => 'Full Deck';
+
+  @override
+  String get vocabWhyThisWord => 'Why this word';
+
+  @override
+  String vocabWaveAutoUnlocked(int wave, int next) {
+    return '60% of Wave $wave learned! Wave $next is now unlocked.';
+  }
+
+  @override
+  String get speechPreviewHint =>
+      'Listen back to your recording before analyzing, or re-record for free.';
+
+  @override
+  String speechQuotaRemaining(int remaining, int limit) {
+    return '$remaining/$limit analyses left today';
+  }
+
+  @override
+  String get speechWordTapHint =>
+      'Tap any highlighted word for IPA comparison & 0.8x audio';
+
+  @override
+  String speechListenWordSlow(String word) {
+    return 'Listen to \"$word\" (0.8x)';
+  }
+
+  @override
+  String get settingsDailyNewCapTitle => 'Daily New Vocab Cap';
+
+  @override
+  String get settingsTtsAccentTitle => 'Reference Voice Accent (Kokoro AI)';
+
+  @override
+  String get settingsTtsAccentUs => 'American (af_bella)';
+
+  @override
+  String get settingsTtsAccentUk => 'British (bf_emma)';
+
+  @override
+  String get graphCoverageTitle => 'Topic × Weakness Adaptation Matrix';
+
+  @override
+  String get graphCoveragePhaseLabel => 'Current Phase';
+
+  @override
+  String get graphCoverageFavoriteMastered => 'Mastered in Favorite Topics';
+
+  @override
+  String get graphCoverageTransferred => 'Transferred to Other Topics';
+
+  @override
+  String get diagStartStepCta => 'Start Step 1 on Your Roadmap';
+
+  @override
+  String get audioLoadFailed => 'Audio load failed';
 }

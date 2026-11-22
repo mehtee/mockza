@@ -29,8 +29,12 @@ import { registerGraphAndMissionRoutes } from './routes/graph-and-missions.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerJobRoutes } from './routes/jobs.js';
 import { registerMediaRoutes } from './routes/media.js';
+import { registerPersonalizationRoutes } from './routes/personalization.js';
+import { registerPronunciationRoutes } from './routes/pronunciation.js';
 import { registerQuotaRoutes } from './routes/quota.js';
 import { registerShifterRoutes } from './routes/register-shifter.js';
+import { registerSyncRoutes } from './routes/sync.js';
+import { registerTtsRoutes } from './routes/tts.js';
 import { registerUploadRoutes } from './routes/uploads.js';
 import { registerBillingWebhookRoutes } from './routes/webhooks-revenuecat.js';
 import type { VerifyProviderTokenFn } from './services/provider-verify.js';
@@ -108,6 +112,10 @@ export function createApiApp(
   app.use('/v1/drop/*', bodyLimit({ maxSize: 512 * 1024 }));
   app.use('/v1/missions/*', bodyLimit({ maxSize: 256 * 1024 }));
   app.use('/v1/register-shifter/*', bodyLimit({ maxSize: 256 * 1024 }));
+  app.use('/v1/personalization/*', bodyLimit({ maxSize: 256 * 1024 }));
+  app.use('/v1/tts/*', bodyLimit({ maxSize: 128 * 1024 }));
+  app.use('/v1/pronunciation/*', bodyLimit({ maxSize: 512 * 1024 }));
+  app.use('/v1/sync/*', bodyLimit({ maxSize: 1024 * 1024 }));
   app.use('/v1/auth/*', bodyLimit({ maxSize: 256 * 1024 }));
   app.use('/v1/*', createEditionGuardMiddleware(env.EDITION));
   app.use(
@@ -143,6 +151,10 @@ export function createApiApp(
   registerBillingWebhookRoutes(app, env, deps.db);
   registerAccountRoutes(app, env, deps.db, deps.s3Client, sessionManager);
   registerFeedbackRoutes(app, env, deps.db);
+  registerPersonalizationRoutes(app, env, deps.db);
+  registerTtsRoutes(app, env, deps.db, deps.s3Client);
+  registerPronunciationRoutes(app, env, deps.db, deps.boss, deps.s3Client, deps.isQueueReady);
+  registerSyncRoutes(app, env, deps.db);
 
   app.doc('/openapi.json', {
     openapi: '3.1.0',

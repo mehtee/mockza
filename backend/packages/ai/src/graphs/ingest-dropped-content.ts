@@ -3,8 +3,13 @@ import { normalizeUtf16Span } from '@mockza/domain';
 import type { z } from 'zod';
 import { EvaluationModelError } from '../errors.js';
 import { OpenRouterAlphaClient } from '../models/openrouter-alpha.js';
-import { OpenRouterClient, type OpenRouterMessage } from '../models/openrouter.js';
+import {
+  type AiUsageTelemetryCallback,
+  OpenRouterClient,
+  type OpenRouterMessage,
+} from '../models/openrouter.js';
 import { MODEL_REGISTRY } from '../models/registry.js';
+import { emitChatUsage } from '../observability/usage-extract.js';
 
 export type DroppedPhraseDto = z.infer<typeof DroppedContentResponseSchema>['extractedPhrases'][number];
 export type DropDrillPayload = z.infer<typeof DroppedContentResponseSchema>['drillPayload'];
@@ -36,6 +41,7 @@ export interface IngestDroppedContentOptions {
   client?: Pick<OpenRouterClient, 'createChatCompletion'>;
   allowDemoEvaluator?: boolean;
   routingTier?: 'standard' | 'flex';
+  onUsage?: AiUsageTelemetryCallback;
 }
 
 function stripJsonCodeFences(raw: string): string {
@@ -186,9 +192,11 @@ export async function ingestDroppedContentGraph(
             ]
           : `Source: ${input.sourceDomainOrLabel}${input.titleHint ? `\nTitle: ${input.titleHint}` : ''}\nExcerpt:\n${(input.rawText ?? '').slice(0, 10_000)}`;
 
+    const singleStartedAt = Date.now();
     const singleRes = await gaClient.createChatCompletion({
       model: fastModel,
       routingTier,
+      featureKind: 'drop_ingest',
       response_format: { type: 'json_object' },
       temperature: 0.2,
       max_tokens: 1800,
@@ -207,6 +215,13 @@ export async function ingestDroppedContentGraph(
         { role: 'user', content: userContent },
       ],
     });
+    await emitChatUsage(
+      'drop_ingest',
+      fastModel,
+      singleRes,
+      Date.now() - singleStartedAt,
+      options.onUsage,
+    );
 
     const parsed = JSON.parse(
       stripJsonCodeFences(singleRes.choices[0]?.message?.content ?? '{}'),
@@ -318,6 +333,8 @@ export async function ingestDroppedContentGraph(
 
   const preflight = await alphaClient.callDecisionsApi({
     routingTier,
+    featureKind: 'drop_preflight',
+    onUsage: options.onUsage,
     messages: [
       { role: 'system', content: 'Content moderator and CEFR estimator for an English learning app.' },
       { role: 'user', content: preflightContent },
@@ -369,9 +386,11 @@ export async function ingestDroppedContentGraph(
 
   // Mode C (Audio) bypasses cloudflare/clairic directly -> gemini-3.1-flash-lite
   if (input.inputKind === 'audio' && input.audioBase64) {
+    const audioStartedAt = Date.now();
     const audioRes = await gaClient.createChatCompletion({
       model: MODEL_REGISTRY.speakingAudioPrimary,
       routingTier,
+      featureKind: 'drop_audio_ingest',
       response_format: { type: 'json_object' },
       temperature: 0.25,
       max_tokens: 1400,
@@ -398,6 +417,13 @@ export async function ingestDroppedContentGraph(
         },
       ],
     });
+    await emitChatUsage(
+      'drop_audio_ingest',
+      MODEL_REGISTRY.speakingAudioPrimary,
+      audioRes,
+      Date.now() - audioStartedAt,
+      options.onUsage,
+    );
 
     const parsedAudio = JSON.parse(
       stripJsonCodeFences(audioRes.choices[0]?.message?.content ?? '{}'),
@@ -471,6 +497,8 @@ export async function ingestDroppedContentGraph(
 
   const extracted = await alphaClient.callExtractionsApi({
     routingTier,
+    featureKind: 'drop_extraction',
+    onUsage: options.onUsage,
     messages: extractionMessages,
     fields: [
       {
@@ -527,14 +555,23 @@ export async function ingestDroppedContentGraph(
     },
   ];
 
+  const drillStartedAt = Date.now();
   const drillRes = await gaClient.createChatCompletion({
     model: synthModel,
     routingTier,
+    featureKind: 'drop_drill_synth',
     response_format: { type: 'json_object' },
     temperature: 0.2,
     max_tokens: 1800,
     messages: synthMessages,
   });
+  await emitChatUsage(
+    'drop_drill_synth',
+    synthModel,
+    drillRes,
+    Date.now() - drillStartedAt,
+    options.onUsage,
+  );
 
   const parsedDrill = JSON.parse(
     stripJsonCodeFences(drillRes.choices[0]?.message?.content ?? '{}'),

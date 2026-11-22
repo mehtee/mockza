@@ -1,7 +1,8 @@
 import { checkClozeAnswer, type SupportedExamId } from '@mockza/domain';
 import { Link } from '@tanstack/react-router';
-import { BookmarkPlus, CheckCircle2, HelpCircle, Volume2 } from 'lucide-react';
+import { BookmarkPlus, CheckCircle2, HelpCircle, Mic, Volume2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { SpeechPracticeDrawer } from '@/components/speech/SpeechPracticeDrawer';
 import { MzCard } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import type { DroppedContentItem } from '@/gateways/linguistic.gateway';
@@ -33,6 +34,7 @@ export function DropDrillScreen({ dropId }: DropDrillScreenProps) {
   const [drillCompleted, setDrillCompleted] = useState(false);
   const [savedHeadwords, setSavedHeadwords] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [practiceOpen, setPracticeOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -325,11 +327,30 @@ export function DropDrillScreen({ dropId }: DropDrillScreenProps) {
                 >
                   0.8x
                 </button>
+                <button
+                  type="button"
+                  data-testid="drop-shadow-practice-btn"
+                  onClick={() => setPracticeOpen(true)}
+                  className="inline-flex h-7 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-primary/50 bg-primary/10 px-2 text-[11px] font-semibold text-primary hover:bg-primary/20"
+                >
+                  <Mic className="h-3 w-3" aria-hidden="true" />
+                  <span>{isRtl ? 'ضبط و تحلیل' : 'Practice'}</span>
+                </button>
               </div>
             </div>
             <LtrExamBoundary className="mt-1 block rounded bg-bg-raised p-2.5 text-sm text-text-primary">
               {drop.drillPayload.shadowingPrompt}
             </LtrExamBoundary>
+
+            <SpeechPracticeDrawer
+              open={practiceOpen}
+              onClose={() => setPracticeOpen(false)}
+              targetText={drop.drillPayload.shadowingPrompt}
+              practiceKind="sentence"
+              sourceRefType="coach"
+              sourceRefId={drop.dropId}
+              examTrack={examId}
+            />
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle pt-4">

@@ -8,6 +8,7 @@ import 'package:mockza/core/exams/question_progress_item.dart';
 import 'package:mockza/data/repositories/attempt_repository.dart';
 import 'package:mockza/features/reading_sim/presentation/reading_sim_notifier.dart';
 import 'package:mockza/features/reading_sim/presentation/reading_sim_providers.dart';
+import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/routing/routes.dart';
 import 'package:mockza/routing/safe_pop.dart';
 import 'package:mockza/theme/app_colors.dart';
@@ -17,11 +18,13 @@ import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/evidence_link.dart';
 import 'package:mockza/theme/components/exam_exit_guard.dart';
 import 'package:mockza/theme/components/exam_question_controls.dart';
+import 'package:mockza/theme/components/inline_listen_button.dart';
 import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/mz_bottom_sheet.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
+import 'package:mockza/theme/components/speech_practice_sheet.dart';
 import 'package:mockza/theme/components/timer_bar.dart';
 import 'package:mockza/theme/primitives.dart';
 
@@ -222,6 +225,7 @@ class _ReadingSimScreenState extends ConsumerState<ReadingSimScreen> {
                           child: _PassagePane(
                             passage: currentPassage,
                             passageIndex: state.passageIndex,
+                            isExamMode: widget.isExamMode,
                             activeColor: state.activeHighlightColor,
                             annotations: state.annotations,
                             stagedSelection: state.stagedSelection,
@@ -461,6 +465,7 @@ class _PassagePane extends StatelessWidget {
   const new({
     required this.passage,
     required this.passageIndex,
+    required this.isExamMode,
     required this.activeColor,
     required this.annotations,
     required this.onSelectColor,
@@ -474,6 +479,7 @@ class _PassagePane extends StatelessWidget {
 
   final ReadingPassageSpec passage;
   final int passageIndex;
+  final bool isExamMode;
   final String activeColor;
   final List<ReadingAnnotationItem> annotations;
   final StagedTextSelection? stagedSelection;
@@ -538,28 +544,71 @@ class _PassagePane extends StatelessWidget {
         if (stagedSelection != null) ...<Widget>[
           const SizedBox(height: SpacingTokens.sm),
           MzCard(
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Expanded(
-                  child: Text(
-                    '"${stagedSelection!.selectedText}"',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: typography.caption,
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        '"${stagedSelection!.selectedText}"',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: typography.caption,
+                      ),
+                    ),
+                    const SizedBox(width: SpacingTokens.sm),
+                    SecondaryButton(
+                      label: 'Highlight',
+                      isFullWidth: false,
+                      onPressed: onTapHighlightSelection,
+                    ),
+                    const SizedBox(width: SpacingTokens.xs),
+                    PrimaryButton(
+                      label: 'Note',
+                      isFullWidth: false,
+                      onPressed: onTapAddNote,
+                    ),
+                  ],
+                ),
+                if (!isExamMode) ...<Widget>[
+                  const SizedBox(height: SpacingTokens.xs),
+                  Wrap(
+                    spacing: SpacingTokens.xs,
+                    runSpacing: SpacingTokens.xs,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: <Widget>[
+                      InlineListenButton(
+                        text: stagedSelection!.selectedText,
+                        sourceContext: 'reading_study',
+                      ),
+                      ActionChip(
+                        avatar: AppIcon(
+                          LucideGlyph.mic,
+                          size: 14,
+                          color: colors.primary,
+                        ),
+                        label: Text(
+                          AppLocalizations.of(context).practiceSpeechCta,
+                          style: typography.caption,
+                        ),
+                        onPressed: () => unawaited(
+                          SpeechPracticeSheet.show(
+                            context,
+                            targetText: stagedSelection!.selectedText,
+                            practiceKind:
+                                stagedSelection!.selectedText.contains(' ')
+                                    ? 'sentence'
+                                    : 'word',
+                            sourceRefType: 'reading_passage',
+                            sourceRefId: passage.title,
+                            sourceContext: 'reading_study',
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: SpacingTokens.sm),
-                SecondaryButton(
-                  label: 'Highlight',
-                  isFullWidth: false,
-                  onPressed: onTapHighlightSelection,
-                ),
-                const SizedBox(width: SpacingTokens.xs),
-                PrimaryButton(
-                  label: 'Note',
-                  isFullWidth: false,
-                  onPressed: onTapAddNote,
-                ),
+                ],
               ],
             ),
           ),
@@ -604,11 +653,29 @@ class _PassagePane extends StatelessWidget {
                     ),
                   ),
                   Expanded(
-                    child: SelectableText(
-                      text,
-                      style: typography.readingPassage,
-                      onSelectionChanged: (sel, _) =>
-                          onSelectionChanged(pIdx, sel, text),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        SelectableText(
+                          text,
+                          style: typography.readingPassage,
+                          onSelectionChanged: (sel, _) =>
+                              onSelectionChanged(pIdx, sel, text),
+                        ),
+                        if (!isExamMode) ...<Widget>[
+                          const SizedBox(height: SpacingTokens.xs),
+                          Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: InlineListenButton(
+                              text: text.length > 480
+                                  ? text.substring(0, 480)
+                                  : text,
+                              sourceContext: 'reading',
+                              compact: true,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],

@@ -1,4 +1,4 @@
-import { estimateToeflLegacy120, type SupportedExamId } from '@mockza/domain';
+import { CANONICAL_TOPICS, estimateToeflLegacy120, type SupportedExamId, TOPIC_METADATA } from '@mockza/domain';
 import { Link } from '@tanstack/react-router';
 import {
   Check,
@@ -270,7 +270,24 @@ export function SettingsScreen({ onExternalRedirect }: SettingsScreenProps = {})
                 >
                   {t('settingsExportDataAction')}
                 </MzButton>
+                <MzButton
+                  variant="primary"
+                  size="sm"
+                  data-testid="settings-sync-cross-device-btn"
+                  isLoading={ctrl.isSyncingCrossDevice}
+                  leadingIcon={<RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />}
+                  onClick={() => void ctrl.syncAcrossDevicesNow()}
+                >
+                  {t('settingsSyncNowBtn')}
+                </MzButton>
               </div>
+              {ctrl.lastSyncedAtIso ? (
+                <p className="mt-2 text-[11px] text-text-secondary">
+                  {t('settingsLastSyncedLabel', {
+                    time: new Date(ctrl.lastSyncedAtIso).toLocaleTimeString(),
+                  })}
+                </p>
+              ) : null}
             </div>
           </MzCard>
 
@@ -400,6 +417,89 @@ export function SettingsScreen({ onExternalRedirect }: SettingsScreenProps = {})
                   </button>
                 );
               })}
+            </div>
+          </MzCard>
+
+          <MzCard variant="default" data-testid="settings-favorite-topics-card">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold text-text-primary">
+                {t('settingsFavoriteTopicsTitle')}
+              </h2>
+              <span className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-2.5 py-0.5 text-[11px] font-semibold text-text-secondary">
+                {t('settingsDailyNewCapTitle')}: {ctrl.dailyNewVocabCap}
+              </span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {CANONICAL_TOPICS.map((topicKey) => {
+                const selected = ctrl.favoriteTopics.includes(topicKey);
+                const label =
+                  deps.edition === 'irn'
+                    ? TOPIC_METADATA[topicKey].labelFa
+                    : TOPIC_METADATA[topicKey].labelEn;
+                return (
+                  <button
+                    key={topicKey}
+                    type="button"
+                    data-testid={`settings-topic-${topicKey}`}
+                    onClick={() => void ctrl.toggleFavoriteTopic(topicKey)}
+                    className={`rounded-[var(--mz-radius-pill)] border px-3 py-1 text-xs font-semibold transition-colors ${
+                      selected
+                        ? 'border-primary bg-primary text-on-primary'
+                        : 'border-border-subtle bg-bg-raised text-text-secondary hover:bg-surface-hover hover:text-text-primary'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 border-t border-border-subtle pt-4 sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-semibold text-text-primary">
+                  {t('settingsDailyNewCapTitle')}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {[5, 10, 20].map((cap) => (
+                    <button
+                      key={cap}
+                      type="button"
+                      data-testid={`settings-vocab-cap-${cap}`}
+                      onClick={() => void ctrl.setDailyNewVocabCap(cap)}
+                      className={`rounded-[var(--mz-radius-compact)] border px-3 py-1 text-xs font-mono font-semibold transition-colors ${
+                        ctrl.dailyNewVocabCap === cap
+                          ? 'border-primary bg-primary text-on-primary'
+                          : 'border-border-subtle bg-bg-raised text-text-secondary hover:text-text-primary'
+                      }`}
+                    >
+                      {cap}/day
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-text-primary">
+                  {t('settingsTtsAccentTitle')}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {(['us', 'uk'] as const).map((acc) => (
+                    <button
+                      key={acc}
+                      type="button"
+                      data-testid={`settings-tts-accent-${acc}`}
+                      onClick={() => void ctrl.setPreferredTtsAccent(acc)}
+                      className={`rounded-[var(--mz-radius-compact)] border px-3 py-1 text-xs font-semibold transition-colors ${
+                        ctrl.preferredTtsAccent === acc
+                          ? 'border-primary bg-primary text-on-primary'
+                          : 'border-border-subtle bg-bg-raised text-text-secondary hover:text-text-primary'
+                      }`}
+                    >
+                      {acc === 'us' ? t('settingsTtsAccentUs') : t('settingsTtsAccentUk')}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </MzCard>
 

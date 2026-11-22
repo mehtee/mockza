@@ -121,13 +121,26 @@ class _RegisterShifterScreenState extends ConsumerState<RegisterShifterScreen> {
     );
     if (!mounted) return;
     outcome.when(
-      success: (res) {
+      success: (res) async {
         unawaited(_logShifterProgress());
+        var defaultGear = 2;
+        try {
+          final cached = await ref
+              .read(personalizationRepositoryProvider)
+              .getCachedState();
+          final band = cached?.liveBand.currentBand;
+          if (band != null) {
+            defaultGear = band >= 7.0 ? 3 : (band < 5.5 ? 1 : 2);
+          }
+        } on Object {
+          // Keep neutral default Gear 2.
+        }
+        if (!mounted) return;
         setState(() {
           _result = res;
           _processing = false;
           _processingStage = '';
-          _selectedGear = 2;
+          _selectedGear = defaultGear;
         });
       },
       failure: (f) => setState(() {

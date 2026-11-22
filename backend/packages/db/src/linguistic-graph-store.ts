@@ -16,6 +16,8 @@ export interface SignalDeltaRecord {
   coachNoteFa: string;
   observedPolarity: 'gap_observed' | 'target_used' | 'interest_matched';
   excerptText: string | null;
+  skill?: string;
+  detectedFrom?: string;
 }
 
 export function getUtcDaySerial(date: Date = new Date()): number {
@@ -36,7 +38,9 @@ export async function upsertLinguisticGraphSignals(params: {
     | 'diagnostic'
     | 'register_shifter'
     | 'drop_anything'
-    | 'mission';
+    | 'mission'
+    | 'objective_practice'
+    | 'pronunciation';
   sourceRefId: string;
   signals: readonly SignalDeltaRecord[];
   now?: Date;
@@ -83,6 +87,8 @@ export async function upsertLinguisticGraphSignals(params: {
           coachNoteFa: s.coachNoteFa,
           isPinned: false,
           isMuted: false,
+          skill: s.skill ?? 'mixed',
+          detectedFrom: s.detectedFrom ?? params.sourceKind,
           updatedAt: now,
         })
         .onConflictDoUpdate({

@@ -21,6 +21,9 @@ class VocabDeckCard {
     this.usageNote,
     this.sourceSkill,
     this.sourceAttemptId,
+    this.canonicalTopic,
+    this.cefrLevel,
+    this.baseWaveOrder,
   });
 
   /// Card primary identifier.
@@ -55,6 +58,15 @@ class VocabDeckCard {
 
   /// Source attempt identifier.
   final String? sourceAttemptId;
+
+  /// Canonical topic taxonomy key (`technology_ai`, etc.).
+  final String? canonicalTopic;
+
+  /// CEFR level (`A1..C2`).
+  final String? cefrLevel;
+
+  /// Deterministic ordering seed inside progressive waves.
+  final int? baseWaveOrder;
 }
 
 /// Repository persisting SRS vocabulary cards and applying pure SM-2 transitions.
@@ -120,6 +132,12 @@ final class VocabRepository {
     return _mapRowsToDeckCards(rows);
   }
 
+  /// Returns distinct card IDs reviewed today for daily new-word cap checks.
+  Future<Set<String>> getReviewedCardIdsToday() {
+    final today = SerialDay.fromUtcDateTime(_clock.now());
+    return _db.vocabDao.getReviewedCardIdsOnDay(today.value);
+  }
+
   List<VocabDeckCard> _mapRowsToDeckCards(List<VocabCardRow> rows) => rows
       .map(
         (row) => VocabDeckCard(
@@ -133,6 +151,9 @@ final class VocabRepository {
           usageNote: row.usageNote,
           sourceSkill: row.sourceSkill,
           sourceAttemptId: row.sourceAttemptId,
+          canonicalTopic: row.canonicalTopic,
+          cefrLevel: row.cefrLevel,
+          baseWaveOrder: row.baseWaveOrder,
           schedule: SrsCardState(
             repetitions: row.repetitions,
             intervalDays: row.intervalDays,
@@ -157,6 +178,9 @@ final class VocabRepository {
             glossFa: Value(c['glossFa'] as String?),
             topicTag: (c['topicTag'] as String?) ?? 'academic',
             contextSentence: Value(c['contextSentence'] as String?),
+            canonicalTopic: Value(c['canonicalTopic'] as String?),
+            cefrLevel: Value(c['cefrLevel'] as String?),
+            baseWaveOrder: Value((c['baseWaveOrder'] as num?)?.toInt()),
             easeFactorMilli: Value(
               (c['easeFactorMilli'] as num?)?.toInt() ?? 2500,
             ),

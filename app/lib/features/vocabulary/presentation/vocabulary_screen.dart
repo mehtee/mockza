@@ -4,9 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mockza/core/config/edition_config.dart';
+import 'package:mockza/core/diagnostic/diagnostic_models.dart';
+import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/core/personalization/vocab_wave_scheduler.dart';
+import 'package:mockza/core/result/result.dart';
+import 'package:mockza/core/vocab/serial_day.dart';
 import 'package:mockza/data/repositories/vocab_repository.dart';
 import 'package:mockza/features/vocabulary/presentation/vocabulary_providers.dart';
+import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/providers.dart';
 import 'package:mockza/routing/routes.dart';
 import 'package:mockza/theme/app_colors.dart';
@@ -14,11 +20,14 @@ import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
 import 'package:mockza/theme/app_typography.dart';
 import 'package:mockza/theme/components/brand_header.dart';
+import 'package:mockza/theme/components/inline_listen_button.dart';
 import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
+import 'package:mockza/theme/components/mz_toast.dart';
+import 'package:mockza/theme/components/speech_practice_sheet.dart';
 import 'package:mockza/theme/primitives.dart';
 
 /// Spaced repetition vocabulary dashboard and saved words screen (Screens 16 & 18).
@@ -43,9 +52,77 @@ class VocabularyScreen extends ConsumerWidget {
 
     final dueCards = dueCardsAsync.asData?.value ?? const <VocabDeckCard>[];
     final allCards = allCardsAsync.asData?.value ?? const <VocabDeckCard>[];
+    final previewAll = ref.watch(vocabPreviewAllWavesProvider);
+    final vocabTab = ref.watch(vocabTabModeProvider);
+    final newTodayCount = ref.watch(vocabNewReviewedTodayProvider).asData?.value ?? 0;
+    final cachedPersonalization =
+        ref.watch(vocabPersonalizationProvider).asData?.value;
+    final unlockedWave = cachedPersonalization?.vocabUnlockedWave ?? 1;
+    final dailyCap = cachedPersonalization?.dailyNewVocabCap ?? 10;
+
+    final waveInputs = allCards
+        .map(
+          (c) => VocabWaveCardInput(
+            cardId: c.cardId,
+            headword: c.headword,
+            legacyTopicTag: c.topicTag,
+            repetitions: c.schedule.repetitions,
+            dueSerialDay: c.schedule.dueDay.value,
+            cefrLevel: AuthoringTier.values.firstWhere(
+              (t) => t.name.toUpperCase() == (c.cefrLevel ?? '').toUpperCase(),
+              orElse: () => AuthoringTier.b2,
+            ),
+            baseWaveOrder: c.baseWaveOrder ?? 500,
+          ),
+        )
+        .toList(growable: false);
+    final waveResult = VocabWaveScheduler.assignWaves<VocabWaveCardInput>(
+      cards: waveInputs,
+      favoriteTopics:
+          cachedPersonalization?.favoriteTopics ?? const <String>[],
+      track: ExamTrack.fromId(
+        cachedPersonalization?.examTrack ?? 'ielts_academic',
+      ),
+      currentBand: cachedPersonalization?.liveBand.currentBand,
+      targetBand: cachedPersonalization?.targetBand ?? 7.0,
+      activeWeaknessKeys:
+          cachedPersonalization?.weaknesses
+              .map((w) => w.canonicalKey)
+              .toList(growable: false) ??
+          const <String>[],
+      unlockedWave: unlockedWave,
+    );
+    final todaySerial =
+        SerialDay.fromUtcDateTime(ref.read(clockProvider).now()).value;
+    final queueSelection =
+        VocabWaveScheduler.selectDailyReviewQueue<VocabWaveCardInput>(
+          assigned: waveResult.assigned,
+          todaySerialDay: todaySerial,
+          newCardsIntroducedToday: newTodayCount,
+          unlockedWave: unlockedWave,
+          dailyNewCap: dailyCap,
+        );
+    final unlockedCardIds = waveResult.assigned
+        .where((a) => a.isUnlocked)
+        .map((a) => a.card.cardId)
+        .toSet();
 
     final filteredCards = allCards
         .where((card) {
+          if (vocabTab == 'mistakes') {
+            final isUserSaved =
+                card.sourceAttemptId != null ||
+                card.sourceSkill != null ||
+                card.topicTag == 'register_shifter' ||
+                card.topicTag == 'drop_anything';
+            if (!isUserSaved) return false;
+          } else if (vocabTab == 'wave' &&
+              !previewAll &&
+              searchQuery.isEmpty &&
+              unlockedCardIds.isNotEmpty &&
+              !unlockedCardIds.contains(card.cardId)) {
+            return false;
+          }
           final matchesFilter =
               filter == 'All' ||
               (card.sourceSkill != null &&
@@ -100,6 +177,17 @@ class VocabularyScreen extends ConsumerWidget {
                       totalCount: allCards.length,
                       edition: edition,
                     ),
+                    if (allCards.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: SpacingTokens.md),
+                      _buildWaveProgressBanner(
+                        context,
+                        ref,
+                        summary: queueSelection.summary,
+                        previewAll: previewAll,
+                        isIran: isIran,
+                        dailyCap: dailyCap,
+                      ),
+                    ],
                   ],
                   const SizedBox(height: SpacingTokens.lg),
                   Text(
@@ -144,6 +232,35 @@ class VocabularyScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: SpacingTokens.sm),
                   _buildSearchBar(context, ref),
+                  const SizedBox(height: SpacingTokens.sm),
+                  Wrap(
+                    spacing: SpacingTokens.xs,
+                    children: <Widget>[
+                      ChoiceChip(
+                        label: Text(AppLocalizations.of(context).vocabTabTodaysWave),
+                        selected: vocabTab == 'wave',
+                        onSelected: (_) => ref
+                            .read(vocabTabModeProvider.notifier)
+                            .setTab('wave'),
+                      ),
+                      ChoiceChip(
+                        label: Text(
+                          AppLocalizations.of(context).vocabTabSavedMistakes,
+                        ),
+                        selected: vocabTab == 'mistakes',
+                        onSelected: (_) => ref
+                            .read(vocabTabModeProvider.notifier)
+                            .setTab('mistakes'),
+                      ),
+                      ChoiceChip(
+                        label: Text(AppLocalizations.of(context).vocabTabFullDeck),
+                        selected: vocabTab == 'full',
+                        onSelected: (_) => ref
+                            .read(vocabTabModeProvider.notifier)
+                            .setTab('full'),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: SpacingTokens.sm),
                   _buildFilterChips(context, ref, filter),
                   const SizedBox(height: SpacingTokens.md),
@@ -510,6 +627,18 @@ class VocabularyScreen extends ConsumerWidget {
                         ),
                       ),
                     ],
+                    if (card.sourceSkill != null ||
+                        card.canonicalTopic != null) ...<Widget>[
+                      const SizedBox(height: SpacingTokens.xs),
+                      Text(
+                        '${AppLocalizations.of(context).vocabWhyThisWord}: '
+                        '${card.sourceSkill ?? card.canonicalTopic ?? card.topicTag}',
+                        style: typography.caption.copyWith(
+                          color: colors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: SpacingTokens.xs),
                     LtrExamBoundary(
                       child: Text(
@@ -524,7 +653,33 @@ class VocabularyScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: SpacingTokens.md),
+              const SizedBox(width: SpacingTokens.xs),
+              InlineListenButton(
+                text: card.headword,
+                sourceContext: 'vocab_deck',
+                compact: true,
+                showSlowToggle: false,
+              ),
+              IconButton(
+                tooltip: AppLocalizations.of(context).practiceSpeechCta,
+                onPressed: () => unawaited(
+                  SpeechPracticeSheet.show(
+                    context,
+                    targetText: card.headword,
+                    practiceKind: card.headword.contains(' ')
+                        ? 'collocation'
+                        : 'word',
+                    sourceRefType: 'vocab_card',
+                    sourceRefId: card.cardId,
+                    sourceContext: 'vocab_deck',
+                  ),
+                ),
+                icon: AppIcon(
+                  LucideGlyph.mic,
+                  size: 18,
+                  color: colors.primary,
+                ),
+              ),
               AppIcon(
                 isIran ? LucideGlyph.chevronLeft : LucideGlyph.chevronRight,
                 size: 18,
@@ -532,6 +687,102 @@ class VocabularyScreen extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildWaveProgressBanner(
+    BuildContext context,
+    WidgetRef ref, {
+    required VocabWaveSummary summary,
+    required bool previewAll,
+    required bool isIran,
+    required int dailyCap,
+  }) {
+    final l10n = AppLocalizations.of(context);
+    final colors = AppColors.of(context);
+    final typography = AppTypography.of(context);
+
+    return MzCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: SpacingTokens.sm,
+            runSpacing: SpacingTokens.xs,
+            children: <Widget>[
+              Text(
+                l10n.vocabWaveTitle(summary.unlockedWave, summary.totalWaves),
+                style: typography.cardTitle.copyWith(color: colors.textPrimary),
+              ),
+              MzChip(
+                label: '${summary.currentWaveLearned}/${summary.currentWaveTotal}',
+              ),
+            ],
+          ),
+          const SizedBox(height: SpacingTokens.xs),
+          Text(
+            isIran
+                ? 'سهمیه واژگان جدید باقی‌مانده امروز: ${summary.dailyNewRemaining} از $dailyCap'
+                : 'Daily new words remaining today: ${summary.dailyNewRemaining} / $dailyCap',
+            style: typography.caption.copyWith(color: colors.textSecondary),
+          ),
+          if (summary.readyToUnlockNext &&
+              summary.unlockedWave < summary.totalWaves) ...<Widget>[
+            const SizedBox(height: SpacingTokens.xs),
+            Text(
+              l10n.vocabWaveAutoUnlocked(
+                summary.unlockedWave,
+                summary.unlockedWave + 1,
+              ),
+              style: typography.caption.copyWith(
+                color: colors.success,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          const SizedBox(height: SpacingTokens.sm),
+          Wrap(
+            spacing: SpacingTokens.sm,
+            runSpacing: SpacingTokens.xs,
+            children: <Widget>[
+              if (summary.unlockedWave < summary.totalWaves)
+                SecondaryButton(
+                  label: l10n.vocabUnlockNextWave,
+                  isFullWidth: false,
+                  onPressed: () => unawaited(() async {
+                    final res = await ref
+                        .read(personalizationGatewayProvider)
+                        .updateProfile(unlockNextVocabWave: true);
+                    if (!context.mounted) return;
+                    if (res case Ok(:final value)) {
+                      await ref
+                          .read(personalizationRepositoryProvider)
+                          .cacheState(value);
+                      ref.invalidate(vocabPersonalizationProvider);
+                      if (context.mounted) {
+                        showMzToast(
+                          context,
+                          message: isIran
+                              ? '۱۵ واژه بعدی باز شد!'
+                              : 'Next 15 words unlocked!',
+                        );
+                      }
+                    }
+                  }()),
+                ),
+              FilterChip(
+                label: Text(l10n.vocabPreviewAllWaves),
+                selected: previewAll,
+                onSelected: (_) => ref
+                    .read(vocabPreviewAllWavesProvider.notifier)
+                    .toggle(),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

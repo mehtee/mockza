@@ -90,5 +90,95 @@
   "dropDrillTitle": "2-Min Study Quiz",
   "saveToSm2": "Save to Vocab Deck",
   "savedToSm2": "Saved to Vocab Deck",
-  "recentDropsLabel": "Saved Study Materials"
+  "recentDropsLabel": "Saved Study Materials",
+  "roadmapTitle": "Your Learning Roadmap",
+  "roadmapPanoramaLabel": "4-Milestone Panorama",
+  "roadmapActiveStepsLabel": "Step-by-Step Next Actions",
+  "roadmapUpcomingLabel": "Upcoming Steps",
+  "roadmapViewFullCta": "View Full Roadmap",
+  "roadmapCompleteStepCta": "Mark Step Done",
+  "roadmapSkipStepCta": "Skip",
+  "liveBandTitle": "Live Estimated Band",
+  "confidenceProvisional": "Provisional · Initial Check",
+  "confidenceDeveloping": "Developing · Updating",
+  "confidenceCalibrated": "Calibrated · High Confidence",
+  "listenCta": "Listen",
+  "listenSlowCta": "0.8×",
+  "practiceSpeechCta": "Practice Pronunciation",
+  "speechStudioTitle": "Pronunciation Practice Studio",
+  "speechRecordStart": "Record My Voice",
+  "speechRecordStop": "Stop Recording",
+  "speechAnalyzeCta": "Analyze Pronunciation",
+  "speechAnalyzing": "Analyzing articulation, stress & fluency...",
+  "speechReplayMine": "Play My Take",
+  "speechHistoryTitle": "Past Synced Takes",
+  "vocabWaveTitle": "Wave {current} of {total}",
+  "@vocabWaveTitle": {
+    "placeholders": {
+      "current": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "vocabUnlockNextWave": "Unlock Next 15 Words",
+  "vocabPreviewAllWaves": "Preview All Waves",
+  "syncDevicesNow": "Sync Across Devices Now",
+  "syncSuccessBanner": "Synced across devices",
+  "favoriteTopicsLabel": "Favorite Topics (Start Here)",
+  "roadmapBandUpTitle": "+{delta} Band Up! Live estimate rose to {band}",
+  "@roadmapBandUpTitle": {
+    "placeholders": {
+      "delta": { "type": "String" },
+      "band": { "type": "String" }
+    }
+  },
+  "roadmapBandUpBody": "Your roadmap has been recalibrated for your next target.",
+  "roadmapCollapseCompleted": "Completed Milestone · {count} steps",
+  "@roadmapCollapseCompleted": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "roadmapJumpAheadCta": "Jump ahead anyway",
+  "roadmapEditTopicsPace": "Topics & Pace",
+  "planImpactTitle": "How This Updated Your Plan",
+  "planImpactBandLabel": "Live Band Estimate",
+  "planImpactNextStepCta": "Continue Next Roadmap Step",
+  "practiceTabForYourPath": "For Your Path",
+  "practiceTabAllTests": "All Tests",
+  "vocabTabTodaysWave": "Today's Wave",
+  "vocabTabSavedMistakes": "My Saved Mistakes",
+  "vocabTabFullDeck": "Full Deck",
+  "vocabWhyThisWord": "Why this word",
+  "vocabWaveAutoUnlocked": "60% of Wave {wave} learned! Wave {next} is now unlocked.",
+  "@vocabWaveAutoUnlocked": {
+    "placeholders": {
+      "wave": { "type": "int" },
+      "next": { "type": "int" }
+    }
+  },
+  "speechPreviewHint": "Listen back to your recording before analyzing, or re-record for free.",
+  "speechQuotaRemaining": "{remaining}/{limit} analyses left today",
+  "@speechQuotaRemaining": {
+    "placeholders": {
+      "remaining": { "type": "int" },
+      "limit": { "type": "int" }
+    }
+  },
+  "speechWordTapHint": "Tap any highlighted word for IPA comparison & 0.8x audio",
+  "speechListenWordSlow": "Listen to \"{word}\" (0.8x)",
+  "@speechListenWordSlow": {
+    "placeholders": {
+      "word": { "type": "String" }
+    }
+  },
+  "settingsDailyNewCapTitle": "Daily New Vocab Cap",
+  "settingsTtsAccentTitle": "Reference Voice Accent (Kokoro AI)",
+  "settingsTtsAccentUs": "American (af_bella)",
+  "settingsTtsAccentUk": "British (bf_emma)",
+  "graphCoverageTitle": "Topic × Weakness Adaptation Matrix",
+  "graphCoveragePhaseLabel": "Current Phase",
+  "graphCoverageFavoriteMastered": "Mastered in Favorite Topics",
+  "graphCoverageTransferred": "Transferred to Other Topics",
+  "diagStartStepCta": "Start Step 1 on Your Roadmap",
+  "audioLoadFailed": "Audio load failed"
 }

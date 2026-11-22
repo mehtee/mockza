@@ -9,7 +9,9 @@ import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/data/repositories/exam_catalog_repository.dart';
 import 'package:mockza/features/practice_hub/presentation/practice_hub_providers.dart';
 import 'package:mockza/l10n/app_localizations.dart';
+import 'package:mockza/providers.dart';
 import 'package:mockza/routing/routes.dart';
+import 'package:mockza/services/personalization_gateway.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_motion.dart';
@@ -34,6 +36,32 @@ class PracticeHubScreen extends ConsumerStatefulWidget {
 
 class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
   bool _isExamMode = true;
+  bool _forYourPathOnly = true;
+  PersonalizationStateDto? _personalization;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadPersonalization());
+  }
+
+  Future<void> _loadPersonalization() async {
+    try {
+      final repo = ref.read(personalizationRepositoryProvider);
+      final cached = await repo.getCachedState();
+      if (mounted && cached != null) {
+        setState(() => _personalization = cached);
+      }
+      final remote = await ref.read(personalizationGatewayProvider).getState();
+      final fresh = remote.valueOrNull;
+      if (fresh != null) {
+        await repo.cacheState(fresh);
+        if (mounted) setState(() => _personalization = fresh);
+      }
+    } on Object {
+      // Offline safe.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -248,6 +276,12 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                   ),
                 ),
                 const SizedBox(height: SpacingTokens.md),
+                SecondaryButton(
+                  label: l10n.roadmapViewFullCta,
+                  glyph: LucideGlyph.target,
+                  onPressed: () => context.push(AppRoutes.roadmap),
+                ),
+                const SizedBox(height: SpacingTokens.md),
 
                 // Core Skill Simulators Quick-Launch
                 if (state.selectedSkill == null ||
@@ -443,31 +477,71 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                       ],
                     ),
                   )
-                else
-                  ...filteredPacks.map(
-                    (pack) => TaskCard(
-                      title: pack.title,
-                      subtitle: pack.description.isNotEmpty
-                          ? pack.description
-                          : '${pack.track.toUpperCase()} • ${pack.skill.name}',
-                      glyph: _glyphForSkill(pack.skill),
-                      tint: _tintForSkill(pack.skill),
-                      durationText: _formatDuration(pack),
-                      questionsText: _formatCountLabel(pack),
-                      badgeText:
-                          pack.accent ??
-                          (pack.track == 'general' ? 'General' : null),
-                      isDownloaded: pack.isCachedOffline,
-                      isDownloading: state.downloadingPackIds.contains(
-                        pack.packId,
-                      ),
-                      onTapDownload: () => notifier.toggleOfflineDownload(pack),
-                      onTap: () => _openTestSetupSheet(
-                        context,
-                        pack: pack,
-                      ),
+                else ...<Widget>[
+                  if ((_personalization?.recommendedPacks ??
+                          const <RecommendedItemDto>[])
+                      .isNotEmpty) ...<Widget>[
+                    Wrap(
+                      spacing: SpacingTokens.xs,
+                      children: <Widget>[
+                        ChoiceChip(
+                          label: Text(l10n.practiceTabForYourPath),
+                          selected: _forYourPathOnly,
+                          onSelected: (_) =>
+                              setState(() => _forYourPathOnly = true),
+                        ),
+                        ChoiceChip(
+                          label: Text(l10n.practiceTabAllTests),
+                          selected: !_forYourPathOnly,
+                          onSelected: (_) =>
+                              setState(() => _forYourPathOnly = false),
+                        ),
+                      ],
                     ),
-                  ),
+                    const SizedBox(height: SpacingTokens.sm),
+                  ],
+                  ...(() {
+                    final recIds =
+                        _personalization?.recommendedPacks
+                            .map((r) => r.id)
+                            .toSet() ??
+                        const <String>{};
+                    final pathFiltered = (_forYourPathOnly && recIds.isNotEmpty)
+                        ? filteredPacks
+                              .where((p) => recIds.contains(p.packId))
+                              .toList(growable: false)
+                        : filteredPacks;
+                    final displayPacks = pathFiltered.isNotEmpty
+                        ? pathFiltered
+                        : filteredPacks;
+                    return displayPacks.map(
+                      (pack) => TaskCard(
+                        title: pack.title,
+                        subtitle: pack.description.isNotEmpty
+                            ? pack.description
+                            : '${pack.track.toUpperCase()} • ${pack.skill.name}',
+                        glyph: _glyphForSkill(pack.skill),
+                        tint: _tintForSkill(pack.skill),
+                        durationText: _formatDuration(pack),
+                        questionsText: _formatCountLabel(pack),
+                        badgeText: recIds.contains(pack.packId)
+                            ? (isFa ? 'مسیر شما' : 'For Your Path')
+                            : (pack.accent ??
+                                  (pack.track == 'general' ? 'General' : null)),
+                        isDownloaded: pack.isCachedOffline,
+                        isDownloading: state.downloadingPackIds.contains(
+                          pack.packId,
+                        ),
+                        onTapDownload: () =>
+                            notifier.toggleOfflineDownload(pack),
+                        onTap: () => _openTestSetupSheet(
+                          context,
+                          pack: pack,
+                        ),
+                      ),
+                    );
+                  }()),
+                ],
 
                 // Synced 3-Minute Micro-Drills Section
                 if (drills.isNotEmpty) ...<Widget>[

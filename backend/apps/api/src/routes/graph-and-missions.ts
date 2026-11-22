@@ -9,6 +9,7 @@ import {
   prepareAudioForModel,
   bufferAudioStream,
   updateLinguisticGraphSignals,
+  type AiUsageRecord,
 } from '@mockza/ai';
 import type { AppEnv } from '@mockza/config';
 import {
@@ -20,16 +21,25 @@ import {
   UpdateGraphInterestsRequestSchema,
 } from '@mockza/contracts';
 import {
+  computeFullPersonalizationState,
   dailyMissions,
   getUtcDaySerial,
+  learnerTopicWeaknessCoverage,
   listLinguisticGraphForAccount,
   type MockzaDb,
+  recordAiUsageLedger,
+  recordUserActivityLedger,
   updateGraphInterestPreferences,
   upsertLinguisticGraphSignals,
 } from '@mockza/db';
 import {
+  normalizeCanonicalTopicKey,
+  normalizeFavoriteTopicList,
   rankTopMissionTargets,
+  selectNextCoachTopic,
   slugifyTopicCanonicalKey,
+  type CanonicalTopicKey,
+  type TopicWeaknessCoverageEntry,
 } from '@mockza/domain';
 import { createAudioS3Client } from '@mockza/storage';
 import { and, eq } from 'drizzle-orm';
@@ -332,11 +342,67 @@ export function registerGraphAndMissionRoutes(
       : { bottlenecks: [], targetStructures: [], interestTopics: [], totalEvidenceCount: 0 };
 
     const activeInterests = graph.interestTopics.filter((t) => !t.isMuted);
-    const pinnedInterest = activeInterests.find((t) => t.isPinned);
-    const focusTopic =
-      pinnedInterest?.displayLabelEn ??
+    let focusTopic =
+      activeInterests.find((t) => t.isPinned)?.displayLabelEn ??
       activeInterests[0]?.displayLabelEn ??
-      'Technology & Modern Work';
+      'Technology & AI';
+    let activePhase: 'favorite_topics' | 'weakness_transfer' | 'exam_breadth' = 'favorite_topics';
+    let phaseReasonEn = 'Starting inside your favorite topics.';
+    let phaseReasonFa = 'شروع تمرین در موضوعات مورد علاقه شما.';
+    let currentBand: number | undefined;
+    let targetBand: number | undefined;
+
+    if (db) {
+      const [pState, covRows] = await Promise.all([
+        computeFullPersonalizationState({ db, accountKey, edition: env.EDITION }).catch(() => null),
+        db
+          .select()
+          .from(learnerTopicWeaknessCoverage)
+          .where(
+            and(
+              eq(learnerTopicWeaknessCoverage.accountKey, accountKey),
+              eq(learnerTopicWeaknessCoverage.edition, env.EDITION),
+            ),
+          ),
+      ]);
+      if (pState) {
+        currentBand = pState.liveBand.currentBand ?? undefined;
+        targetBand = pState.profile.targetBand;
+        const covEntries: TopicWeaknessCoverageEntry[] = covRows.map((c) => ({
+          weaknessKey: c.weaknessKey,
+          topicKey: normalizeCanonicalTopicKey(c.topicKey) ?? 'academic_core',
+          practiceCount: c.attemptsCount,
+          passCount: c.successesCount,
+          lastMasteryMilli: c.masteredInTopic ? 820 : 400,
+          lastPracticedDaySerial: c.lastPracticedAt ? getUtcDaySerial(c.lastPracticedAt) : daySerial - 5,
+        }));
+        const selected = selectNextCoachTopic({
+          favoriteTopics: normalizeFavoriteTopicList(pState.profile.favoriteTopics),
+          weaknessNodes: graph.bottlenecks
+            .filter((b) => !b.isMuted)
+            .map((b) => ({
+              nodeId: b.nodeId,
+              nodeKind: 'bottleneck',
+              canonicalKey: b.canonicalKey,
+              masteryScoreMilli: b.masteryScoreMilli,
+              signalWeightMilli: b.signalWeightMilli,
+              evidenceCount: b.evidenceCount,
+              lastSeenDaySerial: b.lastSeenDaySerial,
+            })),
+          coverage: covEntries,
+          currentDaySerial: daySerial,
+        });
+        focusTopic = selected.topicKey;
+        activePhase =
+          selected.phase === 'cross_topic_transfer'
+            ? 'weakness_transfer'
+            : selected.phase === 'exam_breadth'
+              ? 'exam_breadth'
+              : 'favorite_topics';
+        phaseReasonEn = selected.reasonEn;
+        phaseReasonFa = selected.reasonFa;
+      }
+    }
 
     const ranked = rankTopMissionTargets({
       nodes: [...graph.bottlenecks, ...graph.targetStructures].map((n) => ({
@@ -375,11 +441,17 @@ export function registerGraphAndMissionRoutes(
 
     let synthesized;
     const isColdStartUser = graph.bottlenecks.length === 0 && graph.targetStructures.length === 0;
+    const planUsages: AiUsageRecord[] = [];
     if (isColdStartUser) {
       synthesized = buildCuratedStarterMission({
         edition: env.EDITION,
         examTrack,
         focusTopic,
+        activePhase,
+        phaseReasonEn,
+        phaseReasonFa,
+        currentBand,
+        targetBand,
         bottlenecks,
         dueCards: parsedDueWords,
       });
@@ -390,12 +462,20 @@ export function registerGraphAndMissionRoutes(
             edition: env.EDITION,
             examTrack,
             focusTopic,
+            activePhase,
+            phaseReasonEn,
+            phaseReasonFa,
+            currentBand,
+            targetBand,
             bottlenecks,
             dueCards: parsedDueWords,
           },
           {
             allowDemoEvaluator: env.ALLOW_DEMO_EVALUATOR || !env.OPENROUTER_API_KEY,
             routingTier: 'flex',
+            onUsage: (u) => {
+              planUsages.push(u);
+            },
           },
         ),
         new Promise<never>((_, reject) =>
@@ -406,6 +486,11 @@ export function registerGraphAndMissionRoutes(
           edition: env.EDITION,
           examTrack,
           focusTopic,
+          activePhase,
+          phaseReasonEn,
+          phaseReasonFa,
+          currentBand,
+          targetBand,
           bottlenecks,
           dueCards: parsedDueWords,
         }),
@@ -413,6 +498,28 @@ export function registerGraphAndMissionRoutes(
     }
 
     const missionId = randomUUID();
+    if (db && planUsages.length > 0) {
+      for (const u of planUsages) {
+        await recordAiUsageLedger({
+          db,
+          accountKey,
+          deviceId,
+          edition: env.EDITION,
+          featureKind: u.featureKind,
+          entityType: 'daily_mission',
+          entityId: missionId,
+          modelId: u.modelId,
+          providerRequestId: u.providerRequestId,
+          promptTokens: u.promptTokens,
+          completionTokens: u.completionTokens,
+          cachedTokens: u.cachedTokens,
+          totalTokens: u.totalTokens,
+          estimatedCostUsdMicros: u.estimatedCostUsdMicros,
+          costUsdSource: u.costUsdSource,
+          latencyMs: u.latencyMs,
+        }).catch(() => {});
+      }
+    }
     const targetKeys = synthesized.payload.forcedTargets.map((t) => t.canonicalKey);
     const dueCardIds = synthesized.payload.warmupCardIds;
 
@@ -612,6 +719,7 @@ export function registerGraphAndMissionRoutes(
     }
 
     let evaluationResult: z.infer<typeof DailyMissionResponseSchema>['evaluationResult'];
+    const evalUsages: AiUsageRecord[] = [];
     try {
       evaluationResult = await evaluateMissionResponseGraph(
         {
@@ -626,6 +734,9 @@ export function registerGraphAndMissionRoutes(
         {
           allowDemoEvaluator: env.ALLOW_DEMO_EVALUATOR || !env.OPENROUTER_API_KEY,
           routingTier: 'standard',
+          onUsage: (u) => {
+            evalUsages.push(u);
+          },
         },
       );
     } catch {
@@ -668,6 +779,38 @@ export function registerGraphAndMissionRoutes(
           completedAt: new Date(),
         })
         .where(eq(dailyMissions.missionId, missionId));
+
+      for (const u of evalUsages) {
+        await recordAiUsageLedger({
+          db,
+          accountKey,
+          deviceId,
+          edition: env.EDITION,
+          featureKind: u.featureKind,
+          entityType: 'daily_mission',
+          entityId: missionId,
+          modelId: u.modelId,
+          providerRequestId: u.providerRequestId,
+          promptTokens: u.promptTokens,
+          completionTokens: u.completionTokens,
+          cachedTokens: u.cachedTokens,
+          totalTokens: u.totalTokens,
+          estimatedCostUsdMicros: u.estimatedCostUsdMicros,
+          costUsdSource: u.costUsdSource,
+          latencyMs: u.latencyMs,
+        }).catch(() => {});
+      }
+      await recordUserActivityLedger({
+        db,
+        accountKey,
+        deviceId,
+        edition: env.EDITION,
+        activityKind: 'mission_completed',
+        entityType: 'daily_mission',
+        entityId: missionId,
+        topicKey: normalizeCanonicalTopicKey(missionRow.focusTopic) ?? missionRow.focusTopic,
+        metadata: { clarityScore1To5: evaluationResult.clarityScore1To5 },
+      }).catch(() => {});
 
       if (effectiveSampleForGraph.length >= 10) {
         // Non-blocking background graph update so HTTP 200 returns without delay.

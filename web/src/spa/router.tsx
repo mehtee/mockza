@@ -20,6 +20,7 @@ import {
 import {
   BookOpen,
   Calendar,
+  Compass,
   Flame,
   Home,
   Layers,
@@ -139,6 +140,9 @@ const diagnosticSessionScreen = createPreloadableScreen(() =>
 const homeScreen = createPreloadableScreen(() =>
   import('@/spa/features/home/HomeScreen').then((m) => ({ default: m.HomeScreen })),
 );
+const roadmapScreen = createPreloadableScreen(() =>
+  import('@/spa/features/roadmap/RoadmapScreen').then((m) => ({ default: m.RoadmapScreen })),
+);
 const goalSetupScreen = createPreloadableScreen(() =>
   import('@/spa/features/onboarding/GoalSetupScreen').then((m) => ({
     default: m.GoalSetupScreen,
@@ -205,6 +209,11 @@ const linguisticGraphScreen = createPreloadableScreen(() =>
     default: m.LinguisticGraphScreen,
   })),
 );
+const adminTraceConsoleScreen = createPreloadableScreen(() =>
+  import('@/spa/features/admin/AdminTraceConsoleScreen').then((m) => ({
+    default: m.AdminTraceConsoleScreen,
+  })),
+);
 const registerShifterScreen = createPreloadableScreen(() =>
   import('@/spa/features/register-shifter/RegisterShifterScreen').then((m) => ({
     default: m.RegisterShifterScreen,
@@ -260,6 +269,7 @@ const DiagnosticIntroScreen = diagnosticIntroScreen.Component;
 const DiagnosticResultScreen = diagnosticResultScreen.Component;
 const DiagnosticSessionScreen = diagnosticSessionScreen.Component;
 const HomeScreen = homeScreen.Component;
+const RoadmapScreen = roadmapScreen.Component;
 const GoalSetupScreen = goalSetupScreen.Component;
 const WelcomeScreen = welcomeScreen.Component;
 const PaywallScreen = paywallScreen.Component;
@@ -282,6 +292,7 @@ const VocabWordDetailScreen = vocabWordDetailScreen.Component;
 const CoachHubScreen = coachHubScreen.Component;
 const DailyMissionScreen = dailyMissionScreen.Component;
 const LinguisticGraphScreen = linguisticGraphScreen.Component;
+const AdminTraceConsoleScreen = adminTraceConsoleScreen.Component;
 const RegisterShifterScreen = registerShifterScreen.Component;
 const DropHubScreen = dropHubScreen.Component;
 const DropDrillScreen = dropDrillScreen.Component;
@@ -289,6 +300,7 @@ const DropDrillScreen = dropDrillScreen.Component;
 export function preloadRouteForPathname(pathname: string): Promise<void> {
   const normalized = pathname.replace(/^\/app(?=\/|$)/, '').replace(/\/+$/, '') || '/home';
   if (normalized === '/' || normalized === '/home') return homeScreen.preload();
+  if (normalized === '/roadmap') return roadmapScreen.preload();
   if (normalized === '/coach') return coachHubScreen.preload();
   if (normalized.startsWith('/mission/')) return dailyMissionScreen.preload();
   if (normalized === '/progress/graph') return linguisticGraphScreen.preload();
@@ -657,6 +669,7 @@ function AppRootLayout() {
 
   const navItems = [
     { to: '/home' as const, label: t('navHome'), Icon: Home, testId: 'nav-home-link' },
+    { to: '/roadmap' as const, label: t('navRoadmap'), Icon: Compass, testId: 'nav-roadmap-link' },
     { to: '/practice' as const, label: t('navPractice'), Icon: BookOpen, testId: 'nav-practice-link' },
     { to: '/coach' as const, label: t('navSmartCoach'), Icon: Flame, testId: 'nav-coach-link' },
     { to: '/vocabulary' as const, label: t('navVocabulary'), Icon: Layers, testId: 'nav-vocab-link' },
@@ -1239,6 +1252,12 @@ const paywallRoute = createRoute({
   },
 });
 
+const roadmapRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/roadmap',
+  component: RoadmapScreen,
+});
+
 const coachHubRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/coach',
@@ -1258,6 +1277,12 @@ const linguisticGraphRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/progress/graph',
   component: LinguisticGraphScreen,
+});
+
+const adminTraceRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/trace',
+  component: AdminTraceConsoleScreen,
 });
 
 const registerShifterRoute = createRoute({
@@ -1313,6 +1338,7 @@ const routeTree = rootRoute.addChildren([
   diagnosticResultByIdRoute,
   loginRoute,
   homeRoute,
+  roadmapRoute,
   coachHubRoute,
   dailyMissionRoute,
   linguisticGraphRoute,
@@ -1339,6 +1365,7 @@ const routeTree = rootRoute.addChildren([
   compareAttemptsRoute,
   settingsRoute,
   paywallRoute,
+  adminTraceRoute,
 ]);
 
 export function createAppRouter(history?: RouterHistory) {

@@ -16,31 +16,35 @@ import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import { toPersianDigits } from '@/edition/bidi/numerals';
 import { formatDisplayDate } from '@/edition/calendar/jalali-edge';
 import type { LinguisticGraphSnapshot } from '@/gateways/linguistic.gateway';
+import type { PersonalizationStateDto } from '@/gateways/personalization.gateway';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
-import { utcMidnightMsFromSerialDay } from '@mockza/domain';
+import { utcMidnightMsFromSerialDay, CANONICAL_TOPICS, TOPIC_METADATA } from '@mockza/domain';
 
-const STARTER_TOPICS = [
-  'Technology & AI',
-  'Career & Workplace',
-  'Travel & Culture',
-  'Science & Climate',
-  'Sports',
-] as const;
+const STARTER_TOPICS = CANONICAL_TOPICS.map((key) => ({
+  key,
+  labelEn: TOPIC_METADATA[key].labelEn,
+  labelFa: TOPIC_METADATA[key].labelFa,
+}));
 
 export function LinguisticGraphScreen() {
   const deps = useDeps();
   const isRtl = deps.edition === 'irn';
   const t = createTranslator(deps.edition);
   const [graph, setGraph] = useState<LinguisticGraphSnapshot | null>(null);
+  const [pState, setPState] = useState<PersonalizationStateDto | null>(null);
   const [newTopic, setNewTopic] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
-    void deps.linguistic.getMyGraph().then((res) => {
+    void Promise.all([
+      deps.linguistic.getMyGraph(),
+      deps.personalization ? deps.personalization.getState() : Promise.resolve(null),
+    ]).then(([res, pRes]) => {
       if (!active) return;
       if (res.ok) setGraph(res.value);
+      if (pRes && pRes.ok) setPState(pRes.value);
       setLoading(false);
     });
     return () => {
@@ -246,6 +250,73 @@ export function LinguisticGraphScreen() {
         </MzCard>
       </div>
 
+      {pState ? (
+        <MzCard variant="default" data-testid="graph-coverage-matrix">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-text-primary">
+              {t('graphCoverageTitle')}
+            </h2>
+            <span className="rounded-[var(--mz-radius-pill)] bg-primary-subtle px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+              {t('graphCoveragePhaseLabel')}:{' '}
+              {pState.profile.activeWeaknessPhase === 'favorite_topics'
+                ? t('roadmapPhaseFavoriteTopics')
+                : pState.profile.activeWeaknessPhase === 'weakness_transfer'
+                  ? t('roadmapPhaseWeaknessTransfer')
+                  : t('roadmapPhaseExamBreadth')}
+            </span>
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised p-3 text-xs">
+              <div className="text-text-secondary">{t('graphCoverageFavoriteMastered')}</div>
+              <div className="mt-1 text-lg font-bold tabular-nums text-text-primary">
+                {isRtl
+                  ? toPersianDigits(pState.topicCoverageSummary.masteredInFavoriteTopicsCount)
+                  : pState.topicCoverageSummary.masteredInFavoriteTopicsCount}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {pState.profile.favoriteTopics.map((topicKey) => {
+                  const meta = TOPIC_METADATA[topicKey as keyof typeof TOPIC_METADATA];
+                  return (
+                    <span
+                      key={topicKey}
+                      className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-surface px-2 py-0.5 text-[11px] text-text-secondary"
+                    >
+                      {meta ? (isRtl ? meta.labelFa : meta.labelEn) : topicKey}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised p-3 text-xs">
+              <div className="text-text-secondary">{t('graphCoverageTransferred')}</div>
+              <div className="mt-1 text-lg font-bold tabular-nums text-text-primary">
+                {isRtl
+                  ? toPersianDigits(pState.topicCoverageSummary.transferredToOtherTopicsCount)
+                  : pState.topicCoverageSummary.transferredToOtherTopicsCount}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {pState.weaknesses.slice(0, 4).map((w) => (
+                  <span
+                    key={w.canonicalKey}
+                    className={`rounded-[var(--mz-radius-pill)] px-2 py-0.5 text-[11px] font-medium ${
+                      w.status === 'mastered'
+                        ? 'bg-success/15 text-success'
+                        : w.status === 'resolving'
+                          ? 'bg-warning/15 text-warning'
+                          : 'bg-danger/10 text-danger'
+                    }`}
+                  >
+                    {isRtl ? w.displayLabelFa : w.displayLabelEn} ({Math.round(w.masteryScoreMilli / 10)}%)
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </MzCard>
+      ) : null}
+
       <MzCard variant="default">
         <h2 className="text-sm font-semibold text-text-primary">
           {t('graphInterestTopics')}
@@ -257,15 +328,15 @@ export function LinguisticGraphScreen() {
         </p>
 
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {STARTER_TOPICS.filter((s) => !pinnedLabelsLower.has(s.toLowerCase())).map((topic) => (
+          {STARTER_TOPICS.filter((s) => !pinnedLabelsLower.has(s.labelEn.toLowerCase())).map((topic) => (
             <button
-              key={topic}
+              key={topic.key}
               type="button"
-              onClick={() => void handlePinTopicValue(topic)}
+              onClick={() => void handlePinTopicValue(topic.labelEn)}
               className="inline-flex items-center gap-1 rounded-[var(--mz-radius-pill)] border border-dashed border-primary/50 bg-canvas px-2.5 py-1 text-xs font-medium text-primary hover:bg-surface-hover"
             >
               <Plus className="h-3 w-3" aria-hidden="true" />
-              <span>{topic}</span>
+              <span>{isRtl ? topic.labelFa : topic.labelEn}</span>
             </button>
           ))}
         </div>

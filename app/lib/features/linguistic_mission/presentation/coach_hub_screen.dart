@@ -129,6 +129,11 @@ class _CoachHubScreenState extends ConsumerState<CoachHubScreen> {
                     label: Text(isRtl ? 'ارتقای حساب' : 'Upgrade'),
                     onPressed: () => context.push(AppRoutes.paywall),
                   ),
+                ActionChip(
+                  avatar: const AppIcon(LucideGlyph.target, size: 14),
+                  label: Text(l10n.roadmapViewFullCta),
+                  onPressed: () => context.push(AppRoutes.roadmap),
+                ),
               ],
             ),
           ],

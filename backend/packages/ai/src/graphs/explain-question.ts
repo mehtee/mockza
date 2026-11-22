@@ -4,8 +4,9 @@ import {
 } from '@mockza/contracts';
 import type { z } from 'zod';
 import { EvaluationModelError } from '../errors.js';
-import { OpenRouterClient } from '../models/openrouter.js';
+import { type AiUsageTelemetryCallback, OpenRouterClient } from '../models/openrouter.js';
 import { MODEL_REGISTRY } from '../models/registry.js';
+import { emitChatUsage } from '../observability/usage-extract.js';
 import { buildEditionOverlayAppendix } from '../prompts/rubrics.js';
 
 export type ExplainQuestionInput = z.infer<typeof ExplainQuestionRequestSchema> & {
@@ -18,6 +19,7 @@ export type ExplainQuestionOutput = z.infer<typeof ExplainQuestionResponseSchema
 
 export interface ExplainInvokeOptions {
   client?: Pick<OpenRouterClient, 'createChatCompletion'>;
+  onUsage?: AiUsageTelemetryCallback;
 }
 
 /**
@@ -67,12 +69,21 @@ Provide a concise, factual academic explanation referencing the passage evidence
 }
 `;
 
+    const startedAt = Date.now();
     const response = await client.createChatCompletion({
       model: MODEL_REGISTRY.drillFast,
+      featureKind: 'explain_question',
       messages: [{ role: 'user', content: prompt }],
       response_format: { type: 'json_object' },
       temperature: 0.1,
     });
+    await emitChatUsage(
+      'explain_question',
+      MODEL_REGISTRY.drillFast,
+      response,
+      Date.now() - startedAt,
+      options.onUsage,
+    );
 
     const rawContent = response.choices[0]?.message.content ?? '';
     let parsed: Record<string, unknown>;

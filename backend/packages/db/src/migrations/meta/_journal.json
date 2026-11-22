@@ -71,6 +71,20 @@
       "when": 1795040000000,
       "tag": "0009_closed_loop_linguistic_engine",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795180000000,
+      "tag": "0010_adaptive_personalization_and_roadmap",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795260000000,
+      "tag": "0011_personalization_hardening",
+      "breakpoints": true
     }
   ]
 }

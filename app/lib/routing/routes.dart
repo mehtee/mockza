@@ -111,6 +111,9 @@ abstract final class AppRoutes {
   /// Drop Anything 2-min micro-drill runner (`/drop/drill/:dropId`).
   static const String dropDrill = '/drop/drill/:dropId';
 
+  /// Adaptive Durnama + Step-by-Step Personalized Roadmap (`/roadmap`).
+  static const String roadmap = '/roadmap';
+
   // --- Parameterized Path Builders ---
 
   /// Builds a Daily Mission path.

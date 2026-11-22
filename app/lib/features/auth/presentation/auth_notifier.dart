@@ -352,6 +352,19 @@ class AuthNotifier extends Notifier<AuthState> {
           .fetchQuotaStatus()
           .then<void>((_) {}, onError: (_) {}),
     );
+    unawaited(
+      ref
+          .read(personalizationGatewayProvider)
+          .pullSyncRaw()
+          .then((res) async {
+            if (res case Ok<Map<String, Object?>, Failure>(:final value)) {
+              await ref
+                  .read(personalizationRepositoryProvider)
+                  .applyCrossDevicePull(value);
+            }
+          })
+          .catchError((_) {}),
+    );
     state = state.copyWith(
       isSubmitting: false,
       clearErrorMessage: true,
