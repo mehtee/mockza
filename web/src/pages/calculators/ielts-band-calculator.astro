@@ -52,26 +52,28 @@ const breadcrumbJsonLd = {
           ? 'جدول و ابزار تبدیل دقیق پاسخ‌های صحیح از ۴۰ پرسش بر اساس منحنی رسمی آکادمیک و جنرال.'
           : 'Compare IELTS Listening, Academic Reading, and General Training raw score thresholds using the exact engine curve.'}
       </p>
-      <table class="mt-4 w-full text-xs">
-        <thead>
-          <tr class="border-b border-border-subtle text-text-tertiary">
-            <th class="py-2 text-start">{isIrn ? 'تعداد صحیح (/۴۰)' : 'Correct (/40)'}</th>
-            <th class="py-2 text-end">{isIrn ? 'لیسنینگ' : 'Listening'}</th>
-            <th class="py-2 text-end">{isIrn ? 'ریدینگ آکادمیک' : 'Acad. Reading'}</th>
-            <th class="py-2 text-end">{isIrn ? 'ریدینگ جنرال' : 'GT Reading'}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr class="border-b border-border-subtle/50">
-              <td class="py-2 font-mono-exam">{r.raw} / 40</td>
-              <td class="py-2 text-end font-mono-exam font-semibold text-primary">{r.listening}</td>
-              <td class="py-2 text-end font-mono-exam font-semibold text-primary">{r.acad}</td>
-              <td class="py-2 text-end font-mono-exam font-semibold text-text-secondary">{r.gt}</td>
+      <div class="mt-4 overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead>
+            <tr class="border-b border-border-subtle text-text-tertiary">
+              <th class="py-2 text-start">{isIrn ? 'پاسخ صحیح (از ۴۰)' : 'Correct (/40)'}</th>
+              <th class="py-2 text-end">{isIrn ? 'لیسنینگ' : 'Listening'}</th>
+              <th class="py-2 text-end">{isIrn ? 'ریدینگ آکادمیک' : 'Acad. Reading'}</th>
+              <th class="py-2 text-end">{isIrn ? 'ریدینگ جنرال' : 'GT Reading'}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr class="border-b border-border-subtle/50">
+                <td class="py-2 font-mono-exam">{r.raw} / 40</td>
+                <td class="py-2 text-end font-mono-exam font-semibold text-primary">{r.listening}</td>
+                <td class="py-2 text-end font-mono-exam font-semibold text-primary">{r.acad}</td>
+                <td class="py-2 text-end font-mono-exam font-semibold text-text-secondary">{r.gt}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <ScoreCalculatorsSection isIrn={isIrn} />

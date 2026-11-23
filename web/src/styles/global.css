@@ -101,9 +101,27 @@
   font-family: "Instrument Serif", Georgia, serif;
   font-weight: 400;
 }
-[lang="fa"][data-theme="editorial_green"] :is(.font-editorial, [data-study-app] h1) {
+[lang="fa"][data-theme="editorial_green"] :is(.font-editorial, [data-study-app] h1, [data-study-app] h2, [data-study-app] h3) {
   font-family: var(--mz-font-sans-fa);
   font-weight: 700;
+  line-height: 1.3;
+}
+
+html[dir="rtl"] :is(.tracking-wide, .tracking-wider, .tracking-tight, h1, h2, h3) {
+  letter-spacing: 0 !important;
+}
+
+html[dir="rtl"] .uppercase {
+  text-transform: none !important;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

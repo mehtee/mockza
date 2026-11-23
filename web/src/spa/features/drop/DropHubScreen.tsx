@@ -469,7 +469,7 @@ export function DropHubScreen({ initialTab }: DropHubScreenProps = {}) {
     <div
       data-testid="drop-hub-screen"
       onPaste={(e) => void handlePaste(e)}
-      className="mx-auto flex max-w-5xl flex-col gap-6 pb-10 text-start"
+      className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-10 text-start"
     >
       <header className="border-b border-border-subtle pb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -513,7 +513,7 @@ export function DropHubScreen({ initialTab }: DropHubScreenProps = {}) {
       </header>
 
       <MzCard variant="hero">
-        <div role="tablist" className="flex flex-wrap gap-2">
+        <div role="tablist" className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           {(
             [
               { id: 'url', labelEn: 'Article URL', labelFa: 'لینک مقاله', Icon: Link2 },
@@ -532,7 +532,7 @@ export function DropHubScreen({ initialTab }: DropHubScreenProps = {}) {
                 setTab(item.id);
                 setError(null);
               }}
-              className={`inline-flex items-center gap-1.5 rounded-[var(--mz-radius-compact)] border px-3 py-2 text-xs font-semibold ${
+              className={`inline-flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--mz-radius-compact)] border px-3 text-xs font-semibold ${
                 tab === item.id
                   ? 'border-primary bg-primary text-on-primary'
                   : 'border-border-subtle bg-bg-raised text-text-secondary hover:bg-surface-hover'
@@ -571,7 +571,7 @@ export function DropHubScreen({ initialTab }: DropHubScreenProps = {}) {
                     key={ex.label}
                     type="button"
                     onClick={() => setRawText(ex.text)}
-                    className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-2.5 py-0.5 text-[11px] font-medium text-text-primary hover:border-primary hover:text-primary"
+                    className="inline-flex min-h-9 items-center rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-3 text-xs font-medium text-text-primary hover:border-primary hover:text-primary"
                   >
                     {ex.label}
                   </button>

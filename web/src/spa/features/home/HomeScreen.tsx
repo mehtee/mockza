@@ -1,8 +1,6 @@
 import {
   formatExamScore,
   type SkillKind,
-  SUPPORTED_EXAM_IDS,
-  type SupportedExamId,
   utcMidnightMsFromSerialDay,
 } from '@mockza/domain';
 import { Link } from '@tanstack/react-router';
@@ -22,21 +20,16 @@ import {
   Zap,
 } from 'lucide-react';
 import { MzBanner, MzCard } from '@/components/ui';
+import { ForwardArrowIcon } from '@/components/bidi/DirectionIcon';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
+import { formatChromeNumber } from '@/edition/bidi/numerals';
+import { formatTrackFormatHint, formatTrackLocalizedName } from '@/components/bidi/topic-labels';
 import { formatDisplayDate } from '@/edition/calendar/jalali-edge';
 import { getActiveEditionConfig } from '@/edition/edition-config';
 import { createTranslator, type TranslationKey } from '@/i18n';
 import { useDeps } from '@/spa/deps';
 import { resolveWebRoadmapStepPath } from '@/spa/roadmap-route-resolver';
 import { useHomeController } from './useHomeController';
-
-const TRACK_I18N_KEYS: Record<SupportedExamId, TranslationKey> = {
-  ielts_academic: 'trackIeltsAcademic',
-  ielts_general: 'trackIeltsGeneral',
-  toefl_ibt: 'trackToeflIbt',
-  pte_academic: 'trackPteAcademic',
-  det: 'trackDet',
-};
 
 function getSkillMeta(
   skill: SkillKind,
@@ -201,6 +194,11 @@ export function HomeScreen() {
                   <Compass className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>{phaseLabelText}</span>
                 </span>
+                {personalization.liveBand.currentBand === null ? (
+                  <span className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-canvas px-2.5 py-0.5 text-[11px] font-medium text-text-secondary">
+                    {isRtl ? 'مسیر پایه (تعیین سطح اختیاری)' : 'Starter Basics (Level not set)'}
+                  </span>
+                ) : null}
                 {personalization.weaknesses.slice(0, 2).map((w) => (
                   <span
                     key={w.canonicalKey}
@@ -257,7 +255,7 @@ export function HomeScreen() {
                 <Link
                   to={resolveWebRoadmapStepPath(currentStep) as never}
                   data-testid="home-roadmap-start-step-cta"
-                  className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
+                  className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
                 >
                   {t('roadmapOpenStepCta')}
                 </Link>
@@ -265,7 +263,7 @@ export function HomeScreen() {
               <Link
                 to="/roadmap"
                 data-testid="home-open-roadmap-link"
-                className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] border border-border-strong bg-canvas px-3.5 text-xs font-semibold text-primary hover:bg-surface-hover"
+                className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-strong bg-canvas px-3.5 text-xs font-semibold text-primary hover:bg-surface-hover"
               >
                 {t('navRoadmap')}
               </Link>
@@ -281,7 +279,7 @@ export function HomeScreen() {
         <Link
           to="/practice"
           search={{ track: activeTrack }}
-          className={`flex items-center justify-between rounded-[var(--mz-radius-compact)] border px-4 py-3 text-start transition-colors ${
+          className={`flex min-h-14 items-center justify-between gap-3 rounded-[var(--mz-radius-compact)] border px-4 py-3 text-start transition-colors ${
             ctrl.studyFocus === 'exams'
               ? 'border-primary bg-surface-alt'
               : 'border-border-subtle bg-bg-surface hover:bg-surface-hover'
@@ -295,12 +293,12 @@ export function HomeScreen() {
                 : 'Timed simulations, section drills & accurate band estimates'}
             </p>
           </div>
-          <span className="text-xs font-semibold text-primary">→</span>
+          <ForwardArrowIcon edition={deps.edition} className="h-4 w-4 shrink-0 text-primary" />
         </Link>
         <Link
           to="/coach"
           data-testid="home-coach-hub-cta"
-          className={`flex items-center justify-between rounded-[var(--mz-radius-compact)] border px-4 py-3 text-start transition-colors ${
+          className={`flex min-h-14 items-center justify-between gap-3 rounded-[var(--mz-radius-compact)] border px-4 py-3 text-start transition-colors ${
             ctrl.studyFocus === 'coach'
               ? 'border-primary bg-surface-alt'
               : 'border-border-subtle bg-bg-surface hover:bg-surface-hover'
@@ -312,7 +310,7 @@ export function HomeScreen() {
               {t('smartCoachSubtitle')}
             </p>
           </div>
-          <span className="text-xs font-semibold text-primary">→</span>
+          <ForwardArrowIcon edition={deps.edition} className="h-4 w-4 shrink-0 text-primary" />
         </Link>
       </div>
 
@@ -336,21 +334,21 @@ export function HomeScreen() {
                   to="/mission/$missionId"
                   params={{ missionId: 'today' }}
                   data-testid="home-daily-mission-cta"
-                  className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3.5 text-xs font-semibold text-on-primary"
+                  className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary"
                 >
                   {t('homeDailyMissionStartCta')}
                 </Link>
                 <Link
                   to="/register-shifter"
                   data-testid="home-register-shifter-cta"
-                  className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] border border-border-strong px-3 text-xs font-semibold text-primary hover:bg-surface-hover"
+                  className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-strong px-3.5 text-xs font-semibold text-primary hover:bg-surface-hover"
                 >
                   {t('homeRegisterShifterCta')}
                 </Link>
                 <Link
                   to="/drop"
                   data-testid="home-drop-anything-cta"
-                  className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 text-xs font-semibold text-text-primary hover:bg-surface-hover"
+                  className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3.5 text-xs font-semibold text-text-primary hover:bg-surface-hover"
                 >
                   {t('homeDropAnythingCta')}
                 </Link>
@@ -359,55 +357,54 @@ export function HomeScreen() {
           </MzCard>
 
           <MzCard variant="default" data-testid="home-recommended-card">
-            <div className="flex items-start gap-2.5">
-              <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
-              <div>
-                <h2 className="font-editorial text-3xl text-text-primary">
-                  {resumeSkill?.label ?? latestDiagnostic?.recommendedFirstAction.title ?? t('homeRecommendedNextTitle')}
-                </h2>
-                <p className="mt-1 text-xs text-text-secondary">
-                  {resumeSkill ? t('homeResumeDescription') : latestDiagnostic?.recommendedFirstAction.description ?? descriptor.formatHint}
-                </p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-start gap-2.5">
+                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                <div>
+                  <h2 className="text-sm font-bold text-text-primary">
+                    {resumeSkill?.label ?? t('homeRecommendedNextTitle')}
+                  </h2>
+                  {resumeSkill ? (
+                    <p className="mt-0.5 text-xs text-text-secondary">{t('homeResumeDescription')}</p>
+                  ) : null}
+                </div>
               </div>
-            </div>
 
-            <div className="mt-5 flex flex-wrap gap-2.5">
-              {resumableDraft && resumeSkill ? (
+              <div className="flex flex-wrap items-center gap-2">
+                {resumableDraft && resumeSkill ? (
+                  <Link
+                    to={resumeSkill.to}
+                    params={{ packId: resumableDraft.packId }}
+                    className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary"
+                  >
+                    {t('homeResumeAttempt')}
+                  </Link>
+                ) : !latestDiagnostic ? (
+                  <Link
+                    to="/diagnostic/intro"
+                    data-testid="home-diagnostic-cta"
+                    search={{ track: activeTrack }}
+                    className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary"
+                  >
+                    {t('homeStartDiagnosticCta')}
+                  </Link>
+                ) : null}
                 <Link
-                  to={resumeSkill.to}
-                  params={{ packId: resumableDraft.packId }}
-                  className="inline-flex h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-sm font-semibold text-on-primary"
+                  to="/practice/drills"
+                  data-testid="home-drills-cta"
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-primary/40 bg-surface-alt px-3.5 text-xs font-semibold text-primary hover:bg-surface-hover"
                 >
-                  {t('homeResumeAttempt')}
+                  <Zap className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{t('homeQuickDrillsCta')}</span>
                 </Link>
-              ) : !latestDiagnostic ? (
                 <Link
-                  to="/diagnostic/intro"
-                  data-testid="home-diagnostic-cta"
-                  search={{ track: activeTrack }}
-                  className="inline-flex h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-sm font-semibold text-on-primary"
+                  to="/practice/full-mock"
+                  data-testid="home-full-mock-cta"
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3.5 text-xs font-semibold text-text-primary hover:bg-surface-hover"
                 >
-                  {t('homeStartDiagnosticCta')}
+                  <span>{t('homeQuickFullMockCta')}</span>
                 </Link>
-              ) : null}
-              <Link to="/practice" search={{ track: activeTrack }} className="inline-flex h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-strong px-4 text-sm font-semibold text-primary">
-                {t('navPractice')}
-              </Link>
-              <Link
-                to="/practice/drills"
-                data-testid="home-drills-cta"
-                className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-compact)] bg-surface-alt border border-primary/40 px-3.5 text-xs font-semibold text-primary hover:bg-surface-hover"
-              >
-                <Zap className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>{t('homeQuickDrillsCta')}</span>
-              </Link>
-              <Link
-                to="/practice/full-mock"
-                data-testid="home-full-mock-cta"
-                className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3.5 text-xs font-semibold text-text-primary hover:bg-surface-hover"
-              >
-                <span>{t('homeQuickFullMockCta')}</span>
-              </Link>
+              </div>
             </div>
           </MzCard>
         </>
@@ -421,7 +418,10 @@ export function HomeScreen() {
                   {resumeSkill?.label ?? latestDiagnostic?.recommendedFirstAction.title ?? t('homeRecommendedNextTitle')}
                 </h2>
                 <p className="mt-1 text-xs text-text-secondary">
-                  {resumeSkill ? t('homeResumeDescription') : latestDiagnostic?.recommendedFirstAction.description ?? descriptor.formatHint}
+                  {resumeSkill
+                    ? t('homeResumeDescription')
+                    : latestDiagnostic?.recommendedFirstAction.description ??
+                      formatTrackFormatHint(activeTrack, deps.edition)}
                 </p>
               </div>
             </div>
@@ -431,7 +431,7 @@ export function HomeScreen() {
                 <Link
                   to={resumeSkill.to}
                   params={{ packId: resumableDraft.packId }}
-                  className="inline-flex h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-sm font-semibold text-on-primary"
+                  className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-sm font-semibold text-on-primary"
                 >
                   {t('homeResumeAttempt')}
                 </Link>
@@ -440,18 +440,22 @@ export function HomeScreen() {
                   to="/diagnostic/intro"
                   data-testid="home-diagnostic-cta"
                   search={{ track: activeTrack }}
-                  className="inline-flex h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-sm font-semibold text-on-primary"
+                  className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-sm font-semibold text-on-primary"
                 >
                   {t('homeStartDiagnosticCta')}
                 </Link>
               ) : null}
-              <Link to="/practice" search={{ track: activeTrack }} className="inline-flex h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-strong px-4 text-sm font-semibold text-primary">
+              <Link
+                to="/practice"
+                search={{ track: activeTrack }}
+                className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-strong px-4 text-sm font-semibold text-primary"
+              >
                 {t('navPractice')}
               </Link>
               <Link
                 to="/practice/drills"
                 data-testid="home-drills-cta"
-                className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-compact)] bg-surface-alt border border-primary/40 px-3.5 text-xs font-semibold text-primary hover:bg-surface-hover"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--mz-radius-compact)] bg-surface-alt border border-primary/40 px-3.5 text-xs font-semibold text-primary hover:bg-surface-hover"
               >
                 <Zap className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>{t('homeQuickDrillsCta')}</span>
@@ -459,7 +463,7 @@ export function HomeScreen() {
               <Link
                 to="/practice/full-mock"
                 data-testid="home-full-mock-cta"
-                className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3.5 text-xs font-semibold text-text-primary hover:bg-surface-hover"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3.5 text-xs font-semibold text-text-primary hover:bg-surface-hover"
               >
                 <span>{t('homeQuickFullMockCta')}</span>
               </Link>
@@ -484,21 +488,21 @@ export function HomeScreen() {
                   to="/mission/$missionId"
                   params={{ missionId: 'today' }}
                   data-testid="home-daily-mission-cta"
-                  className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3.5 text-xs font-semibold text-on-primary"
+                  className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary"
                 >
                   {t('homeDailyMissionStartCta')}
                 </Link>
                 <Link
                   to="/register-shifter"
                   data-testid="home-register-shifter-cta"
-                  className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] border border-border-strong px-3 text-xs font-semibold text-primary hover:bg-surface-hover"
+                  className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-strong px-3.5 text-xs font-semibold text-primary hover:bg-surface-hover"
                 >
                   {t('homeRegisterShifterCta')}
                 </Link>
                 <Link
                   to="/drop"
                   data-testid="home-drop-anything-cta"
-                  className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 text-xs font-semibold text-text-primary hover:bg-surface-hover"
+                  className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3.5 text-xs font-semibold text-text-primary hover:bg-surface-hover"
                 >
                   {t('homeDropAnythingCta')}
                 </Link>
@@ -508,42 +512,13 @@ export function HomeScreen() {
         </>
       )}
 
-      {/* Instant Track Switcher Strip */}
-      <div
-        role="radiogroup"
-        aria-label={t('settingsExamTrackSection')}
-        className="flex flex-wrap items-center gap-2"
-      >
-        {SUPPORTED_EXAM_IDS.map((trackId) => {
-          const selected = activeTrack === trackId;
-          return (
-            <button
-              key={trackId}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              data-testid={`home-track-${trackId}`}
-              onClick={() => void ctrl.switchTrack(trackId)}
-              className={[
-                'rounded-[var(--mz-radius-pill)] border px-3.5 py-1.5 text-xs font-semibold transition-colors',
-                selected
-                  ? 'border-primary bg-primary text-on-primary'
-                  : 'border-border-subtle bg-bg-raised text-text-secondary hover:bg-surface-hover hover:text-text-primary',
-              ].join(' ')}
-            >
-              {t(TRACK_I18N_KEYS[trackId])}
-            </button>
-          );
-        })}
-      </div>
-
       {/* Bento Grid Row 1: Readiness Hero (7) + Streak & Study Week (5) */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
         <MzCard variant="hero" className="lg:col-span-7" data-testid="home-readiness-hero">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
-                {t('homeReadinessHeroTitle')} · {trackSpec.displayName}
+                {t('homeReadinessHeroTitle')} · {formatTrackLocalizedName(activeTrack, deps.edition)}
               </p>
               <div className="mt-2 flex flex-wrap items-baseline gap-3">
                 <LtrExamBoundary>
@@ -587,12 +562,14 @@ export function HomeScreen() {
               {/* Track-Specific Concordance Badges (TOEFL /120, DET 4 subscores) */}
               {toeflLegacy120 !== null ? (
                 <div className="mt-3">
-                  <span
-                    data-testid="home-toefl-concordance"
-                    className="inline-flex items-center rounded-[var(--mz-radius-pill)] border border-focus/40 bg-blue-bg px-2.5 py-0.5 font-mono-exam text-xs font-semibold text-focus"
-                  >
-                    ~{toeflLegacy120} / 120 TOEFL Concordance
-                  </span>
+                  <LtrExamBoundary>
+                    <span
+                      data-testid="home-toefl-concordance"
+                      className="inline-flex items-center rounded-[var(--mz-radius-pill)] border border-focus/40 bg-blue-bg px-2.5 py-0.5 font-mono-exam text-xs font-semibold text-focus"
+                    >
+                      ~{toeflLegacy120} / 120 TOEFL Concordance
+                    </span>
+                  </LtrExamBoundary>
                 </div>
               ) : null}
 
@@ -647,27 +624,60 @@ export function HomeScreen() {
             </span>
           </div>
 
-          <LtrExamBoundary>
+          {deps.edition === 'irn' ? (
             <div className="mt-4 grid grid-cols-7 gap-2">
-              {studyWeek.days.map((day) => (
-                <div
-                  key={day.daySerial}
-                  className={[
-                    'flex flex-col items-center justify-center rounded-[var(--mz-radius-compact)] border py-2.5 text-xs font-semibold',
-                    day.isCompleted
-                      ? 'border-success/55 bg-mint-bg text-success'
-                      : day.isToday
-                        ? 'border-primary bg-surface-alt text-primary'
-                        : 'border-border-subtle bg-bg-raised text-text-tertiary',
-                  ].join(' ')}
-                >
-                  <span>{day.dayLabel}</span>
-                </div>
-              ))}
+              {([5, 6, 0, 1, 2, 3, 4] as const).map((srcIdx, pos) => {
+                const day = studyWeek.days[srcIdx];
+                if (!day) return null;
+                return (
+                  <div
+                    key={day.daySerial}
+                    className={[
+                      'flex flex-col items-center justify-center rounded-[var(--mz-radius-compact)] border py-2.5 text-xs font-semibold',
+                      day.isCompleted
+                        ? 'border-success/55 bg-mint-bg text-success'
+                        : day.isToday
+                          ? 'border-primary bg-surface-alt text-primary'
+                          : 'border-border-subtle bg-bg-raised text-text-tertiary',
+                    ].join(' ')}
+                  >
+                    <span>{(['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'] as const)[pos]}</span>
+                  </div>
+                );
+              })}
             </div>
-          </LtrExamBoundary>
+          ) : (
+            <LtrExamBoundary>
+              <div className="mt-4 grid grid-cols-7 gap-2">
+                {studyWeek.days.map((day) => (
+                  <div
+                    key={day.daySerial}
+                    className={[
+                      'flex flex-col items-center justify-center rounded-[var(--mz-radius-compact)] border py-2.5 text-xs font-semibold',
+                      day.isCompleted
+                        ? 'border-success/55 bg-mint-bg text-success'
+                        : day.isToday
+                          ? 'border-primary bg-surface-alt text-primary'
+                          : 'border-border-subtle bg-bg-raised text-text-tertiary',
+                    ].join(' ')}
+                  >
+                    <span>{day.dayLabel}</span>
+                  </div>
+                ))}
+              </div>
+            </LtrExamBoundary>
+          )}
 
-          <p className="mt-3 text-xs text-text-secondary">{studyWeek.summaryLabel}</p>
+          <p className="mt-3 text-xs text-text-secondary">
+            {deps.edition === 'irn'
+              ? t('homeStudyWeekSummary', {
+                  count: formatChromeNumber(
+                    studyWeek.days.filter((d) => d.isCompleted).length,
+                    deps.edition,
+                  ),
+                })
+              : studyWeek.summaryLabel}
+          </p>
         </MzCard>
       </div>
 
@@ -712,7 +722,7 @@ export function HomeScreen() {
                   <Link
                     to={meta.to}
                     params={{ packId: meta.packId }}
-                    className="font-semibold text-primary hover:underline"
+                    className="inline-flex min-h-10 items-center font-semibold text-primary hover:underline"
                   >
                     {t('homePracticeSkillAction')}
                   </Link>
@@ -742,7 +752,7 @@ export function HomeScreen() {
             </div>
             <Link
               to="/vocabulary"
-              className="text-xs font-semibold text-text-secondary hover:text-text-primary hover:underline"
+              className="inline-flex min-h-10 shrink-0 items-center text-xs font-semibold text-text-secondary hover:text-text-primary hover:underline"
             >
               {t('homeBrowseVocabAction')}
             </Link>
@@ -772,7 +782,7 @@ export function HomeScreen() {
             <Link
               to="/vocabulary/review"
               data-testid="home-vocab-review-cta"
-              className="inline-flex h-9 items-center justify-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary transition-colors hover:bg-primary-pressed"
+              className="inline-flex min-h-11 items-center justify-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary transition-colors hover:bg-primary-pressed"
             >
               {t('homeStartReviewCta')}
             </Link>

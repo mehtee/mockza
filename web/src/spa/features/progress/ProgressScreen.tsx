@@ -14,6 +14,8 @@ import { ArrowUpRight, Compass, Download, Flame, GitCompare, Mic, Play, Target, 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MzBanner, MzButton, MzCard } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
+import { formatChromeNumber } from '@/edition/bidi/numerals';
+import { formatTrackLocalizedName } from '@/components/bidi/topic-labels';
 import { formatDisplayDate } from '@/edition/calendar/jalali-edge';
 import type { PersonalizationStateDto } from '@/gateways/personalization.gateway';
 import type { PronunciationPracticeItemDto } from '@/gateways/speech-practice.gateway';
@@ -262,7 +264,9 @@ export function ProgressScreen() {
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold text-primary">{trackSpec.displayName}</p>
+          <p className="text-xs font-semibold text-primary">
+            {formatTrackLocalizedName(examId, deps.edition)}
+          </p>
           <h1 className="text-2xl font-bold text-text-primary">{t('progressPageTitle')}</h1>
           <p className="mt-1 text-sm text-text-secondary">{t('progressPageSubtitle')}</p>
         </div>
@@ -280,7 +284,7 @@ export function ProgressScreen() {
           <Link
             to="/progress/compare"
             data-testid="progress-compare-cta"
-            className="inline-flex h-10 items-center gap-2 rounded-[var(--mz-radius-control)] border border-border-subtle bg-bg-raised px-4 text-xs font-semibold text-text-primary hover:bg-surface-hover"
+            className="inline-flex min-h-11 items-center gap-2 rounded-[var(--mz-radius-control)] border border-border-subtle bg-bg-raised px-4 text-xs font-semibold text-text-primary hover:bg-surface-hover"
           >
             <GitCompare className="h-4 w-4 text-primary" aria-hidden="true" />
             <span>{t('progressCompareCta')}</span>
@@ -291,7 +295,7 @@ export function ProgressScreen() {
       {/* Hero KPI Row */}
       <div className="grid gap-4 md:grid-cols-3">
         <MzCard variant="hero">
-          <p className="text-xs font-semibold text-text-secondary">{trackSpec.displayName}</p>
+          <p className="text-xs font-semibold text-text-secondary">{t('progressEstimatedHeading')}</p>
           <div className="mt-2 flex flex-wrap items-baseline gap-2.5">
             <LtrExamBoundary>
               <p data-testid="progress-overall-score" className="font-mono-exam text-3xl font-bold text-primary">
@@ -329,9 +333,9 @@ export function ProgressScreen() {
               </span>
               <Link
                 to="/roadmap"
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                className="inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-primary hover:underline"
               >
-                <Compass className="h-3 w-3" aria-hidden="true" />
+                <Compass className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>{t('navRoadmap')}</span>
               </Link>
             </div>
@@ -341,7 +345,7 @@ export function ProgressScreen() {
         <MzCard variant="default">
           <div className="flex items-center gap-2 text-xs font-semibold text-text-secondary">
             <Target className="h-4 w-4 text-focus" aria-hidden="true" />
-            <span>Target</span>
+            <span>{t('progressTargetHeading')}</span>
           </div>
           <LtrExamBoundary>
             <p className="mt-2 font-mono-exam text-2xl font-bold text-text-primary">
@@ -360,13 +364,18 @@ export function ProgressScreen() {
         <MzCard variant="default">
           <div className="flex items-center gap-2 text-xs font-semibold text-text-secondary">
             <Flame className="h-4 w-4 text-warning" aria-hidden="true" />
-            <span>Streak & Samples</span>
+            <span>{t('progressStreakSamplesHeading')}</span>
           </div>
-          <p className="mt-2 font-mono-exam text-2xl font-bold text-text-primary">
-            {t('homeStudyStreakLabel', { days: streakDays })}
+          <p
+            className={[
+              'mt-2 text-2xl font-bold text-text-primary',
+              deps.edition === 'irn' ? '' : 'font-mono-exam',
+            ].join(' ')}
+          >
+            {t('homeStudyStreakLabel', { days: formatChromeNumber(streakDays, deps.edition) })}
           </p>
           <p className="mt-2 text-xs text-text-secondary">
-            {t('homeSamplesCountLabel', { count: scoredAttempts.length })}
+            {t('homeSamplesCountLabel', { count: formatChromeNumber(scoredAttempts.length, deps.edition) })}
           </p>
         </MzCard>
       </div>
@@ -470,19 +479,24 @@ export function ProgressScreen() {
                 className="text-primary"
               />
               <text x="110" y="24" textAnchor="middle" className="fill-text-secondary text-[10px]">
-                R
+                {deps.edition === 'irn' ? 'ریدینگ' : 'R'}
               </text>
               <text x="196" y="114" textAnchor="middle" className="fill-text-secondary text-[10px]">
-                W
+                {deps.edition === 'irn' ? 'رایتینگ' : 'W'}
               </text>
               <text x="110" y="204" textAnchor="middle" className="fill-text-secondary text-[10px]">
-                S
+                {deps.edition === 'irn' ? 'اسپیکینگ' : 'S'}
               </text>
               <text x="24" y="114" textAnchor="middle" className="fill-text-secondary text-[10px]">
-                L
+                {deps.edition === 'irn' ? 'لیسنینگ' : 'L'}
               </text>
             </svg>
           </LtrExamBoundary>
+          {scoredAttempts.length === 0 ? (
+            <p className="mt-2 text-center text-xs text-text-secondary">
+              {t('progressRadarEmptyHint')}
+            </p>
+          ) : null}
         </MzCard>
       </div>
 
@@ -539,7 +553,7 @@ export function ProgressScreen() {
             </div>
             <Link
               to="/practice/drills"
-              className="inline-flex h-9 items-center rounded-[var(--mz-radius-control)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
+              className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-control)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
             >
               {t('homeQuickDrillsCta')}
             </Link>
@@ -564,7 +578,7 @@ export function ProgressScreen() {
               target="_blank"
               rel="noopener noreferrer"
               data-testid="ecosystem-handoff-link"
-              className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-control)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--mz-radius-control)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
             >
               <span>{t('ecosystemEligibilityCta')}</span>
               <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -588,7 +602,7 @@ export function ProgressScreen() {
                 className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-3.5 py-2.5 text-xs hover:bg-surface-hover"
               >
                 <div className="flex items-center gap-3">
-                  <span className="font-bold text-primary capitalize">{attempt.skill}</span>
+                  <span className="font-bold text-primary">{skillLabel(attempt.skill)}</span>
                   <span className="text-text-secondary">
                     {formatDisplayDate(attempt.completedAtMs, deps.edition)}
                   </span>
@@ -629,7 +643,7 @@ export function ProgressScreen() {
                 <button
                   type="button"
                   onClick={() => void handleReplayTake(item)}
-                  className="inline-flex h-8 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-2.5 text-xs font-semibold text-primary hover:border-primary"
+                  className="inline-flex min-h-10 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 text-xs font-semibold text-primary hover:border-primary"
                 >
                   <Play className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>{playingTakeId === item.practiceId ? '...' : t('speechPlayOwnTake')}</span>

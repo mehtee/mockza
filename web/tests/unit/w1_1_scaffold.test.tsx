@@ -240,7 +240,9 @@ describe('W1.1 TanStack Router 24-route skeleton & blocker', () => {
     expect(useClockStore.getState().activeExamLock).toBe(false);
   });
 
-  it('renders Top Command Bar with Pro Plans nav link, track switcher, theme toggle, and clean 404', async () => {
+  it('renders Top Command Bar with Pro Plans nav link, focused exam badge (no dropdown), persistent sidebar toggle, and clean 404', async () => {
+    window.localStorage.clear();
+    useLayoutStore.getState().setSidebarCollapsed(false);
     const deps = createTestDependencies({ edition: 'glb' });
     const history = createMemoryHistory({ initialEntries: ['/app/does-not-exist'] });
     const router = createAppRouter(history);
@@ -250,16 +252,24 @@ describe('W1.1 TanStack Router 24-route skeleton & blocker', () => {
     await waitFor(() => {
       expect(screen.getByTestId('route-not-found')).toBeTruthy();
       expect(screen.getByTestId('top-command-bar')).toBeTruthy();
+      expect(screen.getByTestId('topbar-active-exam').textContent).toContain('IELTS Academic');
     });
     expect(screen.queryByText(/W1\.1 Scaffold/)).toBeNull();
+    expect(screen.queryByTestId('topbar-track-switcher')).toBeNull();
     expect(screen.getByTestId('nav-paywall-link')).toBeTruthy();
 
-    fireEvent.change(screen.getByTestId('topbar-track-switcher'), {
-      target: { value: 'toefl_ibt' },
+    // Sidebar collapse toggle stays visible when collapsed and persists to localStorage
+    const toggleBtn = screen.getByTestId('sidebar-collapse-toggle');
+    expect(toggleBtn.getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(toggleBtn);
+    await waitFor(() => {
+      expect(screen.getByTestId('sidebar-collapse-toggle').getAttribute('aria-expanded')).toBe('false');
+      expect(window.localStorage.getItem('mockza:layout:sidebar-collapsed:v1')).toBe('1');
     });
-    await waitFor(async () => {
-      const profile = await deps.attemptStore.getUserProfile();
-      expect(profile.ok && profile.value?.examId).toBe('toefl_ibt');
+    fireEvent.click(screen.getByTestId('sidebar-collapse-toggle'));
+    await waitFor(() => {
+      expect(screen.getByTestId('sidebar-collapse-toggle').getAttribute('aria-expanded')).toBe('true');
+      expect(window.localStorage.getItem('mockza:layout:sidebar-collapsed:v1')).toBe('0');
     });
   });
 });

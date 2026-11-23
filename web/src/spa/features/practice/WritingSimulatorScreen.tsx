@@ -12,6 +12,7 @@ import {
   ExamSvgChartCard,
   type KeyboardShortcutHint,
   MzSequenceOrderControl,
+  SimulatorLoadFallback,
   SimulatorWorkspaceShell,
   SplitPaneWorkspace,
   countEssayWords,
@@ -117,6 +118,12 @@ export function WritingSimulatorScreen({
   const remainingSecondsRef = useRef(remainingSeconds);
   remainingSecondsRef.current = remainingSeconds;
 
+  const [reloadSeq, setReloadSeq] = useState(0);
+  const retryLoad = useCallback(() => {
+    setErrorMsg(null);
+    setReloadSeq((s) => s + 1);
+  }, []);
+
   useEffect(() => {
     let mounted = true;
     async function hydrate() {
@@ -166,7 +173,7 @@ export function WritingSimulatorScreen({
     return () => {
       mounted = false;
     };
-  }, [deps.attemptStore, deps.catalog, deps.evaluation, mockSessionId, mockStageKey, packId, resetClock]);
+  }, [deps.attemptStore, deps.catalog, deps.evaluation, mockSessionId, mockStageKey, packId, reloadSeq, resetClock]);
 
   useEffect(() => {
     if (!bundle) return;
@@ -494,8 +501,16 @@ export function WritingSimulatorScreen({
 
   if (!bundle) {
     return (
-      <div data-testid="writing-simulator-screen" className="p-6 text-sm text-text-secondary">
-        {errorMsg ? <MzBanner tone="danger">{errorMsg}</MzBanner> : 'Loading Writing Simulator...'}
+      <div data-testid="writing-simulator-screen" className="p-4 sm:p-6 text-sm text-text-secondary">
+        {errorMsg ? (
+          <SimulatorLoadFallback
+            testId="writing-load-fallback"
+            onRetry={retryLoad}
+            message={errorMsg}
+          />
+        ) : (
+          t('workspaceLoadingLabel')
+        )}
       </div>
     );
   }
@@ -533,7 +548,7 @@ export function WritingSimulatorScreen({
               <Link
                 to="/paywall"
                 data-testid="writing-upgrade-cta"
-                className="inline-flex h-8 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
+                className="inline-flex min-h-10 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3.5 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
               >
                 {t('writingUpgradeCta')}
               </Link>
@@ -618,8 +633,8 @@ export function WritingSimulatorScreen({
         <SplitPaneWorkspace
           viewKey="simulator:writing"
           initialRatio={0.45}
-          leftLabel="Prompt & Stimulus"
-          rightLabel="Essay Workspace"
+          leftLabel={t('splitTabLeftPrompt')}
+          rightLabel={t('splitTabRightEssay')}
           leftPane={
             <div className="flex flex-col gap-4">
               {sortedSections.length > 1 ? (
@@ -635,7 +650,7 @@ export function WritingSimulatorScreen({
                         data-testid={`writing-task-tab-${idx}`}
                         onClick={() => setActiveTaskIndex(idx)}
                         className={[
-                          'rounded-[var(--mz-radius-pill)] border px-3 py-1 text-xs font-semibold transition-colors',
+                          'inline-flex min-h-10 items-center rounded-[var(--mz-radius-pill)] border px-3.5 py-1.5 text-xs font-semibold transition-colors',
                           idx === activeTaskIndex
                             ? 'border-primary bg-primary text-on-primary'
                             : 'border-border-subtle bg-bg-raised text-text-secondary hover:bg-surface-hover',

@@ -1,7 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import {
   AlertTriangle,
-  ArrowRight,
   CheckCircle2,
   EyeOff,
   Flame,
@@ -12,7 +11,9 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { MzCard } from '@/components/ui';
+import { ForwardArrowIcon } from '@/components/bidi/DirectionIcon';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
+import { formatTopicLabel } from '@/components/bidi/topic-labels';
 import { toPersianDigits } from '@/edition/bidi/numerals';
 import { formatDisplayDate } from '@/edition/calendar/jalali-edge';
 import type { LinguisticGraphSnapshot } from '@/gateways/linguistic.gateway';
@@ -79,7 +80,7 @@ export function LinguisticGraphScreen() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-5xl py-10 text-sm text-text-secondary">
+      <div className="mx-auto w-full max-w-6xl py-10 text-sm text-text-secondary">
         {isRtl ? 'در حال بارگذاری نقاط ضعف و پیشرفت...' : 'Loading your Weak Spots & Topics...'}
       </div>
     );
@@ -92,7 +93,7 @@ export function LinguisticGraphScreen() {
   );
 
   return (
-    <div data-testid="linguistic-graph-screen" className="mx-auto flex max-w-5xl flex-col gap-6 pb-10 text-start">
+    <div data-testid="linguistic-graph-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-10 text-start">
       <header className="border-b border-border-subtle pb-4">
         <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
           <Network className="h-3.5 w-3.5" aria-hidden="true" />
@@ -130,14 +131,14 @@ export function LinguisticGraphScreen() {
                   <Link
                     to="/mission/$missionId"
                     params={{ missionId: 'today' }}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-[var(--mz-radius-compact)] bg-primary px-3 font-semibold text-on-primary"
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-[var(--mz-radius-compact)] bg-primary px-3.5 text-xs font-semibold text-on-primary"
                   >
                     <Flame className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>{isRtl ? 'شروع مربی امروز' : "Start Today's 10-Min Coach"}</span>
                   </Link>
                   <Link
                     to="/register-shifter"
-                    className="inline-flex h-8 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-border-strong bg-canvas px-3 font-semibold text-primary"
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-border-strong bg-canvas px-3.5 text-xs font-semibold text-primary"
                   >
                     <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>{isRtl ? 'ارتقای گفتار' : 'Upgrade a Thought'}</span>
@@ -184,10 +185,10 @@ export function LinguisticGraphScreen() {
                       <Link
                         to="/mission/$missionId"
                         params={{ missionId: 'today' }}
-                        className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                        className="inline-flex min-h-9 items-center gap-1 font-semibold text-primary hover:underline"
                       >
                         <span>{isRtl ? 'رفع در تمرین امروز' : 'Fix This Now'}</span>
-                        <ArrowRight className="h-3 w-3" aria-hidden="true" />
+                        <ForwardArrowIcon edition={deps.edition} className="h-3.5 w-3.5" />
                       </Link>
                     </div>
                   </div>
@@ -276,13 +277,12 @@ export function LinguisticGraphScreen() {
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {pState.profile.favoriteTopics.map((topicKey) => {
-                  const meta = TOPIC_METADATA[topicKey as keyof typeof TOPIC_METADATA];
                   return (
                     <span
                       key={topicKey}
-                      className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-surface px-2 py-0.5 text-[11px] text-text-secondary"
+                      className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-surface px-2.5 py-0.5 text-[11px] text-text-secondary"
                     >
-                      {meta ? (isRtl ? meta.labelFa : meta.labelEn) : topicKey}
+                      {formatTopicLabel(topicKey, deps.edition)}
                     </span>
                   );
                 })}
@@ -327,15 +327,15 @@ export function LinguisticGraphScreen() {
             : 'Tap a quick topic or pin your own so daily prompts stay engaging.'}
         </p>
 
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        <div className="mt-3 flex flex-wrap gap-2">
           {STARTER_TOPICS.filter((s) => !pinnedLabelsLower.has(s.labelEn.toLowerCase())).map((topic) => (
             <button
               key={topic.key}
               type="button"
               onClick={() => void handlePinTopicValue(topic.labelEn)}
-              className="inline-flex items-center gap-1 rounded-[var(--mz-radius-pill)] border border-dashed border-primary/50 bg-canvas px-2.5 py-1 text-xs font-medium text-primary hover:bg-surface-hover"
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-[var(--mz-radius-pill)] border border-dashed border-primary/50 bg-canvas px-3.5 py-2 text-xs font-medium text-primary hover:bg-surface-hover"
             >
-              <Plus className="h-3 w-3" aria-hidden="true" />
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
               <span>{isRtl ? topic.labelFa : topic.labelEn}</span>
             </button>
           ))}
@@ -347,7 +347,7 @@ export function LinguisticGraphScreen() {
             .map((topic) => (
               <span
                 key={topic.nodeId}
-                className="inline-flex items-center gap-1.5 rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-3 py-1 text-xs font-semibold text-text-primary"
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised ps-3.5 pe-1.5 text-xs font-semibold text-text-primary"
               >
                 {topic.isPinned ? <Pin className="h-3 w-3 text-primary" aria-hidden="true" /> : null}
                 <span>{isRtl && topic.displayLabelFa ? topic.displayLabelFa : topic.displayLabelEn}</span>
@@ -355,9 +355,9 @@ export function LinguisticGraphScreen() {
                   type="button"
                   aria-label="Mute topic"
                   onClick={() => void handleMuteTopic(topic.canonicalKey)}
-                  className="ms-1 text-text-secondary hover:text-danger"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-text-secondary hover:bg-surface-hover hover:text-danger"
                 >
-                  <EyeOff className="h-3 w-3" aria-hidden="true" />
+                  <EyeOff className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
               </span>
             ))}
@@ -369,13 +369,13 @@ export function LinguisticGraphScreen() {
             value={newTopic}
             onChange={(e) => setNewTopic(e.target.value)}
             placeholder={isRtl ? 'مثلاً: معماری نرم‌افزار یا فوتبال...' : 'Pin a topic (e.g., Football, Systems Design)...'}
-            className="h-9 min-w-56 flex-1 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-surface px-3 text-xs text-text-primary focus:border-primary focus:outline-none"
+            className="h-10 min-w-56 flex-1 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-surface px-3 text-xs text-text-primary focus:border-primary focus:outline-none"
           />
           <button
             type="button"
             data-testid="pin-interest-btn"
             onClick={() => void handlePinTopic()}
-            className="inline-flex h-9 items-center gap-1 rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-on-primary"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary"
           >
             <Plus className="h-3.5 w-3.5" aria-hidden="true" />
             <span>{t('graphPinTopicBtn')}</span>

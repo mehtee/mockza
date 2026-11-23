@@ -309,8 +309,9 @@ test.describe('Mockza Desktop Web (GLB) E2E Robot Journeys (Web-E2E 1..7)', () =
     await page.getByTestId('essay-editor-textarea').fill('First sentence here. Second sentence violates rule.');
     await expect(page.getByTestId('essay-sentence-rule')).toContainText('2 detected');
 
+    await page.goto('/app/settings');
+    await page.getByTestId('settings-track-det').click();
     await page.goto('/app/home');
-    await page.getByTestId('home-track-det').click();
     await expect(page.getByTestId('home-toefl-concordance')).toHaveCount(0);
     await expect(page.getByTestId('home-target-score-pill')).toContainText(/1[0-6]0|1[1-5][05]/);
   });

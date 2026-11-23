@@ -1234,7 +1234,7 @@ export const STARTER_EXAM_BUNDLES: SeedExamBundle[] = [
       track: 'academic',
       title: 'Community Eco-Hub Workshop Registration',
       description:
-        'Section 1 full 10-question listening test with synchronized script and SeaweedFS .m4a audio.',
+        'Section 1 full 10-question listening test with synchronized transcript and studio audio.',
       durationSeconds: 220,
       questionCount: 10,
       accent: 'UK',

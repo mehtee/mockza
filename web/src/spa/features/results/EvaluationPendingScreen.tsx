@@ -108,7 +108,7 @@ export function EvaluationPendingScreen({ jobId }: EvaluationPendingScreenProps)
   );
 
   return (
-    <div data-testid="evaluation-pending-screen" className="mx-auto flex max-w-2xl flex-col gap-5 py-8 text-start">
+    <div data-testid="evaluation-pending-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-5 py-8 text-start">
       <MzCard variant="hero">
         <div className="flex items-center gap-3">
           <Loader2

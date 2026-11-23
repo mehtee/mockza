@@ -97,16 +97,16 @@ export function ExamSvgChartCard({
             {caption && caption.trim().length > 0 ? caption : t('examKitChartCaptionFallback')}
           </figcaption>
 
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1.5">
             <button
               type="button"
               data-testid="chart-zoom-out"
               aria-label={t('examKitZoomOutAction')}
               disabled={scale <= MIN_INLINE_SCALE}
               onClick={() => setScale((s) => Math.max(MIN_INLINE_SCALE, Number((s - 0.5).toFixed(1))))}
-              className="inline-flex h-7 w-7 items-center justify-center rounded border border-border-subtle bg-bg-raised text-text-primary hover:bg-surface-hover disabled:opacity-40"
+              className="inline-flex h-10 w-10 items-center justify-center rounded border border-border-subtle bg-bg-raised text-text-primary hover:bg-surface-hover disabled:opacity-40"
             >
-              <ZoomOut className="h-3.5 w-3.5" aria-hidden="true" />
+              <ZoomOut className="h-4 w-4" aria-hidden="true" />
             </button>
             <span className="min-w-[2.75rem] text-center font-mono-exam text-xs text-text-secondary">
               {scale.toFixed(1)}x
@@ -117,9 +117,9 @@ export function ExamSvgChartCard({
               aria-label={t('examKitZoomInAction')}
               disabled={scale >= MAX_INLINE_SCALE}
               onClick={() => setScale((s) => Math.min(MAX_INLINE_SCALE, Number((s + 0.5).toFixed(1))))}
-              className="inline-flex h-7 w-7 items-center justify-center rounded border border-border-subtle bg-bg-raised text-text-primary hover:bg-surface-hover disabled:opacity-40"
+              className="inline-flex h-10 w-10 items-center justify-center rounded border border-border-subtle bg-bg-raised text-text-primary hover:bg-surface-hover disabled:opacity-40"
             >
-              <ZoomIn className="h-3.5 w-3.5" aria-hidden="true" />
+              <ZoomIn className="h-4 w-4" aria-hidden="true" />
             </button>
             <button
               type="button"
@@ -127,9 +127,9 @@ export function ExamSvgChartCard({
               aria-label={t('examKitZoomResetAction')}
               disabled={scale === 1}
               onClick={() => setScale(1)}
-              className="inline-flex h-7 w-7 items-center justify-center rounded border border-border-subtle bg-bg-raised text-text-primary hover:bg-surface-hover disabled:opacity-40"
+              className="inline-flex h-10 w-10 items-center justify-center rounded border border-border-subtle bg-bg-raised text-text-primary hover:bg-surface-hover disabled:opacity-40"
             >
-              <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+              <RotateCcw className="h-4 w-4" aria-hidden="true" />
             </button>
             <button
               type="button"
@@ -138,9 +138,9 @@ export function ExamSvgChartCard({
                 setLightboxScale(1);
                 setLightboxOpen(true);
               }}
-              className="inline-flex h-7 items-center gap-1 rounded border border-border-subtle bg-bg-raised px-2.5 text-xs font-semibold text-primary hover:bg-surface-hover"
+              className="inline-flex min-h-10 items-center gap-1.5 rounded border border-border-subtle bg-bg-raised px-3 text-xs font-semibold text-primary hover:bg-surface-hover"
             >
-              <Maximize2 className="h-3 w-3" aria-hidden="true" />
+              <Maximize2 className="h-3.5 w-3.5" aria-hidden="true" />
               <span>{t('examKitExpandChartAction')}</span>
             </button>
           </div>

@@ -100,14 +100,14 @@ export function AuthScreen({
   return (
     <div
       data-testid="auth-screen"
-      className="mx-auto flex min-h-[calc(100dvh-5rem)] max-w-5xl items-center py-6"
+      className="mx-auto flex min-h-[calc(100dvh-5rem)] w-full max-w-6xl items-center py-6"
     >
       <div className="grid w-full grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Left Value & 1+1 Device Slot Column */}
         <MzCard
           variant="hero"
           padding="lg"
-          className="flex flex-col justify-between gap-6 lg:col-span-5"
+          className="order-last flex flex-col justify-between gap-6 lg:order-first lg:col-span-5"
         >
           <div>
             <span className="inline-flex items-center gap-2 rounded-[var(--mz-radius-pill)] border border-border-strong bg-surface/75 px-3 py-1 text-xs font-semibold text-primary">
@@ -146,7 +146,11 @@ export function AuthScreen({
         </MzCard>
 
         {/* Right Interactive Auth Panel */}
-        <MzCard variant="default" padding="lg" className="flex flex-col gap-5 lg:col-span-7">
+        <MzCard
+          variant="default"
+          padding="lg"
+          className="order-first flex flex-col gap-5 lg:order-last lg:col-span-7"
+        >
           {ctrl.isSessionRevokedNotice && (
             <MzBanner tone="warning" title={t('authSignInAction')}>
               {t('authSessionRevokedBanner')}
@@ -183,6 +187,7 @@ export function AuthScreen({
             {showSmsOtp ? (
               <MzSegmentedControl
                 ariaLabel={t('routeLoginTitle')}
+                fullWidth
                 value={ctrl.channel}
                 onChange={(next) => ctrl.setChannel(next)}
                 options={[

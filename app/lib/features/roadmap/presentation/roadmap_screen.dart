@@ -137,13 +137,18 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
     final colors = AppColors.of(context);
     final shapes = AppShapes.of(context);
     final typography = AppTypography.of(context);
-    final isIrn =
-        ref.watch(editionConfigProvider).edition == AppEdition.iran;
+    final isIrn = ref.watch(editionConfigProvider).edition == AppEdition.iran;
 
     final state = _state;
-    final activeSteps =
+    final rawActiveSteps =
         state?.steps.where((s) => s.status == 'active').toList() ??
         const <RoadmapStepDto>[];
+    final activeSteps = state?.liveBand.currentBand == null
+        ? (<RoadmapStepDto>[
+            ...rawActiveSteps.where((s) => s.stepKind != 'diagnostic'),
+            ...rawActiveSteps.where((s) => s.stepKind == 'diagnostic'),
+          ])
+        : rawActiveSteps;
     final upcomingSteps =
         state?.steps.where((s) => s.status == 'locked').toList() ??
         const <RoadmapStepDto>[];
@@ -250,6 +255,17 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
+                        if (state.liveBand.currentBand == null) ...<Widget>[
+                          const SizedBox(height: SpacingTokens.xs),
+                          Text(
+                            isIrn
+                                ? 'سطح هنوز تعیین نشده است · گام‌های پایه بدون اجبار به آزمون فعال هستند.'
+                                : 'Level not set yet · Starter basics are unlocked while you do the level check later.',
+                            style: typography.caption.copyWith(
+                              color: colors.textSecondary,
+                            ),
+                          ),
+                        ],
                         if (state.favoriteTopics.isNotEmpty) ...<Widget>[
                           const SizedBox(height: SpacingTokens.sm),
                           Wrap(
@@ -496,8 +512,7 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
                 if (upcomingSteps.isNotEmpty) ...<Widget>[
                   const SizedBox(height: SpacingTokens.md),
                   InkWell(
-                    onTap: () =>
-                        setState(() => _showUpcoming = !_showUpcoming),
+                    onTap: () => setState(() => _showUpcoming = !_showUpcoming),
                     child: Padding(
                       padding: const EdgeInsetsDirectional.symmetric(
                         vertical: SpacingTokens.sm,
@@ -593,7 +608,9 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: <Widget>[
                           Text(
-                            l10n.roadmapCollapseCompleted(completedSteps.length),
+                            l10n.roadmapCollapseCompleted(
+                              completedSteps.length,
+                            ),
                             style: typography.caption.copyWith(
                               color: colors.success,
                               fontWeight: FontWeight.w700,

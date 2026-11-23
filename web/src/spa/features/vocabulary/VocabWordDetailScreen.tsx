@@ -1,14 +1,30 @@
 import { Link } from '@tanstack/react-router';
-import { ArrowLeft, ArrowRight, Mic } from 'lucide-react';
+import { Mic } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { InlineListenButton } from '@/components/speech/InlineListenButton';
 import { SpeechPracticeDrawer } from '@/components/speech/SpeechPracticeDrawer';
 import { MzBanner, MzButton, MzCard } from '@/components/ui';
+import { BackArrowIcon } from '@/components/bidi/DirectionIcon';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
+import { formatChromeNumber } from '@/edition/bidi/numerals';
 import { formatSerialDay } from '@/edition/calendar/jalali-edge';
 import type { VocabCardWithSrs } from '@/gateways/storage.gateway';
-import { createTranslator } from '@/i18n';
+import { BdiLtr, createTranslator, type TranslationKey } from '@/i18n';
 import { useDeps } from '@/spa/deps';
+
+function localizeWordSrsState(
+  state: VocabCardWithSrs['srs']['state'],
+  t: (key: TranslationKey) => string,
+): string {
+  switch (state) {
+    case 'learning':
+      return t('vocabStateLearning');
+    case 'mastered':
+      return t('vocabStateMastered');
+    default:
+      return t('vocabStateNew');
+  }
+}
 
 export interface VocabWordDetailScreenProps {
   readonly wordId: string;
@@ -18,7 +34,6 @@ export function VocabWordDetailScreen({ wordId }: VocabWordDetailScreenProps) {
   const deps = useDeps();
   const t = createTranslator(deps.edition);
 
-  const BackIcon = deps.edition === 'irn' ? ArrowRight : ArrowLeft;
   const [entry, setEntry] = useState<VocabCardWithSrs | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [practiceOpen, setPracticeOpen] = useState(false);
@@ -54,14 +69,14 @@ export function VocabWordDetailScreen({ wordId }: VocabWordDetailScreenProps) {
   const { card, srs } = entry;
 
   return (
-    <div data-testid="vocab-word-detail-screen" className="mx-auto flex max-w-3xl flex-col gap-5 pb-12 text-start">
-      <div className="flex items-center justify-between gap-3">
+    <div data-testid="vocab-word-detail-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-12 text-start">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs font-semibold text-primary">{t('vocabWordDetailTitle')}</p>
         <Link
           to="/vocabulary"
-          className="inline-flex h-8 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 text-xs font-semibold text-text-primary hover:bg-surface-hover"
+          className="inline-flex min-h-10 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3.5 text-xs font-semibold text-text-primary hover:bg-surface-hover"
         >
-          <BackIcon className="h-3.5 w-3.5" aria-hidden="true" />
+          <BackArrowIcon edition={deps.edition} className="h-3.5 w-3.5" />
           <span>{t('vocabBackToHubAction')}</span>
         </Link>
       </div>
@@ -70,7 +85,7 @@ export function VocabWordDetailScreen({ wordId }: VocabWordDetailScreenProps) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <LtrExamBoundary>
             <h1 className="text-3xl font-bold text-text-primary">{card.headword}</h1>
-            {card.ipa ? <p className="mt-1 font-mono-exam text-sm text-text-tertiary">{card.ipa}</p> : null}
+            {card.ipa ? <p className="mt-1 whitespace-nowrap font-mono-exam text-sm text-text-tertiary">{card.ipa}</p> : null}
           </LtrExamBoundary>
           <div className="flex flex-wrap items-center gap-2">
             <InlineListenButton
@@ -90,7 +105,9 @@ export function VocabWordDetailScreen({ wordId }: VocabWordDetailScreenProps) {
             </MzButton>
           </div>
         </div>
-        <p className="mt-3 text-sm text-text-primary">{card.definition}</p>
+        <LtrExamBoundary className="mt-3">
+          <p className="text-sm leading-relaxed text-text-primary">{card.definition}</p>
+        </LtrExamBoundary>
         {deps.edition === 'irn' && card.glossFa ? (
           <p className="mt-2 text-base font-bold text-primary">{card.glossFa}</p>
         ) : null}
@@ -125,31 +142,41 @@ export function VocabWordDetailScreen({ wordId }: VocabWordDetailScreenProps) {
             ))}
           </div>
           {card.usageNote ? (
-            <p className="mt-3 text-xs text-text-secondary">{card.usageNote}</p>
+            <LtrExamBoundary className="mt-3">
+              <p className="text-xs text-text-secondary">{card.usageNote}</p>
+            </LtrExamBoundary>
           ) : null}
         </MzCard>
 
         <MzCard variant="default" data-testid="vocab-srs-schedule-card">
           <h2 className="text-sm font-bold text-text-primary">{t('vocabSrsScheduleTitle')}</h2>
-          <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+          <dl className="mt-3 grid grid-cols-2 gap-3 text-xs">
             <div>
-              <dt className="text-text-tertiary">State</dt>
-              <dd className="font-semibold text-primary uppercase">{srs.state}</dd>
-            </div>
-            <div>
-              <dt className="text-text-tertiary">Repetitions</dt>
-              <dd className="font-mono-exam font-semibold text-text-primary">{srs.repetitions}</dd>
-            </div>
-            <div>
-              <dt className="text-text-tertiary">Interval</dt>
-              <dd className="font-mono-exam font-semibold text-text-primary">
-                {t('vocabIntervalDaysLabel', { days: srs.intervalDays })}
+              <dt className="text-text-tertiary">{t('vocabSrsStateLabel')}</dt>
+              <dd className="mt-0.5 font-semibold text-primary">
+                {localizeWordSrsState(srs.state, t)}
               </dd>
             </div>
             <div>
-              <dt className="text-text-tertiary">Next Due</dt>
-              <dd className="font-mono-exam font-semibold text-text-primary">
-                {formatSerialDay(srs.dueSerialDay, deps.edition)}
+              <dt className="text-text-tertiary">{t('vocabSrsRepetitionsLabel')}</dt>
+              <dd className="mt-0.5 font-semibold text-text-primary">
+                {formatChromeNumber(srs.repetitions, deps.edition)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-text-tertiary">{t('vocabSrsIntervalLabel')}</dt>
+              <dd className="mt-0.5 font-semibold text-text-primary">
+                <BdiLtr>
+                  {t('vocabIntervalDaysLabel', {
+                    days: formatChromeNumber(srs.intervalDays, deps.edition),
+                  })}
+                </BdiLtr>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-text-tertiary">{t('vocabSrsNextDueLabel')}</dt>
+              <dd className="mt-0.5 font-mono-exam font-semibold text-text-primary">
+                <BdiLtr>{formatSerialDay(srs.dueSerialDay, deps.edition)}</BdiLtr>
               </dd>
             </div>
           </dl>

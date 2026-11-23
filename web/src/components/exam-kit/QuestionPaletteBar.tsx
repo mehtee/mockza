@@ -70,7 +70,7 @@ export function QuestionPaletteBar({
       <nav
         aria-label={ariaLabel ?? t('workspaceQuestionProgress', { current: activeIndex + 1, total: items.length })}
         data-testid="question-palette-bar"
-        className="flex flex-wrap items-center gap-1.5"
+        className="flex flex-nowrap items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0"
       >
         {items.map((item) => {
           const isCurrent = item.index === activeIndex;
@@ -88,7 +88,7 @@ export function QuestionPaletteBar({
               aria-label={t('paletteQuestionAriaLabel', { number: item.number })}
               onClick={() => onSelectQuestion(item.index)}
               className={[
-                'relative inline-flex h-8 min-w-[2.25rem] items-center justify-center gap-1 rounded-[var(--mz-radius-compact)] px-2 font-mono-exam text-xs tabular-nums transition-all',
+                'relative inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center gap-1 rounded-[var(--mz-radius-compact)] px-2.5 font-mono-exam text-xs tabular-nums transition-all sm:min-h-8 sm:min-w-[2.25rem] sm:px-2',
                 STATE_BUTTON_CLASSES[visualState],
               ].join(' ')}
             >

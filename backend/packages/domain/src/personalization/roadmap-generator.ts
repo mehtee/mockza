@@ -1,7 +1,7 @@
 import type { LinguisticNodeSummary } from '../advanced/linguistic-graph-math.js';
 import type { AuthoringTier } from '../diagnostic/types.js';
 import type { SupportedExamId } from '../rubrics.js';
-import { estimateCefrTierFromScore } from './live-band-engine.js';
+import { estimateCefrTierFromScore, mapCefrTierToExamScore } from './live-band-engine.js';
 import {
   type AdaptationPhase,
   type AdaptiveContentCandidate,
@@ -110,8 +110,12 @@ export function generateOrRecalibrateRoadmap(params: {
   const favTopics = normalizeFavoriteTopicList(params.favoriteTopics);
   const primaryFav: CanonicalTopicKey = favTopics[0] ?? 'technology_ai';
   const secondaryFav: CanonicalTopicKey = favTopics[1] ?? favTopics[0] ?? 'science_climate';
-  const baseline = params.currentBand ?? Math.max(5.0, Number((params.targetBand - 1.0).toFixed(1)));
-  const currentCefr = estimateCefrTierFromScore(baseline, params.examId) ?? 'B2';
+  const starterFallbackScore = mapCefrTierToExamScore('B1', params.examId);
+  const baseline = params.currentBand ?? starterFallbackScore;
+  const currentCefr: AuthoringTier =
+    params.currentBand != null
+      ? (estimateCefrTierFromScore(params.currentBand, params.examId) ?? 'B1')
+      : 'B1';
 
   const daysRemaining =
     params.targetDateSerial != null ? Math.max(1, params.targetDateSerial - params.todaySerial) : 28;
@@ -170,10 +174,12 @@ export function generateOrRecalibrateRoadmap(params: {
       weaknessKey: null,
       phaseTag: 'ignition',
       difficultyCefr: currentCefr,
-      titleEn: '10-Min Level Check (Set Your Starting Band)',
-      titleFa: 'ارزیابی ۱۰ دقیقه‌ای تعیین سطح پایه',
-      reasonEn: 'Quickly estimates all 4 skills and detects your first bottlenecks automatically.',
-      reasonFa: 'هر ۴ مهارت را سریع ارزیابی کرده و اولین نقاط ضعف و نمره پایه شما را می‌سازد.',
+      titleEn: 'Optional 10-Min Level Check (Set Your Band Anytime)',
+      titleFa: 'ارزیابی ۱۰ دقیقه‌ای تعیین سطح (اختیاری — هر زمان آماده بودید)',
+      reasonEn:
+        'Measures all 4 skills to calibrate your exact band — you can skip it for now and start with the basic steps below.',
+      reasonFa:
+        'هر ۴ مهارت شما را می‌سنجد؛ اما اگر مایل هستید می‌توانید فعلاً از گام‌های پایه زیر شروع کنید.',
       estimatedMinutes: 10,
     });
   }
@@ -272,8 +278,9 @@ export function generateOrRecalibrateRoadmap(params: {
     });
   }
 
-  if (!isSprintMode && rankedPacks[1]) {
-    const p1 = rankedPacks[1];
+  const m2PackCandidate = params.studyFocus === 'exams' ? rankedPacks[1] : rankedPacks[0];
+  if (!isSprintMode && m2PackCandidate) {
+    const p1 = m2PackCandidate;
     draftSteps.push({
       stepKey: `m2:pack:${p1.item.id}`,
       milestoneIndex: 2,
@@ -448,6 +455,12 @@ export function generateOrRecalibrateRoadmap(params: {
     let status: RoadmapStepStatus;
     if (isCompleted) {
       status = 'completed';
+    } else if (!params.diagnosticDone && s.milestoneIndex === 1) {
+      // Never block Milestone 1 starter basics behind an uncompleted optional diagnostic.
+      status = 'active';
+      if (s.stepKind !== 'diagnostic') {
+        foundFirstPending = true;
+      }
     } else if (!foundFirstPending) {
       status = 'active';
       foundFirstPending = true;

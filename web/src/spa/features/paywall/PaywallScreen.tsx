@@ -105,7 +105,7 @@ export function PaywallScreen({
 
         <Link
           to="/settings"
-          className="text-xs font-semibold text-text-secondary underline-offset-4 hover:text-text-primary hover:underline"
+          className="inline-flex min-h-10 items-center rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-3.5 text-xs font-semibold text-text-primary transition-colors hover:bg-surface-hover"
         >
           {t('navSettings')}
         </Link>
@@ -293,7 +293,7 @@ export function PaywallScreen({
                   to="/auth/login"
                   search={{ returnTo: '/paywall' }}
                   data-testid="paywall-signin-link"
-                  className="font-semibold text-primary hover:underline"
+                  className="inline-flex min-h-10 items-center rounded-[var(--mz-radius-compact)] border border-primary/40 bg-canvas px-3 text-xs font-semibold text-primary hover:bg-surface-hover"
                 >
                   {t('paywallSignInAction')}
                 </Link>

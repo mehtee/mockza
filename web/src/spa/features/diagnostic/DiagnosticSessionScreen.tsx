@@ -549,7 +549,7 @@ export function DiagnosticSessionScreen({
     }
 
     return (
-      <div className="mx-auto flex max-w-4xl flex-col gap-5 p-6">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-6">
         <MzCard variant="hero">
           <h3 className="text-base font-bold text-text-primary">{bank.speakingPrompt.title}</h3>
           <LtrExamBoundary>
@@ -695,7 +695,17 @@ export function DiagnosticSessionScreen({
         onRequestExit={() => void navigate({ to: '/home' })}
         footer={renderFooter()}
       >
-        {renderBody()}
+        {diagState.currentStage === 'reading' || diagState.currentStage === 'listening' ? (
+          activeBlock ? (
+            renderBody()
+          ) : (
+            <div className="mx-auto max-w-xl py-8">
+              <MzBanner tone="warning">{errorMsg ?? t('simLoadErrorTitle')}</MzBanner>
+            </div>
+          )
+        ) : (
+          renderBody()
+        )}
       </SimulatorWorkspaceShell>
     </div>
   );

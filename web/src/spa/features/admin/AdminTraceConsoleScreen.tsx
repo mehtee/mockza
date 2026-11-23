@@ -164,7 +164,7 @@ export function AdminTraceConsoleScreen() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5">
       <header className="flex items-center justify-between gap-3">
         <div>
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary">

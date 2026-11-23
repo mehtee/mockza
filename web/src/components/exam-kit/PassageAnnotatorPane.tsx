@@ -345,7 +345,13 @@ export function PassageAnnotatorPane({
   return (
     <div data-testid="passage-annotator-pane" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        {title ? <h3 className="text-base font-bold text-text-primary text-start">{title}</h3> : <span />}
+        {title ? (
+          <LtrExamBoundary>
+            <h3 className="text-base font-bold text-text-primary">{title}</h3>
+          </LtrExamBoundary>
+        ) : (
+          <span />
+        )}
         {allowSpeechPractice && rawText.trim().length > 0 ? (
           <InlineListenButton
             text={rawText.slice(0, 480)}

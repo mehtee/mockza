@@ -1138,5 +1138,54 @@ describe('Cross-Codebase Golden Parity Suite (@mockza/domain <-> shared-fixtures
       expect(roadmap.activeStep?.stepKey).toBe('m1:diagnostic');
       expect(roadmap.steps.find((s) => s.stepKey === 'm1:vocab:wave1')?.status).toBe('completed');
     });
+
+    it('unlocks Milestone 1 starter basics at entry B1 tier when currentBand is null and diagnostic skipped', () => {
+      const roadmap = generateOrRecalibrateRoadmap({
+        examId: 'ielts_academic',
+        currentBand: null,
+        targetBand: 8.5,
+        targetDateSerial: 20810,
+        todaySerial: 20780,
+        studyFocus: 'both',
+        dailyMinutesGoal: 30,
+        favoriteTopics: ['technology_ai'],
+        weaknessNodes: [],
+        coverage: [],
+        packs: [
+          {
+            id: 'pack-c1',
+            examId: 'ielts_academic',
+            skill: 'reading',
+            title: 'C1 Advanced Reading',
+            durationSeconds: 1200,
+            topicKeys: ['technology_ai'],
+            weaknessTags: [],
+            cefrMin: 'C1',
+            cefrMax: 'C2',
+          },
+          {
+            id: 'pack-b1',
+            examId: 'ielts_academic',
+            skill: 'reading',
+            title: 'B1 Starter Reading',
+            durationSeconds: 900,
+            topicKeys: ['technology_ai'],
+            weaknessTags: [],
+            cefrMin: 'B1',
+            cefrMax: 'B2',
+          },
+        ],
+        drills: [],
+        diagnosticDone: false,
+        currentVocabWave: 1,
+      });
+
+      expect(roadmap.steps.find((s) => s.stepKey === 'm1:diagnostic')?.status).toBe('active');
+      expect(roadmap.steps.find((s) => s.stepKey === 'm1:vocab:wave1')?.status).toBe('active');
+      expect(roadmap.steps.find((s) => s.stepKey === 'm1:coach:warmup')?.status).toBe('active');
+      expect(roadmap.steps.find((s) => s.stepKey === 'm1:vocab:wave1')?.difficultyCefr).toBe('B1');
+      // Starter practice pack prefers basic B1 even when targetBand is 8.5
+      expect(roadmap.steps.find((s) => s.stepKind === 'practice_pack')?.targetRefId).toBe('pack-b1');
+    });
   });
 });

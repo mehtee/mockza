@@ -53,7 +53,9 @@ export function SplitPaneWorkspace({
     const workspace = workspaceRef.current;
     if (!workspace || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(([entry]) => {
-      if (entry) setStacked(entry.contentRect.width < 680);
+      if (entry && entry.contentRect.width > 0) {
+        setStacked(entry.contentRect.width < 680);
+      }
     });
     observer.observe(workspace);
     return () => observer.disconnect();
@@ -121,68 +123,119 @@ export function SplitPaneWorkspace({
     persistPercent(SPLIT_DEFAULT_PERCENT);
   }, [persistPercent, tryApplyLayout]);
 
+  const [mobilePane, setMobilePane] = useState<'left' | 'right'>('left');
+
   return (
     <div
       ref={workspaceRef}
       data-testid="split-pane-workspace"
       data-split-percent={leftPercent}
-      className={['h-full w-full overflow-hidden', className].filter(Boolean).join(' ')}
+      className={['flex h-full w-full flex-col overflow-hidden', className].filter(Boolean).join(' ')}
     >
-      <PanelGroup
-        ref={groupRef}
-        direction={stacked ? 'vertical' : 'horizontal'}
-        onLayout={handleLayout}
-        className="h-full w-full"
-      >
-        <Panel
-          id={`${viewKey}-left`}
-          order={1}
-          defaultSize={leftPercent}
-          minSize={SPLIT_MIN_PERCENT}
-          maxSize={SPLIT_MAX_PERCENT}
-          className="h-full min-w-0"
-        >
-          <section
-            aria-label={leftLabel}
-            data-testid="split-pane-left"
-            className="h-full overflow-y-auto p-3 sm:p-5"
+      {stacked ? (
+        <>
+          <div
+            data-testid="split-pane-mobile-tabs"
+            className="sticky top-0 z-10 grid shrink-0 grid-cols-2 gap-1.5 border-b border-border-subtle bg-bg-raised p-1.5"
           >
-            {leftPane}
-          </section>
-        </Panel>
-
-        <PanelResizeHandle
-          data-testid="split-pane-divider"
-          title={t('workspaceResetSplitAction')}
-          onDoubleClick={handleResetSplit}
-          className={[
-            'group relative flex shrink-0 items-center justify-center border-border-subtle bg-bg-raised transition-colors hover:bg-primary/15 focus-visible:bg-primary/20 focus-visible:outline-none',
-            stacked ? 'h-3 cursor-row-resize border-y' : 'w-3 cursor-col-resize border-x',
-          ].join(' ')}
+            <button
+              type="button"
+              data-testid="split-pane-tab-left"
+              onClick={() => setMobilePane('left')}
+              className={[
+                'min-h-10 rounded-[var(--mz-radius-compact)] px-3 text-xs font-semibold transition-colors',
+                mobilePane === 'left'
+                  ? 'bg-primary text-on-primary'
+                  : 'bg-canvas text-text-secondary hover:text-text-primary',
+              ].join(' ')}
+            >
+              {leftLabel}
+            </button>
+            <button
+              type="button"
+              data-testid="split-pane-tab-right"
+              onClick={() => setMobilePane('right')}
+              className={[
+                'min-h-10 rounded-[var(--mz-radius-compact)] px-3 text-xs font-semibold transition-colors',
+                mobilePane === 'right'
+                  ? 'bg-primary text-on-primary'
+                  : 'bg-canvas text-text-secondary hover:text-text-primary',
+              ].join(' ')}
+            >
+              {rightLabel}
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <section
+              aria-label={leftLabel}
+              data-testid="split-pane-left"
+              className={mobilePane === 'left' ? 'p-3 sm:p-5' : 'hidden'}
+            >
+              {leftPane}
+            </section>
+            <section
+              aria-label={rightLabel}
+              data-testid="split-pane-right"
+              className={mobilePane === 'right' ? 'p-3 sm:p-5' : 'hidden'}
+            >
+              {rightPane}
+            </section>
+          </div>
+        </>
+      ) : (
+        <PanelGroup
+          ref={groupRef}
+          direction="horizontal"
+          onLayout={handleLayout}
+          className="h-full w-full"
         >
-          <GripVertical
-            className={`h-4 w-4 text-text-tertiary transition-colors group-hover:text-primary ${stacked ? 'rotate-90' : ''}`}
-            aria-hidden="true"
-          />
-        </PanelResizeHandle>
-
-        <Panel
-          id={`${viewKey}-right`}
-          order={2}
-          defaultSize={100 - leftPercent}
-          minSize={100 - SPLIT_MAX_PERCENT}
-          maxSize={100 - SPLIT_MIN_PERCENT}
-          className="h-full min-w-0"
-        >
-          <section
-            aria-label={rightLabel}
-            data-testid="split-pane-right"
-            className="h-full overflow-y-auto p-3 sm:p-5"
+          <Panel
+            id={`${viewKey}-left`}
+            order={1}
+            defaultSize={leftPercent}
+            minSize={SPLIT_MIN_PERCENT}
+            maxSize={SPLIT_MAX_PERCENT}
+            className="h-full min-w-0"
           >
-            {rightPane}
-          </section>
-        </Panel>
-      </PanelGroup>
+            <section
+              aria-label={leftLabel}
+              data-testid="split-pane-left"
+              className="h-full overflow-y-auto p-3 sm:p-5"
+            >
+              {leftPane}
+            </section>
+          </Panel>
+
+          <PanelResizeHandle
+            data-testid="split-pane-divider"
+            title={t('workspaceResetSplitAction')}
+            onDoubleClick={handleResetSplit}
+            className="group relative flex w-3 shrink-0 cursor-col-resize items-center justify-center border-x border-border-subtle bg-bg-raised transition-colors hover:bg-primary/15 focus-visible:bg-primary/20 focus-visible:outline-none"
+          >
+            <GripVertical
+              className="h-4 w-4 text-text-tertiary transition-colors group-hover:text-primary"
+              aria-hidden="true"
+            />
+          </PanelResizeHandle>
+
+          <Panel
+            id={`${viewKey}-right`}
+            order={2}
+            defaultSize={100 - leftPercent}
+            minSize={100 - SPLIT_MAX_PERCENT}
+            maxSize={100 - SPLIT_MIN_PERCENT}
+            className="h-full min-w-0"
+          >
+            <section
+              aria-label={rightLabel}
+              data-testid="split-pane-right"
+              className="h-full overflow-y-auto p-3 sm:p-5"
+            >
+              {rightPane}
+            </section>
+          </Panel>
+        </PanelGroup>
+      )}
     </div>
   );
 }

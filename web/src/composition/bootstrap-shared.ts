@@ -46,19 +46,34 @@ export interface EditionBootstrapOptions {
  * single-sourced while delegating edition-specific auth and billing via factories.
  */
 export function createEditionDependencies(options: EditionBootstrapOptions): AppDependencies {
-  const isLocalHost =
-    typeof window !== 'undefined' &&
-    (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost');
-  const apiBaseUrl =
-    options.apiBaseUrl ??
-    import.meta.env.PUBLIC_API_BASE_URL ??
-    (isLocalHost
-      ? `${window.location.protocol}//${window.location.hostname}:45281`
-      : options.defaultApiBaseUrl);
+  const hasWindow = typeof window !== 'undefined';
+  const host = hasWindow ? window.location.hostname : '';
+  const port = hasWindow ? window.location.port : '';
+  const isLocalHost = host === '127.0.0.1' || host === 'localhost';
+  let prodRootDomain = '';
+  try {
+    prodRootDomain = new URL(options.defaultApiBaseUrl).hostname.replace(/^api\./, '');
+  } catch {
+    prodRootDomain = '';
+  }
+  const isSplitOriginProd =
+    hasWindow &&
+    prodRootDomain.length > 0 &&
+    (host === prodRootDomain ||
+      host === `app.${prodRootDomain}` ||
+      host === `www.${prodRootDomain}`);
+  const envApiBaseUrl = import.meta.env.PUBLIC_API_BASE_URL;
+  const fallbackBrowserApiUrl =
+    isLocalHost && port !== '45280' && port !== '45282'
+      ? `${window.location.protocol}//${host}:${options.edition === 'irn' ? 45283 : 45281}`
+      : isSplitOriginProd || !hasWindow
+        ? options.defaultApiBaseUrl
+        : '';
+  const apiBaseUrl = options.apiBaseUrl ?? envApiBaseUrl ?? fallbackBrowserApiUrl;
   const cdnBaseUrl =
     options.cdnBaseUrl ??
     import.meta.env.PUBLIC_CDN_BASE_URL ??
-    (import.meta.env.PUBLIC_API_BASE_URL === '' || isLocalHost ? '' : options.defaultCdnBaseUrl);
+    (apiBaseUrl === '' || isLocalHost ? '' : options.defaultCdnBaseUrl);
   const allowDevAuth =
     options.allowDevAuth ?? (import.meta.env?.['PUBLIC_ALLOW_DEV_AUTH'] === 'true' || isLocalHost);
 

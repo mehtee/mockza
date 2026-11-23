@@ -1,8 +1,12 @@
-import { CANONICAL_TOPICS, TOPIC_METADATA } from '@mockza/domain';
+import {
+  CANONICAL_TOPICS,
+  generateOrRecalibrateRoadmap,
+  mapCefrTierToExamScore,
+  normalizeFavoriteTopicList,
+  TOPIC_METADATA,
+} from '@mockza/domain';
 import { Link } from '@tanstack/react-router';
 import {
-  ArrowLeft,
-  ArrowRight,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -17,6 +21,9 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { SpeechPracticeDrawer } from '@/components/speech/SpeechPracticeDrawer';
 import { MzBanner, MzButton, MzCard, MzModal } from '@/components/ui';
+import { ForwardArrowIcon } from '@/components/bidi/DirectionIcon';
+import { formatChromeNumber } from '@/edition/bidi/numerals';
+import { formatTopicLabel } from '@/components/bidi/topic-labels';
 import type { PersonalizationStateDto } from '@/gateways/personalization.gateway';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
@@ -49,12 +56,133 @@ export function RoadmapScreen() {
   const [draftMinutes, setDraftMinutes] = useState<number>(30);
   const [savingPrefs, setSavingPrefs] = useState(false);
 
+  const buildOfflineStarterState = useCallback(async (): Promise<PersonalizationStateDto> => {
+    const profRes = await deps.attemptStore.getUserProfile();
+    const profile = profRes.ok ? profRes.value : null;
+    const examTrack = profile?.examId ?? 'ielts_academic';
+    const targetBand = profile?.targetBand ?? 7.5;
+    const favTopics = normalizeFavoriteTopicList(profile?.favoriteTopics ?? []);
+    const studyFocus =
+      profile?.studyFocus === 'coach' || profile?.studyFocus === 'exams'
+        ? profile.studyFocus
+        : 'both';
+    const todaySerial = deps.clock.todaySerialDay();
+    const generated = generateOrRecalibrateRoadmap({
+      examId: examTrack,
+      currentBand: null,
+      targetBand,
+      targetDateSerial: profile?.targetDateSerial ?? null,
+      todaySerial,
+      studyFocus,
+      dailyMinutesGoal: 30,
+      favoriteTopics: favTopics,
+      weaknessNodes: [],
+      coverage: [],
+      packs: [],
+      drills: [],
+      diagnosticDone: false,
+      currentVocabWave: 1,
+    });
+    const starterBaseline = mapCefrTierToExamScore('B1', examTrack);
+    const mappedSteps: RoadmapStepDto[] = generated.steps.map((s) => ({
+      stepId: s.stepKey,
+      milestoneIndex: s.milestoneIndex,
+      stepOrder: s.stepOrder,
+      stepKind: s.stepKind,
+      skill: s.skill,
+      titleEn: s.titleEn,
+      titleFa: s.titleFa,
+      reasonEn: s.reasonEn,
+      reasonFa: s.reasonFa,
+      topicKey: s.topicKey,
+      weaknessKey: s.weaknessKey,
+      targetRoute: s.targetRefId,
+      targetEntityId: s.targetRefId || null,
+      status: s.status === 'locked_preview' ? 'locked' : s.status,
+      estimatedMinutes: s.estimatedMinutes,
+    }));
+    const starterCurrent =
+      mappedSteps.find((s) => s.status === 'active' && s.stepKind !== 'diagnostic') ??
+      mappedSteps.find((s) => s.status === 'active') ??
+      mappedSteps[0] ??
+      null;
+    return {
+      profile: {
+        examTrack,
+        targetBand,
+        targetDateIso: null,
+        dailyMinutesGoal: 30,
+        studyFocus,
+        favoriteTopics: favTopics,
+        activeWeaknessPhase: 'favorite_topics',
+        vocabUnlockedWave: 1,
+        dailyNewVocabCap: 10,
+        preferredTtsAccent: 'us',
+        bandShiftAcknowledged: false,
+        onboardingCompleted: profile?.onboardingCompleted ?? true,
+      },
+      liveBand: {
+        examTrack,
+        currentBand: null,
+        targetBand,
+        bandShift: 0,
+        confidence: 'provisional',
+        skills: {
+          reading: { score: null, confidence: 'provisional', evidenceCount: 0, lastUpdatedAt: null, trendDelta: null },
+          listening: { score: null, confidence: 'provisional', evidenceCount: 0, lastUpdatedAt: null, trendDelta: null },
+          writing: { score: null, confidence: 'provisional', evidenceCount: 0, lastUpdatedAt: null, trendDelta: null },
+          speaking: { score: null, confidence: 'provisional', evidenceCount: 0, lastUpdatedAt: null, trendDelta: null },
+        },
+      },
+      weaknesses: [],
+      roadmap: {
+        planId: 'offline-starter-plan',
+        examTrack,
+        planRevision: 1,
+        baselineBand: starterBaseline,
+        targetBand,
+        isSprintMode: generated.isSprintMode,
+        milestones: generated.milestones.map((m) => ({
+          index: m.index,
+          titleEn: m.titleEn,
+          titleFa: m.titleFa,
+          phaseLabelEn: m.goalEn,
+          phaseLabelFa: m.goalFa,
+          targetBandDelta: Number((m.targetBandMarker - starterBaseline).toFixed(1)),
+          status: m.status === 'upcoming' ? 'locked' : m.status,
+        })),
+        currentStep: starterCurrent,
+        steps: mappedSteps,
+      },
+      nextRecommendedPack: null,
+      nextRecommendedDrill: null,
+      recommendedPacks: [],
+      recommendedDrills: [],
+      vocabWaveSummary: {
+        unlockedWave: 1,
+        totalWaves: 1,
+        currentWaveTotal: 0,
+        currentWaveLearned: 0,
+        readyToUnlockNext: false,
+        dailyNewRemaining: 10,
+      },
+      topicCoverageSummary: {
+        phase: 'favorite_topics',
+        masteredInFavoriteTopicsCount: 0,
+        transferredToOtherTopicsCount: 0,
+      },
+    };
+  }, [deps.attemptStore, deps.clock]);
+
   const loadState = useCallback(async () => {
+    setErrorMsg(null);
     if (!deps.personalization) {
+      const offlineState = await buildOfflineStarterState();
+      setState(offlineState);
+      setDraftTopics([...offlineState.profile.favoriteTopics]);
       setIsLoading(false);
       return;
     }
-    setErrorMsg(null);
     const res = await deps.personalization.getState();
     setIsLoading(false);
     if (res.ok) {
@@ -62,9 +190,11 @@ export function RoadmapScreen() {
       setDraftTopics([...res.value.profile.favoriteTopics]);
       setDraftMinutes(res.value.profile.dailyMinutesGoal);
     } else {
+      const offlineState = await buildOfflineStarterState();
+      setState((prev) => prev ?? offlineState);
       setErrorMsg(res.error.message);
     }
-  }, [deps.personalization]);
+  }, [buildOfflineStarterState, deps.personalization]);
 
   useEffect(() => {
     void loadState();
@@ -103,8 +233,6 @@ export function RoadmapScreen() {
     }
   };
 
-  const ArrowIcon = isRtl ? ArrowLeft : ArrowRight;
-
   const currentPhaseLabel = (() => {
     const phase = state?.profile.activeWeaknessPhase ?? 'favorite_topics';
     if (phase === 'weakness_transfer') return t('roadmapPhaseWeaknessTransfer');
@@ -119,10 +247,19 @@ export function RoadmapScreen() {
   );
   const activeSteps = useMemo(() => {
     const primary = allSteps.filter((s) => s.status === 'active');
-    if (primary.length > 0) return primary.slice(0, 3);
+    if (primary.length > 0) {
+      const ordered =
+        state?.liveBand.currentBand === null
+          ? [
+              ...primary.filter((s) => s.stepKind !== 'diagnostic'),
+              ...primary.filter((s) => s.stepKind === 'diagnostic'),
+            ]
+          : primary;
+      return ordered.slice(0, 3);
+    }
     if (state?.roadmap.currentStep) return [state.roadmap.currentStep];
     return [];
-  }, [allSteps, state?.roadmap.currentStep]);
+  }, [allSteps, state?.liveBand.currentBand, state?.roadmap.currentStep]);
 
   const upcomingSteps = useMemo(() => {
     const activeIds = new Set(activeSteps.map((s) => s.stepId));
@@ -151,8 +288,14 @@ export function RoadmapScreen() {
             >
               {currentPhaseLabel}
             </span>
-            <span className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-3 py-1 font-mono text-xs font-semibold text-text-primary">
-              {state.liveBand.currentBand ?? '—'} / {state.liveBand.targetBand}
+            <span
+              className={[
+                'rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-3 py-1 text-xs font-semibold text-text-primary',
+                isRtl && state.liveBand.currentBand == null ? '' : 'font-mono-exam',
+              ].join(' ')}
+            >
+              {state.liveBand.currentBand ?? (isRtl ? 'نامشخص (پایه)' : 'Not set (Starter)')} /{' '}
+              {formatChromeNumber(state.liveBand.targetBand, deps.edition)}
             </span>
             <MzButton
               variant="secondary"
@@ -210,8 +353,8 @@ export function RoadmapScreen() {
                   className={isActive ? 'ring-2 ring-primary/40' : isCompleted ? 'border-success/50 bg-mint-bg/30' : 'opacity-85'}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-xs font-bold text-primary">
-                      0{ms.index}
+                    <span className="font-mono-exam text-xs font-bold text-primary">
+                      {formatChromeNumber(`0${ms.index}`, deps.edition)}
                     </span>
                     {isCompleted ? (
                       <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" />
@@ -296,14 +439,14 @@ export function RoadmapScreen() {
             <div className="flex flex-wrap gap-2">
               <Link
                 to="/diagnostic/intro"
-                className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-compact)] bg-primary px-3.5 text-xs font-semibold text-on-primary"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary"
               >
                 <span>{t('homeStartDiagnosticCta')}</span>
-                <ArrowIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                <ForwardArrowIcon edition={deps.edition} className="h-3.5 w-3.5" />
               </Link>
               <Link
                 to="/practice"
-                className="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] border border-border-subtle px-3.5 text-xs font-semibold text-text-primary hover:bg-surface-hover"
+                className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-subtle px-4 text-xs font-semibold text-text-primary hover:bg-surface-hover"
               >
                 {t('navPractice')}
               </Link>
@@ -322,10 +465,12 @@ export function RoadmapScreen() {
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-[var(--mz-radius-pill)] bg-primary/15 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
-                      {isRtl ? `گام ${step.stepOrder}` : `Step ${step.stepOrder}`} · {step.estimatedMinutes}m
+                      {isRtl
+                        ? `گام ${formatChromeNumber(step.stepOrder, deps.edition)} · ${formatChromeNumber(step.estimatedMinutes, deps.edition)} دقیقه`
+                        : `Step ${step.stepOrder} · ${step.estimatedMinutes}m`}
                     </span>
-                    <span className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-2 py-0.5 text-[11px] text-text-secondary">
-                      {step.topicKey.replace(/_/g, ' ')}
+                    <span className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-2.5 py-0.5 text-[11px] text-text-secondary">
+                      {formatTopicLabel(step.topicKey, deps.edition)}
                     </span>
                   </div>
                   <h3 className="text-lg font-bold text-text-primary">
@@ -336,11 +481,12 @@ export function RoadmapScreen() {
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:shrink-0">
                   {step.stepKind === 'pronunciation' ? (
                     <MzButton
                       variant="primary"
-                      size="sm"
+                      size="md"
+                      className="col-span-2 w-full sm:col-span-1 sm:w-auto"
                       data-testid={`roadmap-step-open-${step.stepId}`}
                       onClick={() => setPronStep(step)}
                       leadingIcon={<Mic className="h-3.5 w-3.5" aria-hidden="true" />}
@@ -351,7 +497,7 @@ export function RoadmapScreen() {
                     <Link
                       to={resolveWebRoadmapStepPath(step) as never}
                       data-testid={`roadmap-step-open-${step.stepId}`}
-                      className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-compact)] bg-primary px-3.5 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
+                      className="col-span-2 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed sm:col-span-1 sm:w-auto"
                     >
                       <Play className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>{t('roadmapOpenStepCta')}</span>
@@ -360,7 +506,7 @@ export function RoadmapScreen() {
 
                   <MzButton
                     variant="secondary"
-                    size="sm"
+                    size="md"
                     isLoading={busyStepId === step.stepId}
                     data-testid={`roadmap-step-complete-${step.stepId}`}
                     onClick={() => void handleStepAction(step.stepId, 'completed')}
@@ -371,7 +517,7 @@ export function RoadmapScreen() {
 
                   <MzButton
                     variant="ghost"
-                    size="sm"
+                    size="md"
                     disabled={busyStepId === step.stepId}
                     data-testid={`roadmap-step-skip-${step.stepId}`}
                     onClick={() => void handleStepAction(step.stepId, 'skipped')}
@@ -419,16 +565,19 @@ export function RoadmapScreen() {
                       </p>
                       <p className="text-text-secondary">{isRtl ? step.reasonFa : step.reasonEn}</p>
                     </div>
-                    <span className="shrink-0 rounded-[var(--mz-radius-pill)] border border-border-subtle bg-surface px-2 py-0.5 text-[11px] font-medium text-text-secondary">
-                      {`${step.estimatedMinutes}m`}
+                    <span className="shrink-0 rounded-[var(--mz-radius-pill)] border border-border-subtle bg-surface px-2.5 py-0.5 text-[11px] font-medium text-text-secondary">
+                      {isRtl
+                        ? `${formatChromeNumber(step.estimatedMinutes, deps.edition)} دقیقه`
+                        : `${step.estimatedMinutes}m`}
                     </span>
                   </div>
                   <div className="flex justify-end">
                     <Link
                       to={resolveWebRoadmapStepPath(step) as never}
-                      className="text-[11px] font-semibold text-primary hover:underline"
+                      className="inline-flex min-h-9 items-center gap-1 text-xs font-semibold text-primary hover:underline"
                     >
-                      {t('roadmapJumpAheadCta')} →
+                      <span>{t('roadmapJumpAheadCta')}</span>
+                      <ForwardArrowIcon edition={deps.edition} className="h-3.5 w-3.5" />
                     </Link>
                   </div>
                 </div>

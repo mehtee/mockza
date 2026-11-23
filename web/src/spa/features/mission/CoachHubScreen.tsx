@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { MzCard } from '@/components/ui';
+import { ForwardArrowIcon } from '@/components/bidi/DirectionIcon';
+import { formatTopicLabel } from '@/components/bidi/topic-labels';
 import type { QuotaStatusSnapshot } from '@/gateways/evaluation.gateway';
 import type {
   DailyMissionSnapshot,
@@ -64,7 +66,7 @@ export function CoachHubScreen() {
   const weakSpotCount = graph?.bottlenecks.length ?? 0;
 
   return (
-    <div data-testid="coach-hub-screen" className="mx-auto flex max-w-5xl flex-col gap-6 pb-10 text-start">
+    <div data-testid="coach-hub-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-10 text-start">
       <header className="border-b border-border-subtle pb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -141,7 +143,7 @@ export function CoachHubScreen() {
                       ? isRtl
                         ? 'تمرین امروز انجام شد'
                         : 'Done today'
-                      : `${isRtl ? 'موضوع:' : 'Topic:'} ${mission.focusTopic}`}
+                      : `${isRtl ? 'موضوع:' : 'Topic:'} ${formatTopicLabel(mission.focusTopic, deps.edition)}`}
                   </span>
                 </span>
               ) : null}
@@ -200,7 +202,7 @@ export function CoachHubScreen() {
             <Link
               to="/register-shifter"
               data-testid="coach-upgrade-speaking-cta"
-              className="inline-flex h-9 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-strong px-3 text-xs font-semibold text-primary hover:bg-surface-hover"
+              className="inline-flex min-h-11 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-strong px-3.5 text-xs font-semibold text-primary hover:bg-surface-hover"
             >
               {t('homeRegisterShifterCta')}
             </Link>
@@ -240,7 +242,7 @@ export function CoachHubScreen() {
                     to="/drop"
                     search={{ tab }}
                     data-testid={`coach-quick-drop-${tab}`}
-                    className="inline-flex items-center gap-1 rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-2 py-0.5 text-[11px] font-medium text-text-secondary hover:border-primary hover:text-primary"
+                    className="inline-flex min-h-9 items-center gap-1 rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-2.5 text-[11px] font-medium text-text-secondary hover:border-primary hover:text-primary"
                   >
                     <Icon className="h-3 w-3" aria-hidden="true" />
                     <span>{label}</span>
@@ -254,7 +256,7 @@ export function CoachHubScreen() {
             <Link
               to="/drop"
               data-testid="coach-learn-anything-cta"
-              className="inline-flex h-9 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-strong px-3 text-xs font-semibold text-primary hover:bg-surface-hover"
+              className="inline-flex min-h-11 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-strong px-3.5 text-xs font-semibold text-primary hover:bg-surface-hover"
             >
               {t('homeDropAnythingCta')}
             </Link>
@@ -288,7 +290,7 @@ export function CoachHubScreen() {
             <Link
               to="/progress/graph"
               data-testid="coach-weak-spots-cta"
-              className="inline-flex h-9 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-strong px-3 text-xs font-semibold text-primary hover:bg-surface-hover"
+              className="inline-flex min-h-11 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-strong px-3.5 text-xs font-semibold text-primary hover:bg-surface-hover"
             >
               {t('dailyMissionViewGraph')}
             </Link>
@@ -309,9 +311,10 @@ export function CoachHubScreen() {
           </div>
           <Link
             to="/practice"
-            className="text-xs font-semibold text-primary hover:underline"
+            className="inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-primary hover:underline"
           >
-            {t('navPractice')} →
+            <span>{t('navPractice')}</span>
+            <ForwardArrowIcon edition={deps.edition} className="h-3.5 w-3.5" />
           </Link>
         </div>
       </MzCard>

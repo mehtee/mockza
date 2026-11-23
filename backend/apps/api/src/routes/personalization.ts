@@ -22,6 +22,7 @@ import {
 import {
   type CoreExamSkill,
   generateOrRecalibrateRoadmap,
+  mapCefrTierToExamScore,
   normalizeFavoriteTopicList,
   normalizeSupportedExamId,
 } from '@mockza/domain';
@@ -108,7 +109,14 @@ export function registerPersonalizationRoutes(
       status: s.status === 'locked_preview' ? ('locked' as const) : s.status,
       estimatedMinutes: s.estimatedMinutes,
     }));
-    const baseline = Math.max(5.0, prof.targetBand - 1.0);
+    const baseline = mapCefrTierToExamScore('B1', examId);
+    const activeStarter =
+      (prof.onboardingCompleted
+        ? mappedSteps.find((s) => s.status === 'active' && s.stepKind !== 'diagnostic')
+        : undefined) ??
+      mappedSteps.find((s) => s.status === 'active') ??
+      mappedSteps[0] ??
+      null;
     return PersonalizationStateResponseSchema.parse({
       profile: {
         examTrack: examId,
@@ -154,7 +162,7 @@ export function registerPersonalizationRoutes(
           targetBandDelta: Number((m.targetBandMarker - baseline).toFixed(1)),
           status: m.status === 'upcoming' ? 'locked' : m.status,
         })),
-        currentStep: mappedSteps[0] ?? null,
+        currentStep: activeStarter,
         steps: mappedSteps,
       },
       nextRecommendedPack: null,

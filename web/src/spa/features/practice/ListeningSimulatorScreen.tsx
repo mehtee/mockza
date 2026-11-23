@@ -1,15 +1,17 @@
-import { Bookmark, ChevronLeft, ChevronRight, Headphones } from 'lucide-react';
+import { Bookmark, Headphones } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
   AudioStudioPlayer,
   type KeyboardShortcutHint,
   MzObjectiveAnswerInput,
   QuestionPaletteBar,
+  SimulatorLoadFallback,
   SimulatorWorkspaceShell,
   SplitPaneWorkspace,
   type TranscriptSegmentItem,
 } from '@/components/exam-kit';
-import { MzBanner, MzButton, MzCard, MzSegmentedControl } from '@/components/ui';
+import { MzButton, MzCard, MzSegmentedControl } from '@/components/ui';
+import { BackChevronIcon, ForwardChevronIcon } from '@/components/bidi/DirectionIcon';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import { createTranslator } from '@/i18n';
 import { makePackMediaKey } from '@/gateways/catalog.gateway';
@@ -73,6 +75,7 @@ export function ListeningSimulatorScreen({
     toggleFlag,
     handleSubmit,
     requestExit,
+    retryLoad,
   } = session;
 
   const activeMediaUrl = activeSection?.mediaUrl ?? bundle?.pack.mediaUrl ?? '';
@@ -106,17 +109,22 @@ export function ListeningSimulatorScreen({
 
   if (!bundle) {
     return (
-      <div data-testid="listening-simulator-screen" className="p-6 text-sm text-text-secondary">
-        {errorMsg ? <MzBanner tone="danger">{errorMsg}</MzBanner> : 'Loading Listening Simulator...'}
+      <div data-testid="listening-simulator-screen" className="p-4 sm:p-6 text-sm text-text-secondary">
+        {errorMsg ? (
+          <SimulatorLoadFallback
+            testId="listening-load-fallback"
+            onRetry={retryLoad}
+            message={errorMsg}
+          />
+        ) : (
+          t('workspaceLoadingLabel')
+        )}
       </div>
     );
   }
 
   const visibleQuestions =
     viewMode === 'focused' && activeQuestion ? [activeQuestion] : sectionQuestions;
-
-  const PrevIcon = deps.edition === 'irn' ? ChevronRight : ChevronLeft;
-  const NextIcon = deps.edition === 'irn' ? ChevronLeft : ChevronRight;
 
   return (
     <div data-testid="listening-simulator-screen" className="flex flex-col gap-3">
@@ -184,7 +192,7 @@ export function ListeningSimulatorScreen({
                 disabled={activeQuestionIndex <= 0}
                 onClick={() => setActiveQuestionIndex((idx) => Math.max(0, idx - 1))}
               >
-                <PrevIcon className="h-4 w-4" aria-hidden="true" />
+                <BackChevronIcon edition={deps.edition} className="h-4 w-4" />
                 <span>{t('simPrevQuestionAction')}</span>
               </MzButton>
               <MzButton
@@ -197,7 +205,7 @@ export function ListeningSimulatorScreen({
                 }
               >
                 <span>{t('simNextQuestionAction')}</span>
-                <NextIcon className="h-4 w-4" aria-hidden="true" />
+                <ForwardChevronIcon edition={deps.edition} className="h-4 w-4" />
               </MzButton>
               <MzButton
                 variant="primary"
@@ -215,8 +223,8 @@ export function ListeningSimulatorScreen({
         <SplitPaneWorkspace
           viewKey="simulator:listening"
           initialRatio={0.44}
-          leftLabel="Studio Audio & Transcript"
-          rightLabel="Questions"
+          leftLabel={t('splitTabLeftAudio')}
+          rightLabel={t('splitTabRightQuestions')}
           leftPane={
             <div className="flex flex-col gap-4">
               {sortedSections.length > 1 ? (
@@ -246,7 +254,9 @@ export function ListeningSimulatorScreen({
               ) : null}
 
               <MzCard variant="alt" padding="sm">
-                <p className="text-xs font-bold text-text-primary">{activeSection?.title}</p>
+                <LtrExamBoundary>
+                  <p className="text-xs font-bold text-text-primary">{activeSection?.title}</p>
+                </LtrExamBoundary>
                 {activeSection?.instructions ? (
                   <div className="mt-1 text-xs text-text-secondary">
                     <LtrExamBoundary>{activeSection.instructions}</LtrExamBoundary>

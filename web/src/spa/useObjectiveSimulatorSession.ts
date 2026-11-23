@@ -69,6 +69,12 @@ export function useObjectiveSimulatorSession({
   const activeIndexRef = useRef(activeQuestionIndex);
   activeIndexRef.current = activeQuestionIndex;
 
+  const [reloadSeq, setReloadSeq] = useState(0);
+  const retryLoad = useCallback(() => {
+    setErrorMsg(null);
+    setReloadSeq((s) => s + 1);
+  }, []);
+
   useEffect(() => {
     let mounted = true;
     async function hydrate() {
@@ -114,7 +120,7 @@ export function useObjectiveSimulatorSession({
     return () => {
       mounted = false;
     };
-  }, [deps.attemptStore, deps.catalog, mockSessionId, mockStageKey, packId, resetClock, skill]);
+  }, [deps.attemptStore, deps.catalog, mockSessionId, mockStageKey, packId, reloadSeq, resetClock, skill]);
 
   useEffect(() => {
     if (!bundle) return;
@@ -429,6 +435,7 @@ export function useObjectiveSimulatorSession({
     flaggedQuestionIds,
     errorMsg,
     isSubmitting,
+    retryLoad,
     sortedQuestions,
     sortedSections,
     activeQuestion,

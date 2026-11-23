@@ -1,0 +1,1067 @@
+[
+  {
+    "fileName": "irn_mobile_01_landing.jpg",
+    "url": "https://sanjia.mehtea.ir/",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 5141,
+    "aspectScrollRatio": 6.1,
+    "smallTapTargetCount": 14,
+    "smallTapTargets": [
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "گزارش نمونه",
+        "w": 67,
+        "h": 20
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "ابزارهای مطالعه",
+        "w": 86,
+        "h": 20
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "آیلتس",
+        "w": 31,
+        "h": 21
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "تافل",
+        "w": 22,
+        "h": 21
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "پی‌تی‌ای",
+        "w": 38,
+        "h": 21
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "دولینگو",
+        "w": 36,
+        "h": 21
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_02_calculator.jpg",
+    "url": "https://sanjia.mehtea.ir/calculators/ielts-band-calculator",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1579,
+    "aspectScrollRatio": 1.9,
+    "smallTapTargetCount": 9,
+    "smallTapTargets": [
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "ماشین‌حساب نمره",
+        "w": 102,
+        "h": 20
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "نمونه رایتینگ",
+        "w": 73,
+        "h": 20
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "واژگان آکادمیک",
+        "w": 83,
+        "h": 20
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "IELTS Academic",
+        "w": 91,
+        "h": 16
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "IELTS General",
+        "w": 79,
+        "h": 16
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "TOEFL iBT 2026",
+        "w": 92,
+        "h": 16
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_03_pillar_ielts.jpg",
+    "url": "https://sanjia.mehtea.ir/ielts-academic",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1852,
+    "aspectScrollRatio": 2.2,
+    "smallTapTargetCount": 9,
+    "smallTapTargets": [
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "ماشین‌حساب نمره",
+        "w": 102,
+        "h": 20
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "نمونه رایتینگ",
+        "w": 73,
+        "h": 20
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "واژگان آکادمیک",
+        "w": 83,
+        "h": 20
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "IELTS Academic",
+        "w": 91,
+        "h": 16
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "IELTS General",
+        "w": 79,
+        "h": 16
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "TOEFL iBT 2026",
+        "w": 92,
+        "h": 16
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_04_welcome.jpg",
+    "url": "https://sanjia.mehtea.ir/app/welcome",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1278,
+    "aspectScrollRatio": 1.5,
+    "smallTapTargetCount": 2,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_05_goal_setup.jpg",
+    "url": "https://sanjia.mehtea.ir/app/welcome",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1639,
+    "aspectScrollRatio": 1.9,
+    "smallTapTargetCount": 15,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "goal-topic-chip-career-workplace",
+        "text": "کار و حرفه",
+        "w": 75,
+        "h": 30
+      },
+      {
+        "tag": "button",
+        "testId": "goal-topic-chip-travel-culture",
+        "text": "سفر و فرهنگ",
+        "w": 91,
+        "h": 30
+      },
+      {
+        "tag": "button",
+        "testId": "goal-topic-chip-health-sports",
+        "text": "سلامت و ورزش",
+        "w": 100,
+        "h": 30
+      },
+      {
+        "tag": "button",
+        "testId": "goal-topic-chip-science-climate",
+        "text": "علم و محیط زیست",
+        "w": 116,
+        "h": 30
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_06_auth_login.jpg",
+    "url": "https://sanjia.mehtea.ir/app/auth/login",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1051,
+    "aspectScrollRatio": 1.2,
+    "smallTapTargetCount": 5,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "ورود",
+        "w": 56,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "ثبت‌نام",
+        "w": 70,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "",
+        "w": 32,
+        "h": 32
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_07_home_top.jpg",
+    "url": "https://sanjia.mehtea.ir/app/home",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 2647,
+    "aspectScrollRatio": 3.1,
+    "smallTapTargetCount": 8,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "home-track-toefl_ibt",
+        "text": "تافل iBT ۲۰۲۶",
+        "w": 100,
+        "h": 30
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "شروع تمرین",
+        "w": 59,
+        "h": 16
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "شروع تمرین",
+        "w": 59,
+        "h": 16
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "شروع تمرین",
+        "w": 59,
+        "h": 16
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_07_home_mid.jpg",
+    "url": "https://sanjia.mehtea.ir/app/home",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 2647,
+    "aspectScrollRatio": 3.1,
+    "smallTapTargetCount": 8,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "home-track-toefl_ibt",
+        "text": "تافل iBT ۲۰۲۶",
+        "w": 100,
+        "h": 30
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "شروع تمرین",
+        "w": 59,
+        "h": 16
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "شروع تمرین",
+        "w": 59,
+        "h": 16
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "شروع تمرین",
+        "w": 59,
+        "h": 16
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_08_roadmap.jpg",
+    "url": "https://sanjia.mehtea.ir/app/roadmap",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1877,
+    "aspectScrollRatio": 2.2,
+    "smallTapTargetCount": 2,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_09_practice.jpg",
+    "url": "https://sanjia.mehtea.ir/app/practice",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 5081,
+    "aspectScrollRatio": 6,
+    "smallTapTargetCount": 14,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "همه آزمون‌ها",
+        "w": 104,
+        "h": 32
+      },
+      {
+        "tag": "input",
+        "testId": "practice-cached-only-toggle",
+        "text": "",
+        "w": 16,
+        "h": 16
+      },
+      {
+        "tag": "button",
+        "testId": "filter-exam-all",
+        "text": "همه آزمون‌ها",
+        "w": 89,
+        "h": 26
+      },
+      {
+        "tag": "button",
+        "testId": "filter-exam-ielts_academic",
+        "text": "IELTS Academic",
+        "w": 119,
+        "h": 26
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": [
+      "marine_biology"
+    ]
+  },
+  {
+    "fileName": "irn_mobile_10_coach.jpg",
+    "url": "https://sanjia.mehtea.ir/app/coach",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1418,
+    "aspectScrollRatio": 1.7,
+    "smallTapTargetCount": 8,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "ارتقا",
+        "w": 20,
+        "h": 16
+      },
+      {
+        "tag": "a",
+        "testId": "coach-quick-drop-url",
+        "text": "لینک",
+        "w": 55,
+        "h": 23
+      },
+      {
+        "tag": "a",
+        "testId": "coach-quick-drop-text",
+        "text": "متن",
+        "w": 52,
+        "h": 23
+      },
+      {
+        "tag": "a",
+        "testId": "coach-quick-drop-image",
+        "text": "عکس",
+        "w": 59,
+        "h": 23
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": [
+      "technology_ai"
+    ]
+  },
+  {
+    "fileName": "irn_mobile_11_vocab_top.jpg",
+    "url": "https://sanjia.mehtea.ir/app/vocabulary",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1184,
+    "aspectScrollRatio": 1.4,
+    "smallTapTargetCount": 41,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "vocab-preview-all-waves",
+        "text": "مشاهده کل واژگان",
+        "w": 120,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "موج امروز",
+        "w": 86,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "کل مجموعه",
+        "w": 97,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "vocab-listen-seed-vocab-193",
+        "text": "گوش دادن",
+        "w": 85,
+        "h": 28
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_11_vocab_list.jpg",
+    "url": "https://sanjia.mehtea.ir/app/vocabulary",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1184,
+    "aspectScrollRatio": 1.4,
+    "smallTapTargetCount": 41,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "vocab-preview-all-waves",
+        "text": "مشاهده کل واژگان",
+        "w": 120,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "موج امروز",
+        "w": 86,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "کل مجموعه",
+        "w": 97,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "vocab-listen-seed-vocab-193",
+        "text": "گوش دادن",
+        "w": 85,
+        "h": 28
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_12_vocab_review_front.jpg",
+    "url": "https://sanjia.mehtea.ir/app/vocabulary/review",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 844,
+    "aspectScrollRatio": 1,
+    "smallTapTargetCount": 4,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "vocab-review-listen-word",
+        "text": "گوش دادن",
+        "w": 85,
+        "h": 28
+      },
+      {
+        "tag": "button",
+        "testId": "vocab-review-listen-word-slow",
+        "text": "۰.۸x",
+        "w": 39,
+        "h": 28
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": [
+      "academic_linking",
+      "academic_core"
+    ]
+  },
+  {
+    "fileName": "irn_mobile_12_vocab_review_back.jpg",
+    "url": "https://sanjia.mehtea.ir/app/vocabulary/review",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 844,
+    "aspectScrollRatio": 1,
+    "smallTapTargetCount": 6,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "vocab-review-listen-word",
+        "text": "گوش دادن",
+        "w": 85,
+        "h": 28
+      },
+      {
+        "tag": "button",
+        "testId": "vocab-review-listen-word-slow",
+        "text": "۰.۸x",
+        "w": 39,
+        "h": 28
+      },
+      {
+        "tag": "button",
+        "testId": "vocab-review-listen-sentence",
+        "text": "گوش دادن",
+        "w": 85,
+        "h": 28
+      },
+      {
+        "tag": "button",
+        "testId": "vocab-review-listen-sentence-slow",
+        "text": "۰.۸x",
+        "w": 39,
+        "h": 28
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": [
+      "academic_linking",
+      "academic_core"
+    ]
+  },
+  {
+    "fileName": "irn_mobile_13_vocab_detail.jpg",
+    "url": "https://sanjia.mehtea.ir/app/vocabulary/seed-vocab-001",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 919,
+    "aspectScrollRatio": 1.1,
+    "smallTapTargetCount": 6,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "vocab-detail-listen-headword",
+        "text": "گوش دادن",
+        "w": 85,
+        "h": 28
+      },
+      {
+        "tag": "button",
+        "testId": "vocab-detail-listen-headword-slow",
+        "text": "۰.۸x",
+        "w": 39,
+        "h": 28
+      },
+      {
+        "tag": "button",
+        "testId": "vocab-detail-listen-sentence",
+        "text": "گوش دادن",
+        "w": 85,
+        "h": 28
+      },
+      {
+        "tag": "button",
+        "testId": "vocab-detail-listen-sentence-slow",
+        "text": "۰.۸x",
+        "w": 39,
+        "h": 28
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_14_progress.jpg",
+    "url": "https://sanjia.mehtea.ir/app/progress",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1918,
+    "aspectScrollRatio": 2.3,
+    "smallTapTargetCount": 3,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "نقشه راه من",
+        "w": 71,
+        "h": 17
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_15_graph.jpg",
+    "url": "https://sanjia.mehtea.ir/app/progress/graph",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1381,
+    "aspectScrollRatio": 1.6,
+    "smallTapTargetCount": 9,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "ارتقای گفتار",
+        "w": 101,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "کار و حرفه",
+        "w": 86,
+        "h": 26
+      },
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "سفر و فرهنگ",
+        "w": 103,
+        "h": 26
+      },
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "سلامت و ورزش",
+        "w": 111,
+        "h": 26
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_16_settings.jpg",
+    "url": "https://sanjia.mehtea.ir/app/settings",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 3169,
+    "aspectScrollRatio": 3.8,
+    "smallTapTargetCount": 17,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "a",
+        "testId": "settings-signin-link",
+        "text": "ورود",
+        "w": 45,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "settings-track-toefl_ibt",
+        "text": "تافل iBT ۲۰۲۶",
+        "w": 100,
+        "h": 30
+      },
+      {
+        "tag": "button",
+        "testId": "settings-topic-career_workplace",
+        "text": "کار و حرفه",
+        "w": 75,
+        "h": 26
+      },
+      {
+        "tag": "button",
+        "testId": "settings-topic-travel_culture",
+        "text": "سفر و فرهنگ",
+        "w": 91,
+        "h": 26
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_17_paywall.jpg",
+    "url": "https://sanjia.mehtea.ir/app/paywall",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1834,
+    "aspectScrollRatio": 2.2,
+    "smallTapTargetCount": 5,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "تنظیمات",
+        "w": 41,
+        "h": 16
+      },
+      {
+        "tag": "input",
+        "testId": "paywall-tos-checkbox",
+        "text": "",
+        "w": 1,
+        "h": 1
+      },
+      {
+        "tag": "a",
+        "testId": "paywall-signin-link",
+        "text": "ورود برای خرید اشتراک",
+        "w": 107,
+        "h": 16
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  }
+]

@@ -27,23 +27,23 @@ export function MzCheckbox({
     <label
       htmlFor={inputId}
       className={[
-        'flex items-start gap-3 rounded-[var(--mz-radius-control)] border p-3.5 text-start transition-colors',
+        'relative flex min-h-12 items-start gap-3 rounded-[var(--mz-radius-control)] border p-3.5 text-start transition-colors',
         disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
         checked
           ? 'border-primary bg-surface-alt'
           : 'border-border-subtle bg-bg-raised hover:bg-surface-hover',
       ].join(' ')}
     >
-      <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
-        <input
-          id={inputId}
-          type="checkbox"
-          data-testid={testId}
-          checked={checked}
-          disabled={disabled}
-          onChange={(event) => onCheckedChange(event.target.checked)}
-          className="peer sr-only"
-        />
+      <input
+        id={inputId}
+        type="checkbox"
+        data-testid={testId}
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onCheckedChange(event.target.checked)}
+        className="peer absolute inset-0 m-0 h-full w-full cursor-pointer opacity-0"
+      />
+      <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center pointer-events-none">
         <span
           aria-hidden="true"
           className={[

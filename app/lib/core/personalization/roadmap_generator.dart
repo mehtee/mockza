@@ -332,13 +332,11 @@ abstract final class RoadmapGenerator {
               : CanonicalTopicKey.scienceClimate);
     final baseline =
         currentBand ??
-        math.max<double>(
-          5,
-          double.parse((targetBand - 1).toStringAsFixed(1)),
-        );
-    final currentCefr =
-        LiveBandEngine.estimateCefrTierFromScore(baseline, track) ??
-        AuthoringTier.b2;
+        LiveBandEngine.mapCefrTierToExamScore(AuthoringTier.b1, track);
+    final currentCefr = currentBand != null
+        ? (LiveBandEngine.estimateCefrTierFromScore(currentBand, track) ??
+              AuthoringTier.b1)
+        : AuthoringTier.b1;
 
     final daysRemaining = targetDateSerial != null
         ? math.max(1, targetDateSerial - todaySerial)
@@ -399,12 +397,11 @@ abstract final class RoadmapGenerator {
           weaknessKey: null,
           phaseTag: AdaptationPhase.ignition,
           difficultyCefr: currentCefr,
-          titleEn: '10-Min Level Check (Set Your Starting Band)',
-          titleFa: 'ارزیابی ۱۰ دقیقه‌ای تعیین سطح پایه',
-          reasonEn:
-              'Quickly estimates all 4 skills and detects your first bottlenecks automatically.',
-          reasonFa:
-              'هر ۴ مهارت را سریع ارزیابی کرده و اولین نقاط ضعف و نمره پایه شما را می‌سازد.',
+          titleEn: 'Optional 10-Min Level Check (Set Your Band Anytime)',
+          titleFa:
+              'ارزیابی ۱۰ دقیقه‌ای تعیین سطح (اختیاری — هر زمان آماده بودید)',
+          reasonEn: 'Measures all 4 skills to calibrate your exact band — you can skip it for now and start with the basic steps below.',
+          reasonFa: 'هر ۴ مهارت شما را می‌سنجد؛ اما اگر مایل هستید می‌توانید فعلاً از گام‌های پایه زیر شروع کنید.',
           estimatedMinutes: 10,
         ),
       );
@@ -515,8 +512,7 @@ abstract final class RoadmapGenerator {
           weaknessKey: coachSelection.primaryWeaknessKey,
           phaseTag: AdaptationPhase.interestWeakness,
           difficultyCefr: currentCefr,
-          titleEn:
-              'Upgrade My Speaking (Band-Calibrated Ladder + Audio Check)',
+          titleEn: 'Upgrade My Speaking (Band-Calibrated Ladder + Audio Check)',
           titleFa: 'ارتقای لحن گفتار و تمرین تلفظ با مقایسه صوتی',
           reasonEn:
               'Speak one thought on ${secondaryFav.labelEn} and compare everyday vs target-band phrasing.',
@@ -527,8 +523,11 @@ abstract final class RoadmapGenerator {
       );
     }
 
-    if (!isSprintMode && rankedPacks.length > 1) {
-      final p1 = rankedPacks[1];
+    final m2PackCandidate = studyFocus == 'exams'
+        ? (rankedPacks.length > 1 ? rankedPacks[1] : null)
+        : (rankedPacks.isNotEmpty ? rankedPacks[0] : null);
+    if (!isSprintMode && m2PackCandidate != null) {
+      final p1 = m2PackCandidate;
       draftSteps.add(
         _DraftStep(
           stepKey: 'm2:pack:${p1.item.id}',
@@ -565,10 +564,8 @@ abstract final class RoadmapGenerator {
         difficultyCefr: currentCefr,
         titleEn: 'Vocab Wave 2: Weakness-Targeting Collocations',
         titleFa: 'موج دوم واژگان: هم‌آواهای رفع نقاط ضعف',
-        reasonEn:
-            'Unlocks 15 high-yield collocations aligned with your active weaknesses + saved mistakes.',
-        reasonFa:
-            '۱۵ ترکیب واژگانی دقیق برای رفع خطاهای ثبت‌شده و واژگان ذخیره‌شده شما.',
+        reasonEn: 'Unlocks 15 high-yield collocations aligned with your active weaknesses + saved mistakes.',
+        reasonFa: '۱۵ ترکیب واژگانی دقیق برای رفع خطاهای ثبت‌شده و واژگان ذخیره‌شده شما.',
         estimatedMinutes: 8,
       ),
     );
@@ -585,9 +582,7 @@ abstract final class RoadmapGenerator {
         rankedPacks
             .where((r) => !favTopics.contains(r.matchedTopic))
             .firstOrNull ??
-        (rankedPacks.length > 2
-            ? rankedPacks[2]
-            : rankedPacks.firstOrNull);
+        (rankedPacks.length > 2 ? rankedPacks[2] : rankedPacks.firstOrNull);
     if (transferPack != null) {
       draftSteps.add(
         _DraftStep(
@@ -628,8 +623,7 @@ abstract final class RoadmapGenerator {
           weaknessKey: coachSelection.primaryWeaknessKey,
           phaseTag: AdaptationPhase.crossTopicTransfer,
           difficultyCefr: currentCefr,
-          titleEn:
-              '10-Min Coach Transfer Challenge: ${transferTopic.labelEn}',
+          titleEn: '10-Min Coach Transfer Challenge: ${transferTopic.labelEn}',
           titleFa: 'چالش انتقال ۱۰ دقیقه‌ای: ${transferTopic.labelFa}',
           reasonEn: coachSelection.phase == AdaptationPhase.crossTopicTransfer
               ? coachSelection.reasonEn
@@ -682,10 +676,8 @@ abstract final class RoadmapGenerator {
             AuthoringTier.c1,
         titleEn: 'Vocab Wave 3: Exam Breadth (${transferTopic.labelEn})',
         titleFa: 'موج سوم واژگان: تنوع موضوعی آزمون (${transferTopic.labelFa})',
-        reasonEn:
-            'Expands lexical range across wider exam domains toward your target band.',
-        reasonFa:
-            'دامنه واژگان شما را فراتر از علایق اولیه برای نمره هدف گسترش می‌دهد.',
+        reasonEn: 'Expands lexical range across wider exam domains toward your target band.',
+        reasonFa: 'دامنه واژگان شما را فراتر از علایق اولیه برای نمره هدف گسترش می‌دهد.',
         estimatedMinutes: 8,
       ),
     );
@@ -710,8 +702,7 @@ abstract final class RoadmapGenerator {
           difficultyCefr: finalPack.item.cefrMax,
           titleEn: 'Timed Section Dress Rehearsal: ${finalPack.item.title}',
           titleFa: 'شبیه‌ساز زمان‌دار بخش پایانی: ${finalPack.item.title}',
-          reasonEn:
-              'Final timed check in Exam Mode to raise confidence from Developing to Calibrated.',
+          reasonEn: 'Final timed check in Exam Mode to raise confidence from Developing to Calibrated.',
           reasonFa:
               'تمرین زمان‌دار در حالت آزمون برای تثبیت نمره و آمادگی کامل.',
           estimatedMinutes: math.max(
@@ -738,10 +729,8 @@ abstract final class RoadmapGenerator {
               AuthoringTier.c1,
           titleEn: 'Calibrated Full Mock Exam',
           titleFa: 'آزمون کامل آزمایشی استاندارد (Full Mock)',
-          reasonEn:
-              'Measures real 4-skill stamina under strict timing and produces your calibrated score.',
-          reasonFa:
-              'ارزیابی استقامت ۴ مهارت در شرایط واقعی آزمون و ثبت نمره کالیبره‌شده.',
+          reasonEn: 'Measures real 4-skill stamina under strict timing and produces your calibrated score.',
+          reasonFa: 'ارزیابی استقامت ۴ مهارت در شرایط واقعی آزمون و ثبت نمره کالیبره‌شده.',
           estimatedMinutes: 45,
         ),
       );
@@ -758,6 +747,11 @@ abstract final class RoadmapGenerator {
       final RoadmapStepStatus status;
       if (isDone) {
         status = RoadmapStepStatus.completed;
+      } else if (!diagnosticDone && d.milestoneIndex == 1) {
+        status = RoadmapStepStatus.active;
+        if (d.stepKind != RoadmapStepKind.diagnostic) {
+          foundFirstPending = true;
+        }
       } else if (!foundFirstPending) {
         status = RoadmapStepStatus.active;
         foundFirstPending = true;
@@ -787,7 +781,9 @@ abstract final class RoadmapGenerator {
     }
 
     final stepSpan = math.max(1, daysRemaining ~/ 4);
-    final midTarget = double.parse(((baseline + targetBand) / 2).toStringAsFixed(1));
+    final midTarget = double.parse(
+      ((baseline + targetBand) / 2).toStringAsFixed(1),
+    );
     final stretchTarget = double.parse(
       ((midTarget + targetBand) / 2).toStringAsFixed(1),
     );
@@ -861,7 +857,8 @@ abstract final class RoadmapGenerator {
         goalFa: 'آمادگی کامل برای کسب نمره هدف $targetBand',
         phase: AdaptationPhase.examBreadth,
         startDaySerial: todaySerial + stepSpan * 3,
-        endDaySerial: targetDateSerial ?? (todaySerial + math.max(daysRemaining, 4)),
+        endDaySerial:
+            targetDateSerial ?? (todaySerial + math.max(daysRemaining, 4)),
         targetBandMarker: targetBand,
         status: milestoneStatus(4),
       ),

@@ -4,6 +4,30 @@ export const DEFAULT_SPLIT_RATIO = 50;
 export const MIN_SPLIT_RATIO = 40;
 export const MAX_SPLIT_RATIO = 65;
 
+const SIDEBAR_STORAGE_KEY = 'mockza:layout:sidebar-collapsed:v1';
+
+function canUseBrowserStorage(): boolean {
+  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+}
+
+function readStoredSidebarCollapsed(): boolean {
+  if (!canUseBrowserStorage()) return false;
+  try {
+    return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeStoredSidebarCollapsed(collapsed: boolean): void {
+  if (!canUseBrowserStorage()) return;
+  try {
+    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, collapsed ? '1' : '0');
+  } catch {
+    // Ignore storage quota or private-mode errors.
+  }
+}
+
 export function clampSplitRatio(ratio: number): number {
   if (!Number.isFinite(ratio)) {
     return DEFAULT_SPLIT_RATIO;
@@ -23,14 +47,19 @@ export interface LayoutStoreState {
 }
 
 export const useLayoutStore = create<LayoutStoreState>((set, get) => ({
-  sidebarCollapsed: false,
+  sidebarCollapsed: readStoredSidebarCollapsed(),
   splitPaneRatios: {},
   shortcutLegendOpen: false,
   toggleSidebar: () =>
-    set((state) => ({
-      sidebarCollapsed: !state.sidebarCollapsed,
-    })),
-  setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+    set((state) => {
+      const next = !state.sidebarCollapsed;
+      writeStoredSidebarCollapsed(next);
+      return { sidebarCollapsed: next };
+    }),
+  setSidebarCollapsed: (collapsed) => {
+    writeStoredSidebarCollapsed(collapsed);
+    set({ sidebarCollapsed: collapsed });
+  },
   setSplitPaneRatio: (viewKey, ratio) =>
     set((state) => ({
       splitPaneRatios: {
@@ -44,3 +73,11 @@ export const useLayoutStore = create<LayoutStoreState>((set, get) => ({
   },
   setShortcutLegendOpen: (open) => set({ shortcutLegendOpen: open }),
 }));
+
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === SIDEBAR_STORAGE_KEY) {
+      useLayoutStore.setState({ sidebarCollapsed: event.newValue === '1' });
+    }
+  });
+}

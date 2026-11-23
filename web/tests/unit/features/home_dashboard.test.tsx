@@ -164,21 +164,46 @@ describe('W4.3 Desktop Home Bento Dashboard (/app/home)', () => {
       expect(screen.getByTestId('home-due-vocab-card').textContent).toContain('ubiquitous');
     });
 
-    // 2. Switching to IELTS General preserves shared 7.5 IELTS target cleanly via nextTargetWhenSwitchingFrom
-    fireEvent.click(screen.getByTestId('home-track-ielts_general'));
+    // 2. Switching to IELTS General in Settings preserves shared 7.5 IELTS target cleanly via nextTargetWhenSwitchingFrom
+    expect(screen.queryByTestId('home-track-ielts_general')).toBeNull();
+    fireEvent.click(screen.getByTestId('nav-settings-link'));
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-track-ielts_general')).toBeTruthy();
+    });
+    fireEvent.click(screen.getByTestId('settings-track-ielts_general'));
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-track-ielts_general').getAttribute('aria-checked')).toBe('true');
+    });
+    fireEvent.click(screen.getByTestId('nav-home-link'));
     await waitFor(() => {
       expect(screen.getByTestId('home-target-score-pill').textContent).toContain('7.5');
     });
 
-    // 3. Switching to TOEFL iBT (2026) resets target safely to 5.0 + shows /120 concordance
-    fireEvent.click(screen.getByTestId('home-track-toefl_ibt'));
+    // 3. Switching to TOEFL iBT (2026) in Settings resets target safely to 5.0 + shows /120 concordance on Home
+    fireEvent.click(screen.getByTestId('nav-settings-link'));
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-track-toefl_ibt')).toBeTruthy();
+    });
+    fireEvent.click(screen.getByTestId('settings-track-toefl_ibt'));
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-track-toefl_ibt').getAttribute('aria-checked')).toBe('true');
+    });
+    fireEvent.click(screen.getByTestId('nav-home-link'));
     await waitFor(() => {
       expect(screen.getByTestId('home-target-score-pill').textContent).toContain('5.0');
       expect(screen.getByTestId('home-toefl-concordance').textContent).toContain('/ 120');
     });
 
-    // 4. Switching to DET shows Literacy subscore computed from Reading (125) + Writing (135) -> 130
-    fireEvent.click(screen.getByTestId('home-track-det'));
+    // 4. Switching to DET in Settings shows Literacy subscore computed from Reading (125) + Writing (135) -> 130 on Home
+    fireEvent.click(screen.getByTestId('nav-settings-link'));
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-track-det')).toBeTruthy();
+    });
+    fireEvent.click(screen.getByTestId('settings-track-det'));
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-track-det').getAttribute('aria-checked')).toBe('true');
+    });
+    fireEvent.click(screen.getByTestId('nav-home-link'));
     await waitFor(() => {
       expect(screen.getByTestId('home-det-subscores').textContent).toContain('Literacy: 130');
     });

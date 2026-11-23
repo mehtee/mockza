@@ -36,11 +36,15 @@ const defaultDet = computeDetSubscores({
       <select
         id="calc-ielts-mode"
         data-testid="calc-ielts-mode"
-        class="h-9 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-2 text-text-primary"
+        class="h-11 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-3 text-text-primary"
       >
-        <option value="reading_acad" selected>Academic Reading</option>
-        <option value="reading_gt">General Training Reading</option>
-        <option value="listening">Listening</option>
+        <option value="reading_acad" selected>
+          {isIrn ? 'ریدینگ آکادمیک (Academic Reading)' : 'Academic Reading'}
+        </option>
+        <option value="reading_gt">
+          {isIrn ? 'ریدینگ جنرال (General Training Reading)' : 'General Training Reading'}
+        </option>
+        <option value="listening">{isIrn ? 'لیسنینگ (Listening)' : 'Listening'}</option>
       </select>
 
       <label
@@ -105,7 +109,7 @@ const defaultDet = computeDetSubscores({
     </h2>
     <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
       <label class="flex flex-col gap-1">
-        <span>Reading (<span data-testid="calc-det-reading-val">125</span>)</span>
+        <span>{isIrn ? 'ریدینگ' : 'Reading'} (<span data-testid="calc-det-reading-val">125</span>)</span>
         <input
           type="range"
           min="10"
@@ -117,7 +121,7 @@ const defaultDet = computeDetSubscores({
         />
       </label>
       <label class="flex flex-col gap-1">
-        <span>Listening (<span data-testid="calc-det-listening-val">120</span>)</span>
+        <span>{isIrn ? 'لیسنینگ' : 'Listening'} (<span data-testid="calc-det-listening-val">120</span>)</span>
         <input
           type="range"
           min="10"
@@ -129,7 +133,7 @@ const defaultDet = computeDetSubscores({
         />
       </label>
       <label class="flex flex-col gap-1">
-        <span>Writing (<span data-testid="calc-det-writing-val">115</span>)</span>
+        <span>{isIrn ? 'رایتینگ' : 'Writing'} (<span data-testid="calc-det-writing-val">115</span>)</span>
         <input
           type="range"
           min="10"
@@ -141,7 +145,7 @@ const defaultDet = computeDetSubscores({
         />
       </label>
       <label class="flex flex-col gap-1">
-        <span>Speaking (<span data-testid="calc-det-speaking-val">115</span>)</span>
+        <span>{isIrn ? 'اسپیکینگ' : 'Speaking'} (<span data-testid="calc-det-speaking-val">115</span>)</span>
         <input
           type="range"
           min="10"

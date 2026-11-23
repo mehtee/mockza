@@ -1,5 +1,4 @@
 import {
-  EXAM_TRACK_SPECS,
   SUPPORTED_EXAM_IDS,
   normalizeSupportedExamId,
   type DiagnosticSkill,
@@ -49,12 +48,13 @@ import {
   getEditionConfig,
 } from '@/edition/edition-config';
 import { formatChromeNumber } from '@/edition/bidi/numerals';
-import { createTranslator } from '@/i18n';
+import { formatTrackLocalizedName } from '@/components/bidi/topic-labels';
+import { BrandMark } from '@/components/ui';
+import { createTranslator, type TranslationKey } from '@/i18n';
 import { useOptionalDeps } from '@/spa/deps';
 import {
-  notifyTrackChanged,
-  readSwrTrack,
   subscribeTrackChanged,
+  readSwrTrack,
   writeSwrTrack,
 } from '@/spa/swr-cache';
 import { useClockStore } from '@/spa/stores/clock.store';
@@ -573,6 +573,9 @@ function AppRootLayout() {
   const toggleSidebar = useLayoutStore((state) => state.toggleSidebar);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActiveSimulator = ACTIVE_SIMULATOR_RE.test(pathname);
+  const isFocusedFlow = /^\/(?:app\/)?(?:welcome|onboarding\/goal|auth\/login)(?:\/|$)/.test(
+    pathname,
+  );
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTrack, setActiveTrack] = useState<SupportedExamId>(
@@ -624,31 +627,6 @@ function AppRootLayout() {
     };
   }, [deps, edition, pathname]);
 
-  const handleTrackSwitch = async (nextTrack: SupportedExamId) => {
-    setActiveTrack(nextTrack);
-    notifyTrackChanged(edition, nextTrack);
-    if (!deps) return;
-    const [profileRes, idRes] = await Promise.all([
-      deps.attemptStore.getUserProfile(),
-      deps.auth.getDeviceIdentity(),
-    ]);
-    const existing = profileRes.ok ? profileRes.value : null;
-    await deps.attemptStore.saveUserProfile({
-      deviceId: existing?.deviceId ?? (idRes.ok ? idRes.value.deviceInstallId : 'web-device'),
-      examId: nextTrack,
-      examModule: nextTrack === 'ielts_general' ? 'general_training' : 'academic',
-      targetBand: existing?.targetBand ?? EXAM_TRACK_SPECS[nextTrack].targetScoreDefault,
-      targetDateSerial: existing?.targetDateSerial ?? null,
-      onboardingCompleted: existing?.onboardingCompleted ?? true,
-      freeDiagnosticUsed: existing?.freeDiagnosticUsed ?? false,
-      studyFocus: existing?.studyFocus ?? 'both',
-      linkedEmail: existing?.linkedEmail ?? null,
-      appUserId: existing?.appUserId ?? null,
-      isPro: existing?.isPro ?? false,
-      updatedAtMs: deps.clock.nowMs(),
-    });
-  };
-
   const handleToggleTheme = () => {
     const nextMode: ThemeMode = resolvedMode === 'dark' ? 'light' : 'dark';
     const nextState = applyAndPersistAppearance({ modePreference: nextMode });
@@ -678,6 +656,22 @@ function AppRootLayout() {
     { to: '/settings' as const, label: t('navSettings'), Icon: Settings, testId: 'nav-settings-link' },
   ];
 
+  const mobileBottomNavItems = [
+    { to: '/home' as const, labelKey: 'navHome' as TranslationKey, Icon: Home, id: 'home' },
+    { to: '/roadmap' as const, labelKey: 'navRoadmap' as TranslationKey, Icon: Compass, id: 'roadmap' },
+    { to: '/practice' as const, labelKey: 'navPractice' as TranslationKey, Icon: BookOpen, id: 'practice' },
+    { to: '/coach' as const, labelKey: 'navSmartCoach' as TranslationKey, Icon: Flame, id: 'coach' },
+    { to: '/vocabulary' as const, labelKey: 'navVocabulary' as TranslationKey, Icon: Layers, id: 'vocab' },
+  ] as const;
+
+  const syncBadgeLabel = !isOnline
+    ? t('topBarOfflineBadge')
+    : pendingOutboxCount > 0
+      ? t('topBarPendingOutboxBadge', {
+          count: formatChromeNumber(pendingOutboxCount, edition),
+        })
+      : t('topBarOnlineBadge');
+
   return (
     <div
       dir={dir}
@@ -685,7 +679,7 @@ function AppRootLayout() {
       className={
         isActiveSimulator
           ? 'flex h-dvh w-screen overflow-hidden bg-canvas text-text-primary'
-          : 'flex min-h-dvh flex-col bg-canvas text-text-primary'
+          : 'flex min-h-dvh flex-col bg-canvas text-text-primary lg:flex-row'
       }
     >
       {isActiveSimulator ? (
@@ -694,7 +688,7 @@ function AppRootLayout() {
             {t('navHome')}
           </Link>
         </nav>
-      ) : (
+      ) : isFocusedFlow ? null : (
         <>
           {mobileMenuOpen ? (
             <button
@@ -707,26 +701,45 @@ function AppRootLayout() {
 
           <aside
             aria-label={t('navAriaLabel')}
-            className={`fixed inset-y-0 start-0 z-40 w-64 shrink-0 flex-col gap-4 overflow-y-auto border-e border-border-subtle bg-surface p-4 lg:static lg:w-full lg:flex-row lg:items-center lg:justify-between lg:overflow-visible lg:border-e-0 lg:border-b lg:px-6 lg:py-3 ${
-              mobileMenuOpen ? 'flex' : 'hidden lg:flex'
-            }`}
+            className={`fixed inset-y-0 start-0 z-40 w-72 shrink-0 flex-col overflow-x-hidden border-e border-border-subtle bg-surface transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] lg:static lg:sticky lg:top-0 lg:flex lg:h-dvh lg:border-e lg:border-b-0 ${
+              sidebarCollapsed ? 'lg:w-20' : 'lg:w-60'
+            } ${mobileMenuOpen ? 'flex' : 'hidden lg:flex'}`}
           >
-            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border-subtle pb-3 lg:border-b-0 lg:pb-0">
+            <div
+              className={`flex h-14 shrink-0 items-center border-b border-border-subtle ${
+                sidebarCollapsed
+                  ? 'justify-between gap-2 px-4 lg:justify-center lg:gap-1.5 lg:px-2'
+                  : 'justify-between gap-2 px-4 lg:px-3'
+              }`}
+            >
               {sidebarCollapsed ? (
-                <a href="/" className="font-editorial text-2xl font-semibold text-primary" title={t('appTitle')}>
-                  {t('brandShort')}
+                <a
+                  href="/"
+                  className="inline-flex items-center gap-2.5 text-xl font-bold text-text-primary"
+                  title={t('appTitle')}
+                >
+                  <BrandMark edition={edition} size={28} />
+                  <span className="font-editorial truncate lg:hidden">{t('appTitle')}</span>
                 </a>
               ) : (
-                <a href="/" className="font-editorial text-2xl font-semibold text-text-primary">
-                  {t('appTitle')}
+                <a
+                  href="/"
+                  className="inline-flex min-w-0 items-center gap-2.5 text-text-primary"
+                >
+                  <BrandMark edition={edition} size={28} />
+                  <span className="font-editorial truncate text-xl font-semibold">{t('appTitle')}</span>
                 </a>
               )}
               <button
                 type="button"
+                data-testid="sidebar-collapse-toggle"
                 onClick={toggleSidebar}
+                title={sidebarCollapsed ? t('navExpandLabel') : t('navCollapseLabel')}
                 aria-label={sidebarCollapsed ? t('navExpandLabel') : t('navCollapseLabel')}
                 aria-expanded={!sidebarCollapsed}
-                className="hidden lg:inline-flex items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle p-1.5 text-text-secondary hover:bg-surface-hover"
+                className={`hidden lg:inline-flex shrink-0 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary ${
+                  sidebarCollapsed ? 'h-9 w-8' : 'h-10 w-10'
+                }`}
               >
                 <svg
                   aria-hidden="true"
@@ -734,7 +747,7 @@ function AppRootLayout() {
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="1.75"
-                  className={`h-4 w-4 transition-transform ${
+                  className={`h-4 w-4 transition-transform duration-200 ${
                     sidebarCollapsed ? 'rotate-0 rtl:rotate-180' : 'rotate-180 rtl:rotate-0'
                   }`}
                 >
@@ -745,41 +758,59 @@ function AppRootLayout() {
                 type="button"
                 onClick={() => setMobileMenuOpen(false)}
                 aria-label={t('navCloseMenuLabel')}
-                className="inline-flex items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle p-1.5 text-text-secondary hover:bg-surface-hover lg:hidden"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised text-text-secondary hover:bg-surface-hover lg:hidden"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
 
-            <nav className="flex flex-col gap-1 text-start text-sm lg:flex-row lg:flex-wrap lg:justify-end">
+            <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-4 text-start text-sm lg:p-3">
               {navItems.map(({ to, label, Icon, testId }) => (
                 <Link
                   key={to}
                   to={to}
                   aria-label={label}
+                  title={sidebarCollapsed ? label : undefined}
                   data-testid={testId}
                   onMouseEnter={() => void preloadRouteForPathname(to)}
                   onFocus={() => void preloadRouteForPathname(to)}
-                  className={`flex min-h-10 items-center gap-2 rounded-[var(--mz-radius-compact)] px-3 py-2 font-medium text-text-secondary hover:bg-surface-hover hover:text-text-primary data-[status=active]:bg-surface-alt data-[status=active]:text-primary ${
-                    sidebarCollapsed ? 'lg:justify-center lg:px-2.5' : ''
+                  className={`flex min-h-11 items-center rounded-[var(--mz-radius-compact)] px-3 py-2 font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary data-[status=active]:bg-surface-alt data-[status=active]:font-semibold data-[status=active]:text-primary ${
+                    sidebarCollapsed ? 'gap-2.5 lg:justify-center lg:gap-0 lg:px-2' : 'gap-2.5'
                   }`}
                 >
                   <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span className={sidebarCollapsed ? 'lg:sr-only' : undefined}>{label}</span>
+                  <span
+                    className={`whitespace-nowrap transition-[opacity,max-width] duration-150 ${
+                      sidebarCollapsed
+                        ? 'lg:max-w-0 lg:overflow-hidden lg:opacity-0'
+                        : 'truncate lg:max-w-[170px] lg:opacity-100'
+                    }`}
+                  >
+                    {label}
+                  </span>
                 </Link>
               ))}
               <Link
                 to="/auth/login"
                 aria-label={t('authSignInAction')}
+                title={sidebarCollapsed ? t('authSignInAction') : undefined}
                 data-testid="nav-auth-link"
                 onMouseEnter={() => void preloadRouteForPathname('/auth/login')}
                 onFocus={() => void preloadRouteForPathname('/auth/login')}
-                className={`mt-2 flex min-h-10 items-center gap-2 rounded-[var(--mz-radius-compact)] border border-border-strong px-3 py-2 font-semibold text-primary hover:bg-surface-hover lg:mt-0 lg:ms-2 ${
-                  sidebarCollapsed ? 'lg:justify-center lg:px-2.5' : ''
+                className={`mt-auto flex min-h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-strong px-3 py-2 font-semibold text-primary transition-colors hover:bg-surface-hover ${
+                  sidebarCollapsed ? 'gap-2.5 lg:justify-center lg:gap-0 lg:px-2' : 'gap-2.5'
                 }`}
               >
                 <LogIn className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className={sidebarCollapsed ? 'lg:sr-only' : undefined}>{t('authSignInAction')}</span>
+                <span
+                    className={`whitespace-nowrap transition-[opacity,max-width] duration-150 ${
+                      sidebarCollapsed
+                        ? 'lg:max-w-0 lg:overflow-hidden lg:opacity-0'
+                        : 'truncate lg:max-w-[170px] lg:opacity-100'
+                    }`}
+                  >
+                    {t('authSignInAction')}
+                  </span>
               </Link>
             </nav>
           </aside>
@@ -787,38 +818,58 @@ function AppRootLayout() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {!isActiveSimulator ? (
+        {isActiveSimulator ? null : isFocusedFlow ? (
+          <header
+            data-testid="focused-flow-topbar"
+            className="flex h-14 items-center justify-between gap-3 border-b border-border-subtle bg-bg-raised/90 px-4 backdrop-blur sm:px-6"
+          >
+            <a
+              href="/"
+              className="inline-flex items-center gap-2.5 text-text-primary"
+            >
+              <BrandMark edition={edition} size={28} />
+              <span className="font-editorial text-xl font-semibold">{t('appTitle')}</span>
+            </a>
+            <button
+              type="button"
+              data-testid="topbar-theme-toggle"
+              onClick={handleToggleTheme}
+              aria-label={t('topBarThemeToggleLabel')}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-surface text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+            >
+              {resolvedMode === 'dark' ? (
+                <Sun className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <Moon className="h-4 w-4" aria-hidden="true" />
+              )}
+            </button>
+          </header>
+        ) : (
           <header
             data-testid="top-command-bar"
-            className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-bg-raised px-4 py-2.5 sm:px-6"
+            className="sticky top-0 z-20 flex h-14 flex-nowrap items-center justify-between gap-2 border-b border-border-subtle bg-bg-raised/95 px-3 backdrop-blur sm:px-6"
           >
-            <div className="flex items-center gap-2.5">
+            <div className="flex min-w-0 items-center gap-2">
               <button
                 type="button"
                 data-testid="topbar-mobile-nav-btn"
                 onClick={() => setMobileMenuOpen((prev) => !prev)}
                 aria-label={t('navOpenMenuLabel')}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle text-text-secondary hover:bg-surface-hover lg:hidden"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-surface text-text-secondary hover:bg-surface-hover lg:hidden"
               >
                 <Menu className="h-4 w-4" aria-hidden="true" />
               </button>
 
-              <select
-                aria-label={t('settingsExamTrackSection')}
-                data-testid="topbar-track-switcher"
-                value={activeTrack}
-                onChange={(e) => void handleTrackSwitch(normalizeSupportedExamId(e.target.value))}
-                className="h-8 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-surface px-2.5 text-xs font-semibold text-text-primary"
+              <span
+                data-testid="topbar-active-exam"
+                className="inline-flex h-10 max-w-[210px] items-center gap-2 truncate rounded-[var(--mz-radius-compact)] border border-border-subtle bg-surface px-3 text-xs font-semibold text-text-primary sm:max-w-[270px]"
               >
-                {SUPPORTED_EXAM_IDS.map((trackId) => (
-                  <option key={trackId} value={trackId}>
-                    {EXAM_TRACK_SPECS[trackId].displayName}
-                  </option>
-                ))}
-              </select>
+                <span className="h-2 w-2 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+                <span className="truncate">{formatTrackLocalizedName(activeTrack, edition)}</span>
+              </span>
 
               {daysUntilExam !== null ? (
-                <span className="hidden sm:inline-flex items-center gap-1 rounded-[var(--mz-radius-pill)] border border-border-subtle bg-surface px-2.5 py-1 text-xs font-medium text-text-secondary">
+                <span className="hidden md:inline-flex h-10 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-surface px-3 text-xs font-medium text-text-secondary whitespace-nowrap">
                   <Calendar className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                   <span>
                     {t('topBarDaysLeftLabel', {
@@ -829,37 +880,27 @@ function AppRootLayout() {
               ) : null}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               <span
                 data-testid="topbar-sync-status"
-                className={`inline-flex items-center gap-1.5 rounded-[var(--mz-radius-pill)] border px-2.5 py-1 text-xs font-medium ${
+                aria-label={syncBadgeLabel}
+                title={syncBadgeLabel}
+                className={`inline-flex h-10 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border px-3 text-xs font-medium whitespace-nowrap ${
                   !isOnline
                     ? 'border-warning/40 bg-amber-bg text-warning'
                     : pendingOutboxCount > 0
-                      ? 'border-primary/40 bg-primary/10 text-primary'
+                      ? 'border-primary/40 bg-surface text-primary'
                       : 'border-border-subtle bg-surface text-text-secondary'
                 }`}
               >
                 {!isOnline ? (
-                  <>
-                    <WifiOff className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>{t('topBarOfflineBadge')}</span>
-                  </>
+                  <WifiOff className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 ) : pendingOutboxCount > 0 ? (
-                  <>
-                    <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>
-                      {t('topBarPendingOutboxBadge', {
-                        count: formatChromeNumber(pendingOutboxCount, edition),
-                      })}
-                    </span>
-                  </>
+                  <RefreshCw className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 ) : (
-                  <>
-                    <RefreshCw className="h-3.5 w-3.5 text-success" aria-hidden="true" />
-                    <span>{t('topBarOnlineBadge')}</span>
-                  </>
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-success" aria-hidden="true" />
                 )}
+                <span className="hidden sm:inline">{syncBadgeLabel}</span>
               </span>
 
               <button
@@ -867,7 +908,7 @@ function AppRootLayout() {
                 data-testid="topbar-theme-toggle"
                 onClick={handleToggleTheme}
                 aria-label={t('topBarThemeToggleLabel')}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-surface text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-surface text-text-secondary hover:bg-surface-hover hover:text-text-primary"
               >
                 {resolvedMode === 'dark' ? (
                   <Sun className="h-4 w-4" aria-hidden="true" />
@@ -877,13 +918,15 @@ function AppRootLayout() {
               </button>
             </div>
           </header>
-        ) : null}
+        )}
 
         <main
           className={
             isActiveSimulator
               ? 'h-full w-full flex-1 overflow-hidden'
-              : 'mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 sm:px-6'
+              : `mx-auto w-full max-w-6xl flex-1 px-4 py-5 sm:px-6 ${
+                  isFocusedFlow ? 'pb-8' : 'pb-24 lg:pb-8'
+                }`
           }
         >
           <Suspense
@@ -905,6 +948,29 @@ function AppRootLayout() {
             <Outlet />
           </Suspense>
         </main>
+
+        {!isActiveSimulator && !isFocusedFlow ? (
+          <nav
+            aria-label={t('navMobileBottomAriaLabel')}
+            data-testid="mobile-bottom-nav"
+            className="fixed inset-x-0 bottom-0 z-30 border-t border-border-subtle bg-surface/95 backdrop-blur pb-[env(safe-area-inset-bottom)] lg:hidden"
+          >
+            <div className="grid grid-cols-5">
+              {mobileBottomNavItems.map(({ to, labelKey, Icon, id }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  data-testid={`bottom-nav-${id}`}
+                  onMouseEnter={() => void preloadRouteForPathname(to)}
+                  className="flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-[11px] font-medium text-text-secondary hover:text-text-primary data-[status=active]:font-bold data-[status=active]:text-primary"
+                >
+                  <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span className="max-w-full truncate">{t(labelKey)}</span>
+                </Link>
+              ))}
+            </div>
+          </nav>
+        ) : null}
       </div>
 
       {blocker.status === 'blocked' && (

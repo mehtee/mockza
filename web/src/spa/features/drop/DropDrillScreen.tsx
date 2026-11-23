@@ -79,7 +79,7 @@ export function DropDrillScreen({ dropId }: DropDrillScreenProps) {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-4xl py-10 text-sm text-text-secondary">
+      <div className="mx-auto w-full max-w-6xl py-10 text-sm text-text-secondary">
         {isRtl ? 'در حال بارگذاری تمرین...' : 'Loading Quick Practice...'}
       </div>
     );
@@ -87,7 +87,7 @@ export function DropDrillScreen({ dropId }: DropDrillScreenProps) {
 
   if (!drop) {
     return (
-      <div className="mx-auto max-w-4xl py-10 text-sm text-text-secondary">
+      <div className="mx-auto w-full max-w-6xl py-10 text-sm text-text-secondary">
         {isRtl ? 'محتوای ارسالی پیدا نشد.' : 'Study material not found.'}
       </div>
     );
@@ -97,7 +97,7 @@ export function DropDrillScreen({ dropId }: DropDrillScreenProps) {
   const compDone = selectedIdx !== null;
 
   return (
-    <div data-testid="drop-drill-screen" className="mx-auto flex max-w-4xl flex-col gap-6 pb-10 text-start">
+    <div data-testid="drop-drill-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-10 text-start">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle pb-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-primary">

@@ -179,16 +179,18 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
   return (
     <div
       data-testid="objective-result-screen"
-      className="mx-auto flex h-[calc(100dvh-2rem)] min-h-[600px] max-w-7xl flex-col gap-4 pb-4 text-start"
+      className="mx-auto flex w-full max-w-6xl flex-col gap-4 pb-6 text-start lg:h-[calc(100dvh-2rem)] lg:min-h-[600px] lg:pb-4"
     >
       {/* Top Hero Summary */}
       <MzCard variant="hero" padding="sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-4">
-            <div>
-              <h1 className="font-editorial text-3xl text-text-primary">
-                {submission.packTitle ?? bundle?.pack.title ?? t('objResultTitle')}
-              </h1>
+            <div className="min-w-0">
+              <LtrExamBoundary>
+                <h1 className="font-editorial text-2xl sm:text-3xl text-text-primary">
+                  {submission.packTitle ?? bundle?.pack.title ?? t('objResultTitle')}
+                </h1>
+              </LtrExamBoundary>
               <div className="mt-1 flex flex-wrap items-baseline gap-3">
                 <LtrExamBoundary>
                   <span
@@ -201,9 +203,11 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
                   </span>
                 </LtrExamBoundary>
                 {attempt.examId === 'toefl_ibt' && attempt.overallBand !== null ? (
-                  <span className="font-mono-exam text-xs font-semibold text-focus">
-                    ~{estimateToeflLegacy120(attempt.overallBand)}/120
-                  </span>
+                  <LtrExamBoundary>
+                    <span className="font-mono-exam text-xs font-semibold text-focus">
+                      ~{estimateToeflLegacy120(attempt.overallBand)}/120
+                    </span>
+                  </LtrExamBoundary>
                 ) : null}
                 <span className="text-xs font-semibold text-text-primary">
                   {t('objResultAccuracyLabel', {
@@ -221,9 +225,10 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             <MzSegmentedControl<'all' | 'incorrect' | 'flagged'>
               ariaLabel={t('objResultFilterAll')}
+              fullWidth
               value={filterMode}
               onChange={setFilterMode}
               options={[
@@ -235,7 +240,7 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
             <Link
               to="/home"
               data-testid="objective-result-home-link"
-              className="inline-flex h-8 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-3 text-xs font-semibold text-text-primary hover:bg-surface-hover"
+              className="inline-flex min-h-10 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-3.5 text-xs font-semibold text-text-primary hover:bg-surface-hover"
             >
               {t('objResultBackHomeAction')}
             </Link>
@@ -266,7 +271,9 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
           leftPane={
             attempt.skill === 'listening' ? (
               <div className="flex flex-col gap-4">
-                <h2 className="text-base font-bold text-text-primary">{activeSection?.title}</h2>
+                <LtrExamBoundary>
+                  <h2 className="text-base font-bold text-text-primary">{activeSection?.title}</h2>
+                </LtrExamBoundary>
                 {mediaUrl && activeSection ? (
                   <AudioStudioPlayer
                     source={{
@@ -391,9 +398,9 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
                                   questionId: question.questionId,
                                 })
                               }
-                              className="inline-flex h-7 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-primary/40 bg-canvas px-2 text-[11px] font-semibold text-primary hover:bg-surface-hover"
+                              className="inline-flex min-h-10 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-primary/40 bg-canvas px-3 text-xs font-semibold text-primary hover:bg-surface-hover sm:min-h-9"
                             >
-                              <Mic className="h-3 w-3" aria-hidden="true" />
+                              <Mic className="h-3.5 w-3.5" aria-hidden="true" />
                               <span>{t('speechPracticeBtn')}</span>
                             </button>
                           </div>
@@ -492,7 +499,7 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
             to="/practice/drills/$drillId"
             params={{ drillId }}
             search={{ track: attempt.examId }}
-            className="font-semibold text-primary underline"
+            className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary/10 px-4 text-xs font-semibold text-primary hover:bg-primary/20"
           >
             {t(attempt.skill === 'listening' ? 'objResultListeningDrill' : 'objResultReadingDrill')}
           </Link>
@@ -500,7 +507,7 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
           <Link
             to="/practice"
             search={{ track: attempt.examId, skill: attempt.skill === 'listening' ? 'listening' : 'reading' }}
-            className="font-semibold text-primary underline"
+            className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary/10 px-4 text-xs font-semibold text-primary hover:bg-primary/20"
           >
             {t('objResultAnotherSet')}
           </Link>

@@ -252,16 +252,16 @@ check_web_gates() {
 
   # 7. Dual GLB & IRN Astro static builds + bundle isolation greps (strictly sequential)
   require_min_ram_mb 500 || return
-  rm -rf "$WEB_DIR/dist-glb"
-  if ! (cd "$ROOT_DIR" && (PUBLIC_EDITION=glb NODE_OPTIONS="--max-old-space-size=320" pnpm --filter @mockza/web build:glb || (echo "Retrying GLB build with 384 MiB heap..." >&2 && rm -rf "$WEB_DIR/dist-glb" && PUBLIC_EDITION=glb NODE_OPTIONS="--max-old-space-size=384" pnpm --filter @mockza/web build:glb))); then
+  mkdir -p "$WEB_DIR/dist-glb" && find "$WEB_DIR/dist-glb" -mindepth 1 -delete
+  if ! (cd "$ROOT_DIR" && (PUBLIC_EDITION=glb PUBLIC_API_BASE_URL="${PUBLIC_API_BASE_URL-}" NODE_OPTIONS="--max-old-space-size=320" pnpm --filter @mockza/web build:glb || (echo "Retrying GLB build with 384 MiB heap..." >&2 && find "$WEB_DIR/dist-glb" -mindepth 1 -delete && PUBLIC_EDITION=glb PUBLIC_API_BASE_URL="${PUBLIC_API_BASE_URL-}" NODE_OPTIONS="--max-old-space-size=384" pnpm --filter @mockza/web build:glb))); then
     fail "Web GLB Astro build failed"
   elif grep -rnEIi "sanjia|navia|zarinpal|zibal|kavenegar|jalaali|تومان|formatTomanFromRial" "$WEB_DIR/dist-glb/"; then
     fail "GLB bundle isolation breach: IRN-only identifier/domain found in web/dist-glb/"
   fi
 
   require_min_ram_mb 500 || return
-  rm -rf "$WEB_DIR/dist-irn"
-  if ! (cd "$ROOT_DIR" && (PUBLIC_EDITION=irn NODE_OPTIONS="--max-old-space-size=320" pnpm --filter @mockza/web build:irn || (echo "Retrying IRN build with 384 MiB heap..." >&2 && rm -rf "$WEB_DIR/dist-irn" && PUBLIC_EDITION=irn NODE_OPTIONS="--max-old-space-size=384" pnpm --filter @mockza/web build:irn))); then
+  mkdir -p "$WEB_DIR/dist-irn" && find "$WEB_DIR/dist-irn" -mindepth 1 -delete
+  if ! (cd "$ROOT_DIR" && (PUBLIC_EDITION=irn PUBLIC_API_BASE_URL="${PUBLIC_API_BASE_URL-}" NODE_OPTIONS="--max-old-space-size=320" pnpm --filter @mockza/web build:irn || (echo "Retrying IRN build with 384 MiB heap..." >&2 && find "$WEB_DIR/dist-irn" -mindepth 1 -delete && PUBLIC_EDITION=irn PUBLIC_API_BASE_URL="${PUBLIC_API_BASE_URL-}" NODE_OPTIONS="--max-old-space-size=384" pnpm --filter @mockza/web build:irn))); then
     fail "Web IRN Astro build failed"
   elif grep -rnEI "stripe|revenuecat|accounts\.google\.com|appleid\.apple\.com|googletagmanager|firebase" "$WEB_DIR/dist-irn/"; then
     fail "IRN bundle isolation breach: GLB-only tracker/billing identifier found in web/dist-irn/"

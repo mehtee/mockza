@@ -91,7 +91,7 @@ export function DiagnosticResultScreen({ diagId: routeDiagId }: DiagnosticResult
 
   if (!session) {
     return (
-      <div data-testid="diagnostic-result-screen" className="mx-auto max-w-4xl p-6 text-start">
+      <div data-testid="diagnostic-result-screen" className="mx-auto w-full max-w-6xl p-6 text-start">
         {errorMsg ? (
           <MzBanner tone="danger">{errorMsg}</MzBanner>
         ) : (
@@ -110,7 +110,7 @@ export function DiagnosticResultScreen({ diagId: routeDiagId }: DiagnosticResult
   }
 
   return (
-    <div data-testid="diagnostic-result-screen" className="mx-auto flex max-w-5xl flex-col gap-6 pb-10 text-start">
+    <div data-testid="diagnostic-result-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-10 text-start">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border-subtle pb-4">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">{t('diagResultTitle')}</h1>

@@ -1,6 +1,4 @@
 import {
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Keyboard,
   Pause,
@@ -8,6 +6,7 @@ import {
 } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 import { MzButton, MzModal } from '@/components/ui';
+import { BackChevronIcon } from '@/components/bidi/DirectionIcon';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import { getActiveEditionCode } from '@/edition/edition-config';
 import { createTranslator } from '@/i18n';
@@ -86,7 +85,7 @@ export function SimulatorWorkspaceShell({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [shortcuts.length]);
 
-  const ExitChevron = edition === 'irn' ? ChevronRight : ChevronLeft;
+  // Keep icon helper aligned with DirectionIcon.tsx
 
   return (
     <div
@@ -94,24 +93,28 @@ export function SimulatorWorkspaceShell({
       className="flex h-[calc(100dvh-3rem)] min-h-[540px] flex-col overflow-hidden rounded-[var(--mz-radius-card)] border border-border-subtle bg-canvas text-start"
     >
       {/* Top Distraction-Free Chrome Bar */}
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-bg-raised px-4 py-2.5">
-        <div className="flex min-w-0 items-center gap-3">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border-subtle bg-bg-raised px-3 py-2 sm:gap-3 sm:px-4 sm:py-2.5">
+        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
           {onRequestExit ? (
             <button
               type="button"
               data-testid="workspace-exit-btn"
               onClick={onRequestExit}
-              className="inline-flex h-8 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-2.5 text-xs font-semibold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
+              className="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-3 text-xs font-semibold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary sm:min-h-9"
             >
-              <ExitChevron className="h-3.5 w-3.5" aria-hidden="true" />
+              <BackChevronIcon edition={edition} className="h-3.5 w-3.5" />
               <span>{t('workspaceExitSessionAction')}</span>
             </button>
           ) : null}
 
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-text-primary">{breadcrumb}</p>
-            {subtitle ? (
-              <p className="truncate text-[11px] text-text-secondary">{subtitle}</p>
+            <LtrExamBoundary>
+              <p className="truncate text-sm font-bold text-text-primary">{breadcrumb}</p>
+            </LtrExamBoundary>
+            {subtitle && subtitle !== breadcrumb ? (
+              <LtrExamBoundary>
+                <p className="truncate text-[11px] text-text-secondary">{subtitle}</p>
+              </LtrExamBoundary>
             ) : null}
           </div>
         </div>
@@ -183,7 +186,7 @@ export function SimulatorWorkspaceShell({
               data-testid="workspace-shortcuts-btn"
               onClick={() => setShortcutsOpen(true)}
               aria-label={t('workspaceShortcutsHint')}
-              className="inline-flex h-8 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-2.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
+              className="hidden h-9 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-2.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary md:inline-flex"
             >
               <Keyboard className="h-3.5 w-3.5" aria-hidden="true" />
               <span className="hidden sm:inline">{t('workspaceShortcutsHint')}</span>

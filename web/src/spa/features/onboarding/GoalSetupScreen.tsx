@@ -1,16 +1,16 @@
 import { estimateToeflLegacy120, formatExamScore } from '@mockza/domain';
 import { Link, useNavigate } from '@tanstack/react-router';
 import {
-  ArrowLeft,
-  ArrowRight,
   Calendar,
   Minus,
   Plus,
   Rocket,
   Target,
 } from 'lucide-react';
-import { MzBanner, MzButton, MzCard } from '@/components/ui';
+import { MzBanner, MzButton, MzCard, resolveOfficialCefrTier } from '@/components/ui';
+import { BackArrowIcon } from '@/components/bidi/DirectionIcon';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
+import { formatTrackLocalizedName } from '@/components/bidi/topic-labels';
 import { formatDisplayDate } from '@/edition/calendar/jalali-edge';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
@@ -23,18 +23,21 @@ export function GoalSetupScreen() {
   const navigate = useNavigate();
   const ctrl = useOnboardingController();
 
-  const BackIcon = deps.edition === 'irn' ? ArrowRight : ArrowLeft;
-
   const resolveCefrSummary = () => {
-    const ratio = ctrl.qualityRatio;
-    const base =
-      ratio >= 0.82
-        ? t('onboardingCefrC2')
-        : ratio >= 0.65
-          ? t('onboardingCefrC1')
-          : ratio >= 0.45
-            ? t('onboardingCefrB2')
-            : t('onboardingCefrB1');
+    const tier = resolveOfficialCefrTier(ctrl.targetScore, ctrl.selectedTrack);
+    const tierKey =
+      tier === 'C2'
+        ? 'onboardingCefrC2'
+        : tier === 'C1'
+          ? 'onboardingCefrC1'
+          : tier === 'B2'
+            ? 'onboardingCefrB2'
+            : tier === 'B1'
+              ? 'onboardingCefrB1'
+              : tier === 'A2'
+                ? 'onboardingCefrA2'
+                : 'onboardingCefrA1';
+    const base = t(tierKey);
 
     if (ctrl.selectedTrack === 'toefl_ibt') {
       return `${base} · ~${estimateToeflLegacy120(ctrl.targetScore)}/120`;
@@ -60,24 +63,27 @@ export function GoalSetupScreen() {
   const isIrn = deps.edition === 'irn';
 
   return (
-    <div data-testid="goal-setup-screen" className="mx-auto flex max-w-4xl flex-col gap-6 pb-10 text-start">
+    <div data-testid="goal-setup-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-10 text-start">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           to="/welcome"
           data-testid="goal-back-welcome-link"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-text-secondary hover:text-text-primary"
+          className="inline-flex min-h-10 items-center gap-1.5 text-xs font-semibold text-text-secondary hover:text-text-primary"
         >
-          <BackIcon className="h-4 w-4" aria-hidden="true" />
+          <BackArrowIcon edition={deps.edition} className="h-4 w-4" />
           <span>{t('onboardingBackToTrackAction')}</span>
         </Link>
 
         <span className="rounded-[var(--mz-radius-pill)] border border-primary/40 bg-surface-alt px-3 py-1 text-xs font-semibold text-primary">
-          {ctrl.trackSpec.displayName}
+          {formatTrackLocalizedName(ctrl.selectedTrack, deps.edition)}
         </span>
       </div>
 
       <header>
-        <h1 className="text-2xl font-bold text-text-primary">{t('onboardingGoalHeadline')}</h1>
+        <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+          {t('onboardingStepBadge', { current: 2, total: 2 })}
+        </p>
+        <h1 className="mt-1 text-2xl font-bold text-text-primary">{t('onboardingGoalHeadline')}</h1>
         <p className="mt-1 text-sm text-text-secondary">{t('onboardingGoalSubtitle')}</p>
       </header>
 
@@ -158,7 +164,7 @@ export function GoalSetupScreen() {
                 data-testid={`goal-topic-chip-${slug}`}
                 aria-pressed={active}
                 onClick={() => ctrl.toggleTopic(topic.key)}
-                className={`rounded-[var(--mz-radius-pill)] border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                className={`inline-flex min-h-11 items-center rounded-[var(--mz-radius-pill)] border px-3.5 text-xs font-semibold transition-colors ${
                   active
                     ? 'border-primary bg-primary text-on-primary'
                     : 'border-border-subtle bg-bg-raised text-text-secondary hover:bg-surface-hover hover:text-text-primary'
@@ -198,7 +204,7 @@ export function GoalSetupScreen() {
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <LtrExamBoundary className="flex items-center gap-3">
             <MzButton
               variant="secondary"
               size="sm"
@@ -210,7 +216,7 @@ export function GoalSetupScreen() {
               <Minus className="h-4 w-4" aria-hidden="true" />
             </MzButton>
 
-            <LtrExamBoundary className="flex-1">
+            <div className="flex-1">
               <input
                 type="range"
                 data-testid="goal-target-slider"
@@ -222,7 +228,7 @@ export function GoalSetupScreen() {
                 onChange={(event) => ctrl.updateTargetScore(Number(event.target.value))}
                 className="w-full accent-primary"
               />
-            </LtrExamBoundary>
+            </div>
 
             <MzButton
               variant="secondary"
@@ -234,7 +240,7 @@ export function GoalSetupScreen() {
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
             </MzButton>
-          </div>
+          </LtrExamBoundary>
         </MzCard>
 
         {/* Edition-Specific Exam Date Picker (Gregorian GLB vs Jalali IRN) */}
@@ -253,7 +259,7 @@ export function GoalSetupScreen() {
                 type="button"
                 data-testid={`goal-date-preset-${days}`}
                 onClick={() => ctrl.setExamDateDaysFromNow(days)}
-                className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-3 py-1 text-xs font-semibold text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+                className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-3.5 text-xs font-semibold text-text-secondary hover:bg-surface-hover hover:text-text-primary"
               >
                 {t('onboardingPresetDays', { days })}
               </button>
@@ -262,7 +268,7 @@ export function GoalSetupScreen() {
               type="button"
               data-testid="goal-date-clear"
               onClick={() => ctrl.setExamDateDaysFromNow(null)}
-              className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-canvas px-3 py-1 text-xs text-text-secondary hover:bg-surface-hover"
+              className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-pill)] border border-border-subtle bg-canvas px-3.5 text-xs text-text-secondary hover:bg-surface-hover"
             >
               {t('onboardingClearDateAction')}
             </button>
@@ -272,33 +278,42 @@ export function GoalSetupScreen() {
             {deps.edition === 'irn' && import.meta.env.PUBLIC_EDITION !== 'glb' ? (
               <LtrExamBoundary>
                 <div className="grid grid-cols-3 gap-2" data-testid="goal-jalali-inputs">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    data-testid="goal-jalali-year"
-                    placeholder="1405"
-                    value={ctrl.jalaliDraft.jy}
-                    onChange={(e) => ctrl.handleJalaliFieldChange({ jy: e.target.value })}
-                    className="h-10 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 text-center font-mono-exam text-sm text-text-primary focus:border-primary focus:outline-none"
-                  />
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    data-testid="goal-jalali-month"
-                    placeholder="08"
-                    value={ctrl.jalaliDraft.jm}
-                    onChange={(e) => ctrl.handleJalaliFieldChange({ jm: e.target.value })}
-                    className="h-10 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 text-center font-mono-exam text-sm text-text-primary focus:border-primary focus:outline-none"
-                  />
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    data-testid="goal-jalali-day"
-                    placeholder="27"
-                    value={ctrl.jalaliDraft.jd}
-                    onChange={(e) => ctrl.handleJalaliFieldChange({ jd: e.target.value })}
-                    className="h-10 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 text-center font-mono-exam text-sm text-text-primary focus:border-primary focus:outline-none"
-                  />
+                  <label className="flex flex-col gap-1 text-center text-[11px] font-medium text-text-secondary">
+                    <span dir="rtl">سال</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      data-testid="goal-jalali-year"
+                      placeholder="1405"
+                      value={ctrl.jalaliDraft.jy}
+                      onChange={(e) => ctrl.handleJalaliFieldChange({ jy: e.target.value })}
+                      className="h-11 w-full rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 text-center font-mono-exam text-sm text-text-primary focus:border-primary focus:outline-none"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-center text-[11px] font-medium text-text-secondary">
+                    <span dir="rtl">ماه</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      data-testid="goal-jalali-month"
+                      placeholder="08"
+                      value={ctrl.jalaliDraft.jm}
+                      onChange={(e) => ctrl.handleJalaliFieldChange({ jm: e.target.value })}
+                      className="h-11 w-full rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 text-center font-mono-exam text-sm text-text-primary focus:border-primary focus:outline-none"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-center text-[11px] font-medium text-text-secondary">
+                    <span dir="rtl">روز</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      data-testid="goal-jalali-day"
+                      placeholder="27"
+                      value={ctrl.jalaliDraft.jd}
+                      onChange={(e) => ctrl.handleJalaliFieldChange({ jd: e.target.value })}
+                      className="h-11 w-full rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 text-center font-mono-exam text-sm text-text-primary focus:border-primary focus:outline-none"
+                    />
+                  </label>
                 </div>
               </LtrExamBoundary>
             ) : (
@@ -309,7 +324,7 @@ export function GoalSetupScreen() {
                   aria-label={t('onboardingExamDateLabel')}
                   value={ctrl.gregorianInput}
                   onChange={(e) => ctrl.handleGregorianDateChange(e.target.value)}
-                  className="h-10 w-full rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 font-mono-exam text-sm text-text-primary focus:border-primary focus:outline-none"
+                  className="h-11 w-full rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 font-mono-exam text-sm text-text-primary focus:border-primary focus:outline-none"
                 />
               </LtrExamBoundary>
             )}
@@ -331,11 +346,12 @@ export function GoalSetupScreen() {
       </div>
 
       {/* Primary Launch into Coach / Starting-Level Check OR Straight to Home */}
-      <MzCard variant="default">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <MzCard variant="default" className="sticky bottom-0 z-10 sm:static">
+        <div className="flex flex-col-reverse gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <MzButton
             variant="ghost"
             size="md"
+            className="w-full sm:w-auto"
             data-testid="goal-skip-home-btn"
             disabled={ctrl.isSaving || ctrl.dateError}
             onClick={() => void finishAndNavigate('/home')}
@@ -346,6 +362,7 @@ export function GoalSetupScreen() {
           <MzButton
             variant="primary"
             size="lg"
+            className="w-full sm:w-auto"
             data-testid="goal-start-diagnostic-btn"
             isLoading={ctrl.isSaving}
             disabled={ctrl.dateError}

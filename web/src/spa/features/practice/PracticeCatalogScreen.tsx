@@ -1,6 +1,5 @@
 import {
   EXAM_TRACK_SPECS,
-  SUPPORTED_EXAM_IDS,
   type SkillKind,
   type SupportedExamId,
 } from '@mockza/domain';
@@ -9,6 +8,8 @@ import { CheckCircle2, Compass, Download, HardDrive, Play, RefreshCw, Search, Sp
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MzBanner, MzButton, MzCard, MzSegmentedControl } from '@/components/ui';
 import { formatByteSize } from '@/edition/bidi/format-bytes';
+import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
+import { formatSkillLabel, formatTrackLocalizedName } from '@/components/bidi/topic-labels';
 import type { CacheUsageSummary } from '@/gateways/catalog.gateway';
 import type { PersonalizationStateDto } from '@/gateways/personalization.gateway';
 import type { CatalogPackRecord } from '@/gateways/storage.gateway';
@@ -69,8 +70,8 @@ export function PracticeCatalogScreen({ initialTrack, initialSkill }: PracticeCa
     () => readSwrCatalogPacks(deps.catalog, deps.edition).length === 0,
   );
   const [cacheSummary, setCacheSummary] = useState<CacheUsageSummary | null>(null);
-  const [selectedExam, setSelectedExam] = useState<SupportedExamId | 'all'>(
-    () => initialTrack ?? readSwrTrack(deps.edition) ?? 'all',
+  const [selectedExam, setSelectedExam] = useState<SupportedExamId>(
+    () => initialTrack ?? readSwrTrack(deps.edition) ?? 'ielts_academic',
   );
   const [selectedSkill, setSelectedSkill] = useState<SkillKind | 'fullMock' | 'all'>(
     initialSkill ?? 'all',
@@ -192,7 +193,7 @@ export function PracticeCatalogScreen({ initialTrack, initialSkill }: PracticeCa
       if (catalogTab === 'for_you' && recIds.size > 0 && !query && selectedSkill === 'all') {
         if (!recIds.has(pack.packId)) return false;
       }
-      if (selectedExam !== 'all' && pack.examId !== selectedExam) return false;
+      if (pack.examId !== selectedExam) return false;
       if (selectedSkill !== 'all' && pack.skill !== selectedSkill) return false;
       if (cachedOnly && pack.isCachedOffline !== 1) return false;
       if (
@@ -263,9 +264,16 @@ export function PracticeCatalogScreen({ initialTrack, initialSkill }: PracticeCa
                   <span>{phaseLabelText}</span>
                 </span>
               </div>
-              <h2 className="text-lg font-bold text-text-primary">{spotlightPack.title}</h2>
+              <LtrExamBoundary>
+                <h2 className="text-lg font-bold text-text-primary">{spotlightPack.title}</h2>
+              </LtrExamBoundary>
               <p className="text-xs text-text-secondary">
-                {recommendedByPackId.get(spotlightPack.packId)?.reason ?? spotlightPack.description}
+                {(recommendedByPackId.get(spotlightPack.packId)?.reason ?? spotlightPack.description).replace(
+                  /SeaweedFS\s*\.m4a\s*audio/gi,
+                  deps.edition === 'irn'
+                    ? 'متن همگام‌سازی‌شده و فایل صوتی استودیویی'
+                    : 'synchronized transcript and studio audio',
+                )}
               </p>
             </div>
             <MzButton
@@ -289,6 +297,7 @@ export function PracticeCatalogScreen({ initialTrack, initialSkill }: PracticeCa
         <div className="flex flex-wrap items-center gap-2">
           <MzSegmentedControl<'for_you' | 'all'>
             ariaLabel={t('practiceCatalogTitle')}
+            fullWidth
             value={catalogTab}
             onChange={setCatalogTab}
             options={[
@@ -299,14 +308,14 @@ export function PracticeCatalogScreen({ initialTrack, initialSkill }: PracticeCa
           <Link
             to="/practice/drills"
             data-testid="practice-goto-drills"
-            className="inline-flex h-9 items-center rounded-[var(--mz-radius-control)] border border-border-subtle bg-bg-raised px-3.5 text-xs font-semibold text-text-primary hover:bg-surface-hover"
+            className="inline-flex min-h-10 items-center whitespace-nowrap rounded-[var(--mz-radius-control)] border border-border-subtle bg-bg-raised px-3.5 text-xs font-semibold text-text-primary hover:bg-surface-hover"
           >
             {t('homeQuickDrillsCta')}
           </Link>
           <Link
             to="/practice/full-mock"
             data-testid="practice-goto-full-mock"
-            className="inline-flex h-9 items-center rounded-[var(--mz-radius-control)] border border-primary/40 bg-surface-alt px-3.5 text-xs font-semibold text-primary hover:bg-surface-hover"
+            className="inline-flex min-h-10 items-center whitespace-nowrap rounded-[var(--mz-radius-control)] border border-primary/40 bg-surface-alt px-3.5 text-xs font-semibold text-primary hover:bg-surface-hover"
           >
             {t('homeQuickFullMockCta')}
           </Link>
@@ -372,39 +381,10 @@ export function PracticeCatalogScreen({ initialTrack, initialSkill }: PracticeCa
             ) : null}
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5">
-            <button
-              type="button"
-              data-testid="filter-exam-all"
-              onClick={() => setSelectedExam('all')}
-              className={[
-                'rounded-[var(--mz-radius-pill)] border px-3 py-1 text-xs font-semibold transition-colors',
-                selectedExam === 'all'
-                  ? 'border-primary bg-primary text-on-primary'
-                  : 'border-border-subtle bg-canvas text-text-secondary hover:bg-surface-hover',
-              ].join(' ')}
-            >
-              {t('practiceAllTracksFilter')}
-            </button>
-            {SUPPORTED_EXAM_IDS.map((examId) => (
-              <button
-                key={examId}
-                type="button"
-                data-testid={`filter-exam-${examId}`}
-                onClick={() => setSelectedExam(examId)}
-                className={[
-                  'rounded-[var(--mz-radius-pill)] border px-3 py-1 text-xs font-semibold transition-colors',
-                  selectedExam === examId
-                    ? 'border-primary bg-primary text-on-primary'
-                    : 'border-border-subtle bg-canvas text-text-secondary hover:bg-surface-hover',
-                ].join(' ')}
-              >
-                {EXAM_TRACK_SPECS[examId].displayName}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+            <span className="inline-flex min-h-10 shrink-0 items-center rounded-[var(--mz-radius-pill)] border border-primary/30 bg-surface-alt px-3.5 text-xs font-semibold text-primary whitespace-nowrap">
+              {formatTrackLocalizedName(selectedExam, deps.edition)}
+            </span>
             {SKILL_FILTERS.map((skill) => (
               <button
                 key={skill}
@@ -412,13 +392,13 @@ export function PracticeCatalogScreen({ initialTrack, initialSkill }: PracticeCa
                 data-testid={`filter-skill-${skill}`}
                 onClick={() => setSelectedSkill(skill)}
                 className={[
-                  'rounded-[var(--mz-radius-pill)] border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition-colors',
+                  'min-h-10 shrink-0 whitespace-nowrap rounded-[var(--mz-radius-pill)] border px-3 text-xs font-semibold transition-colors',
                   selectedSkill === skill
                     ? 'border-focus bg-blue-bg text-focus'
                     : 'border-border-subtle bg-canvas text-text-secondary hover:bg-surface-hover',
                 ].join(' ')}
               >
-                {skill === 'all' ? t('practiceAllSkillsFilter') : skill}
+                {skill === 'all' ? t('practiceAllSkillsFilter') : formatSkillLabel(skill, deps.edition)}
               </button>
             ))}
           </div>
@@ -459,7 +439,10 @@ export function PracticeCatalogScreen({ initialTrack, initialSkill }: PracticeCa
                 <div>
                   <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold">
                     <span className="rounded-[var(--mz-radius-pill)] bg-surface-alt px-2.5 py-0.5 text-primary">
-                      {EXAM_TRACK_SPECS[pack.examId].displayName} · {pack.skill}
+                      {deps.edition === 'irn'
+                        ? formatTrackLocalizedName(pack.examId, deps.edition)
+                        : EXAM_TRACK_SPECS[pack.examId].displayName}{' '}
+                      · {formatSkillLabel(pack.skill, deps.edition)}
                     </span>
                     {isCached ? (
                       <span
@@ -471,16 +454,28 @@ export function PracticeCatalogScreen({ initialTrack, initialSkill }: PracticeCa
                       </span>
                     ) : null}
                   </div>
-                  <h2 className="mt-2 text-base font-bold text-text-primary">{pack.title}</h2>
-                  <p className="mt-1 text-xs text-text-secondary">{pack.description}</p>
+                  <LtrExamBoundary>
+                    <h2 className="mt-2 text-base font-bold text-text-primary">{pack.title}</h2>
+                  </LtrExamBoundary>
+                  <p className="mt-1 text-xs text-text-secondary">
+                    {pack.description.replace(
+                      /SeaweedFS\s*\.m4a\s*audio/gi,
+                      deps.edition === 'irn'
+                        ? 'متن همگام‌سازی‌شده و فایل صوتی استودیویی'
+                        : 'synchronized transcript and studio audio',
+                    )}
+                  </p>
                   {recommendedByPackId.has(pack.packId) ? (
                     <p className="mt-1.5 rounded-[var(--mz-radius-compact)] bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary">
                       {recommendedByPackId.get(pack.packId)?.reason}
                     </p>
                   ) : null}
-                  <p className="mt-2 font-mono-exam text-[11px] text-text-tertiary">
-                    {Math.round(pack.durationSeconds / 60)}m · {pack.questionCount} items ·{' '}
-                    {formatByteSize(pack.byteLength, deps.edition)}
+                  <p className="mt-2 text-[11px] text-text-tertiary">
+                    {t('practicePackMetaSummary', {
+                      minutes: Math.max(1, Math.round(pack.durationSeconds / 60)),
+                      count: pack.questionCount,
+                    })}{' '}
+                    · {formatByteSize(pack.byteLength, deps.edition)}
                   </p>
                 </div>
 
@@ -488,7 +483,7 @@ export function PracticeCatalogScreen({ initialTrack, initialSkill }: PracticeCa
                   {!isCached ? (
                     <MzButton
                       variant="secondary"
-                      size="sm"
+                      size="md"
                       data-testid={`download-pack-${pack.packId}`}
                       isLoading={downloadingPackId === pack.packId}
                       leadingIcon={<Download className="h-3.5 w-3.5" aria-hidden="true" />}
@@ -500,13 +495,13 @@ export function PracticeCatalogScreen({ initialTrack, initialSkill }: PracticeCa
                     </MzButton>
                   ) : (
                     <span className="text-[11px] font-medium text-success">
-                      SHA-256 Verified
+                      {t('practiceVerifiedOffline')}
                     </span>
                   )}
 
                   <MzButton
                     variant="primary"
-                    size="sm"
+                    size="md"
                     data-testid={`launch-pack-${pack.packId}`}
                     leadingIcon={<Play className="h-3.5 w-3.5" aria-hidden="true" />}
                     onClick={() => void navigate({ to: targetPath })}

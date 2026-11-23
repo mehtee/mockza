@@ -187,6 +187,7 @@ export function mapHttpErrorResponse(
   body: unknown,
   headers?: Headers,
   fallbackMessage?: string,
+  edition?: EditionCode,
 ): ApiClientError {
   const obj = isRecord(body) ? body : {};
   const details = isRecord(obj['details']) ? obj['details'] : undefined;
@@ -237,9 +238,15 @@ export function mapHttpErrorResponse(
           ? details['retryAfterSec']
           : undefined;
     const retryAfterSec = Number.isFinite(parsedHeaderRetry) ? parsedHeaderRetry : bodyRetry;
+    const localizedMessage =
+      edition === 'irn' && /^Too many requests/i.test(message)
+        ? retryAfterSec !== undefined
+          ? `تعداد درخواست‌ها زیاد بود؛ لطفاً ${retryAfterSec} ثانیه صبر کرده و دوباره تلاش کنید.`
+          : 'تعداد درخواست‌ها زیاد بود؛ لطفاً چند ثانیه صبر کرده و دوباره تلاش کنید.'
+        : message;
     return retryAfterSec !== undefined
-      ? { kind: 'quota_exceeded', message, retryAfterSec }
-      : { kind: 'quota_exceeded', message };
+      ? { kind: 'quota_exceeded', message: localizedMessage, retryAfterSec }
+      : { kind: 'quota_exceeded', message: localizedMessage };
   }
 
   if (
@@ -499,7 +506,13 @@ export class ApiClient {
       }
 
       if (!response.ok) {
-        const mapped = mapHttpErrorResponse(response.status, parsedBody, response.headers);
+        const mapped = mapHttpErrorResponse(
+          response.status,
+          parsedBody,
+          response.headers,
+          undefined,
+          this.edition,
+        );
 
         if (
           sameOrigin &&

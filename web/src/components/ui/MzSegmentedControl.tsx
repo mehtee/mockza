@@ -9,6 +9,7 @@ export interface MzSegmentedControlProps<T extends string> {
   readonly value: T;
   readonly onChange: (nextValue: T) => void;
   readonly ariaLabel: string;
+  readonly fullWidth?: boolean;
   readonly className?: string;
 }
 
@@ -17,6 +18,7 @@ export function MzSegmentedControl<T extends string>({
   value,
   onChange,
   ariaLabel,
+  fullWidth = false,
   className = '',
 }: MzSegmentedControlProps<T>) {
   return (
@@ -24,7 +26,9 @@ export function MzSegmentedControl<T extends string>({
       role="tablist"
       aria-label={ariaLabel}
       className={[
-        'inline-flex rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised p-1',
+        fullWidth
+          ? 'flex w-full max-w-full flex-wrap gap-1 rounded-3xl border border-border-subtle bg-bg-raised p-1 sm:grid sm:grid-flow-col sm:auto-cols-fr'
+          : 'inline-flex max-w-full flex-nowrap overflow-x-auto no-scrollbar rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised p-1',
         className,
       ]
         .filter(Boolean)
@@ -40,7 +44,8 @@ export function MzSegmentedControl<T extends string>({
             aria-selected={selected}
             onClick={() => onChange(option.value)}
             className={[
-              'inline-flex items-center gap-1.5 rounded-[var(--mz-radius-pill)] px-4 py-1.5 text-sm font-medium transition-colors',
+              'inline-flex min-h-10 max-w-full shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--mz-radius-pill)] px-3.5 py-1.5 text-xs font-semibold transition-colors sm:text-sm',
+              fullWidth ? 'flex-1' : '',
               selected
                 ? 'bg-primary text-on-primary'
                 : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary',

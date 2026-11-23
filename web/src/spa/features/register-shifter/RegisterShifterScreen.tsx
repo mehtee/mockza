@@ -33,18 +33,21 @@ export interface RegisterShifterScreenProps {
 
 const SAMPLE_SENTENCES = [
   {
-    label: 'Work Standup',
-    topic: 'Workplace',
+    labelEn: 'Work Standup',
+    labelFa: 'گزارش کار روزانه',
+    topicKey: 'workplace_careers',
     text: 'Today our team had a long meeting and the new feature is kind of late, so we need to fix two bugs first.',
   },
   {
-    label: 'Opinion on AI',
-    topic: 'Technology & AI',
+    labelEn: 'Opinion on AI',
+    labelFa: 'دیدگاه درباره هوش مصنوعی',
+    topicKey: 'technology_ai',
     text: 'I think AI tools are really helpful for students, but sometimes people rely on them too much without thinking.',
   },
   {
-    label: 'Daily Life',
-    topic: 'Travel & Culture',
+    labelEn: 'Daily Life',
+    labelFa: 'تجربه روزمره',
+    topicKey: 'culture_travel',
     text: 'Last weekend I went to a quiet coffee shop near the park and finished reading a really interesting book.',
   },
 ] as const;
@@ -266,7 +269,7 @@ export function RegisterShifterScreen({ runId: _runId }: RegisterShifterScreenPr
   };
 
   return (
-    <div data-testid="register-shifter-screen" className="mx-auto flex max-w-4xl flex-col gap-6 pb-10 text-start">
+    <div data-testid="register-shifter-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-10 text-start">
       <header className="border-b border-border-subtle pb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -303,12 +306,12 @@ export function RegisterShifterScreen({ runId: _runId }: RegisterShifterScreenPr
 
       <MzCard variant="hero">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div className="inline-flex rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised p-1">
+          <div className="grid w-full grid-cols-2 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised p-1 sm:inline-flex sm:w-auto">
             <button
               type="button"
               data-testid="shifter-mode-voice"
               onClick={() => setInputMode('audio')}
-              className={`inline-flex items-center gap-1.5 rounded-[var(--mz-radius-compact)] px-3 py-1 text-xs font-semibold ${
+              className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-[var(--mz-radius-compact)] px-3 text-xs font-semibold whitespace-nowrap ${
                 inputMode === 'audio' ? 'bg-primary text-on-primary' : 'text-text-secondary'
               }`}
             >
@@ -319,7 +322,7 @@ export function RegisterShifterScreen({ runId: _runId }: RegisterShifterScreenPr
               type="button"
               data-testid="shifter-mode-text"
               onClick={() => setInputMode('text')}
-              className={`inline-flex items-center gap-1.5 rounded-[var(--mz-radius-compact)] px-3 py-1 text-xs font-semibold ${
+              className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-[var(--mz-radius-compact)] px-3 text-xs font-semibold whitespace-nowrap ${
                 inputMode === 'text' ? 'bg-primary text-on-primary' : 'text-text-secondary'
               }`}
             >
@@ -333,7 +336,7 @@ export function RegisterShifterScreen({ runId: _runId }: RegisterShifterScreenPr
             value={topicHint}
             onChange={(e) => setTopicHint(e.target.value)}
             placeholder={isRtl ? 'موضوع اختیاری (فیلم، کار...)' : 'Optional topic (e.g., Film, Work)'}
-            className="h-9 min-w-52 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-surface px-3 text-xs text-text-primary focus:border-primary focus:outline-none"
+            className="h-11 min-w-0 flex-1 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-surface px-3 text-xs text-text-primary focus:border-primary focus:outline-none sm:min-w-52 sm:flex-none"
           />
         </div>
 
@@ -380,15 +383,15 @@ export function RegisterShifterScreen({ runId: _runId }: RegisterShifterScreenPr
               </span>
               {SAMPLE_SENTENCES.map((s) => (
                 <button
-                  key={s.label}
+                  key={s.labelEn}
                   type="button"
                   onClick={() => {
                     setRawText(s.text);
-                    setTopicHint(s.topic);
+                    setTopicHint(s.topicKey);
                   }}
-                  className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-2.5 py-0.5 text-[11px] font-medium text-text-primary hover:border-primary hover:text-primary"
+                  className="inline-flex min-h-10 items-center rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-3 text-xs font-medium text-text-primary hover:border-primary hover:text-primary"
                 >
-                  {s.label}
+                  {isRtl ? s.labelFa : s.labelEn}
                 </button>
               ))}
             </div>
@@ -466,15 +469,15 @@ export function RegisterShifterScreen({ runId: _runId }: RegisterShifterScreenPr
                 <button
                   type="button"
                   onClick={() => speakEnglishPhrase(result.repeatAloudTarget.targetSentence, { rate: 1.0 })}
-                  className="inline-flex h-7 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-2 text-[11px] font-semibold text-text-primary hover:border-primary"
+                  className="inline-flex min-h-10 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-3 text-xs font-semibold text-text-primary hover:border-primary"
                 >
-                  <Volume2 className="h-3 w-3" aria-hidden="true" />
+                  <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>1.0x</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => speakEnglishPhrase(result.repeatAloudTarget.targetSentence, { rate: 0.8 })}
-                  className="inline-flex h-7 items-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-2 text-[11px] font-semibold text-text-secondary hover:border-primary hover:text-text-primary"
+                  className="inline-flex min-h-10 items-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-3 text-xs font-semibold text-text-secondary hover:border-primary hover:text-text-primary"
                 >
                   0.8x
                 </button>
@@ -489,7 +492,7 @@ export function RegisterShifterScreen({ runId: _runId }: RegisterShifterScreenPr
                 type="button"
                 data-testid="shifter-repeat-btn"
                 onClick={() => void handleToggleRepeatVerify()}
-                className={`inline-flex h-9 items-center gap-2 rounded-[var(--mz-radius-compact)] px-3.5 text-xs font-semibold ${
+                className={`inline-flex min-h-11 items-center gap-2 rounded-[var(--mz-radius-compact)] px-4 text-xs font-semibold ${
                   repeatRecording ? 'bg-danger text-white' : 'border border-primary text-primary hover:bg-surface-hover'
                 }`}
               >

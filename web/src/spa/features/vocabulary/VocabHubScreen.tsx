@@ -8,17 +8,32 @@ import {
 import { Link } from '@tanstack/react-router';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { BookOpen, Flame, Lock, Mic, Play, Search, Sparkles, Unlock } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { InlineListenButton } from '@/components/speech/InlineListenButton';
 import { SpeechPracticeDrawer } from '@/components/speech/SpeechPracticeDrawer';
 import { MzButton, MzCard, MzSegmentedControl } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
+import { formatChromeNumber } from '@/edition/bidi/numerals';
 import type { PersonalizationStateDto } from '@/gateways/personalization.gateway';
 import type { VocabCardWithSrs } from '@/gateways/storage.gateway';
-import { createTranslator } from '@/i18n';
+import { createTranslator, type TranslationKey } from '@/i18n';
 import { useDeps } from '@/spa/deps';
 import { readSwrVocabCards, writeSwrVocabCards } from '@/spa/swr-cache';
 import { syncSeededVocabDeck } from '@/spa/vocab-sync';
+
+function localizeSrsState(
+  state: VocabCardWithSrs['srs']['state'],
+  t: (key: TranslationKey) => string,
+): string {
+  switch (state) {
+    case 'learning':
+      return t('vocabStateLearning');
+    case 'mastered':
+      return t('vocabStateMastered');
+    default:
+      return t('vocabStateNew');
+  }
+}
 
 function mapSourceKindForWaves(
   sk: VocabCardWithSrs['card']['sourceKind'],
@@ -48,12 +63,13 @@ export function VocabHubScreen() {
   const [dailyNewUsedToday, setDailyNewUsedToday] = useState<number>(0);
   const [showLockedWaves, setShowLockedWaves] = useState<boolean>(false);
   const [practiceCard, setPracticeCard] = useState<VocabCardWithSrs | null>(null);
+  const [isHydrating, setIsHydrating] = useState<boolean>(() => cards.length === 0);
+  const [syncError, setSyncError] = useState<boolean>(false);
 
-  useEffect(() => {
-    let mounted = true;
-    const todaySerial = deps.clock.todaySerialDay();
-
-    async function hydrate() {
+  const hydrate = useCallback(
+    async (isCancelled?: () => boolean) => {
+      const todaySerial = deps.clock.todaySerialDay();
+      setSyncError(false);
       const [allRes, dueRes, profileRes, logsRes, pRes] = await Promise.all([
         deps.vocabStore.getAllCards(),
         deps.vocabStore.getDueCards(todaySerial, 500),
@@ -61,7 +77,7 @@ export function VocabHubScreen() {
         deps.vocabStore.listVocabReviewLogs({ limit: 200 }),
         deps.personalization ? deps.personalization.getState() : Promise.resolve(null),
       ]);
-      if (!mounted) return;
+      if (isCancelled?.()) return;
       if (profileRes.ok && profileRes.value) {
         setExamId(profileRes.value.examId);
         setTargetBand(profileRes.value.targetBand);
@@ -86,29 +102,46 @@ export function VocabHubScreen() {
       if (allRes.ok) {
         setCards(allRes.value);
         writeSwrVocabCards(deps.vocabStore, allRes.value);
+        if (allRes.value.length > 0) {
+          setIsHydrating(false);
+        }
       }
       if (dueRes.ok) setDueCount(dueRes.value.length);
 
-      const summary = await syncSeededVocabDeck(deps.catalog, deps.vocabStore);
-      if (!mounted || !summary) return;
-      if (summary.insertedCount > 0 || summary.updatedCount > 0) {
-        const [refreshedAll, refreshedDue] = await Promise.all([
-          deps.vocabStore.getAllCards(),
-          deps.vocabStore.getDueCards(todaySerial, 500),
-        ]);
-        if (!mounted) return;
-        if (refreshedAll.ok) {
-          setCards(refreshedAll.value);
-          writeSwrVocabCards(deps.vocabStore, refreshedAll.value);
+      try {
+        const summary = await syncSeededVocabDeck(deps.catalog, deps.vocabStore);
+        if (isCancelled?.()) return;
+        if (!summary && (!allRes.ok || allRes.value.length === 0)) {
+          setSyncError(true);
         }
-        if (refreshedDue.ok) setDueCount(refreshedDue.value.length);
+        if (summary && (summary.insertedCount > 0 || summary.updatedCount > 0)) {
+          const [refreshedAll, refreshedDue] = await Promise.all([
+            deps.vocabStore.getAllCards(),
+            deps.vocabStore.getDueCards(todaySerial, 500),
+          ]);
+          if (isCancelled?.()) return;
+          if (refreshedAll.ok) {
+            setCards(refreshedAll.value);
+            writeSwrVocabCards(deps.vocabStore, refreshedAll.value);
+          }
+          if (refreshedDue.ok) setDueCount(refreshedDue.value.length);
+        }
+      } catch {
+        if (!isCancelled?.()) setSyncError(true);
+      } finally {
+        if (!isCancelled?.()) setIsHydrating(false);
       }
-    }
-    void hydrate();
+    },
+    [deps.attemptStore, deps.catalog, deps.clock, deps.personalization, deps.vocabStore],
+  );
+
+  useEffect(() => {
+    let mounted = true;
+    void hydrate(() => !mounted);
     return () => {
       mounted = false;
     };
-  }, [deps.attemptStore, deps.catalog, deps.clock, deps.personalization, deps.vocabStore]);
+  }, [hydrate]);
 
   const waveResult = useMemo(() => {
     const waveInputs = cards.map((entry) => ({
@@ -180,10 +213,38 @@ export function VocabHubScreen() {
     [cards],
   );
 
+  const dailyCap = personalization?.profile.dailyNewVocabCap ?? DEFAULT_DAILY_NEW_CAP;
+  const usedNewToday = personalization
+    ? Math.max(0, DEFAULT_DAILY_NEW_CAP - personalization.vocabWaveSummary.dailyNewRemaining)
+    : dailyNewUsedToday;
+
+  const todaySessionCount = useMemo(() => {
+    const todaySerial = deps.clock.todaySerialDay();
+    let remainingNew = Math.max(0, dailyCap - usedNewToday);
+    let total = 0;
+    for (const item of waveResult.assigned) {
+      const entry = item.card.entry;
+      const isDue = entry.srs.dueSerialDay <= todaySerial;
+      if (!isDue) continue;
+      const isUserCard = entry.card.sourceKind !== 'seeded';
+      if (!item.isUnlocked && !isUserCard) continue;
+      if (entry.srs.repetitions === 0 && !isUserCard) {
+        if (remainingNew <= 0) continue;
+        remainingNew -= 1;
+      }
+      total += 1;
+    }
+    return total > 0 ? Math.min(40, total) : dueCount > 0 ? Math.min(dailyCap, dueCount) : 0;
+  }, [dailyCap, deps.clock, dueCount, usedNewToday, waveResult.assigned]);
+
   const rowVirtualizer = useVirtualizer({
     count: filteredCards.length,
     getScrollElement: () => scrollParentRef.current,
-    estimateSize: () => 92,
+    estimateSize: () => 148,
+    measureElement: (el) => {
+      const measured = el.getBoundingClientRect().height;
+      return measured > 0 ? measured : 148;
+    },
     overscan: 6,
     initialRect: { width: 920, height: 560 },
     observeElementRect: (instance, cb) => {
@@ -206,24 +267,28 @@ export function VocabHubScreen() {
     },
   });
 
+  const isIrn = deps.edition === 'irn';
+
   return (
-    <div data-testid="vocab-hub-screen" className="mx-auto flex max-w-6xl flex-col gap-5 pb-12 text-start">
+    <div data-testid="vocab-hub-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-4 pb-8 text-start">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-text-primary">{t('vocabHubTitle')}</h1>
           <p className="mt-1 text-sm text-text-secondary">{t('vocabHubSubtitle')}</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <Link
             to="/vocabulary/review"
             data-testid="vocab-start-review-cta"
-            className="inline-flex h-10 items-center gap-2 rounded-[var(--mz-radius-control)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-[var(--mz-radius-control)] bg-primary px-5 text-sm font-semibold text-on-primary hover:bg-primary-pressed sm:w-auto sm:text-xs"
           >
-            <Play className="h-3.5 w-3.5" aria-hidden="true" />
+            <Play className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>
-              {dueCount > 0
-                ? t('vocabStartDueReviewCta', { count: dueCount })
+              {todaySessionCount > 0
+                ? t('vocabStartDueReviewCta', {
+                    count: formatChromeNumber(todaySessionCount, deps.edition),
+                  })
                 : t('vocabStudyAheadCta')}
             </span>
           </Link>
@@ -236,17 +301,15 @@ export function VocabHubScreen() {
           <div className="space-y-1">
             <p className="text-xs font-bold text-primary">
               {t('vocabWaveHeading', {
-                wave: unlockedWave,
-                unlocked: unlockedCardCount,
-                total: cards.length,
+                wave: formatChromeNumber(unlockedWave, deps.edition),
+                unlocked: formatChromeNumber(unlockedCardCount, deps.edition),
+                total: formatChromeNumber(cards.length, deps.edition),
               })}
             </p>
-            <p className="text-[11px] text-text-secondary">
+            <p className="text-xs text-text-secondary">
               {t('vocabDailyNewCapLabel', {
-                used: personalization
-                  ? Math.max(0, DEFAULT_DAILY_NEW_CAP - personalization.vocabWaveSummary.dailyNewRemaining)
-                  : dailyNewUsedToday,
-                cap: personalization?.profile.dailyNewVocabCap ?? DEFAULT_DAILY_NEW_CAP,
+                used: formatChromeNumber(usedNewToday, deps.edition),
+                cap: formatChromeNumber(dailyCap, deps.edition),
               })}
             </p>
           </div>
@@ -269,9 +332,9 @@ export function VocabHubScreen() {
                 setShowLockedWaves((prev) => !prev);
                 setVocabTab((prev) => (prev === 'full' ? 'wave' : 'full'));
               }}
-              className="inline-flex h-8 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-2.5 text-[11px] font-semibold text-text-secondary hover:text-text-primary"
+              className="inline-flex min-h-10 sm:min-h-9 items-center gap-1.5 whitespace-nowrap rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-3 text-xs font-semibold text-text-secondary hover:text-text-primary"
             >
-              <Lock className="h-3 w-3" aria-hidden="true" />
+              <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <span>
                 {showLockedWaves
                   ? t('vocabShowUnlockedOnlyLabel')
@@ -282,7 +345,10 @@ export function VocabHubScreen() {
         </div>
         {personalization?.vocabWaveSummary.readyToUnlockNext && unlockedWave < waveResult.totalWaves ? (
           <p className="mt-2 rounded-[var(--mz-radius-compact)] bg-mint-bg px-2.5 py-1 text-xs font-semibold text-success">
-            {t('vocabWaveAutoUnlockedToast', { wave: unlockedWave, next: unlockedWave + 1 })}
+            {t('vocabWaveAutoUnlockedToast', {
+              wave: formatChromeNumber(unlockedWave, deps.edition),
+              next: formatChromeNumber(unlockedWave + 1, deps.edition),
+            })}
           </p>
         ) : null}
       </MzCard>
@@ -290,6 +356,7 @@ export function VocabHubScreen() {
       {/* 3-Tab Vocabulary Hub Switcher */}
       <MzSegmentedControl<'wave' | 'mistakes' | 'full'>
         ariaLabel="Vocabulary View"
+        fullWidth
         value={vocabTab}
         onChange={(nextTab) => {
           setVocabTab(nextTab);
@@ -305,26 +372,36 @@ export function VocabHubScreen() {
 
       {/* Summary KPI + Filter Bar */}
       <MzCard variant="default" padding="sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
             <span
               data-testid="vocab-due-counter"
               className="inline-flex items-center gap-1.5 rounded-[var(--mz-radius-pill)] bg-amber-bg px-3 py-1 text-xs font-semibold text-warning"
             >
               <Flame className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>{t('vocabStateDueCount', { count: dueCount })}</span>
+              <span>
+                {t('vocabStateDueCount', {
+                  count: formatChromeNumber(dueCount, deps.edition),
+                })}
+              </span>
             </span>
             <span
               data-testid="vocab-mastered-counter"
               className="inline-flex items-center gap-1.5 rounded-[var(--mz-radius-pill)] bg-mint-bg px-3 py-1 text-xs font-semibold text-success"
             >
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>{t('vocabStateMasteredCount', { count: masteredCount })}</span>
-            </span>
-            <span className="text-xs font-mono-exam text-text-secondary" data-testid="vocab-total-counter">
-              {filteredCards.length} / {cards.length}
+              <span>
+                {t('vocabStateMasteredCount', {
+                  count: formatChromeNumber(masteredCount, deps.edition),
+                })}
+              </span>
             </span>
           </div>
+          <span className="text-xs font-semibold text-text-secondary" data-testid="vocab-total-counter">
+            {isIrn
+              ? `${formatChromeNumber(filteredCards.length, 'irn')} از ${formatChromeNumber(cards.length, 'irn')}`
+              : `${filteredCards.length} / ${cards.length}`}
+          </span>
         </div>
 
         <div className="relative mt-3">
@@ -338,23 +415,46 @@ export function VocabHubScreen() {
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder={t('vocabSearchPlaceholder')}
-            className="h-9 w-full rounded-[var(--mz-radius-control)] border border-border-subtle bg-canvas ps-9 pe-3 text-xs text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none"
+            className="h-11 w-full rounded-[var(--mz-radius-control)] border border-border-subtle bg-canvas ps-9 pe-3 text-sm sm:text-xs text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none"
           />
         </div>
       </MzCard>
 
       {/* Virtualized Deck Viewport */}
-      {filteredCards.length === 0 ? (
+      {isHydrating && cards.length === 0 ? (
+        <div aria-busy="true" className="flex flex-col gap-3">
+          <span className="sr-only">{t('vocabLoadingDeckLabel')}</span>
+          {[1, 2, 3, 4].map((idx) => (
+            <div
+              key={idx}
+              className="h-32 animate-pulse rounded-[var(--mz-radius-control)] border border-border-subtle bg-surface"
+            />
+          ))}
+        </div>
+      ) : filteredCards.length === 0 ? (
         <MzCard variant="alt">
-          <p className="py-8 text-center text-sm text-text-secondary">
-            {t('vocabEmptyDeckMessage')}
-          </p>
+          <div className="flex flex-col items-center gap-3 py-6 text-center">
+            <p className="text-sm text-text-secondary">{t('vocabEmptyDeckMessage')}</p>
+            {syncError || cards.length === 0 ? (
+              <MzButton
+                variant="secondary"
+                size="md"
+                data-testid="vocab-retry-sync-btn"
+                onClick={() => {
+                  setIsHydrating(true);
+                  void hydrate();
+                }}
+              >
+                {t('vocabRetrySyncAction')}
+              </MzButton>
+            ) : null}
+          </div>
         </MzCard>
       ) : (
         <div
           ref={scrollParentRef}
           data-testid="vocab-virtual-viewport"
-          className="h-[520px] overflow-y-auto rounded-[var(--mz-radius-card)] border border-border-subtle bg-bg-raised p-3"
+          className="h-[560px] overflow-y-auto rounded-[var(--mz-radius-card)] border border-border-subtle bg-bg-raised p-3"
         >
           <div
             style={{
@@ -370,47 +470,50 @@ export function VocabHubScreen() {
               return (
                 <div
                   key={card.cardId}
+                  ref={rowVirtualizer.measureElement}
+                  data-index={virtualRow.index}
                   data-testid={`vocab-row-${card.cardId}`}
                   style={{
                     position: 'absolute',
                     top: 0,
-                    left: 0,
+                    insetInlineStart: 0,
                     width: '100%',
-                    height: `${virtualRow.size}px`,
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
-                  className="pb-2"
+                  className="pb-3"
                 >
-                  <div className="flex h-full items-center justify-between gap-4 rounded-[var(--mz-radius-control)] border border-border-subtle bg-canvas px-4 py-2.5">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-baseline gap-2">
-                        <LtrExamBoundary>
-                          <span className="text-sm font-bold text-text-primary">
+                  <div className="flex flex-col justify-between gap-3 rounded-[var(--mz-radius-control)] border border-border-subtle bg-canvas p-3.5 sm:flex-row sm:items-center sm:gap-4">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <LtrExamBoundary className="flex flex-wrap items-baseline gap-2">
+                          <span className="text-base font-bold text-text-primary">
                             {card.headword}
                           </span>
-                        </LtrExamBoundary>
-                        {card.ipa ? (
-                          <LtrExamBoundary>
-                            <span className="font-mono-exam text-[11px] text-text-tertiary">
+                          {card.ipa ? (
+                            <span className="whitespace-nowrap shrink-0 font-mono-exam text-xs text-text-tertiary">
                               {card.ipa}
                             </span>
-                          </LtrExamBoundary>
-                        ) : null}
-                        <span className="rounded-[var(--mz-radius-pill)] bg-surface-alt px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">
-                          {srs.state}
+                          ) : null}
+                        </LtrExamBoundary>
+                        <span className="shrink-0 rounded-[var(--mz-radius-pill)] bg-surface-alt px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+                          {localizeSrsState(srs.state, t)}
                         </span>
                       </div>
-                      <p className="mt-0.5 truncate text-xs text-text-secondary">
-                        {card.definition}
-                      </p>
-                      {deps.edition === 'irn' && card.glossFa ? (
-                        <p className="mt-0.5 truncate text-xs font-medium text-primary">
+
+                      <LtrExamBoundary>
+                        <p className="line-clamp-2 text-xs leading-relaxed text-text-secondary">
+                          {card.definition}
+                        </p>
+                      </LtrExamBoundary>
+
+                      {isIrn && card.glossFa ? (
+                        <p className="line-clamp-1 text-sm font-semibold text-primary">
                           {card.glossFa}
                         </p>
                       ) : null}
                     </div>
 
-                    <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                    <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border-subtle/70 pt-2.5 sm:border-t-0 sm:pt-0">
                       <InlineListenButton
                         text={card.headword}
                         sourceContext="vocab"
@@ -420,17 +523,18 @@ export function VocabHubScreen() {
                       />
                       <button
                         type="button"
+                        aria-label={t('vocabPracticePronunciationCta')}
                         data-testid={`vocab-practice-${card.cardId}`}
                         onClick={() => setPracticeCard({ card, srs })}
-                        className="inline-flex h-7 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-primary/40 bg-primary/10 px-2 text-[11px] font-semibold text-primary hover:bg-primary/20"
+                        className="inline-flex min-h-10 sm:min-h-9 min-w-11 items-center justify-center gap-1 rounded-[var(--mz-radius-compact)] border border-primary/40 bg-primary/10 px-3 text-xs font-semibold text-primary hover:bg-primary/20"
                       >
-                        <Mic className="h-3 w-3" aria-hidden="true" />
+                        <Mic className="h-3.5 w-3.5" aria-hidden="true" />
                       </button>
                       <Link
                         to="/vocabulary/$wordId"
                         params={{ wordId: card.cardId }}
                         data-testid={`vocab-inspect-${card.cardId}`}
-                        className="inline-flex h-8 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-2.5 text-xs font-semibold text-text-primary hover:bg-surface-hover"
+                        className="inline-flex min-h-10 sm:min-h-9 items-center gap-1.5 whitespace-nowrap rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 text-xs font-semibold text-text-primary hover:bg-surface-hover"
                       >
                         <BookOpen className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                         <span>{t('vocabInspectWordAction')}</span>

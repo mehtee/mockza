@@ -579,6 +579,13 @@ export class OpfsCatalogAdapter implements ICatalogMediaGateway {
   private readonly getAuthHeaders?: () => Record<string, string>;
   private readonly quotaBytes: number;
   private readonly binaryStore: MediaBinaryStore;
+  private syncManifestInFlight: Promise<
+    Result<readonly CatalogPackRecord[], CatalogGatewayError>
+  > | null = null;
+  private readonly ensureBundleInFlight = new Map<
+    string,
+    Promise<Result<ExamBundlePayload, CatalogGatewayError>>
+  >();
 
   constructor(options: OpfsCatalogAdapterOptions) {
     this.db = options.db;
@@ -620,104 +627,129 @@ export class OpfsCatalogAdapter implements ICatalogMediaGateway {
   }
 
   async syncCatalogManifest(): Promise<Result<readonly CatalogPackRecord[], CatalogGatewayError>> {
-    try {
-      type ManifestResponse = {
-        readonly packs?: ReadonlyArray<{
-          readonly packId: string;
-          readonly edition?: AppEditionCode;
-          readonly examId: SupportedExamId;
-          readonly track?: CatalogTrack;
-          readonly skill: SkillKind | 'fullMock';
-          readonly title?: string;
-          readonly description?: string;
-          readonly durationSeconds?: number;
-          readonly questionCount?: number;
-          readonly accent?: string | null;
-          readonly mediaUrl?: string | null;
-          readonly downloadUrl?: string;
-          readonly version: string;
-          readonly sha256: string;
-          readonly byteLength: number;
-          readonly isFreeSample: boolean;
-          readonly topicKeys?: readonly string[];
-          readonly weaknessTargets?: readonly string[];
-          readonly cefrMin?: string;
-          readonly cefrMax?: string;
-        }>;
-      };
-
-      let body: ManifestResponse;
-      if (this.apiClient) {
-        const apiRes = await this.apiClient.get<ManifestResponse>('/v1/catalog/manifest');
-        if (!apiRes.ok) {
-          return err(mapApiErrorToCatalogError(apiRes.error));
-        }
-        body = apiRes.value;
-      } else {
-        const response = await this.fetchFn(this.resolveApiUrl('/v1/catalog/manifest'), {
-          method: 'GET',
-          headers: this.buildApiHeaders(),
-        });
-        if (!response.ok) {
-          return err<NetworkError>({
-            kind: 'network',
-            message: `Catalog manifest request failed (${response.status})`,
-            retryable: response.status >= 500 || response.status === 429,
-            status: response.status,
-          });
-        }
-        body = (await response.json()) as ManifestResponse;
-      }
-
-      const rawPacks = body.packs ?? [];
-      const now = this.clock.nowMs();
-      const existingRows = await this.db.catalogPacks.bulkGet(rawPacks.map((p) => p.packId));
-
-      const records: CatalogPackRecord[] = rawPacks.map((pack, idx) => {
-        const existing = existingRows[idx];
-        return {
-          packId: pack.packId,
-          edition: pack.edition ?? this.edition,
-          examId: pack.examId,
-          track: pack.track ?? 'academic',
-          skill: pack.skill,
-          title: pack.title ?? '',
-          description: pack.description ?? '',
-          durationSeconds: pack.durationSeconds ?? 0,
-          questionCount: pack.questionCount ?? 0,
-          accent: pack.accent ?? null,
-          mediaUrl: pack.mediaUrl ?? null,
-          downloadUrl: pack.downloadUrl,
-          version: pack.version,
-          sha256: pack.sha256,
-          byteLength: pack.byteLength,
-          isFreeSample: pack.isFreeSample,
-          topicKeys: pack.topicKeys ?? existing?.topicKeys ?? [],
-          weaknessTargets: pack.weaknessTargets ?? existing?.weaknessTargets ?? [],
-          cefrMin: pack.cefrMin ?? existing?.cefrMin,
-          cefrMax: pack.cefrMax ?? existing?.cefrMax,
-          isCachedOffline: existing?.isCachedOffline ?? 0,
-          bundleJson: existing?.bundleJson ?? null,
-          cachedMediaInline: existing?.cachedMediaInline ?? null,
-          sizeBytes: existing?.sizeBytes ?? 0,
-          cachedAtMs: existing?.cachedAtMs ?? null,
-          updatedAtMs: now,
-          kind: 'pack',
-        };
-      });
-
-      if (records.length > 0) {
-        await this.db.catalogPacks.bulkPut(records);
-      }
-
-      return ok(records);
-    } catch (cause) {
-      return err<NetworkError>({
-        kind: 'network',
-        message: `Catalog sync network error: ${cause instanceof Error ? cause.message : String(cause)}`,
-        retryable: true,
-      });
+    if (this.syncManifestInFlight) {
+      return this.syncManifestInFlight;
     }
+
+    const request = (async (): Promise<Result<readonly CatalogPackRecord[], CatalogGatewayError>> => {
+      try {
+        type ManifestResponse = {
+          readonly packs?: ReadonlyArray<{
+            readonly packId: string;
+            readonly edition?: AppEditionCode;
+            readonly examId: SupportedExamId;
+            readonly track?: CatalogTrack;
+            readonly skill: SkillKind | 'fullMock';
+            readonly title?: string;
+            readonly description?: string;
+            readonly durationSeconds?: number;
+            readonly questionCount?: number;
+            readonly accent?: string | null;
+            readonly mediaUrl?: string | null;
+            readonly downloadUrl?: string;
+            readonly version: string;
+            readonly sha256: string;
+            readonly byteLength: number;
+            readonly isFreeSample: boolean;
+            readonly topicKeys?: readonly string[];
+            readonly weaknessTargets?: readonly string[];
+            readonly cefrMin?: string;
+            readonly cefrMax?: string;
+          }>;
+        };
+
+        let body: ManifestResponse;
+        if (this.apiClient) {
+          const apiRes = await this.apiClient.get<ManifestResponse>('/v1/catalog/manifest');
+          if (!apiRes.ok) {
+            if (apiRes.error.kind === 'quota_exceeded' || apiRes.error.kind === 'network') {
+              const cached = await this.db.catalogPacks.toArray().catch(() => []);
+              if (cached.length > 0) {
+                return ok(cached);
+              }
+            }
+            return err(mapApiErrorToCatalogError(apiRes.error));
+          }
+          body = apiRes.value;
+        } else {
+          const response = await this.fetchFn(this.resolveApiUrl('/v1/catalog/manifest'), {
+            method: 'GET',
+            headers: this.buildApiHeaders(),
+          });
+          if (!response.ok) {
+            if (response.status === 429 || response.status >= 500) {
+              const cached = await this.db.catalogPacks.toArray().catch(() => []);
+              if (cached.length > 0) {
+                return ok(cached);
+              }
+            }
+            return err<NetworkError>({
+              kind: 'network',
+              message: `Catalog manifest request failed (${response.status})`,
+              retryable: response.status >= 500 || response.status === 429,
+              status: response.status,
+            });
+          }
+          body = (await response.json()) as ManifestResponse;
+        }
+
+        const rawPacks = body.packs ?? [];
+        const now = this.clock.nowMs();
+        const existingRows = await this.db.catalogPacks.bulkGet(rawPacks.map((p) => p.packId));
+
+        const records: CatalogPackRecord[] = rawPacks.map((pack, idx) => {
+          const existing = existingRows[idx];
+          return {
+            packId: pack.packId,
+            edition: pack.edition ?? this.edition,
+            examId: pack.examId,
+            track: pack.track ?? 'academic',
+            skill: pack.skill,
+            title: pack.title ?? '',
+            description: pack.description ?? '',
+            durationSeconds: pack.durationSeconds ?? 0,
+            questionCount: pack.questionCount ?? 0,
+            accent: pack.accent ?? null,
+            mediaUrl: pack.mediaUrl ?? null,
+            downloadUrl: pack.downloadUrl,
+            version: pack.version,
+            sha256: pack.sha256,
+            byteLength: pack.byteLength,
+            isFreeSample: pack.isFreeSample,
+            topicKeys: pack.topicKeys ?? existing?.topicKeys ?? [],
+            weaknessTargets: pack.weaknessTargets ?? existing?.weaknessTargets ?? [],
+            cefrMin: pack.cefrMin ?? existing?.cefrMin,
+            cefrMax: pack.cefrMax ?? existing?.cefrMax,
+            isCachedOffline: existing?.isCachedOffline ?? 0,
+            bundleJson: existing?.bundleJson ?? null,
+            cachedMediaInline: existing?.cachedMediaInline ?? null,
+            sizeBytes: existing?.sizeBytes ?? 0,
+            cachedAtMs: existing?.cachedAtMs ?? null,
+            updatedAtMs: now,
+            kind: 'pack',
+          };
+        });
+
+        if (records.length > 0) {
+          await this.db.catalogPacks.bulkPut(records);
+        }
+
+        return ok(records);
+      } catch (cause) {
+        return err<NetworkError>({
+          kind: 'network',
+          message: `Catalog sync network error: ${cause instanceof Error ? cause.message : String(cause)}`,
+          retryable: true,
+        });
+      }
+    })().finally(() => {
+      if (this.syncManifestInFlight === request) {
+        this.syncManifestInFlight = null;
+      }
+    });
+
+    this.syncManifestInFlight = request;
+    return request;
   }
 
   async listPacks(
@@ -745,54 +777,69 @@ export class OpfsCatalogAdapter implements ICatalogMediaGateway {
     packId: string,
     preferredVersion?: string,
   ): Promise<Result<ExamBundlePayload, CatalogGatewayError>> {
-    try {
-      const existing = await this.db.catalogPacks.get(packId);
-      if (existing && existing.isCachedOffline === 1 && existing.bundleJson) {
-        try {
-          const parsed = JSON.parse(existing.bundleJson) as ExamBundlePayload;
-          if (preferredVersion && parsed.pack?.version === preferredVersion) return ok(parsed);
-          const isStale =
-            (parsed.pack?.version && existing.version && parsed.pack.version !== existing.version) ||
-            (parsed.pack?.sha256 &&
-              existing.sha256 &&
-              parsed.pack.sha256.toLowerCase() !== existing.sha256.toLowerCase());
-          if (!isStale) {
-            return ok(parsed);
-          }
+    const flightKey = `${packId}:${preferredVersion ?? ''}`;
+    const existingFlight = this.ensureBundleInFlight.get(flightKey);
+    if (existingFlight) {
+      return existingFlight;
+    }
 
-          const refreshed = await this.downloadExamPack(packId);
-          if (refreshed.ok && refreshed.value.bundleJson) {
-            return ok(JSON.parse(refreshed.value.bundleJson) as ExamBundlePayload);
-          }
-          if (!refreshed.ok) {
-            if (refreshed.error.kind === 'network') {
-              // Offline fallback to cached bundle if refresh failed over network.
+    const request = (async (): Promise<Result<ExamBundlePayload, CatalogGatewayError>> => {
+      try {
+        const existing = await this.db.catalogPacks.get(packId);
+        if (existing && existing.isCachedOffline === 1 && existing.bundleJson) {
+          try {
+            const parsed = JSON.parse(existing.bundleJson) as ExamBundlePayload;
+            if (preferredVersion && parsed.pack?.version === preferredVersion) return ok(parsed);
+            const isStale =
+              (parsed.pack?.version && existing.version && parsed.pack.version !== existing.version) ||
+              (parsed.pack?.sha256 &&
+                existing.sha256 &&
+                parsed.pack.sha256.toLowerCase() !== existing.sha256.toLowerCase());
+            if (!isStale) {
               return ok(parsed);
             }
-            return err(refreshed.error);
-          }
-        } catch {
-          // Corrupt JSON: fall through to re-download.
-        }
-      }
 
-      const downloaded = await this.downloadExamPack(packId);
-      if (!downloaded.ok) return downloaded;
-      if (!downloaded.value.bundleJson) {
-        return err({
-          kind: 'storage',
-          message: `Downloaded pack ${packId} missing bundleJson`,
-          code: 'CORRUPT_DATA',
+            const refreshed = await this.downloadExamPack(packId);
+            if (refreshed.ok && refreshed.value.bundleJson) {
+              return ok(JSON.parse(refreshed.value.bundleJson) as ExamBundlePayload);
+            }
+            if (!refreshed.ok) {
+              if (refreshed.error.kind === 'network') {
+                // Offline fallback to cached bundle if refresh failed over network.
+                return ok(parsed);
+              }
+              return err(refreshed.error);
+            }
+          } catch {
+            // Corrupt JSON: fall through to re-download.
+          }
+        }
+
+        const downloaded = await this.downloadExamPack(packId);
+        if (!downloaded.ok) return downloaded;
+        if (!downloaded.value.bundleJson) {
+          return err({
+            kind: 'storage',
+            message: `Downloaded pack ${packId} missing bundleJson`,
+            code: 'CORRUPT_DATA',
+          });
+        }
+        return ok(JSON.parse(downloaded.value.bundleJson) as ExamBundlePayload);
+      } catch (cause) {
+        return err<UnexpectedError>({
+          kind: 'unexpected',
+          message: `Failed to ensure exam bundle ${packId}`,
+          cause,
         });
       }
-      return ok(JSON.parse(downloaded.value.bundleJson) as ExamBundlePayload);
-    } catch (cause) {
-      return err<UnexpectedError>({
-        kind: 'unexpected',
-        message: `Failed to ensure exam bundle ${packId}`,
-        cause,
-      });
-    }
+    })().finally(() => {
+      if (this.ensureBundleInFlight.get(flightKey) === request) {
+        this.ensureBundleInFlight.delete(flightKey);
+      }
+    });
+
+    this.ensureBundleInFlight.set(flightKey, request);
+    return request;
   }
 
   async downloadExamPack(
@@ -868,11 +915,16 @@ export class OpfsCatalogAdapter implements ICatalogMediaGateway {
       let mediaTotalBytes = 0;
 
       for (const url of mediaUrls) {
+        const isSvgUrlHint = url.toLowerCase().endsWith('.svg');
         const mediaRes = await this.fetchFn(this.resolveMediaUrl(url), {
           method: 'GET',
           headers: url.startsWith('/v1/') ? this.buildApiHeaders() : undefined,
         });
         if (!mediaRes.ok) {
+          // Non-critical SVG chart assets can still render live when inline pre-caching hits 429/5xx.
+          if (isSvgUrlHint && (mediaRes.status === 429 || mediaRes.status >= 500)) {
+            continue;
+          }
           return err<NetworkError>({
             kind: 'network',
             message: `Failed to download media asset (${url}): HTTP ${mediaRes.status}`,

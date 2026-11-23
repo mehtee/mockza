@@ -1,22 +1,38 @@
-# Mockza
+# Mockza & Sanjia
 
-Offline-first, AI-native **5-Track English Exam Simulator Hub**, AI Speaking/Writing Rubric Evaluator, Rapid 4-Skill Starting-Level Check, and SM-2 Contextual Vocabulary Coach — packaged with a **Container-First Architecture** (`Docker Compose` & `Podman Compose` ready) and a **low-RAM local developer workflow** (`scripts/dev_local.sh`).
+Offline-first, AI-native **5-Track High-Stakes English Exam Simulator Hub**, **Adaptive Personalization & Step-by-Step Roadmap (*Durnama* / دورنما)**, **Closed-Loop Smart Coach Engine**, **OpenRouter `hexgrad/kokoro-82m` Neural TTS & `google/gemini-3.1-flash-lite` Pronunciation Studio**, **SM-2 Contextual Vocabulary Coach**, and **End-to-End User/Recording/Token/Cost Observability Platform** — engineered with a **Dual-Edition (`GLB` Mockza & `IRN` Sanjia)**, **Dual-Client (`Astro 5 + React 19` Desktop Web + `Flutter 3.47.9` Mobile/Web)**, and **Container-First Low-RAM Architecture** (`Docker Compose` & `Podman Compose` ready).
 
-> Live Edition: **Global Clean-Room Edition (`GLB`)** (version `1.0.0+10001.glb` / multi-exam release `v3.0`) serving **IELTS Academic**, **IELTS General Training**, **TOEFL iBT (2026 Format)**, **PTE Academic (Latest)**, and **Duolingo English Test (DET Latest)** inside one consolidated hub.
+> **Live Release (`v4.0`):**
+> - **Global Clean-Room Edition (`GLB` — `Mockza`, `1.0.0+10001.glb`):** English-first clean-room hub (`:45280` Web / `:45281` API) with RevenueCat & Web Checkout USD billing, Email + Google + Apple OAuth.
+> - **Iran Domestic Edition (`IRN` — `Sanjia` / `سنجیا`, `1.0.0+20001.irn`):** Persian-first RTL BiDi hub (`:45282` Web / `:45283` API) with `LtrExamBoundary` stimulus isolation, Jalali (`شمسی`) calendar, SMS OTP auth, Zarinpal/Cafe Bazaar/Myket integer-Rial billing, Persian examiner rubrics (`irn_*_fa_v1.0`), and `Navia` (`ناویا`) admissions handoff.
 
 ---
 
 ## Core Capabilities
 
-- **5 Exam Tracks & Isolated Scale Calibration:**
-  - **IELTS Academic & General Training (`0.0–9.0` Band, `0.5` steps):** 40-question raw-to-band calibration for Reading/Listening, Academic Task 1 charts + General Task 1 letters + Task 2 essays, Parts 1–3 Speaking.
-  - **TOEFL iBT (2026 Format, `1.0–6.0` Band, `0.5` steps + `0–120` Concordance):** Reading (*Complete the Words*, *Read in Daily Life*, *Academic Passage*), Listening (*Choose a Response*, campus/academic talks), 3-task Writing (*Build a Sentence*, *Write an Email*, *Academic Discussion*), and Listen & Repeat / zero-prep *Take an Interview* Speaking.
+- **5 Exam Tracks & Isolated Scale Calibration (`@mockza/domain` + `app/lib/core/exams/`):**
+  - **IELTS Academic & General Training (`0.0–9.0` Band, `0.5` steps):** 40-question raw-to-band calibration for Reading/Listening, Academic Task 1 SVG charts + General Task 1 letters + Task 2 essays, Parts 1–3 Speaking.
+  - **TOEFL iBT (2026 Format, `1.0–6.0` Band, `0.5` steps + `0–120` Concordance):** Reading (*Complete the Words*, *Read in Daily Life*, *Academic Passage*), Listening (*Choose a Response*, campus/academic talks), 3-task Writing (*Build a Sentence*, *Write an Email*, *Academic Discussion*), and *Listen & Repeat* / zero-prep *Take an Interview* Speaking.
   - **PTE Academic (Latest, `10–90` Integer Score):** *Re-order Paragraphs* drag-free sequential selector (`MzSequenceOrderControl`), *Write from Dictation* (`dictation`), single-sentence *Summarize Written Text* (`5–75w`) & *Write Essay* (`200–300w`), and *Describe Image* Speaking with zoomable SVG charts (`ExamSvgChartCard`).
   - **Duolingo English Test / DET (Latest, `10–160` Score in `5`-pt steps + 4 Subscores):** Displays **Literacy**, **Comprehension**, **Conversation**, and **Production** alongside *Read & Select* (`binary_choice`), *Read & Complete* (`word_completion`), *Listen & Type* (`dictation`), *Write About the Photo* (SVG scene) / *Interactive Writing* / *Writing Sample*, and zero-prep *Interactive Speaking*.
-- **Rapid ~10–15 Min 4-Skill Starting-Level Check (`DiagnosticRouter`):** Compact zero-scroll preflight intro & mic check, 2-stage adaptive Reading & Listening routing, short Writing & Speaking samples, **Standard (`900s` cap) / Extended Untimed (`3x`) / Accessible Replayable Audio** modes, and single-skill retake.
-- **Full 4-Skill Simulators, Micro-Drills & Full Mock Planner:** Focused single-question mode (scroll-free mobile UX) vs. All-Questions views, Study vs. strict Exam Mode locks, Reading highlights & notes, 500ms crash-safe Writing autosave, queued `.m4a` Speaking turns, 7 targeted 3-minute Micro-Drills, and Mistake-to-Deck **SM-2 Vocabulary SRS** (`320` seeded academic/paraphrase cards).
-- **Multi-Surface Auth & Strict `1 Phone + 1 Desktop Web` Device-Slot Policy:** Email/Password, Sign in with Google, and Sign in with Apple (plus `ALLOW_DEV_AUTH_PROVIDERS=true` sandbox mode for local/dev testing before live client credentials are configured), active device/session management in Settings (`mobile` + `desktop_web` slots), remote revocation, and mandatory Paywall ToS consent.
-- **SOLID & Open-Closed UI Architecture:** 4 switchable Light/Dark presets (*Midnight Indigo*, *Nordic Emerald*, *Editorial Amber*, *Oceanic Cobalt*), RTL/LTR directional spacing, and verified zero-overflow responsiveness down to `320dp` phones.
+- **Adaptive Personalization, Live Band Engine & Step-by-Step Roadmap (*Durnama* / دورنما):**
+  - **Dynamic Live Band Evolution (`LiveBandEngine`):** Computes real-time overall and per-skill (`Reading`, `Listening`, `Writing`, `Speaking`) current vs. target scores from diagnostic baselines and exponentially decayed recent attempts, distinguishing calibrated full exams (solid nodes) from practice estimates (hollow dashed nodes) on `TrendChart`.
+  - **Personalized Step-by-Step Roadmap (`RoadmapGenerator`):** Builds an interactive multi-phase learning path (*Foundation*, *Core Practice*, *Weakness Remediation*, *Vocabulary Wave*, *Pronunciation Clinic*, *Register/Drop Drill*, *Milestone Check*, *Full Mock*) that dynamically re-prioritizes after every attempt and displays a post-attempt `PlanImpactCard`.
+  - **Topic Weakness Rotation & Vocabulary Waves (`TopicWeaknessRotator`, `ObjectiveWeaknessExtractor`, `VocabWaveScheduler`):** Tracks performance across 10 academic topic domains (`environment`, `technology`, `healthcare`, `education`, `economy`, etc.), rotates weak topics without repetition fatigue, and unlocks progressive band-tier vocabulary waves.
+- **OpenRouter `hexgrad/kokoro-82m` Neural TTS & `google/gemini-3.1-flash-lite` Pronunciation Studio:**
+  - **100% API-Driven Neural TTS (`POST /v1/tts/synthesize` + `GET /v1/tts/audio/:cacheKey`):** Zero reliance on robotic browser `speechSynthesis` or OS TTS. Synthesizes natural British (`uk` -> `bf_emma`) and American (`us` -> `af_bella`) speech with SHA-256 S3/SeaweedFS caching, 60 req/min per-account burst protection, variable speed (`0.75x–1.25x`), and global Settings accent propagation across `InlineListenButton`, Vocabulary cards, Study-Mode Reading paragraph listen strips (`passage-paragraph-listen-bar`), Evaluation Review model rewrites, and Speech Practice drawers/sheets (*Exam Mode Restraint* hides all coaching/TTS buttons during strict timed Exam Mode).
+  - **Multimodal Pronunciation & Fluency Studio (`POST /v1/pronunciation/analyze`):** Learners record themselves reading vocabulary headwords, collocations, model sentences, or reading paragraphs; `google/gemini-3.1-flash-lite` returns a `0–100` score, band equivalent, IPA phoneme breakdown, word-level accuracy heatmap (`good` / `minor` / `error`), prosody metrics, and bilingual coaching tips.
+- **Closed-Loop Smart Coach Engine (`CoachHub`, `LinguisticGraph`, `DailyMission`, `RegisterShifter`, `DropAnything`):**
+  - **Personal Linguistic Error DNA Graph (`/v1/graph/me`):** Tracks recurring grammar, lexical, coherence, and pronunciation fault nodes (`LinguisticNodes`) with decay/mastery scoring and active-production verification when target words/structures are used in subsequent Writing/Speaking attempts.
+  - **10-Minute Daily Mission (`/v1/missions/today`):** Closed-loop daily workout combining weak-node warmups, targeted micro-drills, and active production verification.
+  - **3-Gear Pragmatic Register Shifter (`/v1/register-shifter/*`):** Upgrades learner sentences across *Gear 1 (Casual)* -> *Gear 2 (Academic)* -> *Gear 3 (Band 8.5+ Executive)* with spoken/written repeat verification.
+  - **Drop Anything Micro-Drill Generator (`/v1/drop/*`):** Turns any pasted article, paragraph, or note into an instant 2-minute active upgrade drill.
+- **Standalone Desktop Web (`web/` — Astro 5 Static SEO/GEO + React 19 SPA) & Mobile/Web Flutter Client (`app/`):**
+  - **0KB-JS SEO & Generative Engine Optimization (GEO):** 85 prerendered pages per edition (`dist-glb` & `dist-irn`), 5 exam pillar guides, `<1KB` interactive score calculators, annotated writing/speaking sample banks, public vocabulary hubs, `robots.txt`, `llms.txt`, `llms-full.txt`, Markdown `.md` twins, and dynamic `/og/*.svg` & `.png` cards.
+  - **Hexagonal React 19 Desktop Studio (`/app/*`):** Dexie v4 IndexedDB offline store, FIFO outbox, OPFS media cache, Web Audio API waveform recorder/player, strict CSP (zero `unsafe-inline`), DOMPurify SVG sanitization, and Brotli/Gzip pre-compression.
+- **Bidirectional Cross-Device Sync & End-to-End Server Tracing (`AdminTraceConsole`):**
+  - Syncs roadmap progress, live band snapshots, exam attempts, SM-2 vocabulary SRS cards, and pronunciation history across Phone and Desktop Web (`/v1/personalization/*`, `/v1/sync/*`).
+  - Records every user activity event, audio recording object key, AI model call, prompt/completion/audio token count, latency, and exact USD cost in PostgreSQL (`ai_usage_ledger`, `user_activity_ledger`), inspectable and exportable via `/v1/admin/usage/*` and the Web **Admin Trace Console** (`/app/admin/trace`).
 
 ---
 
@@ -24,43 +40,67 @@ Offline-first, AI-native **5-Track English Exam Simulator Hub**, AI Speaking/Wri
 
 ```text
 mockza/
-├── docs/                       # Product, Architecture, Roadmap & UI Specs
-│   ├── PDR.md                  # Global Clean-Room Product Design & Requirements (v3.0)
-│   ├── ADR.md                  # System Architecture Decision Records & Schemas (v3.0)
-│   ├── PDR-Iran.md             # Iran Domestic Edition (IRN / Sanjia) Requirements
-│   ├── ADR-Iran.md             # Iran Domestic Edition Technical Architecture
-│   ├── DESKTOP_WEB_PLAN.md     # Non-Flutter Desktop Web (Astro 5 + React 19) Architecture & Plan
-│   └── design.md · UI-UX-TLDR.md · PLAN.md · RAPID_DIAGNOSTIC_PLAN.md · proposed_backend.md
-├── app/                        # Flutter Client (Dart 3 + Impeller, Single-Package Feature-First MVVM)
-│   ├── README.md               # Flutter architecture, theme system, flavors & commands
+├── AGENTS.md                   # Mandatory low-RAM execution rules & GLB/IRN + Web/Flutter parity policy
+├── docs/                       # Product, Architecture, Roadmap & Audit Specs
+│   ├── PDR.md                  # Global Clean-Room Product Design & Requirements (v4.0)
+│   ├── ADR.md                  # System Architecture Decision Records & Schemas (v4.0)
+│   ├── PDR-Iran.md             # Iran Domestic Edition (IRN / Sanjia) Requirements (v4.0)
+│   ├── ADR-Iran.md             # Iran Domestic Edition Technical Architecture (v4.0)
+│   ├── DESKTOP_WEB_PLAN.md     # Standalone Desktop Web (Astro 5 + React 19) Architecture & Plan
+│   ├── ADAPTIVE_PERSONALIZATION_AND_ROADMAP_PLAN.md
+│   ├── ADAPTIVE_PERSONALIZATION_AUDIT_AND_REMEDIATION_PLAN.md
+│   └── SMART_COACH_PRODUCTION_UX_AND_RELIABILITY_PLAN.md · advanced_plan.md · sanjia_flutter_plan.md
+├── packages/
+│   └── design-tokens/          # Canonical W3C design tokens SSOT (tokens.json + schema) for Flutter & Web
+├── shared-fixtures/            # 9 cross-codebase parity vector suites (372 vectors across Backend, Web & Flutter)
+├── web/                        # Standalone Desktop Web Client (Astro 5 Static SEO/GEO + React 19 SPA + Tailwind v4)
+│   ├── Containerfile           # Multi-stage builder + Caddy/Nginx Brotli/Gzip runtime
+│   ├── src/
+│   │   ├── pages/              # 0KB-JS SEO landing, 5 exam guides, calculators, samples, vocab, GEO (.md, llms.txt) & /app/[...slug]
+│   │   ├── spa/                # React 19 SPA features (home, roadmap, practice, results, vocabulary, progress, mission, drop, register-shifter, diagnostic, auth, settings, paywall, admin/trace)
+│   │   ├── components/         # exam-kit/, personalization/, speech/ (InlineListenButton, SpeechPracticeDrawer), ui/
+│   │   ├── adapters/           # Hexagonal adapters (dexie/, http/, media/, glb/, irn/, fakes/)
+│   │   └── edition/            # Compile-time GLB/IRN config, LtrExamBoundary BiDi & edge Jalali calendar
+│   └── tests/                  # 36 Vitest unit/contract test files (229 tests) + 7 Playwright Desktop E2E suites
+├── app/                        # Flutter Client (SDK 3.47.9, Dart 3 + Impeller, Single-Package Feature-First MVVM)
+│   ├── README.md               # Flutter architecture, 19 feature modules, 20 Drift tables & commands
 │   ├── Containerfile           # Multi-stage SDK 3.47.9 -> checker -> web-builder -> Nginx runtime
-│   ├── nginx.conf              # SPA routing + /v1/* and /openapi.json reverse proxy
-│   ├── lib/                    # core/, data/ (Drift SQLite v5, 14 tables), features/ (15), routing/ (24 constants), services/, theme/, l10n/
-│   └── test/                   # Unit, Data, Feature, Policy, Service, Theme, A11y & 7 Page-Object E2E suites
-├── backend/                    # pnpm TypeScript Monorepo (Node 24 LTS + Hono + Drizzle + pg-boss)
+│   ├── lib/                    # core/, data/ (Drift SQLite v10, 20 tables), features/ (19), routing/ (31 routes), services/, theme/, l10n/ (EN + FA)
+│   └── test/                   # 39 test files (409 tests): Core, Data, Feature, Policy, Service, Parity, Theme, A11y & 9 Full-Router E2E suites
+├── backend/                    # pnpm TypeScript Monorepo (Node 24 LTS + Hono + Drizzle + pg-boss, 10 workspaces)
 │   ├── Containerfile           # Multi-stage targets: api, worker (+ffmpeg), migrator, cli, toolchain
-│   ├── apps/api/               # HTTP ingress behind PgBouncer (OpenAPI /v1/* routes, auth/slots, quota, S3 presign/media)
-│   ├── apps/worker/            # pg-boss consumers with execution-generation fencing & 30-day audio purge
-│   ├── packages/domain/        # EXAM_SCALES, getExamRubricSpec, DiagnosticBudget/Router, safety/provenance rules
-│   ├── packages/contracts/     # Zod OpenAPI contracts exported for Dart/TypeScript parity
-│   ├── packages/db/            # PostgreSQL 16 Drizzle schema (24 tables), migrations & seeds (36 packs, 7 drills, 320 vocab)
-│   ├── packages/ai/            # Multi-exam rubric prompts, LangGraph writing/speaking graphs, OpenRouter & Langfuse masking
+│   ├── apps/api/               # HTTP ingress behind PgBouncer (OpenAPI /v1/* routes, auth/OTP/slots, quota, TTS, pronunciation, personalization, admin trace)
+│   ├── apps/worker/            # pg-boss consumers with execution-generation fencing, outbox sweep lock & 30-day audio purge
+│   ├── packages/domain/        # Pure TS domain engines (EXAM_SCALES, rubrics, DiagnosticRouter, SM-2, LiveBandEngine, RoadmapGenerator, LinguisticGraphMath)
+│   ├── packages/contracts/     # Zod OpenAPI contracts & snapshot exported for Dart/TypeScript parity
+│   ├── packages/db/            # PostgreSQL 16 Drizzle schema (41 tables), migrations, usage/personalization stores & seeds (36 packs, 7 drills, 320 vocab)
+│   ├── packages/ai/            # Multi-exam EN/FA rubric prompts, LangGraph writing/speaking/mission/pronunciation/TTS runners, OpenRouter & Langfuse masking
 │   ├── packages/storage/       # S3/SeaweedFS & R2 client, bucket init (`mockza-audio-private`, `mockza-media`), seed assets
 │   ├── packages/config/        # Zod env config & EDITION (`glb` | `irn`) validation
 │   ├── content-pipeline/       # Pre-publish clean-room provenance, evidence-span & SHA-256 validator CLI
 │   └── evals/                  # Golden rubric calibration benchmark runner (±0.5 band parity)
-├── scripts/                    # Repo automation & gates
-│   ├── check_all.sh            # 10 static architectural boundary, LTR/RTL & secret hygiene gates
-│   ├── dev_local.sh            # Option-2 low-RAM dev stack (Postgres + SeaweedFS in Docker; host Node & Flutter)
-│   ├── serve_web_static.mjs    # Lightweight gzipped static server (~68 MB RSS) serving app/build/web
-│   ├── stamp_web_cache_bust.sh # Deterministic SHA cache-busting for main.dart.js & flutter_bootstrap.js
-│   ├── run_e2e.sh              # Static gates + backend full-journey E2E + all 7 Flutter E2E journeys
-│   └── backup_restore.sh       # Postgres + SeaweedFS backup/restore utility
-├── compose.yaml                # Full container stack (Postgres, PgBouncer, SeaweedFS, s3-init, migrate, api, worker, web)
-├── Makefile                    # Low-RAM build, dev-*, compose, migrate, check & k6 targets
-├── .env.example                # Non-colliding default ports (45280-45933) and environment template
-└── .flutter-version            # Pinned Flutter SDK toolchain version (3.47.9)
+├── scripts/                    # Repo automation, token sync & static/parity gates
+│   ├── check_all.sh            # Master gate: Design tokens + 10 Flutter gates + Backend hygiene + Web TS/ESLint/BiDi/Vitest/Dual-Build/Budget + Cross-Parity
+│   ├── check_cross_parity.sh   # Runs 372 shared parity vectors across Backend, Web, and Flutter
+│   ├── sync_design_tokens.mjs  # Generates Dart & CSS/TS theme tokens from packages/design-tokens/tokens.json
+│   ├── check_web_budget.mjs    # Verifies Brotli/Gzip budgets, 0KB-JS SEO pages & bundle isolation
+│   ├── dev_local.sh            # Low-RAM hybrid dev stack (Postgres + SeaweedFS in Docker; host Node & Web/Flutter)
+│   └── run_e2e.sh              # End-to-end verification runner
+├── compose.yaml                # Full container stack (Postgres, PgBouncer, SeaweedFS, s3-init, migrate, api, worker, web, tools, k6)
+├── Makefile                    # Sequential low-RAM build, dev-*, compose, migrate, check & loadtest targets
+└── pnpm-workspace.yaml         # Root pnpm workspace unifying packages/*, web, and backend/* (12 workspaces)
 ```
+
+---
+
+## Low-RAM Execution Policy (`AGENTS.md`)
+
+On memory-constrained hosts (`<= 8 GiB` RAM), always follow [AGENTS.md](file:///home/mahdi/projects/ideas/mockza/AGENTS.md):
+1. **Check available RAM first:** Run `free -m` and ensure `available >= 900 MiB` before starting any test, typecheck, or build.
+2. **Never run heavy processes concurrently:** Run Backend, Web, and Flutter builds/tests strictly sequentially (`maxWorkers=1`, `--concurrency=1`).
+3. **Cap VM heaps:**
+   - Web/Backend Vitest: `NODE_OPTIONS="--max-old-space-size=768"` with `--pool=forks --poolOptions.forks.singleFork --maxWorkers=1`
+   - Flutter test batches (`<= 10` files per batch): `DART_VM_OPTIONS="--old_gen_heap_size=768" flutter test --no-pub --concurrency=1 ...`
 
 ---
 
@@ -68,7 +108,7 @@ mockza/
 
 ### Option A: Low-RAM Hybrid Dev (`< 5 GiB` Host RAM — Recommended on `<= 8 GiB` Machines)
 
-Runs only PostgreSQL (`:45432`) and SeaweedFS (`:45833`) in Docker while executing compiled Node API/worker and static/debug Flutter Web on the host:
+Runs PostgreSQL (`:45432`) and SeaweedFS (`:45833`) in Docker while running compiled Node API/worker and Web/Flutter on the host:
 
 ```bash
 cp .env.example .env
@@ -77,22 +117,17 @@ cp .env.example .env
 make dev-infra
 make dev-up
 
-# Or run compiled API (:45281) & Worker in daemon/foreground mode:
+# Or run compiled API (:45281) & Worker in foreground/daemon mode:
 ./scripts/dev_local.sh serve
 
-# 2. Build low-RAM static release Flutter Web bundle (avoids parallel 1.04 GB dart2wasm spike):
-cd app
-flutter build web --release -O1 --no-pub --no-source-maps --no-tree-shake-icons --no-wasm-dry-run
-cd ..
-./scripts/stamp_web_cache_bust.sh
-
-# 3. Serve gzipped static bundle on :45280 (~68 MB RSS):
-node ./scripts/serve_web_static.mjs
+# 2. Build standalone Astro 5 + React 19 Desktop Web bundles (GLB & IRN):
+PUBLIC_EDITION=glb NODE_OPTIONS="--max-old-space-size=384" pnpm --filter @mockza/web build:glb
+PUBLIC_EDITION=irn NODE_OPTIONS="--max-old-space-size=384" pnpm --filter @mockza/web build:irn
 ```
 
 ### Option B: Full Container Stack (`Docker Compose` / `Podman Compose`)
 
-Builds images sequentially so Flutter Web and TypeScript never compete for RAM:
+Builds images sequentially so Web and Backend never compete for RAM:
 
 ```bash
 cp .env.example .env
@@ -100,51 +135,51 @@ make build
 make up
 ```
 
-Or with Podman: `COMPOSE="podman compose" make build up`.
-
-### Default Non-Colliding Host Endpoints
+### Live Endpoints (Dual-Edition Deployment)
 
 | Service | Host Binding | Purpose |
 | :--- | :--- | :--- |
-| `web` (Flutter Web SPA) | `0.0.0.0:45280` | Release Web UI (`serve_web_static.mjs` or Nginx proxying `/v1/*` & `/openapi.json`) |
-| `api` (Hono + Node 24) | `0.0.0.0:45281` | REST/OpenAPI v1 ingress (`/v1/health`, `/openapi.json`), behind PgBouncer in Compose |
-| `postgres` (PostgreSQL 16) | `127.0.0.1:45432` | Primary relational database & `pg-boss` durable queue |
+| `mockza-web` (`GLB` Web) | `0.0.0.0:45280` | Standalone Astro 5 + React 19 Global Edition (`dist-glb`, Brotli/Gzip, `/v1/*` proxy) |
+| `mockza-api` (`GLB` API) | `0.0.0.0:45281` | Global Edition Hono REST/OpenAPI v1 ingress (`EDITION=glb`) |
+| `sanjia-web` (`IRN` Web) | `0.0.0.0:45282` | Standalone Astro 5 + React 19 Iran Domestic Edition (`dist-irn`, Persian RTL + BiDi) |
+| `sanjia-api` (`IRN` API) | `0.0.0.0:45283` | Iran Domestic Edition Hono REST/OpenAPI v1 ingress (`EDITION=irn`) |
+| `postgres` (PostgreSQL 16) | `127.0.0.1:45432` | Primary relational database (41 Drizzle tables) & `pg-boss` durable queue |
 | `pgbouncer` (v1.24.1) | `127.0.0.1:45433` | Transaction connection pool (`PG_PGBOUNCER=true` for API; bypassed by worker & migrate) |
-| `seaweedfs` (S3 + Master) | `127.0.0.1:45833`, `45933` | Buckets `mockza-audio-private` (user clips) & `mockza-media` (listening tracks & SVG figures) |
+| `seaweedfs` (S3 + Master) | `127.0.0.1:45833`, `45933` | Buckets `mockza-audio-private` (speaking/pronunciation clips & TTS cache) & `mockza-media` |
 
 ---
 
 ## Verification, Testing & Operations
 
 ```bash
-# 1. Static architecture & hygiene checks (10 boundary rules across app/lib & backend/)
+# Always check available RAM first (require >= 900 MiB available)
+free -m
+
+# 1. Full static, token-sync, web dual-build, budget & 372-vector cross-parity gates
 ./scripts/check_all.sh all
 
-# 2. Full End-to-End suite (static gates + backend full-journey Vitest + all 7 Flutter E2E journeys)
-./scripts/run_e2e.sh
+# 2. Backend Vitest suite across pnpm workspaces (single-fork low-RAM mode)
+cd backend && NODE_OPTIONS="--max-old-space-size=768" pnpm -r --workspace-concurrency=1 exec vitest run --pool=forks --poolOptions.forks.singleFork --maxWorkers=1
 
-# 3. Flutter analyzer + formatting + full unit/widget/data/service suite (low-RAM concurrency=1)
-cd app && dart format --output=none --set-exit-if-changed lib test && flutter analyze --no-pub --fatal-infos && flutter test --no-pub --concurrency=1
+# 3. Web Vitest unit & contract suite (36 files / 229 tests)
+NODE_OPTIONS="--max-old-space-size=768" pnpm --filter @mockza/web exec vitest run --pool=forks --poolOptions.forks.singleFork --maxWorkers=1
 
-# 4. Backend lint, typecheck & Vitest suite across all 10 pnpm workspaces
-cd backend && pnpm lint && pnpm typecheck && pnpm test
+# 4. Flutter analyzer + batched low-RAM test execution (39 files / 409 tests, <= 10 files per batch)
+cd app && dart format --output=none --set-exit-if-changed lib test && DART_VM_OPTIONS="--old_gen_heap_size=768" flutter analyze --no-pub --fatal-infos
 
 # 5. Re-seed & validate clean-room exam bundles, micro-drills & 320 vocab cards
 cd backend && pnpm --filter @mockza/db seed && pnpm --filter @mockza/content-pipeline validate
-
-# 6. Containerized CI & load-testing tools
-make check
-docker compose --profile tools run --rm evals
-docker compose --profile loadtest run --rm k6
 ```
 
 ---
 
 ## Documentation Index
 
-- **[docs/PDR.md](file:///home/mahdi/projects/ideas/mockza/docs/PDR.md)** — Complete Global Edition (`GLB`) Product Design, 5-track exam specs, KPIs, device policy & functional requirements (`v3.0`).
-- **[docs/ADR.md](file:///home/mahdi/projects/ideas/mockza/docs/ADR.md)** — System Architecture Decision Records (`ADR-001`–`ADR-018`), Drizzle/Drift schemas, AI routing & repo blueprint (`v3.0`).
-- **[docs/PDR-Iran.md](file:///home/mahdi/projects/ideas/mockza/docs/PDR-Iran.md)** & **[docs/ADR-Iran.md](file:///home/mahdi/projects/ideas/mockza/docs/ADR-Iran.md)** — Iran Domestic Edition (`IRN` / *Sanjia*) extensions, BiDi RTL/LTR boundary rules, and domestic payment adapters.
-- **[docs/DESKTOP_WEB_PLAN.md](file:///home/mahdi/projects/ideas/mockza/docs/DESKTOP_WEB_PLAN.md)** — Non-Flutter Desktop Web (`Astro 5 Static + React 19 SPA`) architecture, SSOT token/engine/prompt sync, SEO+GEO layer, and `W0`–`W9` execution plan for both `Mockza` (`GLB`) and `Sanjia` (`IRN`).
-- **[app/README.md](file:///home/mahdi/projects/ideas/mockza/app/README.md)** — Flutter client architecture, modular components, and commands.
-- **[app/test/e2e/README.md](file:///home/mahdi/projects/ideas/mockza/app/test/e2e/README.md)** — Hermetic E2E harness and extensible Page-Object Robot guide.
+- **[AGENTS.md](file:///home/mahdi/projects/ideas/mockza/AGENTS.md)** — Mandatory low-RAM operational guardrails and GLB/IRN + Web/Flutter architectural parity rules.
+- **[docs/PDR.md](file:///home/mahdi/projects/ideas/mockza/docs/PDR.md)** — Complete Global Edition (`GLB`) Product Design, 5-track exam specs, Adaptive Roadmap, Smart Coach, Kokoro TTS, Pronunciation Studio & tracing requirements (`v4.0`).
+- **[docs/ADR.md](file:///home/mahdi/projects/ideas/mockza/docs/ADR.md)** — System Architecture Decision Records (`ADR-001`–`ADR-022`), 41-table Postgres & 20-table Drift schemas, Astro 5 + React 19 Web architecture, AI routing & observability (`v4.0`).
+- **[docs/PDR-Iran.md](file:///home/mahdi/projects/ideas/mockza/docs/PDR-Iran.md)** & **[docs/ADR-Iran.md](file:///home/mahdi/projects/ideas/mockza/docs/ADR-Iran.md)** — Iran Domestic Edition (`IRN` / *Sanjia*) full implementation specifications, BiDi RTL/LTR boundary rules, Jalali calendar, SMS OTP, and Zarinpal/Bazaar/Myket billing (`v4.0`).
+- **[docs/DESKTOP_WEB_PLAN.md](file:///home/mahdi/projects/ideas/mockza/docs/DESKTOP_WEB_PLAN.md)** — Standalone Desktop Web (`Astro 5 Static + React 19 SPA`) architecture, SSOT token/engine sync, and SEO+GEO layer.
+- **[docs/ADAPTIVE_PERSONALIZATION_AND_ROADMAP_PLAN.md](file:///home/mahdi/projects/ideas/mockza/docs/ADAPTIVE_PERSONALIZATION_AND_ROADMAP_PLAN.md)** & **[docs/ADAPTIVE_PERSONALIZATION_AUDIT_AND_REMEDIATION_PLAN.md](file:///home/mahdi/projects/ideas/mockza/docs/ADAPTIVE_PERSONALIZATION_AUDIT_AND_REMEDIATION_PLAN.md)** — Adaptive roadmap (*Durnama*), live band evolution, Kokoro TTS, pronunciation studio, and full-stack tracing blueprints.
+- **[app/README.md](file:///home/mahdi/projects/ideas/mockza/app/README.md)** — Flutter client architecture, 19 feature modules, components, and low-RAM commands.
+- **[app/test/e2e/README.md](file:///home/mahdi/projects/ideas/mockza/app/test/e2e/README.md)** — Hermetic 9-suite Flutter E2E harness and Page-Object Robot guide.

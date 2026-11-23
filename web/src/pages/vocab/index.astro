@@ -35,7 +35,7 @@ const categoryPages = getVocabCategoriesForBuild();
       </div>
       <a
         href="/app/vocabulary/review"
-        class="inline-flex h-10 items-center rounded-[var(--mz-radius-control)] bg-primary px-5 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
+        class="inline-flex min-h-11 items-center rounded-[var(--mz-radius-control)] bg-primary px-5 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
       >
         {isIrn ? 'شروع مرور فلش‌کارت SM-2' : 'Launch SM-2 Review'}
       </a>
@@ -72,10 +72,12 @@ const categoryPages = getVocabCategoriesForBuild();
         {categoryPages.map((cat) => (
           <a
             href={`/vocabulary/${cat.trackSlug}/${cat.category}`}
-            class="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 py-2 text-text-primary hover:border-primary"
+            class="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 py-2 text-text-primary hover:border-primary"
           >
-            <span class="font-bold uppercase text-primary">{cat.trackSlug}</span> ·{' '}
-            {isIrn ? cat.categoryLabelFa : cat.categoryLabelEn} ({cat.cards.length})
+            <span>
+              <span class="font-bold uppercase text-primary">{cat.trackSlug}</span> ·{' '}
+              {isIrn ? cat.categoryLabelFa : cat.categoryLabelEn} ({cat.cards.length})
+            </span>
           </a>
         ))}
       </div>

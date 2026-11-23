@@ -1,0 +1,884 @@
+[
+  {
+    "fileName": "irn_mobile_18_diagnostic_intro.jpg",
+    "url": "https://sanjia.mehtea.ir/app/diagnostic/intro",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 988,
+    "aspectScrollRatio": 1.2,
+    "smallTapTargetCount": 3,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "preflight-rules-toggle",
+        "text": "قوانین آزمون",
+        "w": 109,
+        "h": 23
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_19_reading_sim.jpg",
+    "url": "https://sanjia.mehtea.ir/app/practice/reading/ielts-acad-reading-seed-01",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 844,
+    "aspectScrollRatio": 1,
+    "smallTapTargetCount": 1,
+    "smallTapTargets": [
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "خانه",
+        "w": 28,
+        "h": 25
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_20_listening_sim.jpg",
+    "url": "https://sanjia.mehtea.ir/app/practice/listening/ielts-listening-seed-01",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 844,
+    "aspectScrollRatio": 1,
+    "smallTapTargetCount": 1,
+    "smallTapTargets": [
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "خانه",
+        "w": 28,
+        "h": 25
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_21_writing_sim.jpg",
+    "url": "https://sanjia.mehtea.ir/app/practice/writing/ielts-writing-seed-01",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 844,
+    "aspectScrollRatio": 1,
+    "smallTapTargetCount": 1,
+    "smallTapTargets": [
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "خانه",
+        "w": 28,
+        "h": 25
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_22_speaking_sim.jpg",
+    "url": "https://sanjia.mehtea.ir/app/practice/speaking/ielts-speaking-seed-01",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 844,
+    "aspectScrollRatio": 1,
+    "smallTapTargetCount": 1,
+    "smallTapTargets": [
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "خانه",
+        "w": 28,
+        "h": 25
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_23_drills.jpg",
+    "url": "https://sanjia.mehtea.ir/app/practice/drills",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 844,
+    "aspectScrollRatio": 1,
+    "smallTapTargetCount": 2,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_24_mission.jpg",
+    "url": "https://sanjia.mehtea.ir/app/mission/today",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 844,
+    "aspectScrollRatio": 1,
+    "smallTapTargetCount": 2,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_25_register_shifter.jpg",
+    "url": "https://sanjia.mehtea.ir/app/register-shifter",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 844,
+    "aspectScrollRatio": 1,
+    "smallTapTargetCount": 3,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "shifter-mode-voice",
+        "text": "ضبط صدا",
+        "w": 90,
+        "h": 24
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_26_drop.jpg",
+    "url": "https://sanjia.mehtea.ir/app/drop",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 844,
+    "aspectScrollRatio": 1,
+    "smallTapTargetCount": 4,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "drop-tab-url",
+        "text": "لینک مقاله",
+        "w": 98,
+        "h": 34
+      },
+      {
+        "tag": "button",
+        "testId": "drop-tab-text",
+        "text": "چسباندن متن",
+        "w": 113,
+        "h": 34
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_desktop_01_landing.jpg",
+    "url": "https://sanjia.mehtea.ir/",
+    "vw": 1440,
+    "vh": 900,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 4161,
+    "aspectScrollRatio": 4.6,
+    "smallTapTargetCount": 15,
+    "smallTapTargets": [
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "گزارش نمونه",
+        "w": 67,
+        "h": 20
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "ابزارهای مطالعه",
+        "w": 86,
+        "h": 20
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "آیلتس",
+        "w": 31,
+        "h": 21
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "تافل",
+        "w": 22,
+        "h": 21
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "پی‌تی‌ای",
+        "w": 38,
+        "h": 21
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "دولینگو",
+        "w": 36,
+        "h": 21
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_desktop_07_home.jpg",
+    "url": "https://sanjia.mehtea.ir/app/home",
+    "vw": 1440,
+    "vh": 900,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1270,
+    "aspectScrollRatio": 1.4,
+    "smallTapTargetCount": 9,
+    "smallTapTargets": [
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "سنجیا",
+        "w": 59,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "",
+        "w": 30,
+        "h": 30
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "home-track-toefl_ibt",
+        "text": "تافل iBT ۲۰۲۶",
+        "w": 100,
+        "h": 30
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "شروع تمرین",
+        "w": 59,
+        "h": 16
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "شروع تمرین",
+        "w": 59,
+        "h": 16
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_desktop_08_roadmap.jpg",
+    "url": "https://sanjia.mehtea.ir/app/roadmap",
+    "vw": 1440,
+    "vh": 900,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1081,
+    "aspectScrollRatio": 1.2,
+    "smallTapTargetCount": 3,
+    "smallTapTargets": [
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "سنجیا",
+        "w": 59,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "",
+        "w": 30,
+        "h": 30
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_desktop_11_vocab.jpg",
+    "url": "https://sanjia.mehtea.ir/app/vocabulary",
+    "vw": 1440,
+    "vh": 900,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 900,
+    "aspectScrollRatio": 1,
+    "smallTapTargetCount": 6,
+    "smallTapTargets": [
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "سنجیا",
+        "w": 59,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "",
+        "w": 30,
+        "h": 30
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "vocab-preview-all-waves",
+        "text": "مشاهده کل واژگان",
+        "w": 120,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "موج امروز",
+        "w": 86,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "کل مجموعه",
+        "w": 97,
+        "h": 32
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_desktop_19_reading_sim.jpg",
+    "url": "https://sanjia.mehtea.ir/app/practice/reading/ielts-acad-reading-seed-01",
+    "vw": 1440,
+    "vh": 900,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 900,
+    "aspectScrollRatio": 1,
+    "smallTapTargetCount": 18,
+    "smallTapTargets": [
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "خانه",
+        "w": 28,
+        "h": 25
+      },
+      {
+        "tag": "button",
+        "testId": "workspace-exit-btn",
+        "text": "خروج",
+        "w": 66,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "حالت مطالعه",
+        "w": 106,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "همه پرسش‌ها",
+        "w": 112,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "flag-question-1",
+        "text": "نشانه‌دار",
+        "w": 75,
+        "h": 23
+      },
+      {
+        "tag": "button",
+        "testId": "palette-item-1",
+        "text": "1",
+        "w": 36,
+        "h": 32
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_desktop_21_writing_sim.jpg",
+    "url": "https://sanjia.mehtea.ir/app/practice/writing/ielts-writing-seed-01",
+    "vw": 1440,
+    "vh": 900,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 900,
+    "aspectScrollRatio": 1,
+    "smallTapTargetCount": 1,
+    "smallTapTargets": [
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "خانه",
+        "w": 28,
+        "h": 25
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "glb_mobile_01_landing.jpg",
+    "url": "https://mockza.mehtea.ir/",
+    "vw": 390,
+    "vh": 844,
+    "dir": "ltr",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 5347,
+    "aspectScrollRatio": 6.3,
+    "smallTapTargetCount": 16,
+    "smallTapTargets": [
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "Mockza",
+        "w": 102,
+        "h": 28
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "Sample report",
+        "w": 93,
+        "h": 20
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "AI feedback",
+        "w": 79,
+        "h": 20
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "Study tools",
+        "w": 74,
+        "h": 20
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "IELTS",
+        "w": 33,
+        "h": 21
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "TOEFL",
+        "w": 39,
+        "h": 21
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "glb_mobile_07_home.jpg",
+    "url": "https://mockza.mehtea.ir/app/home",
+    "vw": 390,
+    "vh": 844,
+    "dir": "ltr",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 2270,
+    "aspectScrollRatio": 2.7,
+    "smallTapTargetCount": 8,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "home-track-pte_academic",
+        "text": "PTE Academic",
+        "w": 114,
+        "h": 30
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "Practice",
+        "w": 48,
+        "h": 16
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "Practice",
+        "w": 48,
+        "h": 16
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "Practice",
+        "w": 48,
+        "h": 16
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "glb_mobile_11_vocab_list.jpg",
+    "url": "https://mockza.mehtea.ir/app/vocabulary",
+    "vw": 390,
+    "vh": 844,
+    "dir": "ltr",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1180,
+    "aspectScrollRatio": 1.4,
+    "smallTapTargetCount": 38,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "vocab-listen-seed-vocab-193",
+        "text": "Listen",
+        "w": 70,
+        "h": 28
+      },
+      {
+        "tag": "button",
+        "testId": "vocab-practice-seed-vocab-193",
+        "text": "",
+        "w": 30,
+        "h": 28
+      },
+      {
+        "tag": "a",
+        "testId": "vocab-inspect-seed-vocab-193",
+        "text": "Details",
+        "w": 80,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "vocab-listen-seed-vocab-199",
+        "text": "Listen",
+        "w": 70,
+        "h": 28
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "glb_mobile_17_paywall.jpg",
+    "url": "https://mockza.mehtea.ir/app/paywall",
+    "vw": 390,
+    "vh": 844,
+    "dir": "ltr",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1866,
+    "aspectScrollRatio": 2.2,
+    "smallTapTargetCount": 5,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "topbar-mobile-nav-btn",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "Settings",
+        "w": 48,
+        "h": 16
+      },
+      {
+        "tag": "input",
+        "testId": "paywall-tos-checkbox",
+        "text": "",
+        "w": 1,
+        "h": 1
+      },
+      {
+        "tag": "a",
+        "testId": "paywall-signin-link",
+        "text": "Sign In to Subscribe",
+        "w": 116,
+        "h": 16
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "glb_desktop_01_landing.jpg",
+    "url": "https://mockza.mehtea.ir/",
+    "vw": 1440,
+    "vh": 900,
+    "dir": "ltr",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 4233,
+    "aspectScrollRatio": 4.7,
+    "smallTapTargetCount": 17,
+    "smallTapTargets": [
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "Mockza",
+        "w": 102,
+        "h": 28
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "Sample report",
+        "w": 93,
+        "h": 20
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "AI feedback",
+        "w": 79,
+        "h": 20
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "Study tools",
+        "w": 74,
+        "h": 20
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "IELTS",
+        "w": 33,
+        "h": 21
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "TOEFL",
+        "w": 39,
+        "h": 21
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "glb_desktop_27_admin_trace.jpg",
+    "url": "https://mockza.mehtea.ir/app/admin/trace",
+    "vw": 1440,
+    "vh": 900,
+    "dir": "ltr",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 900,
+    "aspectScrollRatio": 1,
+    "smallTapTargetCount": 3,
+    "smallTapTargets": [
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "Mockza",
+        "w": 62,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "",
+        "w": 30,
+        "h": 30
+      },
+      {
+        "tag": "button",
+        "testId": "topbar-theme-toggle",
+        "text": "",
+        "w": 32,
+        "h": 32
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  }
+]

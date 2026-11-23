@@ -3,8 +3,8 @@
   "short_name": "Exam Studio",
   "start_url": "/app/home",
   "display": "standalone",
-  "background_color": "#0C0F19",
-  "theme_color": "#9580FF",
+  "background_color": "#F5F3EE",
+  "theme_color": "#1B4332",
   "icons": [
     {
       "src": "/favicon.svg",

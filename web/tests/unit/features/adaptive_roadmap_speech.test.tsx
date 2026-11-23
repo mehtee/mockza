@@ -185,4 +185,20 @@ describe('Adaptive Personalization, Roadmap, Kokoro TTS & Pronunciation Studio',
     expect(screen.getByTestId('passage-listen-paragraph-0')).toBeTruthy();
     expect(screen.getByTestId('passage-listen-paragraph-1')).toBeTruthy();
   });
+
+  it('shows starter basic roadmap steps offline when personalization is unavailable or diagnostic skipped', async () => {
+    const baseDeps = createTestDependencies({ edition: 'irn' });
+    const deps = { ...baseDeps, personalization: undefined };
+
+    const history = createMemoryHistory({ initialEntries: ['/app/roadmap'] });
+    const router = createAppRouter(history);
+    render(<DesktopSimulatorApp router={router} dependencies={deps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('roadmap-screen')).toBeTruthy();
+      expect(screen.getByTestId('roadmap-panorama')).toBeTruthy();
+      expect(screen.getByTestId('roadmap-active-step-2')).toBeTruthy();
+    });
+    expect(screen.getByText(/نامشخص \(پایه\)/)).toBeTruthy();
+  });
 });

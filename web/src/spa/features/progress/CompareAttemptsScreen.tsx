@@ -129,7 +129,7 @@ export function CompareAttemptsScreen() {
   const diffTokens = metricsA && metricsB ? buildTokenDiff(metricsA.text, metricsB.text) : [];
 
   return (
-    <div data-testid="compare-attempts-screen" className="mx-auto flex max-w-5xl flex-col gap-5 pb-12 text-start">
+    <div data-testid="compare-attempts-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-12 text-start">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">{t('comparePageTitle')}</h1>

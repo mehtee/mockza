@@ -206,8 +206,9 @@ export function rankAdaptiveCandidates<T extends AdaptiveContentCandidate>(param
   const favs = normalizeFavoriteTopicList(params.favoriteTopics);
   const favSet = new Set<CanonicalTopicKey>(favs);
   const currentTier =
-    estimateCefrTierFromScore(params.currentBand ?? Math.max(5.0, params.targetBand - 1.0), params.examId) ??
-    'B2';
+    params.currentBand != null
+      ? (estimateCefrTierFromScore(params.currentBand, params.examId) ?? 'B1')
+      : 'A2';
 
   const phaseInfo = resolveWeaknessPhase({
     weaknessNodes: params.weaknessNodes,

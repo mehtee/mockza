@@ -169,4 +169,40 @@ describe('W4.1 Onboarding Wizard (/app/welcome & /app/onboarding/goal)', () => {
       expect(screen.getByTestId('home-screen')).toBeTruthy();
     });
   });
+
+  it('shows accurate CEFR level (6.5 -> B2, 7.0 -> C1) and keeps stepper controls LTR-aligned in IRN RTL', async () => {
+    const deps = createTestDependencies({ edition: 'irn' });
+    const history = createMemoryHistory({ initialEntries: ['/app/onboarding/goal'] });
+    const router = createAppRouter(history);
+
+    render(<DesktopSimulatorApp router={router} dependencies={deps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('goal-setup-screen')).toBeTruthy();
+    });
+
+    // Default IELTS target 7.5 is C1; stepping down to 6.5 MUST display B2 (NOT C1)
+    expect(screen.getByTestId('goal-target-readout').textContent).toBe('7.5');
+    expect(screen.getByTestId('goal-cefr-badge').textContent).toContain('(C1)');
+
+    // Decrement (-) / Slider / Increment (+) share an LTR dir="ltr" container so + and - match slider orientation in Persian RTL
+    const decBtn = screen.getByTestId('goal-target-dec');
+    const incBtn = screen.getByTestId('goal-target-inc');
+    expect(decBtn.closest('[dir="ltr"]')).toBeTruthy();
+    expect(incBtn.closest('[dir="ltr"]')).toBeTruthy();
+
+    fireEvent.click(decBtn);
+    fireEvent.click(decBtn);
+    await waitFor(() => {
+      expect(screen.getByTestId('goal-target-readout').textContent).toBe('6.5');
+      expect(screen.getByTestId('goal-cefr-badge').textContent).toContain('(B2)');
+    });
+
+    // Stepping back up to 7.0 transitions accurately to C1
+    fireEvent.click(incBtn);
+    await waitFor(() => {
+      expect(screen.getByTestId('goal-target-readout').textContent).toBe('7.0');
+      expect(screen.getByTestId('goal-cefr-badge').textContent).toContain('(C1)');
+    });
+  });
 });

@@ -284,8 +284,7 @@ abstract final class TopicWeaknessRotator {
     final perWeakness = <String, WeaknessPhaseDecision>{};
     final transferPriority = CanonicalTopicKey.values
         .where(
-          (t) =>
-              t != CanonicalTopicKey.academicCore && !favSet.contains(t),
+          (t) => t != CanonicalTopicKey.academicCore && !favSet.contains(t),
         )
         .toList(growable: false);
 
@@ -301,9 +300,9 @@ abstract final class TopicWeaknessRotator {
           .where((c) => favSet.contains(c.topicKey) && c.practiceCount >= 1)
           .map((c) => c.topicKey)
           .toSet();
-      final unpracticedFav = favs
-          .where((t) => !practicedFavs.contains(t))
-          .firstOrNull ?? (favs.isNotEmpty ? favs.first : null);
+      final unpracticedFav =
+          favs.where((t) => !practicedFavs.contains(t)).firstOrNull ??
+          (favs.isNotEmpty ? favs.first : null);
 
       final noFavRemaining =
           availableTopicsWithWeakness != null &&
@@ -352,9 +351,8 @@ abstract final class TopicWeaknessRotator {
   }
 
   /// Ranks candidate packs or drills using the exact deterministic formula.
-  static List<RankedContentItem<T>> rankCandidates<
-    T extends AdaptiveContentCandidate
-  >({
+  static List<RankedContentItem<T>>
+  rankCandidates<T extends AdaptiveContentCandidate>({
     required List<T> candidates,
     required List<LinguisticNodeSummary> weaknessNodes,
     required List<CanonicalTopicKey> favoriteTopics,
@@ -368,12 +366,10 @@ abstract final class TopicWeaknessRotator {
       favoriteTopics.map((e) => e.wireKey).toList(),
     );
     final favSet = favs.toSet();
-    final currentTier =
-        LiveBandEngine.estimateCefrTierFromScore(
-          currentBand ?? math.max<double>(5, targetBand - 1),
-          track,
-        ) ??
-        AuthoringTier.b2;
+    final currentTier = currentBand != null
+        ? (LiveBandEngine.estimateCefrTierFromScore(currentBand, track) ??
+              AuthoringTier.b1)
+        : AuthoringTier.a2;
 
     final phaseInfo = resolveWeaknessPhase(
       weaknessNodes: weaknessNodes,
@@ -392,104 +388,111 @@ abstract final class TopicWeaknessRotator {
             1000.0,
     };
 
-    final ranked = candidates.map((item) {
-      String? bestWeakness;
-      var weaknessMatch = 0.0;
-      for (final tag in item.weaknessTags) {
-        final p = activeWeaknessPriority[tag] ?? 0.0;
-        if (p > weaknessMatch) {
-          weaknessMatch = p;
-          bestWeakness = tag;
-        }
-      }
-      if (phaseInfo.activeWeaknesses.isEmpty) {
-        weaknessMatch = 0.4;
-      }
+    final ranked =
+        candidates.map((item) {
+          String? bestWeakness;
+          var weaknessMatch = 0.0;
+          for (final tag in item.weaknessTags) {
+            final p = activeWeaknessPriority[tag] ?? 0.0;
+            if (p > weaknessMatch) {
+              weaknessMatch = p;
+              bestWeakness = tag;
+            }
+          }
+          if (phaseInfo.activeWeaknesses.isEmpty) {
+            weaknessMatch = 0.4;
+          }
 
-      final decision = bestWeakness != null
-          ? phaseInfo.perWeakness[bestWeakness]
-          : null;
-      final effectivePhase = decision?.phase ?? phaseInfo.overallPhase;
-      final topics = item.topicKeys.isNotEmpty
-          ? item.topicKeys
-          : const <CanonicalTopicKey>[CanonicalTopicKey.academicCore];
-      final hasFav = topics.any(favSet.contains);
-      final hasCore = topics.contains(CanonicalTopicKey.academicCore);
-      final matchedTopic =
-          (effectivePhase == AdaptationPhase.crossTopicTransfer
-              ? topics.where((t) => !favSet.contains(t)).firstOrNull
-              : topics.where(favSet.contains).firstOrNull) ??
-          topics.first;
+          final decision = bestWeakness != null
+              ? phaseInfo.perWeakness[bestWeakness]
+              : null;
+          final effectivePhase = decision?.phase ?? phaseInfo.overallPhase;
+          final topics = item.topicKeys.isNotEmpty
+              ? item.topicKeys
+              : const <CanonicalTopicKey>[CanonicalTopicKey.academicCore];
+          final hasFav = topics.any(favSet.contains);
+          final hasCore = topics.contains(CanonicalTopicKey.academicCore);
+          final matchedTopic =
+              (effectivePhase == AdaptationPhase.crossTopicTransfer
+                  ? topics.where((t) => !favSet.contains(t)).firstOrNull
+                  : topics.where(favSet.contains).firstOrNull) ??
+              topics.first;
 
-      var topicPhaseFit = 0.25;
-      switch (effectivePhase) {
-        case AdaptationPhase.ignition:
-          topicPhaseFit = hasFav ? 1.0 : (hasCore ? 0.55 : 0.15);
-        case AdaptationPhase.interestWeakness:
-          topicPhaseFit = hasFav
-              ? (bestWeakness != null ? 1.0 : 0.7)
-              : (hasCore ? 0.45 : 0.25);
-        case AdaptationPhase.crossTopicTransfer:
-          topicPhaseFit = !hasFav
-              ? (bestWeakness != null ? 1.0 : 0.7)
-              : 0.35;
-        case AdaptationPhase.examBreadth:
-          topicPhaseFit = item.attemptCount == 0 ? 0.95 : 0.45;
-      }
+          var topicPhaseFit = 0.25;
+          switch (effectivePhase) {
+            case AdaptationPhase.ignition:
+              topicPhaseFit = hasFav ? 1.0 : (hasCore ? 0.55 : 0.15);
+            case AdaptationPhase.interestWeakness:
+              topicPhaseFit = hasFav
+                  ? (bestWeakness != null ? 1.0 : 0.7)
+                  : (hasCore ? 0.45 : 0.25);
+            case AdaptationPhase.crossTopicTransfer:
+              topicPhaseFit = !hasFav
+                  ? (bestWeakness != null ? 1.0 : 0.7)
+                  : 0.35;
+            case AdaptationPhase.examBreadth:
+              topicPhaseFit = item.attemptCount == 0 ? 0.95 : 0.45;
+          }
 
-      final bFit = _bandFitScore(item.cefrMin, item.cefrMax, currentTier);
+          final bFit = _bandFitScore(item.cefrMin, item.cefrMax, currentTier);
 
-      var novelty = 1.0;
-      if (item.lastAttemptedDaySerial != null) {
-        final age = math.max(0, currentDaySerial - item.lastAttemptedDaySerial!);
-        novelty = age < 7 ? 0.08 : (age < 14 ? 0.45 : 0.75);
-      }
+          var novelty = 1.0;
+          if (item.lastAttemptedDaySerial != null) {
+            final age = math.max(
+              0,
+              currentDaySerial - item.lastAttemptedDaySerial!,
+            );
+            novelty = age < 7 ? 0.08 : (age < 14 ? 0.45 : 0.75);
+          }
 
-      final total = double.parse(
-        (0.38 * weaknessMatch + 0.27 * topicPhaseFit + 0.2 * bFit + 0.15 * novelty)
-            .toStringAsFixed(4),
-      );
+          final total = double.parse(
+            (0.38 * weaknessMatch +
+                    0.27 * topicPhaseFit +
+                    0.2 * bFit +
+                    0.15 * novelty)
+                .toStringAsFixed(4),
+          );
 
-      final String reasonEn;
-      final String reasonFa;
-      if (effectivePhase == AdaptationPhase.crossTopicTransfer &&
-          bestWeakness != null) {
-        final cleanW = bestWeakness.split(':').last.replaceAll('_', ' ');
-        reasonEn =
-            'Transfer Challenge: practicing $cleanW in ${matchedTopic.labelEn}';
-        reasonFa =
-            'چالش انتقال مهارت: تمرین نقطه ضعف شما در موضوع جدید «${matchedTopic.labelFa}»';
-      } else if (hasFav && bestWeakness != null) {
-        final cleanW = bestWeakness.split(':').last.replaceAll('_', ' ');
-        reasonEn = 'Your topic (${matchedTopic.labelEn}) + fixes $cleanW';
-        reasonFa =
-            'موضوع دلخواه (${matchedTopic.labelFa}) + رفع خطای پرتکرار شما';
-      } else if (hasFav) {
-        reasonEn =
-            'Matches your favorite topic: ${matchedTopic.labelEn} (${currentTier.name.toUpperCase()} fit)';
-        reasonFa =
-            'متناسب با علاقه شما (${matchedTopic.labelFa}) و سطح ${currentTier.name.toUpperCase()}';
-      } else {
-        reasonEn =
-            'Exam breadth · ${matchedTopic.labelEn} (${item.cefrMin.name.toUpperCase()}–${item.cefrMax.name.toUpperCase()})';
-        reasonFa =
-            'پوشش تنوع موضوعات آزمون · ${matchedTopic.labelFa} (${item.cefrMin.name.toUpperCase()}–${item.cefrMax.name.toUpperCase()})';
-      }
+          final String reasonEn;
+          final String reasonFa;
+          if (effectivePhase == AdaptationPhase.crossTopicTransfer &&
+              bestWeakness != null) {
+            final cleanW = bestWeakness.split(':').last.replaceAll('_', ' ');
+            reasonEn =
+                'Transfer Challenge: practicing $cleanW in ${matchedTopic.labelEn}';
+            reasonFa =
+                'چالش انتقال مهارت: تمرین نقطه ضعف شما در موضوع جدید «${matchedTopic.labelFa}»';
+          } else if (hasFav && bestWeakness != null) {
+            final cleanW = bestWeakness.split(':').last.replaceAll('_', ' ');
+            reasonEn = 'Your topic (${matchedTopic.labelEn}) + fixes $cleanW';
+            reasonFa =
+                'موضوع دلخواه (${matchedTopic.labelFa}) + رفع خطای پرتکرار شما';
+          } else if (hasFav) {
+            reasonEn =
+                'Matches your favorite topic: ${matchedTopic.labelEn} (${currentTier.name.toUpperCase()} fit)';
+            reasonFa =
+                'متناسب با علاقه شما (${matchedTopic.labelFa}) و سطح ${currentTier.name.toUpperCase()}';
+          } else {
+            reasonEn =
+                'Exam breadth · ${matchedTopic.labelEn} (${item.cefrMin.name.toUpperCase()}–${item.cefrMax.name.toUpperCase()})';
+            reasonFa =
+                'پوشش تنوع موضوعات آزمون · ${matchedTopic.labelFa} (${item.cefrMin.name.toUpperCase()}–${item.cefrMax.name.toUpperCase()})';
+          }
 
-      return RankedContentItem<T>(
-        item: item,
-        score: total,
-        phase: effectivePhase,
-        matchedTopic: matchedTopic,
-        matchedWeaknessKey: bestWeakness,
-        reasonEn: reasonEn,
-        reasonFa: reasonFa,
-      );
-    }).toList()..sort((a, b) {
-      final cmp = b.score.compareTo(a.score);
-      if (cmp != 0) return cmp;
-      return a.item.id.compareTo(b.item.id);
-    });
+          return RankedContentItem<T>(
+            item: item,
+            score: total,
+            phase: effectivePhase,
+            matchedTopic: matchedTopic,
+            matchedWeaknessKey: bestWeakness,
+            reasonEn: reasonEn,
+            reasonFa: reasonFa,
+          );
+        }).toList()..sort((a, b) {
+          final cmp = b.score.compareTo(a.score);
+          if (cmp != 0) return cmp;
+          return a.item.id.compareTo(b.item.id);
+        });
 
     return ranked;
   }

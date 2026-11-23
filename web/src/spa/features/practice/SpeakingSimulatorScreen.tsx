@@ -1,16 +1,18 @@
 import type { SupportedExamId } from '@mockza/domain';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { CheckCircle2, ChevronLeft, ChevronRight, FastForward, Mic, Sparkles } from 'lucide-react';
+import { CheckCircle2, FastForward, Mic, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AudioStudioPlayer,
   ExamSvgChartCard,
   type KeyboardShortcutHint,
+  SimulatorLoadFallback,
   SimulatorWorkspaceShell,
   SplitPaneWorkspace,
   WaveformMicRecorder,
 } from '@/components/exam-kit';
 import { MzBanner, MzButton, MzCard, MzSegmentedControl } from '@/components/ui';
+import { BackChevronIcon, ForwardChevronIcon } from '@/components/bidi/DirectionIcon';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import type { RecordedClip } from '@/gateways/audio.gateway';
 import type { ExamBundlePayload } from '@/gateways/catalog.gateway';
@@ -106,6 +108,11 @@ export function SpeakingSimulatorScreen({
   const [uploadProgressText, setUploadProgressText] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [reloadSeq, setReloadSeq] = useState(0);
+  const retryLoad = useCallback(() => {
+    setErrorMsg(null);
+    setReloadSeq((s) => s + 1);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -132,7 +139,7 @@ export function SpeakingSimulatorScreen({
     return () => {
       mounted = false;
     };
-  }, [deps.attemptStore, deps.catalog, deps.evaluation, packId]);
+  }, [deps.attemptStore, deps.catalog, deps.evaluation, packId, reloadSeq]);
 
   useEffect(() => {
     if (!bundle) return;
@@ -461,14 +468,20 @@ export function SpeakingSimulatorScreen({
 
   if (!bundle) {
     return (
-      <div data-testid="speaking-simulator-screen" className="p-6 text-sm text-text-secondary">
-        {errorMsg ? <MzBanner tone="danger">{errorMsg}</MzBanner> : 'Loading Speaking Simulator...'}
+      <div data-testid="speaking-simulator-screen" className="p-4 sm:p-6 text-sm text-text-secondary">
+        {errorMsg ? (
+          <SimulatorLoadFallback
+            testId="speaking-load-fallback"
+            onRetry={retryLoad}
+            message={errorMsg}
+          />
+        ) : (
+          t('workspaceLoadingLabel')
+        )}
       </div>
     );
   }
 
-  const PrevIcon = deps.edition === 'irn' ? ChevronRight : ChevronLeft;
-  const NextIcon = deps.edition === 'irn' ? ChevronLeft : ChevronRight;
   const remainingQuota = quota
     ? quota.isPro
       ? null
@@ -490,7 +503,7 @@ export function SpeakingSimulatorScreen({
               <Link
                 to="/paywall"
                 data-testid="speaking-upgrade-cta"
-                className="inline-flex h-8 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
+                className="inline-flex min-h-10 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3.5 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
               >
                 {t('writingUpgradeCta')}
               </Link>
@@ -556,7 +569,7 @@ export function SpeakingSimulatorScreen({
                 disabled={activeTurnIndex <= 0}
                 onClick={() => setActiveTurnIndex((idx) => Math.max(0, idx - 1))}
               >
-                <PrevIcon className="h-4 w-4" aria-hidden="true" />
+                <BackChevronIcon edition={deps.edition} className="h-4 w-4" />
                 <span>{t('simPrevQuestionAction')}</span>
               </MzButton>
               <MzButton
@@ -569,7 +582,7 @@ export function SpeakingSimulatorScreen({
                 }
               >
                 <span>{t('simNextQuestionAction')}</span>
-                <NextIcon className="h-4 w-4" aria-hidden="true" />
+                <ForwardChevronIcon edition={deps.edition} className="h-4 w-4" />
               </MzButton>
               <MzButton
                 variant="primary"
@@ -587,8 +600,8 @@ export function SpeakingSimulatorScreen({
         <SplitPaneWorkspace
           viewKey="simulator:speaking"
           initialRatio={0.46}
-          leftLabel="Prompt & Cue Card"
-          rightLabel="Microphone Studio"
+          leftLabel={t('splitTabLeftCue')}
+          rightLabel={t('splitTabRightMic')}
           leftPane={
             <div className="flex flex-col gap-4">
               {sortedSections.length > 1 ? (

@@ -71,8 +71,10 @@ export function assignVocabWaves<T extends VocabWaveCardInput>(params: {
     normalizeFavoriteTopicList(params.favoriteTopics),
   );
   const weakSet = new Set<string>(params.activeWeaknessKeys);
-  const effectiveBand = params.currentBand ?? Math.max(5.5, params.targetBand - 0.5);
-  const userCefr = estimateCefrTierFromScore(effectiveBand, params.examId) ?? 'B2';
+  const userCefr =
+    params.currentBand != null
+      ? (estimateCefrTierFromScore(params.currentBand, params.examId) ?? 'B1')
+      : 'B1';
   const userLevel = CEFR_NUM[userCefr];
 
   const scored = params.cards.map((card) => {

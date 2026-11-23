@@ -85,26 +85,41 @@ const themeBootVersion = createHash('sha256').update(ZERO_FOUC_THEME_BOOT_SCRIPT
     {showPublicNav ? (
       <header class:list={['border-b border-border-subtle bg-canvas', sampleNavigation && 'sticky top-0 z-20']}>
         <div class="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
-          <a href="/" class="inline-flex items-center gap-2 text-lg font-bold text-text-primary">
-            <span class="grid size-6 grid-cols-2 gap-0.5 rounded-md border border-border-strong p-1 text-primary" aria-hidden="true">{[0,1,2,3].map(() => <i class="rounded-[2px] bg-current" />)}</span>
+          <a href="/" class="inline-flex items-center gap-2.5 text-lg font-bold text-text-primary">
+            <svg width="26" height="26" viewBox="0 0 32 32" fill="none" aria-hidden="true" class="shrink-0 text-primary">
+              <rect x="1" y="1" width="30" height="30" rx="8.5" fill="currentColor" fill-opacity="0.1" stroke="currentColor" stroke-opacity="0.22" stroke-width="1.25" />
+              {isIrn ? (
+                <>
+                  <path d="M8.5 11.25v3a3.25 3.25 0 0 0 3.25 3.25h8.5a3.25 3.25 0 0 0 3.25-3.25v-3" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M16 9.5v8" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" />
+                  <path d="M12.25 20.5h7.5L16 26.25l-3.75-5.75Z" fill="currentColor" />
+                  <circle cx="16" cy="22.15" r="0.95" fill="white" />
+                </>
+              ) : (
+                <>
+                  <path d="M8.75 21.75V10.75l7.25 6.5 7.25-6.5v11" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" />
+                  <circle cx="16" cy="23.25" r="1.6" fill="currentColor" />
+                </>
+              )}
+            </svg>
             {siteCopy.brandTitle}
           </a>
-          <nav aria-label={isIrn ? 'ناوبری سایت' : 'Public navigation'} class="flex order-last w-full flex-wrap items-center gap-3 text-sm font-medium text-text-secondary sm:order-none sm:w-auto sm:gap-6">
+          <nav aria-label={isIrn ? 'ناوبری سایت' : 'Public navigation'} class="flex order-last w-full flex-nowrap items-center gap-4 overflow-x-auto no-scrollbar pb-1 text-sm font-medium text-text-secondary sm:order-none sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0 sm:gap-6">
             {sampleNavigation ? (
               <>
-                <a href="#sample-report">{isIrn ? 'گزارش نمونه' : 'Sample report'}</a>
-                <a href="#ai-feedback">{isIrn ? 'بازخورد هوش مصنوعی' : 'AI feedback'}</a>
-                <a href="#study-tools">{isIrn ? 'ابزارهای مطالعه' : 'Study tools'}</a>
+                <a class="inline-flex min-h-11 shrink-0 items-center whitespace-nowrap" href="#sample-report">{isIrn ? 'گزارش نمونه' : 'Sample report'}</a>
+                <a class="inline-flex min-h-11 shrink-0 items-center whitespace-nowrap" href="#ai-feedback">{isIrn ? 'بازخورد هوش مصنوعی' : 'AI feedback'}</a>
+                <a class="inline-flex min-h-11 shrink-0 items-center whitespace-nowrap" href="#study-tools">{isIrn ? 'ابزارهای مطالعه' : 'Study tools'}</a>
               </>
             ) : (
               <>
-                <a href="/calculators">{siteCopy.navCalculators}</a>
-                <a href="/samples">{siteCopy.navSamples}</a>
-                <a href="/vocab">{siteCopy.navVocab}</a>
+                <a class="inline-flex min-h-11 shrink-0 items-center whitespace-nowrap" href="/calculators">{siteCopy.navCalculators}</a>
+                <a class="inline-flex min-h-11 shrink-0 items-center whitespace-nowrap" href="/samples">{siteCopy.navSamples}</a>
+                <a class="inline-flex min-h-11 shrink-0 items-center whitespace-nowrap" href="/vocab">{siteCopy.navVocab}</a>
               </>
             )}
           </nav>
-          <a href="/app/" class="inline-flex h-9 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3.5 text-sm font-semibold text-on-primary hover:bg-primary-pressed">
+          <a href="/app/" class="inline-flex min-h-11 items-center whitespace-nowrap rounded-[var(--mz-radius-compact)] bg-primary px-4 text-sm font-semibold text-on-primary hover:bg-primary-pressed">
             {siteCopy.navOpenApp}
           </a>
         </div>
@@ -116,12 +131,12 @@ const themeBootVersion = createHash('sha256').update(ZERO_FOUC_THEME_BOOT_SCRIPT
         <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6">
           <p>{siteCopy.brandTitle} · {editionConfig.domain}</p>
           <div class="flex flex-wrap items-center gap-4">
-            <a href="/ielts-academic" class="hover:text-text-primary">IELTS Academic</a>
-            <a href="/ielts-general" class="hover:text-text-primary">IELTS General</a>
-            <a href="/toefl-ibt" class="hover:text-text-primary">TOEFL iBT 2026</a>
-            <a href="/pte-academic" class="hover:text-text-primary">PTE Academic</a>
-            <a href="/duolingo-english-test" class="hover:text-text-primary">DET</a>
-            <a href="/llms.txt" class="hover:text-text-primary">llms.txt</a>
+            <a href="/ielts-academic" class="inline-flex min-h-10 items-center hover:text-text-primary">IELTS Academic</a>
+            <a href="/ielts-general" class="inline-flex min-h-10 items-center hover:text-text-primary">IELTS General</a>
+            <a href="/toefl-ibt" class="inline-flex min-h-10 items-center hover:text-text-primary">TOEFL iBT 2026</a>
+            <a href="/pte-academic" class="inline-flex min-h-10 items-center hover:text-text-primary">PTE Academic</a>
+            <a href="/duolingo-english-test" class="inline-flex min-h-10 items-center hover:text-text-primary">DET</a>
+            <a href="/llms.txt" class="inline-flex min-h-10 items-center hover:text-text-primary">llms.txt</a>
           </div>
         </div>
       </footer>

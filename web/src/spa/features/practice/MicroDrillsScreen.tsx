@@ -259,7 +259,7 @@ export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: Micro
 
   if (!activeDrill) {
     return (
-      <div data-testid="micro-drills-screen" className="mx-auto flex max-w-5xl flex-col gap-5 pb-12 text-start">
+      <div data-testid="micro-drills-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-12 text-start">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">{t('drillsHubTitle')}</h1>
           <p className="mt-1 text-sm text-text-secondary">{t('drillsHubSubtitle')}</p>
@@ -303,8 +303,30 @@ export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: Micro
         {isLoadingCatalog ? (
           <p role="status" className="text-sm text-text-secondary">{t('workspaceLoadingLabel')}</p>
         ) : drills.length === 0 ? (
-          <MzCard variant="alt">
-            <p className="py-6 text-center text-sm text-text-secondary">{t('drillsEmptyMessage')}</p>
+          <MzCard variant="alt" className="text-center">
+            <p className="py-4 text-sm text-text-secondary">{t('drillsEmptyMessage')}</p>
+            <div className="pb-2">
+              <MzButton
+                type="button"
+                variant="secondary"
+                size="md"
+                onClick={() => {
+                  setIsLoadingCatalog(true);
+                  void deps.catalog.syncDrills().then((res) => {
+                    if (res.ok) {
+                      setDrills(
+                        res.value
+                          .map(parseCachedDrill)
+                          .filter((d): d is ParsedDrillView => d !== null),
+                      );
+                    }
+                    setIsLoadingCatalog(false);
+                  });
+                }}
+              >
+                {t('simRetryLoadAction')}
+              </MzButton>
+            </div>
           </MzCard>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -320,14 +342,19 @@ export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: Micro
                     <Flame className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>{formatMicroDrillCategoryLabel(drill.drillType)}</span>
                   </div>
-                  <h2 className="mt-1.5 text-base font-bold text-text-primary">{drill.title}</h2>
-                  <p className="mt-1 font-mono-exam text-xs text-text-secondary">
-                    {Math.round(drill.durationSeconds / 60)}m · {drill.items.length} items
+                  <LtrExamBoundary>
+                    <h2 className="mt-1.5 text-base font-bold text-text-primary">{drill.title}</h2>
+                  </LtrExamBoundary>
+                  <p className="mt-1 text-xs text-text-secondary">
+                    {t('practicePackMetaSummary', {
+                      minutes: Math.max(1, Math.round(drill.durationSeconds / 60)),
+                      count: drill.items.length,
+                    })}
                   </p>
                 </div>
                 <MzButton
                   variant="primary"
-                  size="sm"
+                  size="md"
                   data-testid={`start-drill-${drill.drillId}`}
                   leadingIcon={<Play className="h-3.5 w-3.5" aria-hidden="true" />}
                   onClick={() => startDrill(drill)}
@@ -348,7 +375,7 @@ export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: Micro
     ).length;
 
     return (
-      <div data-testid="micro-drills-screen" className="mx-auto flex max-w-3xl flex-col gap-5 pb-12 text-start">
+      <div data-testid="micro-drills-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-12 text-start">
         <MzCard variant="hero" data-testid="drill-scorecard">
           <p className="text-xs font-semibold text-primary">
             {formatMicroDrillCategoryLabel(activeDrill.drillType)}
@@ -376,7 +403,7 @@ export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: Micro
   }
 
   return (
-    <div data-testid="micro-drills-screen" className="mx-auto flex max-w-3xl flex-col gap-4 pb-12 text-start">
+    <div data-testid="micro-drills-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-4 pb-12 text-start">
       {savedToast ? <MzBanner tone="success">{savedToast}</MzBanner> : null}
 
       <MzCard variant="default" data-testid="drill-active-runner">

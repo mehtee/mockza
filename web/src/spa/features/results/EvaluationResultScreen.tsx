@@ -216,7 +216,7 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
   return (
     <div
       data-testid="evaluation-result-screen"
-      className="mx-auto flex h-[calc(100dvh-2rem)] min-h-[620px] max-w-7xl flex-col gap-4 pb-4 text-start"
+      className="mx-auto flex w-full max-w-6xl flex-col gap-4 pb-6 text-start lg:h-[calc(100dvh-2rem)] lg:min-h-[620px] lg:pb-4"
     >
       {statusToast ? <MzBanner tone="success">{statusToast}</MzBanner> : null}
 
@@ -235,9 +235,11 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
                 </span>
               </LtrExamBoundary>
               {examId === 'toefl_ibt' ? (
-                <span className="font-mono-exam text-xs font-semibold text-focus">
-                  ~{estimateToeflLegacy120(evaluation.overallBand)}/120
-                </span>
+                <LtrExamBoundary>
+                  <span className="font-mono-exam text-xs font-semibold text-focus">
+                    ~{estimateToeflLegacy120(evaluation.overallBand)}/120
+                  </span>
+                </LtrExamBoundary>
               ) : null}
               <span className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-canvas/70 px-2.5 py-0.5 text-[11px] font-medium text-text-secondary">
                 {evaluation.modelId} · {evaluation.rubricVersion}
@@ -258,14 +260,14 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
             <Link
               to="/progress/compare"
               data-testid="eval-compare-link"
-              className="inline-flex h-8 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-3 text-xs font-semibold text-text-primary hover:bg-surface-hover"
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-3.5 text-xs font-semibold text-text-primary hover:bg-surface-hover"
             >
               <GitCompare className="h-3.5 w-3.5" aria-hidden="true" />
               <span>{t('evalResultCompareAction')}</span>
             </Link>
             <Link
               to="/home"
-              className="inline-flex h-8 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
+              className="inline-flex min-h-10 items-center rounded-[var(--mz-radius-compact)] bg-primary px-3.5 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
             >
               {t('objResultBackHomeAction')}
             </Link>
@@ -285,8 +287,8 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
         <SplitPaneWorkspace
           viewKey="review:evaluation"
           initialRatio={0.48}
-          leftLabel="Submitted Artifact & Inline Edits"
-          rightLabel="Criteria, Rewrite & Vocab"
+          leftLabel={t('evalResultSubmittedTextTitle')}
+          rightLabel={t('evalResultCriteriaTitle')}
           leftPane={
             <div className="flex flex-col gap-4">
               {submittedEssay ? (
@@ -506,10 +508,12 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
                               />
                               <button
                                 type="button"
+                                aria-label={t('speechPracticeBtn')}
                                 onClick={() => setShadowPractice({ text: v.term, refId: v.id })}
-                                className="inline-flex h-7 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-primary/40 bg-canvas px-2 text-[11px] font-semibold text-primary hover:bg-surface-hover"
+                                className="inline-flex min-h-10 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-primary/40 bg-canvas px-3 text-xs font-semibold text-primary hover:bg-surface-hover sm:min-h-9"
                               >
-                                <Mic className="h-3 w-3" aria-hidden="true" />
+                                <Mic className="h-3.5 w-3.5" aria-hidden="true" />
+                                <span>{t('speechPracticeBtn')}</span>
                               </button>
                             </div>
                           </div>

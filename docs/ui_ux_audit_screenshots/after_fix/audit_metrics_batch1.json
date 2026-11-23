@@ -1,0 +1,478 @@
+[
+  {
+    "fileName": "irn_mobile_01_landing.jpg",
+    "url": "https://sanjia.mehtea.ir/",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 5222,
+    "aspectScrollRatio": 6.2,
+    "smallTapTargetCount": 6,
+    "smallTapTargets": [
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "آیلتس",
+        "w": 31,
+        "h": 21
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "تافل",
+        "w": 22,
+        "h": 21
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "پی‌تی‌ای",
+        "w": 38,
+        "h": 21
+      },
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "دولینگو",
+        "w": 36,
+        "h": 21
+      },
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "←",
+        "w": 33,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "→",
+        "w": 33,
+        "h": 32
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_02_calculator.jpg",
+    "url": "https://sanjia.mehtea.ir/calculators/ielts-band-calculator",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1671,
+    "aspectScrollRatio": 2,
+    "smallTapTargetCount": 0,
+    "smallTapTargets": [],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_03_pillar_ielts.jpg",
+    "url": "https://sanjia.mehtea.ir/ielts-academic",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1892,
+    "aspectScrollRatio": 2.2,
+    "smallTapTargetCount": 0,
+    "smallTapTargets": [],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_04_welcome.jpg",
+    "url": "https://sanjia.mehtea.ir/app/welcome",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1283,
+    "aspectScrollRatio": 1.5,
+    "smallTapTargetCount": 0,
+    "smallTapTargets": [],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_05_goal_setup.jpg",
+    "url": "https://sanjia.mehtea.ir/app/welcome",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1764,
+    "aspectScrollRatio": 2.1,
+    "smallTapTargetCount": 0,
+    "smallTapTargets": [],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_06_auth_login.jpg",
+    "url": "https://sanjia.mehtea.ir/app/auth/login",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1025,
+    "aspectScrollRatio": 1.2,
+    "smallTapTargetCount": 1,
+    "smallTapTargets": [
+      {
+        "tag": "button",
+        "testId": "",
+        "text": "",
+        "w": 32,
+        "h": 32
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_07_home_top.jpg",
+    "url": "https://sanjia.mehtea.ir/app/home",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 2760,
+    "aspectScrollRatio": 3.3,
+    "smallTapTargetCount": 0,
+    "smallTapTargets": [],
+    "clippedOrOffscreenCount": 4,
+    "clippedOrOffscreen": [
+      {
+        "reason": "offscreen-x",
+        "testId": "home-track-ielts_general",
+        "text": "آیلتس جنرال (IELTS General)",
+        "left": -25,
+        "right": 157,
+        "vw": 390
+      },
+      {
+        "reason": "offscreen-x",
+        "testId": "home-track-toefl_ibt",
+        "text": "تافل iBT ۲۰۲۶",
+        "left": -132,
+        "right": -33,
+        "vw": 390
+      },
+      {
+        "reason": "offscreen-x",
+        "testId": "home-track-pte_academic",
+        "text": "پی‌تی‌ای آکادمیک (PTE Academic)",
+        "left": -347,
+        "right": -140,
+        "vw": 390
+      },
+      {
+        "reason": "offscreen-x",
+        "testId": "home-track-det",
+        "text": "آزمون دولینگو (DET)",
+        "left": -485,
+        "right": -355,
+        "vw": 390
+      }
+    ],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_07_home_mid.jpg",
+    "url": "https://sanjia.mehtea.ir/app/home",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 2760,
+    "aspectScrollRatio": 3.3,
+    "smallTapTargetCount": 0,
+    "smallTapTargets": [],
+    "clippedOrOffscreenCount": 4,
+    "clippedOrOffscreen": [
+      {
+        "reason": "offscreen-x",
+        "testId": "home-track-ielts_general",
+        "text": "آیلتس جنرال (IELTS General)",
+        "left": -25,
+        "right": 157,
+        "vw": 390
+      },
+      {
+        "reason": "offscreen-x",
+        "testId": "home-track-toefl_ibt",
+        "text": "تافل iBT ۲۰۲۶",
+        "left": -132,
+        "right": -33,
+        "vw": 390
+      },
+      {
+        "reason": "offscreen-x",
+        "testId": "home-track-pte_academic",
+        "text": "پی‌تی‌ای آکادمیک (PTE Academic)",
+        "left": -347,
+        "right": -140,
+        "vw": 390
+      },
+      {
+        "reason": "offscreen-x",
+        "testId": "home-track-det",
+        "text": "آزمون دولینگو (DET)",
+        "left": -485,
+        "right": -355,
+        "vw": 390
+      }
+    ],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_08_roadmap.jpg",
+    "url": "https://sanjia.mehtea.ir/app/roadmap",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1920,
+    "aspectScrollRatio": 2.3,
+    "smallTapTargetCount": 0,
+    "smallTapTargets": [],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_09_practice.jpg",
+    "url": "https://sanjia.mehtea.ir/app/practice",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 5119,
+    "aspectScrollRatio": 6.1,
+    "smallTapTargetCount": 1,
+    "smallTapTargets": [
+      {
+        "tag": "input",
+        "testId": "practice-cached-only-toggle",
+        "text": "",
+        "w": 16,
+        "h": 16
+      }
+    ],
+    "clippedOrOffscreenCount": 5,
+    "clippedOrOffscreen": [
+      {
+        "reason": "offscreen-x",
+        "testId": "filter-exam-toefl_ibt",
+        "text": "تافل iBT ۲۰۲۶",
+        "left": -46,
+        "right": 54,
+        "vw": 390
+      },
+      {
+        "reason": "offscreen-x",
+        "testId": "filter-exam-pte_academic",
+        "text": "پی‌تی‌ای آکادمیک",
+        "left": -162,
+        "right": -52,
+        "vw": 390
+      },
+      {
+        "reason": "offscreen-x",
+        "testId": "filter-exam-det",
+        "text": "آزمون دولینگو (DET)",
+        "left": -299,
+        "right": -168,
+        "vw": 390
+      },
+      {
+        "reason": "offscreen-x",
+        "testId": "filter-skill-speaking",
+        "text": "اسپیکینگ",
+        "left": -19,
+        "right": 55,
+        "vw": 390
+      },
+      {
+        "reason": "offscreen-x",
+        "testId": "filter-skill-fullMock",
+        "text": "آزمون کامل",
+        "left": -104,
+        "right": -25,
+        "vw": 390
+      }
+    ],
+    "rawSnakeCaseVisible": [
+      "marine_biology"
+    ]
+  },
+  {
+    "fileName": "irn_mobile_10_coach.jpg",
+    "url": "https://sanjia.mehtea.ir/app/coach",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1512,
+    "aspectScrollRatio": 1.8,
+    "smallTapTargetCount": 1,
+    "smallTapTargets": [
+      {
+        "tag": "a",
+        "testId": "",
+        "text": "ارتقا",
+        "w": 20,
+        "h": 16
+      }
+    ],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_11_vocab_top.jpg",
+    "url": "https://sanjia.mehtea.ir/app/vocabulary",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1241,
+    "aspectScrollRatio": 1.5,
+    "smallTapTargetCount": 0,
+    "smallTapTargets": [],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_11_vocab_list.jpg",
+    "url": "https://sanjia.mehtea.ir/app/vocabulary",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1241,
+    "aspectScrollRatio": 1.5,
+    "smallTapTargetCount": 0,
+    "smallTapTargets": [],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_12_vocab_review_front.jpg",
+    "url": "https://sanjia.mehtea.ir/app/vocabulary/review",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 844,
+    "aspectScrollRatio": 1,
+    "smallTapTargetCount": 0,
+    "smallTapTargets": [],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_12_vocab_review_back.jpg",
+    "url": "https://sanjia.mehtea.ir/app/vocabulary/review",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 844,
+    "aspectScrollRatio": 1,
+    "smallTapTargetCount": 0,
+    "smallTapTargets": [],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_13_vocab_detail.jpg",
+    "url": "https://sanjia.mehtea.ir/app/vocabulary/seed-vocab-001",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 982,
+    "aspectScrollRatio": 1.2,
+    "smallTapTargetCount": 0,
+    "smallTapTargets": [],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_14_progress.jpg",
+    "url": "https://sanjia.mehtea.ir/app/progress",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1990,
+    "aspectScrollRatio": 2.4,
+    "smallTapTargetCount": 0,
+    "smallTapTargets": [],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_15_graph.jpg",
+    "url": "https://sanjia.mehtea.ir/app/progress/graph",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1501,
+    "aspectScrollRatio": 1.8,
+    "smallTapTargetCount": 0,
+    "smallTapTargets": [],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_16_settings.jpg",
+    "url": "https://sanjia.mehtea.ir/app/settings",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 3250,
+    "aspectScrollRatio": 3.9,
+    "smallTapTargetCount": 0,
+    "smallTapTargets": [],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  },
+  {
+    "fileName": "irn_mobile_17_paywall.jpg",
+    "url": "https://sanjia.mehtea.ir/app/paywall",
+    "vw": 390,
+    "vh": 844,
+    "dir": "rtl",
+    "horizOverflowPx": 0,
+    "bodyHeightPx": 1901,
+    "aspectScrollRatio": 2.3,
+    "smallTapTargetCount": 0,
+    "smallTapTargets": [],
+    "clippedOrOffscreenCount": 0,
+    "clippedOrOffscreen": [],
+    "rawSnakeCaseVisible": []
+  }
+]

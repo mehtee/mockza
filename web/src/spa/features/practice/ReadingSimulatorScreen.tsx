@@ -1,4 +1,4 @@
-import { Bookmark, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Bookmark } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import {
   type KeyboardShortcutHint,
@@ -6,10 +6,12 @@ import {
   PassageAnnotatorPane,
   type PassageSelectionDraft,
   QuestionPaletteBar,
+  SimulatorLoadFallback,
   SimulatorWorkspaceShell,
   SplitPaneWorkspace,
 } from '@/components/exam-kit';
 import { MzBanner, MzButton, MzCard, MzSegmentedControl } from '@/components/ui';
+import { BackChevronIcon, ForwardChevronIcon } from '@/components/bidi/DirectionIcon';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import type { AnnotationColorCode, PassageAnnotationRecord } from '@/gateways/storage.gateway';
 import { createTranslator } from '@/i18n';
@@ -86,6 +88,7 @@ export function ReadingSimulatorScreen({
     toggleFlag,
     handleSubmit,
     requestExit,
+    retryLoad,
   } = session;
 
   const handleAddAnnotation = useCallback(
@@ -188,8 +191,16 @@ export function ReadingSimulatorScreen({
 
   if (!bundle) {
     return (
-      <div data-testid="reading-simulator-screen" className="p-6 text-sm text-text-secondary">
-        {errorMsg ? <MzBanner tone="danger">{errorMsg}</MzBanner> : 'Loading Reading Simulator...'}
+      <div data-testid="reading-simulator-screen" className="p-4 sm:p-6 text-sm text-text-secondary">
+        {errorMsg ? (
+          <SimulatorLoadFallback
+            testId="reading-load-fallback"
+            onRetry={retryLoad}
+            message={errorMsg}
+          />
+        ) : (
+          t('workspaceLoadingLabel')
+        )}
       </div>
     );
   }
@@ -200,9 +211,6 @@ export function ReadingSimulatorScreen({
 
   const visibleQuestions =
     viewMode === 'focused' && activeQuestion ? [activeQuestion] : sectionQuestions;
-
-  const PrevIcon = deps.edition === 'irn' ? ChevronRight : ChevronLeft;
-  const NextIcon = deps.edition === 'irn' ? ChevronLeft : ChevronRight;
 
   return (
     <div data-testid="reading-simulator-screen" className="flex flex-col gap-3">
@@ -263,7 +271,7 @@ export function ReadingSimulatorScreen({
                 disabled={activeQuestionIndex <= 0}
                 onClick={() => setActiveQuestionIndex((idx) => Math.max(0, idx - 1))}
               >
-                <PrevIcon className="h-4 w-4" aria-hidden="true" />
+                <BackChevronIcon edition={deps.edition} className="h-4 w-4" />
                 <span>{t('simPrevQuestionAction')}</span>
               </MzButton>
               <MzButton
@@ -276,7 +284,7 @@ export function ReadingSimulatorScreen({
                 }
               >
                 <span>{t('simNextQuestionAction')}</span>
-                <NextIcon className="h-4 w-4" aria-hidden="true" />
+                <ForwardChevronIcon edition={deps.edition} className="h-4 w-4" />
               </MzButton>
               <MzButton
                 variant="primary"
@@ -294,8 +302,8 @@ export function ReadingSimulatorScreen({
         <SplitPaneWorkspace
           viewKey="simulator:reading"
           initialRatio={0.55}
-          leftLabel="Reading Passage"
-          rightLabel="Questions"
+          leftLabel={t('splitTabLeftReading')}
+          rightLabel={t('splitTabRightQuestions')}
           leftPane={
             <div className="flex flex-col gap-4">
               {sortedSections.length > 1 ? (

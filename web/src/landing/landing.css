@@ -489,8 +489,8 @@
   .landing-intro-art { min-block-size: clamp(303px,61vw,430px); }
   .landing-intro-art :is(img,.hero-art-wash), .landing-intro-art::before { border-start-end-radius: 64px; }
   .landing-intro-art::before { inset-inline: 12px -7px; inset-block-start: -7px; }
-  .hero-evaluation { inset-inline-start: 9px; inset-block-end: 38px; }
-  .hero-playing { inset-inline-end: 7px; }
+  .hero-evaluation { inset-inline-start: 12px; inset-block-end: 42px; }
+  .hero-playing { inset-inline-end: 12px; }
   .landing-feedback { padding-block: 47px; }
   .evaluation-panel, .report-panel { grid-template-columns: minmax(0,1fr); }
   .evaluation-notes { border-inline: 0; border-block-start: 1px solid var(--line); }
@@ -506,8 +506,8 @@
   .product-landing section[id] { scroll-margin-block-start: 113px; }
 }
 @media (max-width: 500px) {
-  .landing-intro-copy .actions { gap: 5px; }
-  .landing-intro-copy .btn { padding-inline: 10px; font-size: .8rem; }
+  .landing-intro-copy .actions { flex-wrap: wrap; gap: 10px; }
+  .landing-intro-copy .btn { min-block-size: 44px; padding-inline: 14px; font-size: .85rem; }
   .landing-intro-copy p { font-size: .95rem; }
   .sample-label { display: none; }
   .report-tabs { padding-inline: 0; }

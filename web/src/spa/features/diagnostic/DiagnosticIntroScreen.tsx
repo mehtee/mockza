@@ -1,9 +1,11 @@
 import { normalizeSupportedExamId, type DiagnosticMode, type SupportedExamId } from '@mockza/domain';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { ArrowLeft, ArrowRight, BookOpen, Headphones, MicOff, Play } from 'lucide-react';
+import { BookOpen, Headphones, MicOff, Play } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { CompactPreflightHeader } from '@/components/exam-kit';
 import { MzBanner, MzButton, MzCard } from '@/components/ui';
+import { ForwardArrowIcon } from '@/components/bidi/DirectionIcon';
+import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import type { DiagnosticBankDto } from '@/gateways/diagnostic.gateway';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
@@ -27,8 +29,6 @@ export function DiagnosticIntroScreen({ initialTrack }: DiagnosticIntroScreenPro
   const [examId, setExamId] = useState<SupportedExamId>(initialTrack ?? 'ielts_academic');
   const [isLaunching, setIsLaunching] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  const ForwardIcon = deps.edition === 'irn' ? ArrowLeft : ArrowRight;
 
   useEffect(() => {
     let mounted = true;
@@ -108,7 +108,7 @@ export function DiagnosticIntroScreen({ initialTrack }: DiagnosticIntroScreenPro
   };
 
   return (
-    <div data-testid="diagnostic-intro-screen" className="mx-auto flex max-w-5xl flex-col gap-5 pb-6 text-start">
+    <div data-testid="diagnostic-intro-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-6 text-start">
       {errorMsg ? <MzBanner tone="danger">{errorMsg}</MzBanner> : null}
 
       {/* Zero-Scroll Compact Preflight Strip */}
@@ -122,11 +122,7 @@ export function DiagnosticIntroScreen({ initialTrack }: DiagnosticIntroScreenPro
           { value: 'extended', label: t('diagModeExtendedLabel') },
           { value: 'accessible', label: t('diagModeAccessibleLabel') },
         ]}
-        rulesSummary={[
-          'Stage 1 (Reading) & Stage 2 (Listening) adapt question difficulty in real time across 3–4 micro-blocks.',
-          'Writing & Speaking capture short authentic samples evaluated asynchronously.',
-          'Every completed skill saves locally so you can retake any individual skill later.',
-        ]}
+        rulesSummary={[t('diagRule1'), t('diagRule2'), t('diagRule3')]}
       />
 
       {/* Compact Horizontal Preview + Launch Strip */}
@@ -136,12 +132,23 @@ export function DiagnosticIntroScreen({ initialTrack }: DiagnosticIntroScreenPro
             <BookOpen className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
             <div>
               <h3 className="text-xs font-bold text-text-primary">
-                {bank?.workedExamples.reading.questionPrompt ?? 'Reading Calibration'}
+                {bank?.workedExamples.reading.questionPrompt ? (
+                  <LtrExamBoundary className="inline-block">
+                    {bank.workedExamples.reading.questionPrompt}
+                  </LtrExamBoundary>
+                ) : (
+                  t('diagReadingCalibrationTitle')
+                )}
               </h3>
-              <p className="mt-1 text-xs text-text-secondary">
-                {bank?.workedExamples.reading.explanation ??
-                  'Short excerpt + 2 focused items per adaptive block.'}
-              </p>
+              {bank?.workedExamples.reading.explanation ? (
+                <LtrExamBoundary className="mt-1 block text-xs text-text-secondary">
+                  {bank.workedExamples.reading.explanation}
+                </LtrExamBoundary>
+              ) : (
+                <p className="mt-1 text-xs text-text-secondary">
+                  {t('diagReadingCalibrationDesc')}
+                </p>
+              )}
             </div>
           </div>
         </MzCard>
@@ -151,12 +158,23 @@ export function DiagnosticIntroScreen({ initialTrack }: DiagnosticIntroScreenPro
             <Headphones className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
             <div>
               <h3 className="text-xs font-bold text-text-primary">
-                {bank?.workedExamples.listening.questionPrompt ?? 'Listening Calibration'}
+                {bank?.workedExamples.listening.questionPrompt ? (
+                  <LtrExamBoundary className="inline-block">
+                    {bank.workedExamples.listening.questionPrompt}
+                  </LtrExamBoundary>
+                ) : (
+                  t('diagListeningCalibrationTitle')
+                )}
               </h3>
-              <p className="mt-1 text-xs text-text-secondary">
-                {bank?.workedExamples.listening.explanation ??
-                  'Audio briefing + distractor check tailored by selected mode.'}
-              </p>
+              {bank?.workedExamples.listening.explanation ? (
+                <LtrExamBoundary className="mt-1 block text-xs text-text-secondary">
+                  {bank.workedExamples.listening.explanation}
+                </LtrExamBoundary>
+              ) : (
+                <p className="mt-1 text-xs text-text-secondary">
+                  {t('diagListeningCalibrationDesc')}
+                </p>
+              )}
             </div>
           </div>
         </MzCard>
@@ -165,11 +183,24 @@ export function DiagnosticIntroScreen({ initialTrack }: DiagnosticIntroScreenPro
       {/* Explicit Action Footer */}
       <MzCard variant="hero" padding="md">
         <div className="flex flex-wrap items-center justify-between gap-3">
+          <MzButton
+            variant="primary"
+            size="lg"
+            data-testid="diag-start-btn"
+            className="w-full sm:order-last sm:w-auto"
+            isLoading={isLaunching}
+            leadingIcon={<Play className="h-4 w-4" aria-hidden="true" />}
+            trailingIcon={<ForwardArrowIcon edition={deps.edition} className="h-4 w-4" />}
+            onClick={() => void handleLaunch(false)}
+          >
+            {t('diagStartAction')}
+          </MzButton>
+
           <div className="flex flex-wrap items-center gap-2">
             <Link
               to="/home"
               data-testid="diag-later-link"
-              className="inline-flex h-10 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-4 text-xs font-semibold text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+              className="inline-flex min-h-11 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-4 text-xs font-semibold text-text-secondary hover:bg-surface-hover hover:text-text-primary"
             >
               {t('diagDoLaterAction')}
             </Link>
@@ -185,18 +216,6 @@ export function DiagnosticIntroScreen({ initialTrack }: DiagnosticIntroScreenPro
               {t('diagStartWithoutSpeakingAction')}
             </MzButton>
           </div>
-
-          <MzButton
-            variant="primary"
-            size="lg"
-            data-testid="diag-start-btn"
-            isLoading={isLaunching}
-            leadingIcon={<Play className="h-4 w-4" aria-hidden="true" />}
-            onClick={() => void handleLaunch(false)}
-          >
-            <span>{t('diagStartAction')}</span>
-            <ForwardIcon className="h-4 w-4" aria-hidden="true" />
-          </MzButton>
         </div>
       </MzCard>
     </div>

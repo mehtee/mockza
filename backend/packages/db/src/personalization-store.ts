@@ -5,6 +5,7 @@ import {
   estimateCefrTierFromScore,
   extractObjectiveWeaknesses,
   generateOrRecalibrateRoadmap,
+  mapCefrTierToExamScore,
   type AdaptationPhase,
   type AuthoringTier,
   type BandConfidence,
@@ -834,7 +835,7 @@ export async function computeFullPersonalizationState(params: {
     const planId = finalPlan?.planId ?? randomUUID();
     const nextRevision = (finalPlan?.planRevision ?? 0) + 1;
     const baseline =
-      liveBand.overallScore ?? Math.max(5.0, Number((profileRow.targetBand - 1.0).toFixed(1)));
+      liveBand.overallScore ?? mapCefrTierToExamScore('B1', examId);
 
     const stepRowsToInsert = generated.steps.map((s) => ({
       stepId: randomUUID(),
@@ -859,7 +860,12 @@ export async function computeFullPersonalizationState(params: {
     }));
 
     const activeInserted =
-      stepRowsToInsert.find((s) => s.status === 'active') ?? stepRowsToInsert[0] ?? null;
+      (liveBand.overallScore == null && profileRow.onboardingCompleted
+        ? stepRowsToInsert.find((s) => s.status === 'active' && s.stepKind !== 'diagnostic')
+        : undefined) ??
+      stepRowsToInsert.find((s) => s.status === 'active') ??
+      stepRowsToInsert[0] ??
+      null;
     if (activeInserted && activeInserted.status === 'locked') {
       activeInserted.status = 'active';
     }

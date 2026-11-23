@@ -146,56 +146,58 @@ abstract final class VocabWaveScheduler {
     final clampedWaveSize = waveSize.clamp(5, 30);
     final favSet = CanonicalTopicKey.normalizeList(favoriteTopics).toSet();
     final weakSet = activeWeaknessKeys.toSet();
-    final effectiveBand = currentBand ?? math.max(5.5, targetBand - 0.5);
-    final userCefr =
-        LiveBandEngine.estimateCefrTierFromScore(effectiveBand, track) ??
-        AuthoringTier.b2;
+    final userCefr = currentBand != null
+        ? (LiveBandEngine.estimateCefrTierFromScore(currentBand, track) ??
+              AuthoringTier.b1)
+        : AuthoringTier.b1;
     final userLevel = _cefrNum(userCefr);
 
-    final scored = cards.map((card) {
-      final topic = card.canonicalTopicKey ??
-          CanonicalTopicKey.fromLegacyVocabTag(card.legacyTopicTag);
-      final bandDiff = (_cefrNum(card.cefrLevel) - userLevel).abs();
-      final isFav = favSet.contains(topic);
-      final isCore = topic == CanonicalTopicKey.academicCore;
-      final matchesWeak = card.weaknessTags.any(weakSet.contains);
-      final isMistake = card.sourceKind != 'seeded';
+    final scored =
+        cards.map((card) {
+          final topic =
+              card.canonicalTopicKey ??
+              CanonicalTopicKey.fromLegacyVocabTag(card.legacyTopicTag);
+          final bandDiff = (_cefrNum(card.cefrLevel) - userLevel).abs();
+          final isFav = favSet.contains(topic);
+          final isCore = topic == CanonicalTopicKey.academicCore;
+          final matchesWeak = card.weaknessTags.any(weakSet.contains);
+          final isMistake = card.sourceKind != 'seeded';
 
-      var bucket = 3;
-      if (isMistake) {
-        bucket = 0;
-      } else if ((isFav || isCore) && bandDiff <= 1) {
-        bucket = 1;
-      } else if (matchesWeak || isFav) {
-        bucket = 2;
-      } else if (bandDiff <= 1) {
-        bucket = 3;
-      } else {
-        bucket = 4;
-      }
+          var bucket = 3;
+          if (isMistake) {
+            bucket = 0;
+          } else if ((isFav || isCore) && bandDiff <= 1) {
+            bucket = 1;
+          } else if (matchesWeak || isFav) {
+            bucket = 2;
+          } else if (bandDiff <= 1) {
+            bucket = 3;
+          } else {
+            bucket = 4;
+          }
 
-      final relevanceScore =
-          (matchesWeak ? 200 : 0) +
-          (isFav ? 120 : (isCore ? 70 : 0)) +
-          math.max(0, 50 - bandDiff * 20);
+          final relevanceScore =
+              (matchesWeak ? 200 : 0) +
+              (isFav ? 120 : (isCore ? 70 : 0)) +
+              math.max(0, 50 - bandDiff * 20);
 
-      return (
-        card: card,
-        topic: topic,
-        bucket: bucket,
-        relevanceScore: relevanceScore,
-        baseOrder: card.baseWaveOrder,
-      );
-    }).toList()..sort((a, b) {
-      if (a.bucket != b.bucket) return a.bucket.compareTo(b.bucket);
-      if (b.relevanceScore != a.relevanceScore) {
-        return b.relevanceScore.compareTo(a.relevanceScore);
-      }
-      if (a.baseOrder != b.baseOrder) {
-        return a.baseOrder.compareTo(b.baseOrder);
-      }
-      return a.card.cardId.compareTo(b.card.cardId);
-    });
+          return (
+            card: card,
+            topic: topic,
+            bucket: bucket,
+            relevanceScore: relevanceScore,
+            baseOrder: card.baseWaveOrder,
+          );
+        }).toList()..sort((a, b) {
+          if (a.bucket != b.bucket) return a.bucket.compareTo(b.bucket);
+          if (b.relevanceScore != a.relevanceScore) {
+            return b.relevanceScore.compareTo(a.relevanceScore);
+          }
+          if (a.baseOrder != b.baseOrder) {
+            return a.baseOrder.compareTo(b.baseOrder);
+          }
+          return a.card.cardId.compareTo(b.card.cardId);
+        });
 
     final safeUnlockedWave = math.max<int>(1, unlockedWave);
     final assigned = <AssignedVocabWaveCard<T>>[];

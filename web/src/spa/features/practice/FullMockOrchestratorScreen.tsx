@@ -244,7 +244,7 @@ export function FullMockOrchestratorScreen({
   // Inter-section Break Screen
   if (isOnBreak && nextPendingStage) {
     return (
-      <div data-testid="full-mock-screen" className="mx-auto flex max-w-2xl flex-col gap-5 py-8 text-start">
+      <div data-testid="full-mock-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-5 py-8 text-start">
         <MzCard variant="hero" data-testid="full-mock-break-card">
           <div className="flex items-center gap-2 text-primary">
             <Coffee className="h-5 w-5" aria-hidden="true" />
@@ -281,11 +281,23 @@ export function FullMockOrchestratorScreen({
   const allCompleted = !nextPendingStage;
 
   return (
-    <div data-testid="full-mock-screen" className="mx-auto flex max-w-4xl flex-col gap-5 pb-12 text-start">
+    <div data-testid="full-mock-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-12 text-start">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-xs font-semibold text-primary">
-            {EXAM_TRACK_SPECS[session.track].displayName}
+            {deps.edition === 'irn'
+              ? t(
+                  session.track === 'ielts_academic'
+                    ? 'trackIeltsAcademic'
+                    : session.track === 'ielts_general'
+                      ? 'trackIeltsGeneral'
+                      : session.track === 'toefl_ibt'
+                        ? 'trackToeflIbt'
+                        : session.track === 'pte_academic'
+                          ? 'trackPteAcademic'
+                          : 'trackDet',
+                )
+              : EXAM_TRACK_SPECS[session.track].displayName}
           </p>
           <h1 className="text-2xl font-bold text-text-primary">{t('fullMockOrchestratorTitle')}</h1>
           <p className="mt-1 text-sm text-text-secondary">{t('fullMockSubtitle')}</p>
@@ -293,6 +305,7 @@ export function FullMockOrchestratorScreen({
 
         <MzSegmentedControl<'exam' | 'study'>
           ariaLabel="Mock Exam Mode"
+          fullWidth
           value={examMode}
           onChange={setExamMode}
           options={[
@@ -332,12 +345,14 @@ export function FullMockOrchestratorScreen({
                   data-testid={`full-mock-scorecard-${st.stageKey}`}
                   className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-3 py-2 text-xs"
                 >
-                  <p className="font-semibold text-text-secondary">{st.title}</p>
                   <LtrExamBoundary>
+                    <p className="font-semibold text-text-secondary">{st.title}</p>
                     <p className="mt-0.5 font-mono-exam text-sm font-bold text-primary">
                       {att && att.overallBand !== null
                         ? formatExamScoreWithUnit(att.overallBand, session.track)
-                        : 'Pending'}
+                        : deps.edition === 'irn'
+                          ? 'در انتظار'
+                          : 'Pending'}
                     </p>
                   </LtrExamBoundary>
                 </div>
@@ -347,13 +362,13 @@ export function FullMockOrchestratorScreen({
           <div className="mt-4 flex flex-wrap gap-3">
             <Link
               to="/progress"
-              className="inline-flex h-9 items-center rounded-[var(--mz-radius-control)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
+              className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-control)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
             >
               {t('navProgress')}
             </Link>
             <MzButton
               variant="secondary"
-              size="sm"
+              size="md"
               data-testid="full-mock-reset-btn"
               leadingIcon={<RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />}
               onClick={() => void handleResetMock()}
@@ -389,18 +404,18 @@ export function FullMockOrchestratorScreen({
                   >
                     {isDone ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : index + 1}
                   </span>
-                  <div>
+                  <LtrExamBoundary>
                     <p className="text-sm font-bold text-text-primary">{stage.title}</p>
                     <p className="font-mono-exam text-[11px] text-text-tertiary">
-                      Pack: {stage.packId}
+                      {stage.packId}
                     </p>
-                  </div>
+                  </LtrExamBoundary>
                 </div>
 
                 {isNext ? (
                   <MzButton
                     variant="primary"
-                    size="sm"
+                    size="md"
                     data-testid={`start-mock-stage-${stage.stageKey}`}
                     leadingIcon={<Play className="h-3.5 w-3.5" aria-hidden="true" />}
                     onClick={() => setActiveStageKey(stage.stageKey)}

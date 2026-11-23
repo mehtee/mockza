@@ -16,6 +16,10 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SpeechPracticeDrawer } from '@/components/speech/SpeechPracticeDrawer';
 import { MzCard } from '@/components/ui';
+import {
+  ForwardArrowIcon,
+} from '@/components/bidi/DirectionIcon';
+import { formatTopicLabel } from '@/components/bidi/topic-labels';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import { toPersianDigits } from '@/edition/bidi/numerals';
 import type { ActiveRecordingHandle, RecordedClip } from '@/gateways/audio.gateway';
@@ -31,11 +35,11 @@ export interface DailyMissionScreenProps {
 }
 
 const TOPIC_QUICK_PICKS = [
-  'Technology & AI',
-  'Career & Workplace',
-  'Travel & Culture',
-  'Science & Climate',
-  'Sports',
+  'technology_ai',
+  'workplace_careers',
+  'culture_travel',
+  'climate_policy',
+  'health_society',
 ] as const;
 
 function matchesPhraseLoosely(draftLower: string, phrase: string): boolean {
@@ -226,7 +230,7 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-4xl py-10 text-sm text-text-secondary">
+      <div className="mx-auto w-full max-w-6xl py-10 text-sm text-text-secondary">
         {isRtl ? 'در حال آماده‌سازی مأموریت روزانه...' : "Preparing Today's 10-Min Coach..."}
       </div>
     );
@@ -235,7 +239,7 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
   const isCompleted = mission?.status === 'completed' && mission.evaluationResult !== null;
 
   return (
-    <div data-testid="daily-mission-screen" className="mx-auto flex max-w-4xl flex-col gap-5 pb-10 text-start">
+    <div data-testid="daily-mission-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-10 text-start">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle pb-4">
         <div>
           <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
@@ -252,15 +256,15 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
                 className="inline-flex items-center rounded-[var(--mz-radius-pill)] px-2.5 py-0.5 font-semibold text-white"
                 style={{ backgroundColor: 'var(--mz-color-interest-tag)' }}
               >
-                {mission.focusTopic}
+                {formatTopicLabel(mission.focusTopic, deps.edition)}
               </span>
               <button
                 type="button"
                 data-testid="mission-change-topic-btn"
                 onClick={() => setTopicMenuOpen((open) => !open)}
-                className="inline-flex items-center gap-1 rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-2.5 py-0.5 font-semibold text-primary hover:bg-surface-hover"
+                className="inline-flex min-h-10 items-center gap-1 rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-3 text-xs font-semibold text-primary hover:bg-surface-hover"
               >
-                <RefreshCw className="h-3 w-3" aria-hidden="true" />
+                <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>{isRtl ? 'تغییر موضوع' : 'Change Topic'}</span>
               </button>
             </div>
@@ -268,7 +272,7 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
         </div>
         <Link
           to="/progress/graph"
-          className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 py-1.5 text-xs font-semibold text-primary hover:bg-surface-hover"
+          className="inline-flex min-h-10 items-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 text-xs font-semibold text-primary hover:bg-surface-hover"
         >
           {t('dailyMissionViewGraph')}
         </Link>
@@ -312,26 +316,26 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
                 type="button"
                 disabled={refreshingTopic}
                 onClick={() => void handleRefreshTopic(topic)}
-                className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-3 py-1 text-xs font-medium text-text-primary hover:border-primary hover:text-primary disabled:opacity-50"
+                className="inline-flex min-h-10 items-center rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-3.5 text-xs font-medium text-text-primary hover:border-primary hover:text-primary disabled:opacity-50"
               >
-                {topic}
+                {formatTopicLabel(topic, deps.edition)}
               </button>
             ))}
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <input
-              type="text"
-              value={customTopic}
-              onChange={(e) => setCustomTopic(e.target.value)}
-              placeholder={isRtl ? 'موضوع دلخواه (مثلاً عکاسی، اقتصاد)...' : 'Custom topic (e.g., Robotics, Film)...'}
-              className="h-9 min-w-52 flex-1 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-surface px-3 text-xs text-text-primary focus:border-primary focus:outline-none"
-            />
-            <button
-              type="button"
-              disabled={refreshingTopic || customTopic.trim().length < 2}
-              onClick={() => void handleRefreshTopic(customTopic)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-[var(--mz-radius-compact)] bg-primary px-3 text-xs font-semibold text-on-primary disabled:opacity-50"
-            >
+              <input
+                type="text"
+                value={customTopic}
+                onChange={(e) => setCustomTopic(e.target.value)}
+                placeholder={isRtl ? 'موضوع دلخواه (مثلاً عکاسی، اقتصاد)...' : 'Custom topic (e.g., Robotics, Film)...'}
+                className="h-11 min-w-44 flex-1 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-surface px-3 text-sm text-text-primary focus:border-primary focus:outline-none"
+              />
+              <button
+                type="button"
+                disabled={refreshingTopic || customTopic.trim().length < 2}
+                onClick={() => void handleRefreshTopic(customTopic)}
+                className="inline-flex h-11 items-center gap-1.5 rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary disabled:opacity-50"
+              >
               {refreshingTopic
                 ? isRtl
                   ? 'در حال ساخت...'
@@ -345,8 +349,26 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
       ) : null}
 
       {error ? (
-        <div className="rounded-[var(--mz-radius-compact)] border border-danger/40 bg-danger/10 p-3 text-xs text-danger">
-          {error}
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--mz-radius-compact)] border border-danger/40 bg-danger/10 p-3 text-xs text-danger">
+          <span>{error}</span>
+          {!mission ? (
+            <button
+              type="button"
+              onClick={() => {
+                setLoading(true);
+                setError(null);
+                void deps.linguistic.getTodayMission({ examTrack }).then((res) => {
+                  if (res.ok) setMission(res.value);
+                  else setError(res.error.message);
+                  setLoading(false);
+                });
+              }}
+              className="inline-flex min-h-10 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-danger/40 bg-bg-surface px-3 text-xs font-semibold text-text-primary hover:bg-surface-hover"
+            >
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{t('simRetryLoadAction')}</span>
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -428,7 +450,7 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
                   type="button"
                   data-testid="mission-mode-write"
                   onClick={() => setResponseMode('writing')}
-                  className={`inline-flex items-center gap-1.5 rounded-[var(--mz-radius-compact)] px-3 py-1 text-xs font-semibold ${
+                  className={`inline-flex min-h-10 items-center gap-1.5 rounded-[var(--mz-radius-compact)] px-3 text-xs font-semibold ${
                     responseMode === 'writing' ? 'bg-primary text-on-primary' : 'text-text-secondary'
                   }`}
                 >
@@ -439,7 +461,7 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
                   type="button"
                   data-testid="mission-mode-speak"
                   onClick={() => setResponseMode('speaking')}
-                  className={`inline-flex items-center gap-1.5 rounded-[var(--mz-radius-compact)] px-3 py-1 text-xs font-semibold ${
+                  className={`inline-flex min-h-10 items-center gap-1.5 rounded-[var(--mz-radius-compact)] px-3 text-xs font-semibold ${
                     responseMode === 'speaking' ? 'bg-primary text-on-primary' : 'text-text-secondary'
                   }`}
                 >
@@ -453,7 +475,7 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
                   type="button"
                   data-testid="mission-starter-frame-btn"
                   onClick={handleInsertStarterFrame}
-                  className="inline-flex items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-2.5 py-1 text-xs font-semibold text-primary hover:bg-surface-hover"
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-3 text-xs font-semibold text-primary hover:bg-surface-hover"
                 >
                   <Lightbulb className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>{isRtl ? 'درج الگوی شروع' : 'Insert Starter Frame'}</span>
@@ -487,7 +509,7 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
                     data-testid="mission-complete-btn"
                     disabled={submitting || responseText.trim().length < 10}
                     onClick={() => void handleSubmit()}
-                    className="inline-flex h-10 items-center gap-2 rounded-[var(--mz-radius-compact)] bg-primary px-4 text-sm font-semibold text-on-primary disabled:opacity-50"
+                    className="inline-flex h-11 items-center gap-2 rounded-[var(--mz-radius-compact)] bg-primary px-4 text-sm font-semibold text-on-primary disabled:opacity-50"
                   >
                     <Send className="h-4 w-4" aria-hidden="true" />
                     <span>{submitting ? (isRtl ? 'در حال تحلیل...' : 'Grading...') : t('dailyMissionSubmitCta')}</span>
@@ -502,12 +524,12 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
                     : 'Record 10–45s speaking naturally about this prompt using the target structures above.'}
                 </p>
                 <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    data-testid="mission-speak-record-btn"
-                    onClick={() => void handleToggleSpeakRecord()}
-                    className="inline-flex h-10 items-center gap-2 rounded-[var(--mz-radius-compact)] border border-border-strong bg-canvas px-4 text-xs font-semibold text-text-primary hover:bg-surface-hover"
-                  >
+                    <button
+                      type="button"
+                      data-testid="mission-speak-record-btn"
+                      onClick={() => void handleToggleSpeakRecord()}
+                      className="inline-flex h-11 items-center gap-2 rounded-[var(--mz-radius-compact)] border border-border-strong bg-canvas px-4 text-xs font-semibold text-text-primary hover:bg-surface-hover"
+                    >
                     {recording ? (
                       <>
                         <Square className="h-3.5 w-3.5 text-danger" aria-hidden="true" />
@@ -529,13 +551,13 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
                     </span>
                   ) : null}
 
-                  <button
-                    type="button"
-                    data-testid="mission-complete-btn"
-                    disabled={submitting || !recordedClip}
-                    onClick={() => void handleSubmit()}
-                    className="ms-auto inline-flex h-10 items-center gap-2 rounded-[var(--mz-radius-compact)] bg-primary px-4 text-sm font-semibold text-on-primary disabled:opacity-50"
-                  >
+                    <button
+                      type="button"
+                      data-testid="mission-complete-btn"
+                      disabled={submitting || !recordedClip}
+                      onClick={() => void handleSubmit()}
+                      className="ms-auto inline-flex h-11 items-center gap-2 rounded-[var(--mz-radius-compact)] bg-primary px-4 text-sm font-semibold text-on-primary disabled:opacity-50"
+                    >
                     <Send className="h-4 w-4" aria-hidden="true" />
                     <span>{submitting ? (isRtl ? 'در حال تحلیل...' : 'Grading...') : t('dailyMissionSubmitCta')}</span>
                   </button>
@@ -618,7 +640,10 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
                           <LtrExamBoundary className="min-w-0 flex-1">
                             <p>
                               <del className="text-text-tertiary">{u.original}</del>{' '}
-                              <span className="font-semibold text-success">→ {u.improved}</span>
+                              <span className="inline-flex items-center gap-1 font-semibold text-success">
+                                <ForwardArrowIcon edition={deps.edition} className="h-3.5 w-3.5" />
+                                {u.improved}
+                              </span>
                             </p>
                             <p className="mt-1 text-text-secondary">{u.whyEn}</p>
                           </LtrExamBoundary>
@@ -626,7 +651,7 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
                             type="button"
                             disabled={saved}
                             onClick={() => void handleSaveUpgradeToDeck(u.original, u.improved, u.whyEn)}
-                            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-border-strong bg-canvas px-2.5 font-semibold text-primary hover:bg-surface-hover disabled:opacity-60"
+                            className="inline-flex h-10 shrink-0 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-border-strong bg-canvas px-3 font-semibold text-primary hover:bg-surface-hover disabled:opacity-60"
                           >
                             <BookmarkPlus className="h-3.5 w-3.5" aria-hidden="true" />
                             <span>

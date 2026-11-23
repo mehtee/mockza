@@ -132,7 +132,7 @@ export function CompactPreflightHeader<TMode extends string = string>({
 
   return (
     <MzCard variant="default" padding="sm" data-testid="compact-preflight-header">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-base font-bold text-text-primary">{title}</h2>
@@ -142,7 +142,7 @@ export function CompactPreflightHeader<TMode extends string = string>({
                 data-testid="preflight-rules-toggle"
                 aria-expanded={rulesExpanded}
                 onClick={() => setRulesExpanded((prev) => !prev)}
-                className="inline-flex items-center gap-1 rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-2.5 py-0.5 text-[11px] font-medium text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+                className="inline-flex min-h-9 items-center gap-1 whitespace-nowrap rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-3 text-[11px] font-medium text-text-secondary hover:bg-surface-hover hover:text-text-primary"
               >
                 <Info className="h-3 w-3" aria-hidden="true" />
                 <span>{t('preflightRulesToggleLabel')}</span>
@@ -159,6 +159,7 @@ export function CompactPreflightHeader<TMode extends string = string>({
 
         <MzSegmentedControl
           ariaLabel={title}
+          fullWidth
           options={modeOptions}
           value={selectedMode}
           onChange={onModeChange}
@@ -181,7 +182,7 @@ export function CompactPreflightHeader<TMode extends string = string>({
           ) : null}
 
           {includeMicCheck ? (
-            <div className="flex min-w-[240px] flex-1 flex-wrap items-center gap-3">
+            <div className="flex w-full min-w-0 flex-col items-stretch gap-2.5 sm:flex-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
               <MzButton
                 variant="secondary"
                 size="sm"
@@ -193,7 +194,7 @@ export function CompactPreflightHeader<TMode extends string = string>({
                 {isTestingMic ? t('settingsMicTestingLabel') : t('settingsMicTestAction')}
               </MzButton>
 
-              <div className="flex min-w-[140px] flex-1 items-center gap-2">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
                 <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-alt">
                   <div
                     data-testid="preflight-mic-meter-fill"
@@ -235,21 +236,21 @@ export function CompactPreflightHeader<TMode extends string = string>({
         </div>
       ) : null}
 
-      {loopback?.blobUrl ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 py-2">
-          <Volume2 className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-          <span className="text-xs font-medium text-text-secondary">
-            {t('preflightLoopbackPlaybackLabel')}
-          </span>
-          <audio
-            controls
-            data-testid="preflight-loopback-audio"
-            src={loopback.blobUrl}
-            aria-label={t('preflightLoopbackPlaybackLabel')}
-            className="h-8 max-w-xs flex-1"
-          />
-        </div>
-      ) : null}
+          {loopback?.blobUrl ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 py-2">
+              <Volume2 className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+              <span className="text-xs font-medium text-text-secondary">
+                {t('preflightLoopbackPlaybackLabel')}
+              </span>
+              <audio
+                controls
+                data-testid="preflight-loopback-audio"
+                src={loopback.blobUrl}
+                aria-label={t('preflightLoopbackPlaybackLabel')}
+                className="h-10 max-w-xs flex-1"
+              />
+            </div>
+          ) : null}
 
       {errorMessage ? (
         <div className="mt-3">

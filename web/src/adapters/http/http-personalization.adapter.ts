@@ -27,9 +27,18 @@ function mapApiError(error: ApiClientError): PersonalizationGatewayError {
   }
 }
 
+const STATE_MEMORY_TTL_MS = 10_000;
+
 export class HttpPersonalizationAdapter implements IPersonalizationGateway {
   private readonly apiClient: ApiClient;
   private readonly db?: MockzaDexieDb;
+  private stateInFlight: Promise<
+    Result<PersonalizationStateDto, PersonalizationGatewayError>
+  > | null = null;
+  private cachedMemoryState: {
+    readonly value: PersonalizationStateDto;
+    readonly fetchedAtMs: number;
+  } | null = null;
 
   constructor(options: { readonly apiClient: ApiClient; readonly db?: MockzaDexieDb }) {
     this.apiClient = options.apiClient;
@@ -37,26 +46,60 @@ export class HttpPersonalizationAdapter implements IPersonalizationGateway {
   }
 
   async getState(): Promise<Result<PersonalizationStateDto, PersonalizationGatewayError>> {
-    const res = await this.apiClient.get<PersonalizationStateDto>('/v1/personalization/state');
-    if (res.ok) {
-      await this.cacheState(res.value).catch(() => {});
-      return ok(res.value);
+    if (
+      this.cachedMemoryState &&
+      Date.now() - this.cachedMemoryState.fetchedAtMs < STATE_MEMORY_TTL_MS
+    ) {
+      return ok(this.cachedMemoryState.value);
     }
-    if (this.db && res.error.kind === 'network') {
-      const cached = await this.readCachedState().catch(() => null);
-      if (cached) return ok(cached);
+    if (this.stateInFlight) {
+      return this.stateInFlight;
     }
-    return err(mapApiError(res.error));
+
+    const request = (async (): Promise<
+      Result<PersonalizationStateDto, PersonalizationGatewayError>
+    > => {
+      const res = await this.apiClient.get<PersonalizationStateDto>('/v1/personalization/state');
+      if (res.ok) {
+        this.cachedMemoryState = { value: res.value, fetchedAtMs: Date.now() };
+        await this.cacheState(res.value).catch(() => {});
+        return ok(res.value);
+      }
+      const isTransientOrRateLimited =
+        res.error.kind === 'network' || res.error.kind === 'quota_exceeded';
+      if (isTransientOrRateLimited) {
+        if (this.cachedMemoryState) {
+          return ok(this.cachedMemoryState.value);
+        }
+        if (this.db) {
+          const cached = await this.readCachedState().catch(() => null);
+          if (cached) {
+            this.cachedMemoryState = { value: cached, fetchedAtMs: Date.now() };
+            return ok(cached);
+          }
+        }
+      }
+      return err(mapApiError(res.error));
+    })().finally(() => {
+      if (this.stateInFlight === request) {
+        this.stateInFlight = null;
+      }
+    });
+
+    this.stateInFlight = request;
+    return request;
   }
 
   async updateProfile(
     input: UpdatePersonalizationProfileInput,
   ): Promise<Result<PersonalizationStateDto, PersonalizationGatewayError>> {
+    this.cachedMemoryState = null;
     const res = await this.apiClient.put<PersonalizationStateDto>(
       '/v1/personalization/profile',
       input,
     );
     if (res.ok) {
+      this.cachedMemoryState = { value: res.value, fetchedAtMs: Date.now() };
       await this.cacheState(res.value).catch(() => {});
       return ok(res.value);
     }
@@ -66,11 +109,13 @@ export class HttpPersonalizationAdapter implements IPersonalizationGateway {
   async recordBandEvent(
     input: RecordBandEventInput,
   ): Promise<Result<PersonalizationStateDto, PersonalizationGatewayError>> {
+    this.cachedMemoryState = null;
     const res = await this.apiClient.post<PersonalizationStateDto>(
       '/v1/personalization/band-event',
       input,
     );
     if (res.ok) {
+      this.cachedMemoryState = { value: res.value, fetchedAtMs: Date.now() };
       await this.cacheState(res.value).catch(() => {});
       return ok(res.value);
     }
@@ -81,11 +126,13 @@ export class HttpPersonalizationAdapter implements IPersonalizationGateway {
     stepId: string,
     status: 'completed' | 'skipped' | 'active',
   ): Promise<Result<PersonalizationStateDto, PersonalizationGatewayError>> {
+    this.cachedMemoryState = null;
     const res = await this.apiClient.post<PersonalizationStateDto>(
       `/v1/personalization/roadmap/steps/${encodeURIComponent(stepId)}/action`,
       { status },
     );
     if (res.ok) {
+      this.cachedMemoryState = { value: res.value, fetchedAtMs: Date.now() };
       await this.cacheState(res.value).catch(() => {});
       return ok(res.value);
     }
@@ -95,6 +142,7 @@ export class HttpPersonalizationAdapter implements IPersonalizationGateway {
   async ackBandShift(): Promise<
     Result<{ readonly ok: boolean; readonly bandShift: number }, PersonalizationGatewayError>
   > {
+    this.cachedMemoryState = null;
     const res = await this.apiClient.post<{ readonly ok: boolean; readonly bandShift: number }>(
       '/v1/personalization/band-shift/ack',
       {},

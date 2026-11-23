@@ -76,10 +76,12 @@ const samples = getSampleEssaysForBuild();
           {WRITING_SAMPLES_CATALOG.map((ws) => (
             <a
               href={`/writing-samples/${ws.trackSlug}/${ws.slug}`}
-              class="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 py-2 text-text-primary hover:border-primary"
+              class="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 py-2 text-text-primary hover:border-primary"
             >
-              <span class="font-semibold text-primary">{ws.taskLabel}</span> ·{' '}
-              {isIrn ? ws.titleFa : ws.title}
+              <span>
+                <span class="font-semibold text-primary">{ws.taskLabel}</span> ·{' '}
+                {isIrn ? ws.titleFa : ws.title}
+              </span>
             </a>
           ))}
         </div>
@@ -90,10 +92,12 @@ const samples = getSampleEssaysForBuild();
           {SPEAKING_TOPICS_CATALOG.map((sp) => (
             <a
               href={`/speaking-topics/${sp.trackSlug}/${sp.slug}`}
-              class="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 py-2 text-text-primary hover:border-primary"
+              class="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-3 py-2 text-text-primary hover:border-primary"
             >
-              <span class="font-semibold text-primary">{sp.partLabel}</span> ·{' '}
-              {isIrn ? sp.titleFa : sp.title}
+              <span>
+                <span class="font-semibold text-primary">{sp.partLabel}</span> ·{' '}
+                {isIrn ? sp.titleFa : sp.title}
+              </span>
             </a>
           ))}
         </div>

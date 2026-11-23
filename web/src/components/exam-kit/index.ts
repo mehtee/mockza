@@ -71,3 +71,7 @@ export {
   WaveformMicRecorder,
   type WaveformMicRecorderProps,
 } from './WaveformMicRecorder';
+export {
+  SimulatorLoadFallback,
+  type SimulatorLoadFallbackProps,
+} from './SimulatorLoadFallback';

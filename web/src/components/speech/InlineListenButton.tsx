@@ -74,10 +74,11 @@ export function InlineListenButton({
     }
   };
 
-  const padCls = size === 'sm' ? 'h-7 px-2 text-[11px]' : 'h-8 px-3 text-xs';
+  const padCls =
+    size === 'sm' ? 'min-h-10 sm:min-h-9 px-3 text-xs whitespace-nowrap shrink-0' : 'min-h-11 px-3.5 text-xs whitespace-nowrap shrink-0';
 
   return (
-    <span className="inline-flex flex-wrap items-center gap-1">
+    <span className="inline-flex flex-wrap items-center gap-1.5">
       <button
         type="button"
         data-testid={testId ?? 'inline-listen-1x'}

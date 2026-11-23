@@ -59,9 +59,13 @@ export function ScoreCalculatorsIsland({ isIrn = false }: ScoreCalculatorsIsland
             }
             className="h-9 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-2 text-text-primary"
           >
-            <option value="reading_acad">Academic Reading</option>
-            <option value="reading_gt">General Training Reading</option>
-            <option value="listening">Listening</option>
+            <option value="reading_acad">
+              {isIrn ? 'ریدینگ آکادمیک (Academic Reading)' : 'Academic Reading'}
+            </option>
+            <option value="reading_gt">
+              {isIrn ? 'ریدینگ جنرال (General Training Reading)' : 'General Training Reading'}
+            </option>
+            <option value="listening">{isIrn ? 'لیسنینگ (Listening)' : 'Listening'}</option>
           </select>
 
           <label htmlFor="calc-ielts-raw" className="mt-2 text-text-secondary">
@@ -128,7 +132,9 @@ export function ScoreCalculatorsIsland({ isIrn = false }: ScoreCalculatorsIsland
         </h2>
         <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
           <label className="flex flex-col gap-1">
-            <span>Reading ({detReading})</span>
+            <span>
+              {isIrn ? 'ریدینگ' : 'Reading'} ({detReading})
+            </span>
             <input
               type="range"
               min={10}
@@ -140,7 +146,9 @@ export function ScoreCalculatorsIsland({ isIrn = false }: ScoreCalculatorsIsland
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span>Listening ({detListening})</span>
+            <span>
+              {isIrn ? 'لیسنینگ' : 'Listening'} ({detListening})
+            </span>
             <input
               type="range"
               min={10}
@@ -152,7 +160,9 @@ export function ScoreCalculatorsIsland({ isIrn = false }: ScoreCalculatorsIsland
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span>Writing ({detWriting})</span>
+            <span>
+              {isIrn ? 'رایتینگ' : 'Writing'} ({detWriting})
+            </span>
             <input
               type="range"
               min={10}
@@ -164,7 +174,9 @@ export function ScoreCalculatorsIsland({ isIrn = false }: ScoreCalculatorsIsland
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span>Speaking ({detSpeaking})</span>
+            <span>
+              {isIrn ? 'اسپیکینگ' : 'Speaking'} ({detSpeaking})
+            </span>
             <input
               type="range"
               min={10}

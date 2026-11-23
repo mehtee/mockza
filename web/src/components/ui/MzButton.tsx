@@ -10,6 +10,7 @@ export interface MzButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   readonly isLoading?: boolean;
   readonly fullWidth?: boolean;
   readonly leadingIcon?: ReactNode;
+  readonly trailingIcon?: ReactNode;
 }
 
 const VARIANT_CLASSES: Record<MzButtonVariant, string> = {
@@ -24,9 +25,9 @@ const VARIANT_CLASSES: Record<MzButtonVariant, string> = {
 };
 
 const SIZE_CLASSES: Record<MzButtonSize, string> = {
-  sm: 'h-9 px-3 text-xs gap-1.5',
-  md: 'h-11 px-4 text-sm gap-2',
-  lg: 'h-12 px-5 text-sm gap-2',
+  sm: 'min-h-10 sm:min-h-9 px-3 text-xs gap-1.5',
+  md: 'min-h-11 px-4 text-sm gap-2',
+  lg: 'min-h-12 px-5 text-sm gap-2',
 };
 
 export function MzButton({
@@ -35,6 +36,7 @@ export function MzButton({
   isLoading = false,
   fullWidth = false,
   leadingIcon,
+  trailingIcon,
   disabled,
   className = '',
   children,
@@ -48,7 +50,7 @@ export function MzButton({
       type={type}
       disabled={isDisabled}
       className={[
-        'inline-flex items-center justify-center rounded-[var(--mz-radius-control)] font-semibold transition-colors',
+        'inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-[var(--mz-radius-control)] font-semibold transition-colors',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
         'disabled:cursor-not-allowed disabled:opacity-55',
         VARIANT_CLASSES[variant],
@@ -64,7 +66,8 @@ export function MzButton({
       ) : (
         leadingIcon && <span className="shrink-0">{leadingIcon}</span>
       )}
-      <span>{children}</span>
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap">{children}</span>
+      {!isLoading && trailingIcon ? <span className="shrink-0">{trailingIcon}</span> : null}
     </button>
   );
 }
