@@ -17,7 +17,7 @@ Offline-first, AI-native **5-Track High-Stakes English Exam Simulator Hub**, **A
   - **Duolingo English Test / DET (Latest, `10–160` Score in `5`-pt steps + 4 Subscores):** Displays **Literacy**, **Comprehension**, **Conversation**, and **Production** alongside *Read & Select* (`binary_choice`), *Read & Complete* (`word_completion`), *Listen & Type* (`dictation`), *Write About the Photo* (SVG scene) / *Interactive Writing* / *Writing Sample*, and zero-prep *Interactive Speaking*.
 - **Adaptive Personalization, Live Band Engine & Step-by-Step Roadmap (*Durnama* / دورنما):**
   - **Dynamic Live Band Evolution (`LiveBandEngine`):** Computes real-time overall and per-skill (`Reading`, `Listening`, `Writing`, `Speaking`) current vs. target scores from diagnostic baselines and exponentially decayed recent attempts, distinguishing calibrated full exams (solid nodes) from practice estimates (hollow dashed nodes) on `TrendChart`.
-  - **Personalized Step-by-Step Roadmap (`RoadmapGenerator`):** Builds an interactive multi-phase learning path (*Foundation*, *Core Practice*, *Weakness Remediation*, *Vocabulary Wave*, *Pronunciation Clinic*, *Register/Drop Drill*, *Milestone Check*, *Full Mock*) that dynamically re-prioritizes after every attempt and displays a post-attempt `PlanImpactCard`.
+  - **Personalized Step-by-Step Roadmap (`RoadmapGenerator`) & Zero-Diagnostic Foundation Mode:** Builds an interactive multi-phase learning path (*Foundation*, *Core Practice*, *Weakness Remediation*, *Vocabulary Wave*, *Pronunciation Clinic*, *Register/Drop Drill*, *Milestone Check*, *Full Mock*) that dynamically re-prioritizes after every attempt and displays a post-attempt `PlanImpactCard`. When a learner defers or skips the onboarding placement check (`currentBand == null`), unlocks a **Provisional M1 Foundation Starter Plan** (entry `B1` tier without fabricating a baseline score) so Home, Roadmap, Vocab Wave 1, and Smart Coach remain immediately usable.
   - **Topic Weakness Rotation & Vocabulary Waves (`TopicWeaknessRotator`, `ObjectiveWeaknessExtractor`, `VocabWaveScheduler`):** Tracks performance across 10 academic topic domains (`environment`, `technology`, `healthcare`, `education`, `economy`, etc.), rotates weak topics without repetition fatigue, and unlocks progressive band-tier vocabulary waves.
 - **OpenRouter `hexgrad/kokoro-82m` Neural TTS & `google/gemini-3.1-flash-lite` Pronunciation Studio:**
   - **100% API-Driven Neural TTS (`POST /v1/tts/synthesize` + `GET /v1/tts/audio/:cacheKey`):** Zero reliance on robotic browser `speechSynthesis` or OS TTS. Synthesizes natural British (`uk` -> `bf_emma`) and American (`us` -> `af_bella`) speech with SHA-256 S3/SeaweedFS caching, 60 req/min per-account burst protection, variable speed (`0.75x–1.25x`), and global Settings accent propagation across `InlineListenButton`, Vocabulary cards, Study-Mode Reading paragraph listen strips (`passage-paragraph-listen-bar`), Evaluation Review model rewrites, and Speech Practice drawers/sheets (*Exam Mode Restraint* hides all coaching/TTS buttons during strict timed Exam Mode).
@@ -29,7 +29,7 @@ Offline-first, AI-native **5-Track High-Stakes English Exam Simulator Hub**, **A
   - **Drop Anything Micro-Drill Generator (`/v1/drop/*`):** Turns any pasted article, paragraph, or note into an instant 2-minute active upgrade drill.
 - **Standalone Desktop Web (`web/` — Astro 5 Static SEO/GEO + React 19 SPA) & Mobile/Web Flutter Client (`app/`):**
   - **0KB-JS SEO & Generative Engine Optimization (GEO):** 85 prerendered pages per edition (`dist-glb` & `dist-irn`), 5 exam pillar guides, `<1KB` interactive score calculators, annotated writing/speaking sample banks, public vocabulary hubs, `robots.txt`, `llms.txt`, `llms-full.txt`, Markdown `.md` twins, and dynamic `/og/*.svg` & `.png` cards.
-  - **Hexagonal React 19 Desktop Studio (`/app/*`):** Dexie v4 IndexedDB offline store, FIFO outbox, OPFS media cache, Web Audio API waveform recorder/player, strict CSP (zero `unsafe-inline`), DOMPurify SVG sanitization, and Brotli/Gzip pre-compression.
+  - **Hexagonal React 19 Desktop Studio (`/app/*`):** Unified `max-w-6xl` SPA layout with aligned `h-14` topbar/sidebar chrome, animated `localStorage`-persisted collapsible desktop rail (`240px <-> 80px`), 5-tab mobile bottom nav (`>= 40px` touch targets, `0px` horizontal overflow), shared vector `BrandMark` icon, single-focus onboarding (`/app/welcome` + exam switching in Settings via `ExamTrackSelector`), exam-specific CEFR goal calibration, BiDi RTL/LTR helpers (`DirectionIcon`, `LtrExamBoundary`), dynamic `measureElement` virtualized Vocab cards, Dexie v4 + `429`-resilient caching, OPFS media cache, Web Audio API waveform recorder/player, strict CSP (zero `unsafe-inline`), DOMPurify SVG sanitization, and Brotli/Gzip pre-compression (`~62.1 KB` GLB / `~64.5 KB` IRN gzip main chunks).
 - **Bidirectional Cross-Device Sync & End-to-End Server Tracing (`AdminTraceConsole`):**
   - Syncs roadmap progress, live band snapshots, exam attempts, SM-2 vocabulary SRS cards, and pronunciation history across Phone and Desktop Web (`/v1/personalization/*`, `/v1/sync/*`).
   - Records every user activity event, audio recording object key, AI model call, prompt/completion/audio token count, latency, and exact USD cost in PostgreSQL (`ai_usage_ledger`, `user_activity_ledger`), inspectable and exportable via `/v1/admin/usage/*` and the Web **Admin Trace Console** (`/app/admin/trace`).
@@ -49,19 +49,20 @@ mockza/
 │   ├── DESKTOP_WEB_PLAN.md     # Standalone Desktop Web (Astro 5 + React 19) Architecture & Plan
 │   ├── ADAPTIVE_PERSONALIZATION_AND_ROADMAP_PLAN.md
 │   ├── ADAPTIVE_PERSONALIZATION_AUDIT_AND_REMEDIATION_PLAN.md
+│   ├── UI_UX_PERFECTION_PLAN.md & ui_ux_audit_screenshots/  # Responsive & RTL/BiDi audit plan and visual captures
 │   └── SMART_COACH_PRODUCTION_UX_AND_RELIABILITY_PLAN.md · advanced_plan.md · sanjia_flutter_plan.md
 ├── packages/
 │   └── design-tokens/          # Canonical W3C design tokens SSOT (tokens.json + schema) for Flutter & Web
-├── shared-fixtures/            # 9 cross-codebase parity vector suites (372 vectors across Backend, Web & Flutter)
+├── shared-fixtures/            # 8 cross-codebase parity vector suites (349 vectors -> 373 assertions across Backend, Web & Flutter)
 ├── web/                        # Standalone Desktop Web Client (Astro 5 Static SEO/GEO + React 19 SPA + Tailwind v4)
 │   ├── Containerfile           # Multi-stage builder + Caddy/Nginx Brotli/Gzip runtime
 │   ├── src/
 │   │   ├── pages/              # 0KB-JS SEO landing, 5 exam guides, calculators, samples, vocab, GEO (.md, llms.txt) & /app/[...slug]
-│   │   ├── spa/                # React 19 SPA features (home, roadmap, practice, results, vocabulary, progress, mission, drop, register-shifter, diagnostic, auth, settings, paywall, admin/trace)
-│   │   ├── components/         # exam-kit/, personalization/, speech/ (InlineListenButton, SpeechPracticeDrawer), ui/
-│   │   ├── adapters/           # Hexagonal adapters (dexie/, http/, media/, glb/, irn/, fakes/)
+│   │   ├── spa/                # React 19 SPA features + persistent layout.store.ts + resilient router/hooks
+│   │   ├── components/         # bidi/, exam-kit/, personalization/, speech/, ui/ (BrandMark, ExamTrackSelector, Mz*)
+│   │   ├── adapters/           # Hexagonal adapters (dexie/, http/ with 429 cache fallback, media/ opfs, glb/, irn/, fakes/)
 │   │   └── edition/            # Compile-time GLB/IRN config, LtrExamBoundary BiDi & edge Jalali calendar
-│   └── tests/                  # 36 Vitest unit/contract test files (229 tests) + 7 Playwright Desktop E2E suites
+│   └── tests/                  # 36 Vitest unit/contract test files (231 tests) + 7 Playwright Desktop E2E suites
 ├── app/                        # Flutter Client (SDK 3.47.9, Dart 3 + Impeller, Single-Package Feature-First MVVM)
 │   ├── README.md               # Flutter architecture, 19 feature modules, 20 Drift tables & commands
 │   ├── Containerfile           # Multi-stage SDK 3.47.9 -> checker -> web-builder -> Nginx runtime
@@ -155,13 +156,13 @@ make up
 # Always check available RAM first (require >= 900 MiB available)
 free -m
 
-# 1. Full static, token-sync, web dual-build, budget & 372-vector cross-parity gates
+# 1. Full static, token-sync, web dual-build, budget & 349-vector (373 assertions) cross-parity gates
 ./scripts/check_all.sh all
 
 # 2. Backend Vitest suite across pnpm workspaces (single-fork low-RAM mode)
 cd backend && NODE_OPTIONS="--max-old-space-size=768" pnpm -r --workspace-concurrency=1 exec vitest run --pool=forks --poolOptions.forks.singleFork --maxWorkers=1
 
-# 3. Web Vitest unit & contract suite (36 files / 229 tests)
+# 3. Web Vitest unit & contract suite (36 files / 231 tests)
 NODE_OPTIONS="--max-old-space-size=768" pnpm --filter @mockza/web exec vitest run --pool=forks --poolOptions.forks.singleFork --maxWorkers=1
 
 # 4. Flutter analyzer + batched low-RAM test execution (39 files / 409 tests, <= 10 files per batch)
@@ -181,5 +182,6 @@ cd backend && pnpm --filter @mockza/db seed && pnpm --filter @mockza/content-pip
 - **[docs/PDR-Iran.md](file:///home/mahdi/projects/ideas/mockza/docs/PDR-Iran.md)** & **[docs/ADR-Iran.md](file:///home/mahdi/projects/ideas/mockza/docs/ADR-Iran.md)** — Iran Domestic Edition (`IRN` / *Sanjia*) full implementation specifications, BiDi RTL/LTR boundary rules, Jalali calendar, SMS OTP, and Zarinpal/Bazaar/Myket billing (`v4.0`).
 - **[docs/DESKTOP_WEB_PLAN.md](file:///home/mahdi/projects/ideas/mockza/docs/DESKTOP_WEB_PLAN.md)** — Standalone Desktop Web (`Astro 5 Static + React 19 SPA`) architecture, SSOT token/engine sync, and SEO+GEO layer.
 - **[docs/ADAPTIVE_PERSONALIZATION_AND_ROADMAP_PLAN.md](file:///home/mahdi/projects/ideas/mockza/docs/ADAPTIVE_PERSONALIZATION_AND_ROADMAP_PLAN.md)** & **[docs/ADAPTIVE_PERSONALIZATION_AUDIT_AND_REMEDIATION_PLAN.md](file:///home/mahdi/projects/ideas/mockza/docs/ADAPTIVE_PERSONALIZATION_AUDIT_AND_REMEDIATION_PLAN.md)** — Adaptive roadmap (*Durnama*), live band evolution, Kokoro TTS, pronunciation studio, and full-stack tracing blueprints.
+- **[docs/UI_UX_PERFECTION_PLAN.md](file:///home/mahdi/projects/ideas/mockza/docs/UI_UX_PERFECTION_PLAN.md)** & **[docs/ui_ux_audit_screenshots/](file:///home/mahdi/projects/ideas/mockza/docs/ui_ux_audit_screenshots)** — End-to-end responsive, BiDi/RTL, shell consistency, onboarding, CEFR calibration, and Playwright visual audit documentation.
 - **[app/README.md](file:///home/mahdi/projects/ideas/mockza/app/README.md)** — Flutter client architecture, 19 feature modules, components, and low-RAM commands.
 - **[app/test/e2e/README.md](file:///home/mahdi/projects/ideas/mockza/app/test/e2e/README.md)** — Hermetic 9-suite Flutter E2E harness and Page-Object Robot guide.

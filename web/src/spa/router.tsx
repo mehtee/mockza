@@ -49,7 +49,7 @@ import {
 } from '@/edition/edition-config';
 import { formatChromeNumber } from '@/edition/bidi/numerals';
 import { formatTrackLocalizedName } from '@/components/bidi/topic-labels';
-import { BrandMark } from '@/components/ui';
+import { BrandMark, MzTooltip } from '@/components/ui';
 import { createTranslator, type TranslationKey } from '@/i18n';
 import { useOptionalDeps } from '@/spa/deps';
 import {
@@ -708,18 +708,18 @@ function AppRootLayout() {
             <div
               className={`flex h-14 shrink-0 items-center border-b border-border-subtle ${
                 sidebarCollapsed
-                  ? 'justify-between gap-2 px-4 lg:justify-center lg:gap-1.5 lg:px-2'
+                  ? 'justify-between gap-2 px-4 lg:justify-center lg:px-3'
                   : 'justify-between gap-2 px-4 lg:px-3'
               }`}
             >
               {sidebarCollapsed ? (
                 <a
                   href="/"
-                  className="inline-flex items-center gap-2.5 text-xl font-bold text-text-primary"
+                  className="inline-flex items-center gap-2.5 text-xl font-bold text-text-primary lg:hidden"
                   title={t('appTitle')}
                 >
                   <BrandMark edition={edition} size={28} />
-                  <span className="font-editorial truncate lg:hidden">{t('appTitle')}</span>
+                  <span className="font-editorial truncate">{t('appTitle')}</span>
                 </a>
               ) : (
                 <a
@@ -730,30 +730,35 @@ function AppRootLayout() {
                   <span className="font-editorial truncate text-xl font-semibold">{t('appTitle')}</span>
                 </a>
               )}
-              <button
-                type="button"
-                data-testid="sidebar-collapse-toggle"
-                onClick={toggleSidebar}
-                title={sidebarCollapsed ? t('navExpandLabel') : t('navCollapseLabel')}
-                aria-label={sidebarCollapsed ? t('navExpandLabel') : t('navCollapseLabel')}
-                aria-expanded={!sidebarCollapsed}
-                className={`hidden lg:inline-flex shrink-0 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary ${
-                  sidebarCollapsed ? 'h-9 w-8' : 'h-10 w-10'
-                }`}
+              <MzTooltip
+                label={sidebarCollapsed ? t('navExpandLabel') : t('navCollapseLabel')}
+                enabled={sidebarCollapsed}
+                dir={dir}
+                sideOffset={26}
+                className="hidden lg:inline-flex shrink-0"
               >
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  className={`h-4 w-4 transition-transform duration-200 ${
-                    sidebarCollapsed ? 'rotate-0 rtl:rotate-180' : 'rotate-180 rtl:rotate-0'
-                  }`}
+                <button
+                  type="button"
+                  data-testid="sidebar-collapse-toggle"
+                  onClick={toggleSidebar}
+                  aria-label={sidebarCollapsed ? t('navExpandLabel') : t('navCollapseLabel')}
+                  aria-expanded={!sidebarCollapsed}
+                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 4.5 13 10l-5.5 5.5" />
-                </svg>
-              </button>
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    className={`h-4 w-4 transition-transform duration-200 ${
+                      sidebarCollapsed ? 'rotate-0 rtl:rotate-180' : 'rotate-180 rtl:rotate-0'
+                    }`}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 4.5 13 10l-5.5 5.5" />
+                  </svg>
+                </button>
+              </MzTooltip>
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(false)}
@@ -766,43 +771,48 @@ function AppRootLayout() {
 
             <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-4 text-start text-sm lg:p-3">
               {navItems.map(({ to, label, Icon, testId }) => (
+                <MzTooltip key={to} label={label} enabled={sidebarCollapsed} dir={dir}>
+                  <Link
+                    to={to}
+                    aria-label={label}
+                    data-testid={testId}
+                    onMouseEnter={() => void preloadRouteForPathname(to)}
+                    onFocus={() => void preloadRouteForPathname(to)}
+                    className={`flex min-h-11 items-center rounded-[var(--mz-radius-compact)] px-3 py-2 font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary data-[status=active]:bg-surface-alt data-[status=active]:font-semibold data-[status=active]:text-primary ${
+                      sidebarCollapsed ? 'gap-2.5 lg:justify-center lg:gap-0 lg:px-2' : 'gap-2.5'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span
+                      className={`whitespace-nowrap transition-[opacity,max-width] duration-150 ${
+                        sidebarCollapsed
+                          ? 'lg:max-w-0 lg:overflow-hidden lg:opacity-0'
+                          : 'truncate lg:max-w-[170px] lg:opacity-100'
+                      }`}
+                    >
+                      {label}
+                    </span>
+                  </Link>
+                </MzTooltip>
+              ))}
+              <MzTooltip
+                label={t('authSignInAction')}
+                enabled={sidebarCollapsed}
+                dir={dir}
+                className="mt-auto"
+              >
                 <Link
-                  key={to}
-                  to={to}
-                  aria-label={label}
-                  title={sidebarCollapsed ? label : undefined}
-                  data-testid={testId}
-                  onMouseEnter={() => void preloadRouteForPathname(to)}
-                  onFocus={() => void preloadRouteForPathname(to)}
-                  className={`flex min-h-11 items-center rounded-[var(--mz-radius-compact)] px-3 py-2 font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary data-[status=active]:bg-surface-alt data-[status=active]:font-semibold data-[status=active]:text-primary ${
+                  to="/auth/login"
+                  aria-label={t('authSignInAction')}
+                  data-testid="nav-auth-link"
+                  onMouseEnter={() => void preloadRouteForPathname('/auth/login')}
+                  onFocus={() => void preloadRouteForPathname('/auth/login')}
+                  className={`flex min-h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-strong px-3 py-2 font-semibold text-primary transition-colors hover:bg-surface-hover ${
                     sidebarCollapsed ? 'gap-2.5 lg:justify-center lg:gap-0 lg:px-2' : 'gap-2.5'
                   }`}
                 >
-                  <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <LogIn className="h-4 w-4 shrink-0" aria-hidden="true" />
                   <span
-                    className={`whitespace-nowrap transition-[opacity,max-width] duration-150 ${
-                      sidebarCollapsed
-                        ? 'lg:max-w-0 lg:overflow-hidden lg:opacity-0'
-                        : 'truncate lg:max-w-[170px] lg:opacity-100'
-                    }`}
-                  >
-                    {label}
-                  </span>
-                </Link>
-              ))}
-              <Link
-                to="/auth/login"
-                aria-label={t('authSignInAction')}
-                title={sidebarCollapsed ? t('authSignInAction') : undefined}
-                data-testid="nav-auth-link"
-                onMouseEnter={() => void preloadRouteForPathname('/auth/login')}
-                onFocus={() => void preloadRouteForPathname('/auth/login')}
-                className={`mt-auto flex min-h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-strong px-3 py-2 font-semibold text-primary transition-colors hover:bg-surface-hover ${
-                  sidebarCollapsed ? 'gap-2.5 lg:justify-center lg:gap-0 lg:px-2' : 'gap-2.5'
-                }`}
-              >
-                <LogIn className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span
                     className={`whitespace-nowrap transition-[opacity,max-width] duration-150 ${
                       sidebarCollapsed
                         ? 'lg:max-w-0 lg:overflow-hidden lg:opacity-0'
@@ -811,7 +821,8 @@ function AppRootLayout() {
                   >
                     {t('authSignInAction')}
                   </span>
-              </Link>
+                </Link>
+              </MzTooltip>
             </nav>
           </aside>
         </>

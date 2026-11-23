@@ -9,6 +9,7 @@ export {
   type MzSegmentedOption,
 } from './MzSegmentedControl';
 export { MzTextField, type MzTextFieldProps } from './MzTextField';
+export { MzTooltip, type MzTooltipProps } from './MzTooltip';
 export { MzBanner, type MzBannerProps, type MzBannerTone } from './MzBanner';
 export {
   DeviceSlotStrip,

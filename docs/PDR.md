@@ -79,8 +79,8 @@
 ## 5. Functional Requirements (`FR-001` .. `FR-064`)
 
 ### Onboarding, Hub & Identity (`FR-001` .. `FR-004`)
-* **`FR-001` Consolidated 5-Track Hub:** Learners choose and switch seamlessly between `IELTS Academic`, `IELTS General Training`, `TOEFL iBT (2026)`, `PTE Academic`, and `Duolingo English Test` across Onboarding, Home header switcher, Practice Hub, Roadmap, and Settings.
-* **`FR-002` Goal, Daily Study Budget & Exam Date Calibration:** Users set track-appropriate targets (`7.5` IELTS, `5.0` TOEFL, `65` PTE, `125` DET), daily study minutes (`15–60+ min`), preferred TTS accent (`UK` / `US`), and exam countdown date (Gregorian in `GLB`, Jalali in `IRN`).
+* **`FR-001` Focused 5-Track Exam Flow (`Onboarding` + `Settings`):** Learners select their active exam track once during streamlined Onboarding (`/app/welcome`) from `IELTS Academic`, `IELTS General Training`, `TOEFL iBT (2026)`, `PTE Academic`, and `Duolingo English Test` using custom `ExamTrackSelector` cards, and can switch tracks later inside Settings (`/app/settings`)—keeping top command bars (calm read-only exam indicator chip), Home, and Practice distraction-free without repeated dropdowns or track-pill clutter.
+* **`FR-002` Goal Calibration, Official CEFR Mapping & Exam Date:** Users set track-appropriate targets (`7.5` IELTS, `5.0` TOEFL, `65` PTE, `125` DET) with official exam-specific CEFR tier readouts (`resolveOfficialCefrTier` — e.g., IELTS `6.5` -> `B2`, `7.0–8.0` -> `C1`, `8.5–9.0` -> `C2`), `LtrExamBoundary`-aligned `[-, slider, +]` steppers, daily study minutes (`15–60+ min`), preferred TTS accent (`UK` / `US`), and exam countdown date (Gregorian in `GLB`, Jalali in `IRN`).
 * **`FR-003` Non-Affiliation & Provenance Disclosure:** Present explicit independent-practice notice on Onboarding, exam pickers, landing footers, and Settings.
 * **`FR-004` Guest-First Launch & Lossless Account Merge:** Immediate anonymous UUID practice with lossless server + local merge (`POST /v1/personalization/merge-guest`) when registering or signing in via Email, Google, Apple, or SMS OTP.
 
@@ -101,7 +101,7 @@
 ### Rapid Starting-Level Check (`FR-038` .. `FR-040`)
 * **`FR-038` Zero-Scroll Streamlined Preflight:** Concise intro card (~10–15 min estimate), quick sound/mic test, timing & accessibility options drawer, and instant start/defer controls.
 * **`FR-039` 2-Stage Adaptive Assessment:** Adaptive Stage 1 -> upper/lower Stage 2 Reading & Listening routing (`DiagnosticRouter`) plus focused short Writing & Speaking samples calibrated within `900s` (with `Extended 3x` and `Accessible` replayable audio options).
-* **`FR-040` Partial Results, Roadmap Seeding & Single-Skill Retake:** Diagnostic completion immediately seeds the learner's **Adaptive Roadmap (*Durnama*)** and supports single-skill retake (`/v1/diagnostic/sessions/:diagId/retake-skill`).
+* **`FR-040` Partial Results, Zero-Diagnostic Foundation Mode & Single-Skill Retake:** Diagnostic completion immediately seeds the learner's **Adaptive Roadmap (*Durnama*)** and supports single-skill retake (`/v1/diagnostic/sessions/:diagId/retake-skill`). Learners who defer or skip the placement check immediately unlock an **M1 Foundation Starter Plan** (entry `B1` tier, Wave 1 vocabulary, and starter topic rotation) without fabricating a numeric score.
 
 ### Multi-Surface Auth, Device Governance & Ergonomics (`FR-041` .. `FR-046`)
 * **`FR-041` .. `FR-044` Auth & Strict `1 Phone + 1 Desktop Web` Governance:** Email/Password, Google, Apple (+ IRN SMS OTP), atomic `mobile` + `desktop_web` session slots (`409 DEVICE_SLOT_OCCUPIED` with 1-tap takeover), Settings active-device viewer & remote revocation, and Paywall ToS consent.
@@ -111,7 +111,7 @@
 * **`FR-047` 0KB-JS Static SEO Landing & 5 Exam Pillar Guides:** Prerendered static HTML pages for all 5 exam tracks with JSON-LD structured data and zero client JS bundle overhead.
 * **`FR-048` Interactive `<1KB` Calculators & Public Content Banks:** IELTS Band Calculator, TOEFL 6-to-120 Converter, PTE-to-IELTS Concordance, DET Subscore Estimator, annotated Writing/Speaking samples, and public Vocabulary preview decks.
 * **`FR-049` Generative Engine Optimization (GEO):** Auto-generated `/robots.txt`, `/llms.txt`, `/llms-full.txt`, Markdown `/*.md` twins, and `/og/*.svg` & `.png` cards.
-* **`FR-050` Desktop Split-Pane Simulator Studio (`/app/*`):** Keyboard-driven (`Space` / `1–4` SRS review, split passage/question panes, waveform studio) offline-capable React 19 SPA with Dexie v4 + OPFS caching.
+* **`FR-050` Desktop Split-Pane Simulator Studio (`/app/*`):** Keyboard-driven (`Space` / `1–4` SRS review, dynamic `measureElement` virtualized Vocabulary list, split passage/question panes, waveform studio) offline-capable React 19 SPA with Dexie v4 + `429` cache fallback + OPFS caching, unified `max-w-6xl` container width across all regular views, aligned `h-14` header/sidebar bar with consistent `h-10` chrome controls, persistent `localStorage` animated collapsible rail with shared geometric `<BrandMark />` SVG, and 5-tab mobile bottom navigation (`>= 40px` touch targets).
 
 ### Closed-Loop Smart Coach (`FR-051` .. `FR-054`)
 * **`FR-051` Error DNA Linguistic Graph:** Persistent fault-node tracking (`LinguisticNodes`) across grammar, vocabulary, coherence, and pronunciation with mastery decay and interest topic tagging.
@@ -151,13 +151,13 @@
 
 * **`NFR-001` Cold-Start & Zero-Flash Paint:** Desktop Web renders static HTML immediately with external `/theme-boot.js` pre-paint theme application; Flutter loads SQLite WAL/FK pragmas & theme presets pre-paint without splash blockage.
 * **`NFR-002` Grading & TTS Latency:** Offline deterministic Reading/Listening/Micro-Drills score instantaneously (`< 100ms`); cached Kokoro-82m TTS streams in `< 150ms`; async Writing/Speaking evaluations settle via idempotent `202 Accepted` queue + worker fencing.
-* **`NFR-003` Rendering Fluidity:** Zero layout overflow verified across `320dp` phones, `360dp`/`390dp` handsets, tablets, desktop viewports, and `2.0x` text scale.
+* **`NFR-003` Rendering Fluidity & Pixel Audits:** Zero horizontal overflow verified across `320dp` phones, `390px` mobile Web, tablets, `1440px` desktop viewports, and `2.0x` text scale (`docs/ui_ux_audit_screenshots/after_fix/`).
 * **`NFR-004` Offline & Crash Resilience:** Offline packs, 500ms Writing autosave, disk-first Speaking/Pronunciation clips, durable `OutboxSyncQueue`, and automatic worker quota refund on exhausted upstream failures.
 * **`NFR-005` API, CSP, Key & Device Security:** Zero upstream AI/OAuth secrets in clients; strict CSP without `unsafe-inline`; DOMPurify SVG sanitization; Bearer JWTs, `X-Edition`, `X-Device-Id`, strict 1-phone + 1-desktop-web enforcement, and 60 req/min per-account TTS burst rate limiting.
 * **`NFR-006` Privacy & Cascading Erasure:** Explicit pre-mic & AI disclosures; automated 30-day audio TTL purge; 1-tap **"Delete All My Data & Audio"** (`DELETE /v1/account`) cascading cleanly across all 41 PostgreSQL tables and S3 objects.
 * **`NFR-007` .. `NFR-009` Accessibility & BiDi RTL/LTR Isolation:** WCAG AA contrast across all 4 color presets in Light & Dark modes, keyboard accessibility, and strict `EdgeInsetsDirectional` / logical CSS properties + `LtrExamBoundary` (`check_all.sh` verified).
 * **`NFR-010` Low-RAM Build & Test Discipline (`AGENTS.md`):** All builds and tests operate safely on `<= 8 GiB` hosts with mandatory `free -m >= 900 MiB` pre-flight checks, sequential execution, capped VM heaps, and Brotli/Gzip static bundle budgets (`scripts/check_web_budget.mjs`).
-* **`NFR-011` .. `NFR-015` Cross-Codebase Parity & Observability Accuracy:** `372/372` shared fixture parity assertions pass across Backend, Web, and Flutter; `ai_usage_ledger` records 100% of AI calls with exact token counts and USD cost calculations.
+* **`NFR-011` .. `NFR-015` Cross-Codebase Parity & Observability Accuracy:** `349` fixture vectors (`373` parity test assertions each across TypeScript & Flutter/Dart) and `36` Web Vitest files (`231` tests) pass; `ai_usage_ledger` records 100% of AI calls with exact token counts and USD cost calculations.
 
 ---
 

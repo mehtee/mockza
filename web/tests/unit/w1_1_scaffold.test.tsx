@@ -258,7 +258,7 @@ describe('W1.1 TanStack Router 24-route skeleton & blocker', () => {
     expect(screen.queryByTestId('topbar-track-switcher')).toBeNull();
     expect(screen.getByTestId('nav-paywall-link')).toBeTruthy();
 
-    // Sidebar collapse toggle stays visible when collapsed and persists to localStorage
+    // Sidebar collapse toggle stays visible when collapsed, shows hover tooltip cleanly, and persists to localStorage
     const toggleBtn = screen.getByTestId('sidebar-collapse-toggle');
     expect(toggleBtn.getAttribute('aria-expanded')).toBe('true');
     fireEvent.click(toggleBtn);
@@ -266,6 +266,30 @@ describe('W1.1 TanStack Router 24-route skeleton & blocker', () => {
       expect(screen.getByTestId('sidebar-collapse-toggle').getAttribute('aria-expanded')).toBe('false');
       expect(window.localStorage.getItem('mockza:layout:sidebar-collapsed:v1')).toBe('1');
     });
+
+    // Collapsed nav item displays portal tooltip on focus/hover and dismisses on blur/leave
+    const roadmapLink = screen.getByTestId('nav-roadmap-link');
+    vi.spyOn(roadmapLink.parentElement!, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      right: 80,
+      top: 120,
+      bottom: 164,
+      width: 80,
+      height: 44,
+      x: 0,
+      y: 120,
+      toJSON: () => ({}),
+    });
+    fireEvent.focus(roadmapLink);
+    await waitFor(() => {
+      const tip = screen.getByRole('tooltip', { hidden: true });
+      expect(tip.textContent).toContain('Roadmap');
+    });
+    fireEvent.blur(roadmapLink);
+    await waitFor(() => {
+      expect(screen.queryByRole('tooltip', { hidden: true })).toBeNull();
+    });
+
     fireEvent.click(screen.getByTestId('sidebar-collapse-toggle'));
     await waitFor(() => {
       expect(screen.getByTestId('sidebar-collapse-toggle').getAttribute('aria-expanded')).toBe('true');
