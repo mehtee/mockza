@@ -310,9 +310,9 @@ void main() {
         );
 
         final semanticsNode = tester.getSemantics(
-          find.text('Speaking Simulator'),
+          find.text('شبیه‌ساز اسپیکینگ'),
         );
-        expect(semanticsNode.label, contains('Speaking Simulator'));
+        expect(semanticsNode.label, contains('شبیه‌ساز اسپیکینگ'));
 
         handle.dispose();
 

@@ -46,6 +46,8 @@ class StudyWeekStrip extends StatelessWidget {
   const new({
     required this.days,
     required this.daysStudiedCount,
+    this.title = 'Study Activity',
+    this.daysStudiedLabel,
     super.key,
   });
 
@@ -54,6 +56,12 @@ class StudyWeekStrip extends StatelessWidget {
 
   /// Number of completed study days in the current week (e.g. 4).
   final int daysStudiedCount;
+
+  /// Section title label.
+  final String title;
+
+  /// Optional custom summary text (defaults to `$daysStudiedCount/7 days studied`).
+  final String? daysStudiedLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +80,7 @@ class StudyWeekStrip extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: Text(
-                  'Study Activity',
+                  title,
                   style: typography.cardTitle.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -81,7 +89,7 @@ class StudyWeekStrip extends StatelessWidget {
               ),
               const SizedBox(width: SpacingTokens.sm),
               Text(
-                '$daysStudiedCount/7 days studied',
+                daysStudiedLabel ?? '$daysStudiedCount/7 days studied',
                 style: typography.caption.copyWith(
                   color: colors.textSecondary,
                   fontWeight: FontWeight.w600,

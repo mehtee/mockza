@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/exams/exam_descriptor.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/core/localization/edition_copy.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/data/repositories/exam_catalog_repository.dart';
 import 'package:mockza/features/practice_hub/presentation/practice_hub_providers.dart';
@@ -73,7 +76,9 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
     final typography = AppTypography.of(context);
     final shapes = AppShapes.of(context);
     final l10n = AppLocalizations.of(context);
-    final isFa = Localizations.localeOf(context).languageCode == 'fa';
+    final isFa =
+        Localizations.localeOf(context).languageCode == 'fa' ||
+        ref.watch(editionConfigProvider).edition == AppEdition.iran;
 
     final allPacks = packsAsync.asData?.value ?? const <InstalledExamPack>[];
     final profile = ref.watch(practiceProfileProvider).asData?.value;
@@ -96,9 +101,16 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
         })
         .toList(growable: false);
 
-    final drills = state.selectedSkill == null
+    final rawDrills = state.selectedSkill == null
         ? (drillsAsync.asData?.value ?? const <MicroDrillSpec>[])
         : const <MicroDrillSpec>[];
+    final trackMatchedDrills = rawDrills
+        .where((d) => EditionCopy.matchesDrillTrack(d.drillId, activeTrack))
+        .toList(growable: false);
+    final drills =
+        (trackMatchedDrills.isNotEmpty || state.selectedTrack != 'all')
+        ? trackMatchedDrills
+        : rawDrills;
 
     return MzScaffold(
       body: Column(
@@ -126,7 +138,7 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Sync Catalog',
+                  tooltip: isFa ? 'به‌روزرسانی کاتالوگ' : 'Sync Catalog',
                   icon: AppIcon(
                     state.isSyncingCatalog
                         ? LucideGlyph.loaderCircle
@@ -138,7 +150,7 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                       : notifier.refreshCatalog,
                 ),
                 IconButton(
-                  tooltip: 'Settings',
+                  tooltip: l10n.settingsTitle,
                   icon: const AppIcon(LucideGlyph.settings, size: 20),
                   onPressed: () => context.push(AppRoutes.settings),
                 ),
@@ -199,31 +211,31 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                   child: Row(
                     children: <Widget>[
                       _FilterChip(
-                        label: 'All',
+                        label: isFa ? 'همه' : 'All',
                         isSelected: state.selectedSkill == null,
                         onTap: () => notifier.setFilter(null),
                       ),
                       const SizedBox(width: SpacingTokens.xs),
                       _FilterChip(
-                        label: 'Speaking',
+                        label: EditionCopy.skillName('speaking', isIran: isFa),
                         isSelected: state.selectedSkill == SkillKind.speaking,
                         onTap: () => notifier.setFilter(SkillKind.speaking),
                       ),
                       const SizedBox(width: SpacingTokens.xs),
                       _FilterChip(
-                        label: 'Writing',
+                        label: EditionCopy.skillName('writing', isIran: isFa),
                         isSelected: state.selectedSkill == SkillKind.writing,
                         onTap: () => notifier.setFilter(SkillKind.writing),
                       ),
                       const SizedBox(width: SpacingTokens.xs),
                       _FilterChip(
-                        label: 'Reading',
+                        label: EditionCopy.skillName('reading', isIran: isFa),
                         isSelected: state.selectedSkill == SkillKind.reading,
                         onTap: () => notifier.setFilter(SkillKind.reading),
                       ),
                       const SizedBox(width: SpacingTokens.xs),
                       _FilterChip(
-                        label: 'Listening',
+                        label: EditionCopy.skillName('listening', isIran: isFa),
                         isSelected: state.selectedSkill == SkillKind.listening,
                         onTap: () => notifier.setFilter(SkillKind.listening),
                       ),
@@ -238,19 +250,19 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                   child: Row(
                     children: <Widget>[
                       _FilterChip(
-                        label: 'All Tracks',
+                        label: isFa ? 'همه آزمون‌ها' : 'All Tracks',
                         isSelected: state.selectedTrack == 'all',
                         onTap: () => notifier.setTrackFilter('all'),
                       ),
                       const SizedBox(width: SpacingTokens.xs),
                       _FilterChip(
-                        label: 'Academic',
+                        label: isFa ? 'آکادمیک' : 'Academic',
                         isSelected: state.selectedTrack == 'academic',
                         onTap: () => notifier.setTrackFilter('academic'),
                       ),
                       const SizedBox(width: SpacingTokens.xs),
                       _FilterChip(
-                        label: 'General',
+                        label: isFa ? 'جنرال' : 'General',
                         isSelected: state.selectedTrack == 'general',
                         onTap: () => notifier.setTrackFilter('general'),
                       ),
@@ -287,14 +299,20 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                 if (state.selectedSkill == null ||
                     state.selectedSkill == SkillKind.speaking)
                   TaskCard(
-                    title: 'Speaking Simulator',
-                    subtitle: '${activeTrack.shortName} · Speaking Evaluation',
+                    title: isFa ? 'شبیه‌ساز اسپیکینگ' : 'Speaking Simulator',
+                    subtitle: isFa
+                        ? '${activeTrack.shortName} · ارزیابی هوشمند اسپیکینگ'
+                        : '${activeTrack.shortName} · Speaking Evaluation',
                     glyph: LucideGlyph.mic,
                     tint: IconWellTint.blue,
-                    durationText: _isExamMode ? 'Timed' : 'Untimed',
-                    questionsText: activeTrack == ExamTrack.toeflIbt
-                        ? '2 Parts'
-                        : '3 Parts',
+                    durationText: _isExamMode
+                        ? (isFa ? 'زمان‌دار' : 'Timed')
+                        : (isFa ? 'بدون محدودیت' : 'Untimed'),
+                    questionsText: isFa
+                        ? '${EdgeNumerals.toPersianDigits(activeTrack == ExamTrack.toeflIbt ? 2 : 3)} بخش'
+                        : (activeTrack == ExamTrack.toeflIbt
+                              ? '2 Parts'
+                              : '3 Parts'),
                     onTap: () => context.push(
                       AppRoutes.buildSpeakingSim(
                         descriptor.speakingPackId,
@@ -305,12 +323,18 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                 if (state.selectedSkill == null ||
                     state.selectedSkill == SkillKind.writing)
                   TaskCard(
-                    title: 'Writing Simulator',
-                    subtitle: '${activeTrack.shortName} · AI Rubric Evaluator',
+                    title: isFa ? 'شبیه‌ساز رایتینگ' : 'Writing Simulator',
+                    subtitle: isFa
+                        ? '${activeTrack.shortName} · ارزیابی هوشمند بر اساس معیار آزمون'
+                        : '${activeTrack.shortName} · AI Rubric Evaluator',
                     glyph: LucideGlyph.pencil,
                     tint: IconWellTint.violet,
-                    durationText: _isExamMode ? 'Timed' : 'Untimed',
-                    questionsText: '${descriptor.writingTasks.length} Tasks',
+                    durationText: _isExamMode
+                        ? (isFa ? 'زمان‌دار' : 'Timed')
+                        : (isFa ? 'بدون محدودیت' : 'Untimed'),
+                    questionsText: isFa
+                        ? '${EdgeNumerals.toPersianDigits(descriptor.writingTasks.length)} تسک'
+                        : '${descriptor.writingTasks.length} Tasks',
                     onTap: () => context.push(
                       AppRoutes.buildWritingSim(
                         descriptor.writingPackId,
@@ -321,13 +345,16 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                 if (state.selectedSkill == null ||
                     state.selectedSkill == SkillKind.reading)
                   TaskCard(
-                    title: 'Reading Simulator',
-                    subtitle:
-                        '${activeTrack.shortName} · Highlighting & Instant Score',
+                    title: isFa ? 'شبیه‌ساز ریدینگ' : 'Reading Simulator',
+                    subtitle: isFa
+                        ? '${activeTrack.shortName} · هایلایت متن و نمره فوری'
+                        : '${activeTrack.shortName} · Highlighting & Instant Score',
                     glyph: LucideGlyph.bookOpen,
                     tint: IconWellTint.mint,
-                    durationText: _isExamMode ? 'Timed' : 'Untimed',
-                    questionsText: 'Reading',
+                    durationText: _isExamMode
+                        ? (isFa ? 'زمان‌دار' : 'Timed')
+                        : (isFa ? 'بدون محدودیت' : 'Untimed'),
+                    questionsText: isFa ? 'ریدینگ' : 'Reading',
                     onTap: () => context.push(
                       AppRoutes.buildReadingSim(
                         descriptor.readingPackId,
@@ -338,13 +365,16 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                 if (state.selectedSkill == null ||
                     state.selectedSkill == SkillKind.listening)
                   TaskCard(
-                    title: 'Listening Simulator',
-                    subtitle:
-                        '${activeTrack.shortName} · Audio Track & Transcript',
+                    title: isFa ? 'شبیه‌ساز لیسنینگ' : 'Listening Simulator',
+                    subtitle: isFa
+                        ? '${activeTrack.shortName} · فایل صوتی و متن پیاده‌شده'
+                        : '${activeTrack.shortName} · Audio Track & Transcript',
                     glyph: LucideGlyph.headphones,
                     tint: IconWellTint.blue,
-                    durationText: _isExamMode ? 'Timed' : 'Study Mode',
-                    questionsText: 'Listening',
+                    durationText: _isExamMode
+                        ? (isFa ? 'زمان‌دار' : 'Timed')
+                        : (isFa ? 'حالت تمرینی' : 'Study Mode'),
+                    questionsText: isFa ? 'لیسنینگ' : 'Listening',
                     onTap: () => context.push(
                       AppRoutes.buildListeningSim(
                         descriptor.listeningPackId,
@@ -358,8 +388,9 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                       bottom: SpacingTokens.md,
                     ),
                     child: SecondaryButton(
-                      label:
-                          'Browse & Configure ${state.selectedSkill!.name.toUpperCase()} Packs',
+                      label: isFa
+                          ? 'مشاهده و تنظیم بسته‌های ${EditionCopy.skillName(state.selectedSkill!.name, isIran: true)}'
+                          : 'Browse & Configure ${state.selectedSkill!.name.toUpperCase()} Packs',
                       onPressed: () => context.push(
                         AppRoutes.buildPracticeSetup(
                           state.selectedSkill!.name,
@@ -372,12 +403,16 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                 // Quick 4-Skill Check & Full Mock Planner
                 if (state.selectedSkill == null) ...<Widget>[
                   TaskCard(
-                    title: 'Quick 4-Skill Starting Check',
-                    subtitle: 'Short adaptive check to calibrate your starting practice tier.',
+                    title: isFa
+                        ? 'ارزیابی سریع ۴ مهارته'
+                        : 'Quick 4-Skill Starting Check',
+                    subtitle: isFa
+                        ? 'ارزیابی کوتاه و تطبیقی برای تنظیم سطح شروع تمرین شما.'
+                        : 'Short adaptive check to calibrate your starting practice tier.',
                     glyph: LucideGlyph.sparkles,
                     tint: IconWellTint.blue,
-                    durationText: '~10–15 min',
-                    questionsText: '4 Skills',
+                    durationText: isFa ? 'حدود ۱۰ تا ۱۵ دقیقه' : '~10–15 min',
+                    questionsText: isFa ? '۴ مهارت' : '4 Skills',
                     onTap: () => context.push(
                       AppRoutes.buildDiagnosticIntro(examId: activeTrack.id),
                     ),
@@ -399,16 +434,26 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: <Widget>[
                                   Text(
-                                    activeTrack == ExamTrack.ieltsGeneral
-                                        ? 'Full IELTS General Training Mock'
-                                        : activeTrack == ExamTrack.ieltsAcademic
-                                        ? 'Full IELTS Academic Mock Exam'
-                                        : 'Full ${activeTrack.displayName} Mock Exam',
+                                    isFa
+                                        ? (activeTrack == ExamTrack.ieltsGeneral
+                                              ? 'آزمون آزمایشی کامل آیلتس جنرال'
+                                              : activeTrack ==
+                                                    ExamTrack.ieltsAcademic
+                                              ? 'آزمون آزمایشی کامل آیلتس آکادمیک'
+                                              : 'آزمون آزمایشی کامل ${activeTrack.displayName}')
+                                        : (activeTrack == ExamTrack.ieltsGeneral
+                                              ? 'Full IELTS General Training Mock'
+                                              : activeTrack ==
+                                                    ExamTrack.ieltsAcademic
+                                              ? 'Full IELTS Academic Mock Exam'
+                                              : 'Full ${activeTrack.displayName} Mock Exam'),
                                     style: typography.cardTitle,
                                   ),
                                   const SizedBox(height: SpacingTokens.xs),
                                   Text(
-                                    'All 4 skills • Listening, Reading, Writing & Speaking',
+                                    isFa
+                                        ? 'هر ۴ مهارت • لیسنینگ، ریدینگ، رایتینگ و اسپیکینگ'
+                                        : 'All 4 skills • Listening, Reading, Writing & Speaking',
                                     style: typography.secondary.copyWith(
                                       color: colors.textSecondary,
                                     ),
@@ -420,7 +465,9 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                         ),
                         const SizedBox(height: SpacingTokens.md),
                         PrimaryButton(
-                          label: 'Open Full Mock Planner',
+                          label: isFa
+                              ? 'باز کردن برنامه‌ریز آزمون کامل'
+                              : 'Open Full Mock Planner',
                           onPressed: () => context.push(
                             AppRoutes.buildPracticeFullMock(
                               activeTrack == ExamTrack.ieltsGeneral
@@ -449,16 +496,24 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
-                          allPacks.isEmpty
-                              ? 'Catalog not synced yet'
-                              : 'No packs match this filter',
+                          isFa
+                              ? (allPacks.isEmpty
+                                    ? 'کاتالوگ هنوز همگام‌سازی نشده است'
+                                    : 'بسته‌ای با این فیلتر یافت نشد')
+                              : (allPacks.isEmpty
+                                    ? 'Catalog not synced yet'
+                                    : 'No packs match this filter'),
                           style: typography.cardTitle,
                         ),
                         const SizedBox(height: SpacingTokens.xs),
                         Text(
-                          allPacks.isEmpty
-                              ? 'Connect to Mockza API to fetch IELTS exams and audio/chart packs.'
-                              : 'Switch skill or track filters to see available packs.',
+                          isFa
+                              ? (allPacks.isEmpty
+                                    ? 'برای دریافت آزمون‌ها و بسته‌های صوتی به سرور متصل شوید.'
+                                    : 'فیلتر مهارت یا آزمون را تغییر دهید تا بسته‌های موجود نمایش داده شوند.')
+                              : (allPacks.isEmpty
+                                    ? 'Connect to Mockza API to fetch exams and audio/chart packs.'
+                                    : 'Switch skill or track filters to see available packs.'),
                           style: typography.secondary.copyWith(
                             color: colors.textSecondary,
                           ),
@@ -466,9 +521,13 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                         if (allPacks.isEmpty) ...<Widget>[
                           const SizedBox(height: SpacingTokens.md),
                           SecondaryButton(
-                            label: state.isSyncingCatalog
-                                ? 'Syncing...'
-                                : 'Sync Catalog Now',
+                            label: isFa
+                                ? (state.isSyncingCatalog
+                                      ? 'در حال همگام‌سازی...'
+                                      : 'همگام‌سازی کاتالوگ')
+                                : (state.isSyncingCatalog
+                                      ? 'Syncing...'
+                                      : 'Sync Catalog Now'),
                             onPressed: state.isSyncingCatalog
                                 ? null
                                 : notifier.refreshCatalog,
@@ -519,15 +578,17 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                         title: pack.title,
                         subtitle: pack.description.isNotEmpty
                             ? pack.description
-                            : '${pack.track.toUpperCase()} • ${pack.skill.name}',
+                            : '${_localizedTrackTag(pack.track, isFa: isFa)} • ${EditionCopy.skillName(pack.skill.name, isIran: isFa)}',
                         glyph: _glyphForSkill(pack.skill),
                         tint: _tintForSkill(pack.skill),
-                        durationText: _formatDuration(pack),
-                        questionsText: _formatCountLabel(pack),
+                        durationText: _formatDuration(pack, isFa: isFa),
+                        questionsText: _formatCountLabel(pack, isFa: isFa),
                         badgeText: recIds.contains(pack.packId)
                             ? (isFa ? 'مسیر شما' : 'For Your Path')
                             : (pack.accent ??
-                                  (pack.track == 'general' ? 'General' : null)),
+                                  (pack.track == 'general'
+                                      ? (isFa ? 'جنرال' : 'General')
+                                      : null)),
                         isDownloaded: pack.isCachedOffline,
                         isDownloading: state.downloadingPackIds.contains(
                           pack.packId,
@@ -537,6 +598,7 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                         onTap: () => _openTestSetupSheet(
                           context,
                           pack: pack,
+                          isFa: isFa,
                         ),
                       ),
                     );
@@ -546,23 +608,35 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                 // Synced 3-Minute Micro-Drills Section
                 if (drills.isNotEmpty) ...<Widget>[
                   const SizedBox(height: SpacingTokens.md),
-                  Text('Targeted Micro-Drills', style: typography.cardTitle),
+                  Text(
+                    isFa ? 'تمرین‌های کوتاه هدفمند' : 'Targeted Micro-Drills',
+                    style: typography.cardTitle,
+                  ),
                   const SizedBox(height: SpacingTokens.sm),
-                  ...drills.map(
-                    (drill) => TaskCard(
+                  ...drills.map((drill) {
+                    final mins = (drill.durationSeconds / 60).ceil();
+                    final minsLabel = isFa
+                        ? '${EdgeNumerals.toPersianDigits(mins)} دقیقه'
+                        : '$mins min';
+                    final itemsLabel = isFa
+                        ? '${EdgeNumerals.toPersianDigits(drill.items.length)} تمرین'
+                        : '${drill.items.length} Drills';
+                    final catLabel = EditionCopy.localizeMicroDrillCategory(
+                      drill.weaknessCode,
+                      isIran: isFa,
+                    );
+                    return TaskCard(
                       title: drill.title,
-                      subtitle:
-                          '${drill.displayCategoryLabel} • ${drill.subtitle}',
+                      subtitle: '$catLabel • ${drill.subtitle}',
                       glyph: LucideGlyph.chartIncreasing,
                       tint: IconWellTint.neutral,
-                      durationText:
-                          '${(drill.durationSeconds / 60).ceil()} min',
-                      questionsText: '${drill.items.length} Drills',
+                      durationText: minsLabel,
+                      questionsText: itemsLabel,
                       onTap: () => context.push(
                         AppRoutes.buildMicroDrill(drill.drillId),
                       ),
-                    ),
-                  ),
+                    );
+                  }),
                 ],
                 const SizedBox(height: SpacingTokens.xxl),
               ],
@@ -571,6 +645,18 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
         ],
       ),
     );
+  }
+
+  static String _localizedTrackTag(String track, {required bool isFa}) {
+    if (!isFa) return track.toUpperCase();
+    return switch (track.toLowerCase()) {
+      'academic' => 'آکادمیک',
+      'general' => 'جنرال',
+      'toefl' => 'تافل iBT',
+      'pte' => 'PTE آکادمیک',
+      'det' => 'دولینگو (DET)',
+      _ => track.toUpperCase(),
+    };
   }
 
   static LucideGlyph _glyphForSkill(SkillKind skill) => switch (skill) {
@@ -589,48 +675,57 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
     SkillKind.vocabulary => IconWellTint.neutral,
   };
 
-  static String _formatDuration(InstalledExamPack pack) {
-    if (pack.durationSeconds <= 0) {
-      return switch (pack.skill) {
-        SkillKind.speaking => '14 min',
-        SkillKind.writing => '60 min',
-        SkillKind.reading => '60 min',
-        SkillKind.listening => '30 min',
-        SkillKind.vocabulary => '5 min',
-      };
-    }
-    final mins = (pack.durationSeconds / 60).ceil();
-    return '$mins min';
+  static String _formatDuration(
+    InstalledExamPack pack, {
+    required bool isFa,
+  }) {
+    final mins = pack.durationSeconds <= 0
+        ? switch (pack.skill) {
+            SkillKind.speaking => 14,
+            SkillKind.writing => 60,
+            SkillKind.reading => 60,
+            SkillKind.listening => 30,
+            SkillKind.vocabulary => 5,
+          }
+        : (pack.durationSeconds / 60).ceil();
+    return isFa ? '${EdgeNumerals.toPersianDigits(mins)} دقیقه' : '$mins min';
   }
 
-  static String _formatCountLabel(InstalledExamPack pack) {
+  static String _formatCountLabel(
+    InstalledExamPack pack, {
+    required bool isFa,
+  }) {
     if (pack.questionCount > 0) {
-      return '${pack.questionCount} Questions';
+      return isFa
+          ? '${EdgeNumerals.toPersianDigits(pack.questionCount)} پرسش'
+          : '${pack.questionCount} Questions';
     }
     return switch (pack.skill) {
-      SkillKind.speaking => '3 Parts',
-      SkillKind.writing => '2 Tasks',
-      SkillKind.reading => 'Passage Set',
-      SkillKind.listening => 'Audio Test',
-      SkillKind.vocabulary => 'Deck',
+      SkillKind.speaking => isFa ? '۳ بخش' : '3 Parts',
+      SkillKind.writing => isFa ? '۲ تسک' : '2 Tasks',
+      SkillKind.reading => isFa ? 'مجموعه متن' : 'Passage Set',
+      SkillKind.listening => isFa ? 'آزمون صوتی' : 'Audio Test',
+      SkillKind.vocabulary => isFa ? 'جعبه واژگان' : 'Deck',
     };
   }
 
   void _openTestSetupSheet(
     BuildContext context, {
     required InstalledExamPack pack,
+    required bool isFa,
   }) {
     unawaited(
       showMzBottomSheet<void>(
         context: context,
-        title: 'Test Setup',
+        title: isFa ? 'تنظیم آزمون' : 'Test Setup',
         child: Builder(
           builder: (sheetCtx) => _TestSetupContent(
             title: pack.title,
             skill: pack.skill.name,
-            duration: _formatDuration(pack),
-            questions: _formatCountLabel(pack),
+            duration: _formatDuration(pack, isFa: isFa),
+            questions: _formatCountLabel(pack, isFa: isFa),
             initialExamMode: _isExamMode,
+            isFa: isFa,
             onStart: (isExamMode) {
               Navigator.of(sheetCtx).pop();
               final route = switch (pack.skill) {
@@ -774,6 +869,7 @@ class _TestSetupContent extends StatefulWidget {
     required this.duration,
     required this.questions,
     required this.initialExamMode,
+    required this.isFa,
     required this.onStart,
   });
 
@@ -782,6 +878,7 @@ class _TestSetupContent extends StatefulWidget {
   final String duration;
   final String questions;
   final bool initialExamMode;
+  final bool isFa;
   final ValueChanged<bool> onStart;
 
   @override
@@ -795,6 +892,7 @@ class _TestSetupContentState extends State<_TestSetupContent> {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
+    final isFa = widget.isFa;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -807,7 +905,10 @@ class _TestSetupContentState extends State<_TestSetupContent> {
           style: typography.secondary.copyWith(color: colors.textSecondary),
         ),
         const SizedBox(height: SpacingTokens.lg),
-        Text('Select Mode', style: typography.cardTitle),
+        Text(
+          isFa ? 'انتخاب حالت اجرا' : 'Select Mode',
+          style: typography.cardTitle,
+        ),
         const SizedBox(height: SpacingTokens.sm),
         Row(
           children: <Widget>[
@@ -821,7 +922,15 @@ class _TestSetupContentState extends State<_TestSetupContent> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: <Widget>[
-                          Text('Exam Mode', style: typography.cardTitle),
+                          Expanded(
+                            child: Text(
+                              isFa ? 'حالت آزمون' : 'Exam Mode',
+                              style: typography.cardTitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: SpacingTokens.xs),
                           AppIcon(
                             isExamMode
                                 ? LucideGlyph.checkCircle2
@@ -835,7 +944,9 @@ class _TestSetupContentState extends State<_TestSetupContent> {
                       ),
                       const SizedBox(height: SpacingTokens.xs),
                       Text(
-                        'Strict timer, linear audio playback, no hints',
+                        isFa
+                            ? 'زمان‌بندی دقیق، پخش خطی صدا، بدون راهنما'
+                            : 'Strict timer, linear audio playback, no hints',
                         style: typography.caption.copyWith(
                           color: colors.textSecondary,
                         ),
@@ -856,7 +967,15 @@ class _TestSetupContentState extends State<_TestSetupContent> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: <Widget>[
-                          Text('Study Mode', style: typography.cardTitle),
+                          Expanded(
+                            child: Text(
+                              isFa ? 'حالت تمرینی' : 'Study Mode',
+                              style: typography.cardTitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: SpacingTokens.xs),
                           AppIcon(
                             !isExamMode
                                 ? LucideGlyph.checkCircle2
@@ -870,7 +989,9 @@ class _TestSetupContentState extends State<_TestSetupContent> {
                       ),
                       const SizedBox(height: SpacingTokens.xs),
                       Text(
-                        'Interactive playback, transcript, AI explain',
+                        isFa
+                            ? 'پخش تعاملی، متن پیاده‌شده، توضیح هوشمند'
+                            : 'Interactive playback, transcript, AI explain',
                         style: typography.caption.copyWith(
                           color: colors.textSecondary,
                         ),
@@ -884,7 +1005,9 @@ class _TestSetupContentState extends State<_TestSetupContent> {
         ),
         const SizedBox(height: SpacingTokens.xl),
         PrimaryButton(
-          label: isExamMode ? 'Start Exam Mode' : 'Start Study Mode',
+          label: isFa
+              ? (isExamMode ? 'شروع حالت آزمون' : 'شروع حالت تمرینی')
+              : (isExamMode ? 'Start Exam Mode' : 'Start Study Mode'),
           onPressed: () => widget.onStart(isExamMode),
         ),
         const SizedBox(height: SpacingTokens.md),

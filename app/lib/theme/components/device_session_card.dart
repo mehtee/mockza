@@ -10,6 +10,14 @@ import 'package:mockza/theme/components/mz_chip.dart';
 import 'package:mockza/theme/components/mz_toast.dart';
 import 'package:mockza/theme/primitives.dart';
 
+String _localizedSlotLabel(DeviceSlotKind slotKind, {required bool isFa}) {
+  if (!isFa) return slotKind.displayLabel;
+  return switch (slotKind) {
+    DeviceSlotKind.mobile => 'گوشی موبایل',
+    DeviceSlotKind.desktopWeb => 'وب دسکتاپ',
+  };
+}
+
 /// Visual 1-Phone + 1-Desktop-Web slot capacity indicator strip.
 class DeviceSlotCapacityStrip extends StatelessWidget {
   /// Creates a [DeviceSlotCapacityStrip].
@@ -149,6 +157,7 @@ class DeviceSessionTile extends StatelessWidget {
     final shapes = AppShapes.of(context);
     final typography = AppTypography.of(context);
     final isWeb = session.slotKind == DeviceSlotKind.desktopWeb;
+    final isFa = Localizations.localeOf(context).languageCode == 'fa';
 
     return Container(
       padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
@@ -198,7 +207,10 @@ class DeviceSessionTile extends StatelessWidget {
                           ),
                         ),
                         if (session.isCurrentDevice)
-                          const MzChip(label: 'THIS DEVICE', isSelected: true),
+                          MzChip(
+                            label: isFa ? 'این دستگاه' : 'THIS DEVICE',
+                            isSelected: true,
+                          ),
                         MzChip(label: session.authMethod.displayLabel),
                       ],
                     ),
@@ -245,7 +257,9 @@ class DeviceSessionTile extends StatelessWidget {
                   if (context.mounted) {
                     showMzToast(
                       context,
-                      message: 'Device ID ${session.deviceIdShort} copied.',
+                      message: isFa
+                          ? 'شناسه دستگاه ${session.deviceIdShort} کپی شد.'
+                          : 'Device ID ${session.deviceIdShort} copied.',
                     );
                   }
                 },
@@ -254,10 +268,12 @@ class DeviceSessionTile extends StatelessWidget {
                     vertical: SpacingTokens.xs,
                   ),
                   child: Text(
-                    'ID: ${session.deviceIdShort} · ${session.slotKind.displayLabel}',
+                    isFa
+                        ? 'شناسه: ${session.deviceIdShort} · ${_localizedSlotLabel(session.slotKind, isFa: true)}'
+                        : 'ID: ${session.deviceIdShort} · ${session.slotKind.displayLabel}',
                     style: typography.caption.copyWith(
                       color: colors.textTertiary,
-                      fontFamily: 'monospace',
+                      fontFamily: isFa ? null : 'monospace',
                     ),
                   ),
                 ),
@@ -277,7 +293,9 @@ class DeviceSessionTile extends StatelessWidget {
                       : colors.error,
                 ),
                 label: Text(
-                  session.isCurrentDevice ? 'Sign Out' : 'Terminate',
+                  session.isCurrentDevice
+                      ? (isFa ? 'خروج' : 'Sign Out')
+                      : (isFa ? 'قطع دسترسی' : 'Terminate'),
                 ),
               ),
             ],
@@ -308,6 +326,7 @@ class DeviceSlotConflictBanner extends StatelessWidget {
     final colors = AppColors.of(context);
     final shapes = AppShapes.of(context);
     final typography = AppTypography.of(context);
+    final isFa = Localizations.localeOf(context).languageCode == 'fa';
 
     return Container(
       padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
@@ -330,8 +349,12 @@ class DeviceSlotConflictBanner extends StatelessWidget {
               Expanded(
                 child: Text(
                   conflict != null
-                      ? '${conflict!.slotKind.displayLabel} Slot In Use'
-                      : 'Device Limit Reached',
+                      ? (isFa
+                            ? 'ظرفیت ${_localizedSlotLabel(conflict!.slotKind, isFa: true)} پر است'
+                            : '${conflict!.slotKind.displayLabel} Slot In Use')
+                      : (isFa
+                            ? 'سقف تعداد دستگاه پر است'
+                            : 'Device Limit Reached'),
                   style: typography.cardTitle.copyWith(color: colors.error),
                 ),
               ),
@@ -356,14 +379,18 @@ class DeviceSlotConflictBanner extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'Active device: ${conflict!.deviceName}',
+                    isFa
+                        ? 'دستگاه فعال: ${conflict!.deviceName}'
+                        : 'Active device: ${conflict!.deviceName}',
                     style: typography.caption.copyWith(
                       color: colors.textPrimary,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   Text(
-                    'Location: ${conflict!.locationLabel} · ID: ${conflict!.deviceIdShort}',
+                    isFa
+                        ? 'موقعیت: ${conflict!.locationLabel} · شناسه: ${conflict!.deviceIdShort}'
+                        : 'Location: ${conflict!.locationLabel} · ID: ${conflict!.deviceIdShort}',
                     style: typography.caption.copyWith(
                       color: colors.textSecondary,
                     ),
@@ -373,7 +400,9 @@ class DeviceSlotConflictBanner extends StatelessWidget {
             ),
             const SizedBox(height: SpacingTokens.xs),
             Text(
-              'Open Settings -> Signed-In Devices on your other active device (or terminate that session there) to sign in here.',
+              isFa
+                  ? 'در دستگاه فعال دیگر به بخش تنظیمات ← دستگاه‌های متصل بروید و آن نشست را ببندید تا اینجا وارد شوید.'
+                  : 'Open Settings -> Signed-In Devices on your other active device (or terminate that session there) to sign in here.',
               style: typography.caption.copyWith(color: colors.textSecondary),
             ),
           ],

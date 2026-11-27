@@ -18,6 +18,11 @@ import { extractQuestionMaxWords, normalizeQuestionType } from '@mockza/domain';
 import { and, asc, count, eq, inArray } from 'drizzle-orm';
 import type { RequestVariables } from '../middleware/request-id.js';
 
+const LEGACY_PACK_ID_ALIASES: Record<string, string> = {
+  'pte-ac-writ-01': 'pte-writing-pack-01',
+  'det-writ-01': 'det-writing-pack-01',
+};
+
 export function registerContentRoutes(
   app: OpenAPIHono<{ Variables: RequestVariables }>,
   env: AppEnv,
@@ -50,12 +55,13 @@ export function registerContentRoutes(
   });
 
   app.openapi(getExamByIdRoute, async (c) => {
-    const { packId } = c.req.valid('param');
+    const rawPackId = c.req.valid('param').packId;
+    const packId = LEGACY_PACK_ID_ALIASES[rawPackId] ?? rawPackId;
     if (!db) {
       return c.json(
         {
           code: 'not_found',
-          message: `Exam ${packId} unavailable (database not connected).`,
+          message: `Exam ${rawPackId} unavailable (database not connected).`,
           requestId: c.get('requestId'),
         },
         404,

@@ -11,8 +11,15 @@ import {
   RefreshCw,
   Sparkles,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  localizeDiagnosticAction,
+  localizeDiagnosticLevel,
+  localizeDiagnosticObservation,
+} from '@/components/bidi/diagnostic-labels';
+import { formatSkillLabel } from '@/components/bidi/topic-labels';
 import { MzBanner, MzButton, MzCard } from '@/components/ui';
+import { formatChromeNumber } from '@/edition/bidi/numerals';
 import type { DiagnosticSessionDto } from '@/gateways/diagnostic.gateway';
 import type { PersonalizationStateDto } from '@/gateways/personalization.gateway';
 import { createTranslator } from '@/i18n';
@@ -26,23 +33,25 @@ export interface DiagnosticResultScreenProps {
 
 const SKILL_META: readonly {
   readonly skill: DiagnosticSkill;
-  readonly label: string;
   readonly Icon: typeof BookOpen;
 }[] = [
-  { skill: 'reading', label: 'Reading', Icon: BookOpen },
-  { skill: 'listening', label: 'Listening', Icon: Headphones },
-  { skill: 'writing', label: 'Writing', Icon: PenTool },
-  { skill: 'speaking', label: 'Speaking', Icon: Mic },
+  { skill: 'reading', Icon: BookOpen },
+  { skill: 'listening', Icon: Headphones },
+  { skill: 'writing', Icon: PenTool },
+  { skill: 'speaking', Icon: Mic },
 ] as const;
 
 export function DiagnosticResultScreen({ diagId: routeDiagId }: DiagnosticResultScreenProps = {}) {
   const deps = useDeps();
-  const t = createTranslator(deps.edition);
+  const t = useMemo(() => createTranslator(deps.edition), [deps.edition]);
   const navigate = useNavigate();
 
   const [session, setSession] = useState<DiagnosticSessionDto | null>(null);
   const [personalization, setPersonalization] = useState<PersonalizationStateDto | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [pollPausedByQuota, setPollPausedByQuota] = useState(false);
+  const hasSessionRef = useRef(false);
+  hasSessionRef.current = Boolean(session);
 
   const loadResults = useCallback(async () => {
     setErrorMsg(null);
@@ -63,15 +72,19 @@ export function DiagnosticResultScreen({ diagId: routeDiagId }: DiagnosticResult
 
     const remoteRes = await deps.diagnostic.getSession(targetDiagId);
     if (remoteRes.ok) {
+      setPollPausedByQuota(false);
       setSession(remoteRes.value);
       const pRes = await deps.personalization?.getState();
       if (pRes && pRes.ok) {
         setPersonalization(pRes.value);
       }
-    } else if (!session) {
+    } else if (remoteRes.error.kind === 'quota_exceeded') {
+      setPollPausedByQuota(true);
+      setErrorMsg(t('rateLimitFriendlyError'));
+    } else if (!hasSessionRef.current) {
       setErrorMsg(remoteRes.error.message);
     }
-  }, [deps.attemptStore, deps.diagnostic, deps.personalization, routeDiagId, session]);
+  }, [deps.attemptStore, deps.diagnostic, deps.personalization, routeDiagId, t]);
 
   useEffect(() => {
     void loadResults();
@@ -82,12 +95,12 @@ export function DiagnosticResultScreen({ diagId: routeDiagId }: DiagnosticResult
     Object.values(session.skills).some((outcome) => outcome.status === 'pending');
 
   useEffect(() => {
-    if (!anyPending) return;
+    if (!anyPending || pollPausedByQuota) return;
     const timer = window.setInterval(() => {
       void loadResults();
-    }, 2500);
+    }, 3500);
     return () => window.clearInterval(timer);
-  }, [anyPending, loadResults]);
+  }, [anyPending, loadResults, pollPausedByQuota]);
 
   if (!session) {
     return (
@@ -96,7 +109,7 @@ export function DiagnosticResultScreen({ diagId: routeDiagId }: DiagnosticResult
           <MzBanner tone="danger">{errorMsg}</MzBanner>
         ) : (
           <MzCard variant="default">
-            <p className="text-sm text-text-secondary">No baseline report found yet.</p>
+            <p className="text-sm text-text-secondary">{t('diagNoReportFound')}</p>
             <Link
               to="/diagnostic/intro"
               className="mt-3 inline-flex text-xs font-semibold text-primary hover:underline"
@@ -108,6 +121,11 @@ export function DiagnosticResultScreen({ diagId: routeDiagId }: DiagnosticResult
       </div>
     );
   }
+
+  const localizedAction = localizeDiagnosticAction(
+    session.recommendedFirstAction,
+    deps.edition,
+  );
 
   return (
     <div data-testid="diagnostic-result-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-10 text-start">
@@ -121,9 +139,12 @@ export function DiagnosticResultScreen({ diagId: routeDiagId }: DiagnosticResult
           variant="secondary"
           size="sm"
           leadingIcon={<RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />}
-          onClick={() => void loadResults()}
+          onClick={() => {
+            setPollPausedByQuota(false);
+            void loadResults();
+          }}
         >
-          Refresh
+          {t('refreshAction')}
         </MzButton>
       </header>
 
@@ -136,10 +157,10 @@ export function DiagnosticResultScreen({ diagId: routeDiagId }: DiagnosticResult
             <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
             <div>
               <h2 className="text-base font-bold text-text-primary">
-                {session.recommendedFirstAction.title}
+                {localizedAction.title}
               </h2>
               <p className="mt-1 text-xs text-text-secondary">
-                {session.recommendedFirstAction.description}
+                {localizedAction.description}
               </p>
             </div>
           </div>
@@ -186,7 +207,9 @@ export function DiagnosticResultScreen({ diagId: routeDiagId }: DiagnosticResult
             <div className="flex flex-wrap items-center gap-2 text-xs">
               {personalization.liveBand.currentBand !== null ? (
                 <span className="rounded-[var(--mz-radius-pill)] bg-primary/15 px-3 py-1 font-mono font-bold text-primary">
-                  {t('planImpactBandLabel')}: {personalization.liveBand.currentBand} · {t('confidenceSeeded')}
+                  {t('planImpactBandLabel')}:{' '}
+                  {formatChromeNumber(personalization.liveBand.currentBand, deps.edition)} ·{' '}
+                  {t('confidenceSeeded')}
                 </span>
               ) : null}
               {personalization.weaknesses.slice(0, 2).map((w) => (
@@ -204,7 +227,11 @@ export function DiagnosticResultScreen({ diagId: routeDiagId }: DiagnosticResult
                   key={ms.index}
                   className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-2.5 py-2 text-xs"
                 >
-                  <p className="font-mono text-[10px] font-bold text-primary">M{ms.index}</p>
+                  <p className="font-mono text-[10px] font-bold text-primary">
+                    {deps.edition === 'irn'
+                      ? `گام ${formatChromeNumber(ms.index, deps.edition)}`
+                      : `M${ms.index}`}
+                  </p>
                   <p className="mt-0.5 font-semibold text-text-primary">
                     {deps.edition === 'irn' ? ms.titleFa : ms.titleEn}
                   </p>
@@ -217,8 +244,9 @@ export function DiagnosticResultScreen({ diagId: routeDiagId }: DiagnosticResult
 
       {/* 4-Skill Baseline Grid with Single-Skill Retake */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {SKILL_META.map(({ skill, label, Icon }) => {
+        {SKILL_META.map(({ skill, Icon }) => {
           const outcome = session.skills[skill];
+          const label = formatSkillLabel(skill, deps.edition);
           const statusLabel =
             outcome.status === 'pending'
               ? t('diagPendingStatusLabel')
@@ -277,14 +305,14 @@ export function DiagnosticResultScreen({ diagId: routeDiagId }: DiagnosticResult
 
               {outcome.suggestedPracticeLevel ? (
                 <p className="mt-3 rounded-[var(--mz-radius-compact)] border border-primary/35 bg-surface-alt px-3 py-2 text-xs font-semibold text-text-primary">
-                  {outcome.suggestedPracticeLevel}
+                  {localizeDiagnosticLevel(outcome.suggestedPracticeLevel, deps.edition)}
                 </p>
               ) : null}
 
               {outcome.observations.length > 0 ? (
                 <ul className="mt-3 flex flex-col gap-1 text-xs text-text-secondary">
                   {outcome.observations.map((obs) => (
-                    <li key={obs}>• {obs}</li>
+                    <li key={obs}>• {localizeDiagnosticObservation(obs, deps.edition)}</li>
                   ))}
                 </ul>
               ) : null}

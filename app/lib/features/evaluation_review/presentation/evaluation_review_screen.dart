@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/core/localization/edition_copy.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/core/models/evaluation_models.dart';
 import 'package:mockza/core/models/speaking_evaluation.dart';
@@ -11,6 +14,7 @@ import 'package:mockza/features/evaluation_review/presentation/evaluation_review
 import 'package:mockza/features/evaluation_review/presentation/evaluation_review_providers.dart';
 import 'package:mockza/features/evaluation_review/presentation/widgets/listening_evidence_sheet.dart';
 import 'package:mockza/l10n/app_localizations.dart';
+import 'package:mockza/providers.dart';
 import 'package:mockza/routing/routes.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
@@ -79,6 +83,9 @@ class _EvaluationReviewScreenState
   Widget build(BuildContext context) {
     final state = ref.watch(evaluationReviewNotifierProvider);
     final notifier = ref.read(evaluationReviewNotifierProvider.notifier);
+    final isIran =
+        ref.watch(editionConfigProvider).edition == AppEdition.iran ||
+        Localizations.localeOf(context).languageCode == 'fa';
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
 
@@ -88,7 +95,7 @@ class _EvaluationReviewScreenState
         elevation: 0,
         leading: MzIconButton(
           glyph: LucideGlyph.chevronLeft,
-          semanticLabel: 'Back',
+          semanticLabel: isIran ? 'بازگشت' : 'Back',
           onPressed: () {
             if (context.canPop()) {
               context.pop();
@@ -101,7 +108,7 @@ class _EvaluationReviewScreenState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
-              'Evaluation Review',
+              isIran ? 'تحلیل و کارنامه' : 'Evaluation Review',
               style: typography.cardTitle.copyWith(fontWeight: FontWeight.w700),
             ),
             Text(
@@ -116,26 +123,32 @@ class _EvaluationReviewScreenState
           if (!state.notFound && !state.isLoading) ...<Widget>[
             MzIconButton(
               glyph: LucideGlyph.alertTriangle,
-              semanticLabel: 'Flag question or score issue',
-              onPressed: () => _openFlagSheet(context, notifier, state),
+              semanticLabel: isIran
+                  ? 'گزارش خطای سؤال یا نمره'
+                  : 'Flag question or score issue',
+              onPressed: () =>
+                  _openFlagSheet(context, notifier, state, isIran: isIran),
             ),
             MzIconButton(
               glyph: LucideGlyph.cloudUpload,
-              semanticLabel: 'Share evaluation summary',
-              onPressed: () => _shareResults(context, notifier),
+              semanticLabel: isIran
+                  ? 'اشتراک‌گذاری خلاصه کارنامه'
+                  : 'Share evaluation summary',
+              onPressed: () => _shareResults(context, notifier, isIran: isIran),
             ),
           ],
         ],
       ),
-      body: _buildBody(context, state, notifier),
+      body: _buildBody(context, state, notifier, isIran: isIran),
     );
   }
 
   Widget _buildBody(
     BuildContext context,
     EvaluationReviewState state,
-    EvaluationReviewNotifier notifier,
-  ) {
+    EvaluationReviewNotifier notifier, {
+    required bool isIran,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
 
@@ -147,7 +160,7 @@ class _EvaluationReviewScreenState
             CircularProgressIndicator(color: colors.primary),
             const SizedBox(height: SpacingTokens.md),
             Text(
-              'Loading evaluation...',
+              isIran ? 'در حال بارگذاری کارنامه...' : 'Loading evaluation...',
               style: typography.body.copyWith(color: colors.textSecondary),
             ),
           ],
@@ -158,10 +171,13 @@ class _EvaluationReviewScreenState
     if (state.notFound) {
       return EmptyState(
         glyph: LucideGlyph.alertCircle,
-        title: 'Attempt not found',
+        title: isIran ? 'آزمون یافت نشد' : 'Attempt not found',
         description:
-            state.errorMessage ?? 'This attempt may have been cleared.',
-        actionLabel: 'Back to Home',
+            state.errorMessage ??
+            (isIran
+                ? 'ممکن است اطلاعات این آزمون پاک شده باشد.'
+                : 'This attempt may have been cleared.'),
+        actionLabel: isIran ? 'بازگشت به خانه' : 'Back to Home',
         onTapAction: () => context.go(AppRoutes.home),
       );
     }
@@ -169,14 +185,22 @@ class _EvaluationReviewScreenState
     final isObjective =
         state.skill == SkillKind.reading || state.skill == SkillKind.listening;
     final thirdTabLabel = isObjective
-        ? 'Answer Key'
-        : (state.skill == SkillKind.speaking ? 'Transcript' : 'Rewrite');
+        ? (isIran ? 'پاسخ‌نامه' : 'Answer Key')
+        : (state.skill == SkillKind.speaking
+              ? (isIran ? 'متن پیاده‌شده' : 'Transcript')
+              : (isIran ? 'بازنویسی' : 'Rewrite'));
+
+    final overviewLabel = isIran ? 'نمای کلی' : 'Overview';
+    final secondTabLabel = isObjective
+        ? (isIran ? 'پرسش‌ها' : 'Questions')
+        : (isIran ? 'معیارها' : 'Rubric');
+    final compareLabel = isIran ? 'مقایسه' : 'Compare';
 
     final tabs = <String>[
-      'Overview',
-      if (isObjective) 'Questions' else 'Rubric',
+      overviewLabel,
+      secondTabLabel,
       thirdTabLabel,
-      'Compare',
+      compareLabel,
     ];
 
     return Column(
@@ -203,16 +227,34 @@ class _EvaluationReviewScreenState
         ),
         Expanded(
           child: switch (state.selectedTabIndex) {
-            0 => _OverviewTab(state: state, notifier: notifier),
+            0 => _OverviewTab(
+              state: state,
+              notifier: notifier,
+              isIran: isIran,
+            ),
             1 => _RubricOrQuestionsTab(
               state: state,
               notifier: notifier,
-              onFlagQuestion: (qId) =>
-                  _openFlagSheet(context, notifier, state, questionId: qId),
+              isIran: isIran,
+              onFlagQuestion: (qId) => _openFlagSheet(
+                context,
+                notifier,
+                state,
+                isIran: isIran,
+                questionId: qId,
+              ),
             ),
-            2 => _RewriteTranscriptKeyTab(state: state, notifier: notifier),
-            3 => _CompareTab(state: state),
-            _ => _OverviewTab(state: state, notifier: notifier),
+            2 => _RewriteTranscriptKeyTab(
+              state: state,
+              notifier: notifier,
+              isIran: isIran,
+            ),
+            3 => _CompareTab(state: state, isIran: isIran),
+            _ => _OverviewTab(
+              state: state,
+              notifier: notifier,
+              isIran: isIran,
+            ),
           },
         ),
       ],
@@ -221,21 +263,24 @@ class _EvaluationReviewScreenState
 
   Future<void> _shareResults(
     BuildContext context,
-    EvaluationReviewNotifier notifier,
-  ) async {
+    EvaluationReviewNotifier notifier, {
+    required bool isIran,
+  }) async {
     final summary = notifier.buildShareSummary();
     try {
       await SharePlus.instance.share(
         ShareParams(
           text: summary,
-          subject: 'Mockza IELTS Evaluation',
+          subject: isIran ? 'کارنامه ارزیابی سنجیا' : 'Mockza IELTS Evaluation',
         ),
       );
     } on Object {
       if (context.mounted) {
         showMzToast(
           context,
-          message: 'Share sheet unavailable on this browser.',
+          message: isIran
+              ? 'اشتراک‌گذاری در این مرورگر در دسترس نیست.'
+              : 'Share sheet unavailable on this browser.',
           glyph: LucideGlyph.info,
         );
       }
@@ -246,21 +291,29 @@ class _EvaluationReviewScreenState
     BuildContext context,
     EvaluationReviewNotifier notifier,
     EvaluationReviewState state, {
+    required bool isIran,
     String? questionId,
   }) async {
     final noteController = TextEditingController();
-    final reasons = <String>[
-      'Scoring feels inaccurate',
-      'Transcript or text mismatch',
-      'Question prompt / answer key issue',
-      'Other feedback',
-    ];
+    final reasons = isIran
+        ? <String>[
+            'نمره‌دهی دقیق به نظر نمی‌رسد',
+            'عدم تطابق متن یا پیاده‌سازی صوت',
+            'ایراد در صورت سؤال یا پاسخ‌نامه',
+            'سایر موارد',
+          ]
+        : <String>[
+            'Scoring feels inaccurate',
+            'Transcript or text mismatch',
+            'Question prompt / answer key issue',
+            'Other feedback',
+          ];
     var selectedReason = reasons.first;
 
     try {
       await showMzBottomSheet<void>(
         context: context,
-        title: 'Flag Quality Issue',
+        title: isIran ? 'گزارش خطای کیفیت' : 'Flag Quality Issue',
         child: StatefulBuilder(
           builder: (sheetCtx, setSheetState) {
             final typography = AppTypography.of(sheetCtx);
@@ -272,7 +325,9 @@ class _EvaluationReviewScreenState
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   Text(
-                    'Select the issue you encountered so our academic team can inspect this item:',
+                    isIran
+                        ? 'موردی را که با آن روبه‌رو شدید انتخاب کنید تا تیم علمی ما آن را بررسی کند:'
+                        : 'Select the issue you encountered so our academic team can inspect this item:',
                     style: typography.secondary.copyWith(
                       color: colors.textSecondary,
                     ),
@@ -294,14 +349,16 @@ class _EvaluationReviewScreenState
                   ),
                   const SizedBox(height: SpacingTokens.md),
                   MzFormField(
-                    label: 'Optional details',
-                    hintText: 'Describe what looked off...',
+                    label: isIran ? 'توضیحات اختیاری' : 'Optional details',
+                    hintText: isIran
+                        ? 'توضیح دهید چه بخشی نادرست بود...'
+                        : 'Describe what looked off...',
                     controller: noteController,
                     maxLines: 3,
                   ),
                   const SizedBox(height: SpacingTokens.lg),
                   PrimaryButton(
-                    label: 'Submit Flag',
+                    label: isIran ? 'ارسال گزارش' : 'Submit Flag',
                     glyph: LucideGlyph.alertTriangle,
                     onPressed: () async {
                       final targetQ = questionId ?? state.packId;
@@ -317,8 +374,12 @@ class _EvaluationReviewScreenState
                         showMzToast(
                           context,
                           message: sentOnline
-                              ? 'Issue reported. Thank you!'
-                              : 'Saved offline — flag will sync automatically.',
+                              ? (isIran
+                                    ? 'گزارش شما ثبت شد. سپاسگزاریم!'
+                                    : 'Issue reported. Thank you!')
+                              : (isIran
+                                    ? 'آفلاین ذخیره شد — به‌محض اتصال ارسال می‌شود.'
+                                    : 'Saved offline — flag will sync automatically.'),
                         );
                       }
                     },
@@ -336,10 +397,15 @@ class _EvaluationReviewScreenState
 }
 
 class _OverviewTab extends StatelessWidget {
-  const new({required this.state, required this.notifier});
+  const new({
+    required this.state,
+    required this.notifier,
+    required this.isIran,
+  });
 
   final EvaluationReviewState state;
   final EvaluationReviewNotifier notifier;
+  final bool isIran;
 
   @override
   Widget build(BuildContext context) {
@@ -359,6 +425,7 @@ class _OverviewTab extends StatelessWidget {
         state.writingResult?.criteria ??
         state.speakingResult?.criteria ??
         const <CriterionScore>[];
+    final skillLabel = EditionCopy.skillName(state.skill.name, isIran: isIran);
 
     return ListView(
       padding: const EdgeInsetsDirectional.only(bottom: SpacingTokens.xxl),
@@ -367,13 +434,19 @@ class _OverviewTab extends StatelessWidget {
           StatusBanner(
             variant: StatusBannerVariant.error,
             message: state.quotaRefunded
-                ? '${state.errorMessage ?? 'Evaluation failed.'} Daily quota credit refunded.'
+                ? (isIran
+                      ? '${state.errorMessage ?? 'ارزیابی ناموفق بود.'} سهمیه روزانه بازگردانده شد.'
+                      : '${state.errorMessage ?? 'Evaluation failed.'} Daily quota credit refunded.')
                 : (state.errorMessage ??
-                      'Evaluation failed. Your response is saved safely on this device.'),
+                      (isIran
+                          ? 'ارزیابی ناموفق بود. پاسخ شما به‌صورت امن روی دستگاه ذخیره شده است.'
+                          : 'Evaluation failed. Your response is saved safely on this device.')),
           ),
           const SizedBox(height: SpacingTokens.md),
           PrimaryButton(
-            label: state.isRetrying ? 'Retrying...' : 'Retry AI Evaluation',
+            label: state.isRetrying
+                ? (isIran ? 'در حال تلاش مجدد...' : 'Retrying...')
+                : (isIran ? 'تلاش مجدد ارزیابی هوشمند' : 'Retry AI Evaluation'),
             isLoading: state.isRetrying,
             onPressed: state.isRetrying ? null : notifier.retryEvaluation,
           ),
@@ -381,10 +454,15 @@ class _OverviewTab extends StatelessWidget {
         ] else if (state.isPendingRemote) ...<Widget>[
           StatusBanner(
             variant: StatusBannerVariant.uploading,
-            message:
-                state.pollStageLabel ??
-                'AI examiner is grading your submission...',
-            actionLabel: 'Check Now',
+            message: state.pollStageLabel != null
+                ? EditionCopy.localizeWorkerStage(
+                    state.pollStageLabel,
+                    isIran: isIran,
+                  )
+                : (isIran
+                      ? 'ارزیاب هوشمند در حال بررسی پاسخ شماست...'
+                      : 'AI examiner is grading your submission...'),
+            actionLabel: isIran ? 'بررسی اکنون' : 'Check Now',
             onTapAction: state.remoteJobId != null
                 ? () => unawaited(notifier.pollNow(state.remoteJobId!))
                 : () => unawaited(notifier.retryEvaluation()),
@@ -402,17 +480,25 @@ class _OverviewTab extends StatelessWidget {
                 runSpacing: SpacingTokens.xs,
                 children: <Widget>[
                   MzChip(
-                    label: _skillTitle(state.skill),
+                    label: skillLabel,
                     variant: MzChipVariant.target,
                   ),
                   MzChip(
                     label: isAiSkill
                         ? (state.usedStudyMode
-                              ? 'AI Study Mode Estimate'
-                              : 'AI Estimated Band')
+                              ? (isIran
+                                    ? 'تخمین حالت مطالعه هوشمند'
+                                    : 'AI Study Mode Estimate')
+                              : (isIran
+                                    ? 'تخمین هوش مصنوعی (${EditionCopy.scaleLabelFor(state.examTrack, isIran: true)})'
+                                    : 'AI ${state.examTrack.scaleLabel}'))
                         : (!state.isCalibratedFullPack || state.usedStudyMode)
-                        ? 'Practice Estimate (${state.objectiveTotalCount} items)'
-                        : 'Answer Key (${state.objectiveTotalCount} items)',
+                        ? (isIran
+                              ? 'تخمین تمرینی (${EdgeNumerals.toPersianDigits(state.objectiveTotalCount)} پرسش)'
+                              : 'Practice Estimate (${state.objectiveTotalCount} items)')
+                        : (isIran
+                              ? 'پاسخ‌نامه (${EdgeNumerals.toPersianDigits(state.objectiveTotalCount)} پرسش)'
+                              : 'Answer Key (${state.objectiveTotalCount} items)'),
                     glyph: isAiSkill
                         ? LucideGlyph.sparkles
                         : LucideGlyph.checkCircle2,
@@ -426,7 +512,11 @@ class _OverviewTab extends StatelessWidget {
                   textBaseline: TextBaseline.alphabetic,
                   children: <Widget>[
                     Text(
-                      state.examTrack.formatScore(state.overallBand!),
+                      EditionCopy.formatScoreFor(
+                        state.examTrack,
+                        state.overallBand!,
+                        isIran: isIran,
+                      ),
                       style: typography.heroScore.copyWith(
                         color: colors.textPrimary,
                       ),
@@ -438,16 +528,24 @@ class _OverviewTab extends StatelessWidget {
                         children: <Widget>[
                           Text(
                             (state.isCalibratedFullPack && !state.usedStudyMode)
-                                ? 'Estimated ${state.examTrack.shortName} ${state.examTrack.unitLabel}'
-                                : 'Uncalibrated Practice Estimate',
+                                ? (isIran
+                                      ? '${EditionCopy.scaleLabelFor(state.examTrack, isIran: true)} ${state.examTrack.shortName}'
+                                      : 'Estimated ${state.examTrack.shortName} ${state.examTrack.unitLabel}')
+                                : (isIran
+                                      ? 'تخمین غیرکالیبره تمرینی'
+                                      : 'Uncalibrated Practice Estimate'),
                             style: typography.cardTitle.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                           Text(
                             state.objectiveTotalCount > 0
-                                ? '${state.objectiveCorrectCount}/${state.objectiveTotalCount} correct · Target ${state.examTrack.formatScore(state.targetBandScore)}'
-                                : 'Target ${state.examTrack.formatScore(state.targetBandScore)}',
+                                ? (isIran
+                                      ? '${EdgeNumerals.toPersianDigits(state.objectiveCorrectCount)} از ${EdgeNumerals.toPersianDigits(state.objectiveTotalCount)} صحیح · هدف ${EditionCopy.formatScoreFor(state.examTrack, state.targetBandScore, isIran: true)}'
+                                      : '${state.objectiveCorrectCount}/${state.objectiveTotalCount} correct · Target ${state.examTrack.formatScore(state.targetBandScore)}')
+                                : (isIran
+                                      ? 'هدف ${EditionCopy.formatScoreFor(state.examTrack, state.targetBandScore, isIran: true)}'
+                                      : 'Target ${state.examTrack.formatScore(state.targetBandScore)}'),
                             style: typography.secondary.copyWith(
                               color: colors.textSecondary,
                             ),
@@ -456,8 +554,9 @@ class _OverviewTab extends StatelessWidget {
                               ExamTrack.toeflIbt) ...<Widget>[
                             const SizedBox(height: SpacingTokens.xs),
                             MzChip(
-                              label:
-                                  '≈ ${ExamSpec.estimateToeflLegacy120(state.overallBand!)} / 120 Legacy Scale',
+                              label: isIran
+                                  ? '≈ ${EdgeNumerals.toPersianDigits(ExamSpec.estimateToeflLegacy120(state.overallBand!))} از ۱۲۰ (مقیاس پیشین)'
+                                  : '≈ ${ExamSpec.estimateToeflLegacy120(state.overallBand!)} / 120 Legacy Scale',
                             ),
                           ],
                           if (!state.isCalibratedFullPack ||
@@ -465,8 +564,12 @@ class _OverviewTab extends StatelessWidget {
                             const SizedBox(height: SpacingTokens.xs),
                             Text(
                               state.usedStudyMode
-                                  ? 'Study Mode attempts are excluded from calibrated dashboard estimates.'
-                                  : 'Scaled from a ${state.objectiveTotalCount}-item practice passage; excluded from calibrated full-test averages.',
+                                  ? (isIran
+                                        ? 'آزمون‌های حالت مطالعه در میانگین کالیبره داشبورد لحاظ نمی‌شوند.'
+                                        : 'Study Mode attempts are excluded from calibrated dashboard estimates.')
+                                  : (isIran
+                                        ? 'تخمین بر اساس تمرین ${EdgeNumerals.toPersianDigits(state.objectiveTotalCount)} پرسشی است و در میانگین آزمون کامل لحاظ نمی‌شود.'
+                                        : 'Scaled from a ${state.objectiveTotalCount}-item practice passage; excluded from calibrated full-test averages.'),
                               style: typography.caption.copyWith(
                                 color: colors.textSecondary,
                               ),
@@ -483,18 +586,22 @@ class _OverviewTab extends StatelessWidget {
                   targetScore: state.targetBandScore,
                   minScore: state.examTrack.minScore,
                   maxScore: state.examTrack.maxScore,
-                  label: '${state.examTrack.unitLabel} Progress',
+                  label: isIran
+                      ? 'پیشرفت ${EditionCopy.unitLabelFor(state.examTrack, isIran: true)}'
+                      : '${state.examTrack.unitLabel} Progress',
                 ),
               ] else ...<Widget>[
                 Text(
-                  'Scoring in Progress',
+                  isIran ? 'در حال نمره‌دهی...' : 'Scoring in Progress',
                   style: typography.sectionHeading.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: SpacingTokens.xs),
                 Text(
-                  'Your ${state.skill.name} response is safely stored. Results appear automatically as soon as grading completes.',
+                  isIran
+                      ? 'پاسخ $skillLabel شما با موفقیت ذخیره شد. نتیجه به محض پایان تصحیح نمایش داده می‌شود.'
+                      : 'Your ${state.skill.name} response is safely stored. Results appear automatically as soon as grading completes.',
                   style: typography.body.copyWith(color: colors.textSecondary),
                 ),
                 if (state.isPendingRemote) ...<Widget>[
@@ -526,7 +633,9 @@ class _OverviewTab extends StatelessWidget {
           ),
         ],
         if (nextStep.isNotEmpty) ...<Widget>[
-          const SectionHeader(title: 'Priority Next Step'),
+          SectionHeader(
+            title: isIran ? 'اقدام اولویت‌دار بعدی' : 'Priority Next Step',
+          ),
           MzCard(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -548,7 +657,9 @@ class _OverviewTab extends StatelessWidget {
           ),
         ],
         if (criteria.isNotEmpty) ...<Widget>[
-          const SectionHeader(title: 'Criterion Snapshot'),
+          SectionHeader(
+            title: isIran ? 'خلاصه معیارها' : 'Criterion Snapshot',
+          ),
           MzCard(
             child: Column(
               children: criteria
@@ -576,7 +687,11 @@ class _OverviewTab extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            state.examTrack.formatScore(c.band),
+                            EditionCopy.formatScoreFor(
+                              state.examTrack,
+                              c.band,
+                              isIran: isIran,
+                            ),
                             style: typography.cardTitle.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
@@ -595,7 +710,9 @@ class _OverviewTab extends StatelessWidget {
           scoreBand: state.overallBand,
         ),
         if (drill != null) ...<Widget>[
-          const SectionHeader(title: 'Recommended Micro-Drill'),
+          SectionHeader(
+            title: isIran ? 'ریزتمرین پیشنهادی' : 'Recommended Micro-Drill',
+          ),
           MzCard(
             variant: MzCardVariant.action,
             child: Column(
@@ -609,15 +726,19 @@ class _OverviewTab extends StatelessWidget {
                 ),
                 const SizedBox(height: SpacingTokens.xs),
                 Text(
-                  '${drill.durationMinutes} min · Focus code ${drill.weaknessCode}',
+                  isIran
+                      ? '${EdgeNumerals.toPersianDigits(drill.durationMinutes)} دقیقه · کد تمرکز ${drill.weaknessCode}'
+                      : '${drill.durationMinutes} min · Focus code ${drill.weaknessCode}',
                   style: typography.secondary.copyWith(
                     color: colors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: SpacingTokens.md),
                 PrimaryButton(
-                  label: 'Start Targeted Drill',
-                  trailingGlyph: LucideGlyph.arrowRight,
+                  label: isIran ? 'شروع تمرین هدفمند' : 'Start Targeted Drill',
+                  trailingGlyph: isIran
+                      ? LucideGlyph.arrowLeft
+                      : LucideGlyph.arrowRight,
                   onPressed: () => context.push(
                     AppRoutes.buildMicroDrill(drill.drillId),
                   ),
@@ -651,7 +772,9 @@ class _OverviewTab extends StatelessWidget {
                         const SizedBox(width: SpacingTokens.xs),
                         Expanded(
                           child: Text(
-                            'Turn This Feedback Into Daily Habits',
+                            isIran
+                                ? 'تبدیل این بازخورد به عادت روزانه'
+                                : 'Turn This Feedback Into Daily Habits',
                             style: typography.cardTitle.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
@@ -662,8 +785,12 @@ class _OverviewTab extends StatelessWidget {
                     const SizedBox(height: SpacingTokens.xs),
                     Text(
                       weakest != null
-                          ? 'Lowest area: ${weakest.criterionLabel} (${state.examTrack.formatScore(weakest.band)}). Lock in stronger phrasing in 10 minutes.'
-                          : 'Reinforce weaker expressions from this attempt with Smart Coach.',
+                          ? (isIran
+                                ? 'ضعیف‌ترین بخش: ${weakest.criterionLabel} (${EditionCopy.formatScoreFor(state.examTrack, weakest.band, isIran: true)}). در ۱۰ دقیقه ساختارهای قوی‌تر را تثبیت کنید.'
+                                : 'Lowest area: ${weakest.criterionLabel} (${state.examTrack.formatScore(weakest.band)}). Lock in stronger phrasing in 10 minutes.')
+                          : (isIran
+                                ? 'عبارات ضعیف‌تر این آزمون را با مربی هوشمند تقویت کنید.'
+                                : 'Reinforce weaker expressions from this attempt with Smart Coach.'),
                       style: typography.secondary.copyWith(
                         color: colors.textSecondary,
                       ),
@@ -671,7 +798,9 @@ class _OverviewTab extends StatelessWidget {
                     const SizedBox(height: SpacingTokens.md),
                     PrimaryButton(
                       key: const ValueKey<String>('eval_bridge_coach_btn'),
-                      label: "Fix in Today's 10-Min Coach",
+                      label: isIran
+                          ? 'رفع ضعف در مأموریت ۱۰ دقیقه‌ای امروز'
+                          : "Fix in Today's 10-Min Coach",
                       glyph: LucideGlyph.flame,
                       onPressed: () =>
                           context.push(AppRoutes.buildDailyMission()),
@@ -679,7 +808,9 @@ class _OverviewTab extends StatelessWidget {
                     const SizedBox(height: SpacingTokens.sm),
                     SecondaryButton(
                       key: const ValueKey<String>('eval_bridge_shifter_btn'),
-                      label: 'Upgrade Weak Sentences',
+                      label: isIran
+                          ? 'ارتقای جملات ضعیف'
+                          : 'Upgrade Weak Sentences',
                       glyph: LucideGlyph.slidersHorizontal,
                       onPressed: () => context.push(AppRoutes.registerShifter),
                     ),
@@ -691,7 +822,7 @@ class _OverviewTab extends StatelessWidget {
         ],
         const SizedBox(height: SpacingTokens.lg),
         SecondaryButton(
-          label: 'Practice Again',
+          label: isIran ? 'تمرین مجدد' : 'Practice Again',
           glyph: LucideGlyph.rotateCcw,
           onPressed: () => context.go(AppRoutes.practice),
         ),
@@ -704,11 +835,13 @@ class _RubricOrQuestionsTab extends StatefulWidget {
   const new({
     required this.state,
     required this.notifier,
+    required this.isIran,
     required this.onFlagQuestion,
   });
 
   final EvaluationReviewState state;
   final EvaluationReviewNotifier notifier;
+  final bool isIran;
   final void Function(String questionId) onFlagQuestion;
 
   @override
@@ -724,6 +857,7 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
     final shapes = AppShapes.of(context);
     final typography = AppTypography.of(context);
     final state = widget.state;
+    final isIran = widget.isIran;
     final l10n = AppLocalizations.of(context);
 
     if (state.skill == SkillKind.reading ||
@@ -743,6 +877,8 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
           })
           .toList(growable: false);
 
+      final missedCount =
+          state.objectiveTotalCount - state.objectiveCorrectCount;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
@@ -751,18 +887,23 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
             runSpacing: SpacingTokens.xs,
             children: <Widget>[
               MzChip(
-                label: 'All (${state.objectiveQuestions.length})',
+                label: isIran
+                    ? 'همه (${EdgeNumerals.toPersianDigits(state.objectiveQuestions.length)})'
+                    : 'All (${state.objectiveQuestions.length})',
                 isSelected: _filter == 'all',
                 onTap: () => setState(() => _filter = 'all'),
               ),
               MzChip(
-                label:
-                    'Missed (${state.objectiveTotalCount - state.objectiveCorrectCount})',
+                label: isIran
+                    ? 'غلط / نزده (${EdgeNumerals.toPersianDigits(missedCount)})'
+                    : 'Missed ($missedCount)',
                 isSelected: _filter == 'missed',
                 onTap: () => setState(() => _filter = 'missed'),
               ),
               MzChip(
-                label: 'Correct (${state.objectiveCorrectCount})',
+                label: isIran
+                    ? 'صحیح (${EdgeNumerals.toPersianDigits(state.objectiveCorrectCount)})'
+                    : 'Correct (${state.objectiveCorrectCount})',
                 isSelected: _filter == 'correct',
                 onTap: () => setState(() => _filter = 'correct'),
               ),
@@ -771,11 +912,14 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
           const SizedBox(height: SpacingTokens.md),
           Expanded(
             child: filtered.isEmpty
-                ? const EmptyState(
+                ? EmptyState(
                     glyph: LucideGlyph.checkCircle2,
-                    title: 'Nothing in this filter',
-                    description:
-                        'Switch filters above to view other questions.',
+                    title: isIran
+                        ? 'موردی در این فیلتر نیست'
+                        : 'Nothing in this filter',
+                    description: isIran
+                        ? 'برای مشاهده بقیه پرسش‌ها، فیلتر بالا را تغییر دهید.'
+                        : 'Switch filters above to view other questions.',
                   )
                 : ListView.separated(
                     padding: const EdgeInsetsDirectional.only(
@@ -800,7 +944,9 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
                               children: <Widget>[
                                 Expanded(
                                   child: Text(
-                                    'Question ${q.questionNumber}',
+                                    isIran
+                                        ? 'پرسش ${EdgeNumerals.toPersianDigits(q.questionNumber)}'
+                                        : 'Question ${q.questionNumber}',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: typography.cardTitle.copyWith(
@@ -810,7 +956,9 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
                                 ),
                                 const SizedBox(width: SpacingTokens.sm),
                                 MzChip(
-                                  label: q.isCorrect ? 'Correct' : 'Missed',
+                                  label: q.isCorrect
+                                      ? (isIran ? 'صحیح' : 'Correct')
+                                      : (isIran ? 'نیاز به مرور' : 'Missed'),
                                   glyph: q.isCorrect
                                       ? LucideGlyph.checkCircle2
                                       : LucideGlyph.alertCircle,
@@ -830,7 +978,9 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
                             ],
                             const SizedBox(height: SpacingTokens.sm),
                             Text(
-                              'Your answer: ${q.userAnswer.isEmpty ? "(blank)" : q.userAnswer}',
+                              isIran
+                                  ? 'پاسخ شما: ${q.userAnswer.isEmpty ? "(خالی)" : q.userAnswer}'
+                                  : 'Your answer: ${q.userAnswer.isEmpty ? "(blank)" : q.userAnswer}',
                               style: typography.secondary.copyWith(
                                 color: q.isCorrect
                                     ? colors.success
@@ -842,7 +992,9 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
                                 q.acceptedAnswers.isNotEmpty) ...<Widget>[
                               const SizedBox(height: SpacingTokens.xs),
                               Text(
-                                'Accepted: ${q.acceptedAnswers.join(' / ')}',
+                                isIran
+                                    ? 'پاسخ صحیح: ${q.acceptedAnswers.join(' / ')}'
+                                    : 'Accepted: ${q.acceptedAnswers.join(' / ')}',
                                 style: typography.secondary.copyWith(
                                   color: colors.success,
                                   fontWeight: FontWeight.w600,
@@ -871,10 +1023,20 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
                             if (q.evidenceQuote != null &&
                                 q.evidenceQuote!.isNotEmpty) ...<Widget>[
                               const SizedBox(height: SpacingTokens.sm),
+                              if (q.paragraphIndex != null) ...<Widget>[
+                                Text(
+                                  isIran
+                                      ? 'پاراگراف ${EdgeNumerals.toPersianDigits(q.paragraphIndex! + 1)}:'
+                                      : 'Paragraph ${q.paragraphIndex! + 1}:',
+                                  style: typography.caption.copyWith(
+                                    color: colors.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                              ],
                               Text(
-                                q.paragraphIndex != null
-                                    ? 'Paragraph ${q.paragraphIndex! + 1}: "${q.evidenceQuote}"'
-                                    : '"${q.evidenceQuote}"',
+                                '"${q.evidenceQuote}"',
                                 textDirection: TextDirection.ltr,
                                 style: typography.caption.copyWith(
                                   color: colors.primary,
@@ -889,7 +1051,8 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
                                 children: <Widget>[
                                   InlineListenButton(
                                     text: q.evidenceQuote!,
-                                    sourceContext: state.skill == SkillKind.listening
+                                    sourceContext:
+                                        state.skill == SkillKind.listening
                                         ? 'listening_feedback'
                                         : 'reading_feedback',
                                   ),
@@ -906,7 +1069,8 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
                                         targetText: q.evidenceQuote!,
                                         sourceRefType: 'evaluation_quote',
                                         sourceRefId: cardId,
-                                        sourceContext: state.skill == SkillKind.listening
+                                        sourceContext:
+                                            state.skill == SkillKind.listening
                                             ? 'listening_feedback'
                                             : 'reading_feedback',
                                       ),
@@ -966,7 +1130,11 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
                                       color: colors.primary,
                                     ),
                                     label: Text(
-                                      isSaved ? 'Saved' : 'Save to Deck',
+                                      isSaved
+                                          ? (isIran ? 'ذخیره شد' : 'Saved')
+                                          : (isIran
+                                                ? 'ذخیره در واژگان'
+                                                : 'Save to Deck'),
                                       style: typography.caption.copyWith(
                                         color: colors.primary,
                                       ),
@@ -981,7 +1149,7 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
                                     color: colors.textSecondary,
                                   ),
                                   label: Text(
-                                    'Flag',
+                                    isIran ? 'گزارش' : 'Flag',
                                     style: typography.caption.copyWith(
                                       color: colors.textSecondary,
                                     ),
@@ -1005,10 +1173,11 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
         const <CriterionScore>[];
 
     if (criteria.isEmpty) {
-      return const EmptyState(
-        title: 'Rubric scores pending',
-        description:
-            'Individual criterion breakdowns appear once evaluation completes.',
+      return EmptyState(
+        title: isIran ? 'نمرات معیارها در انتظار است' : 'Rubric scores pending',
+        description: isIran
+            ? 'جزئیات هر معیار بلافاصله پس از پایان ارزیابی نمایش داده می‌شود.'
+            : 'Individual criterion breakdowns appear once evaluation completes.',
       );
     }
 
@@ -1034,7 +1203,11 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
                     ),
                   ),
                   MzChip(
-                    label: state.examTrack.formatScoreWithUnit(c.band),
+                    label: EditionCopy.formatScoreWithUnitFor(
+                      state.examTrack,
+                      c.band,
+                      isIran: isIran,
+                    ),
                     variant: MzChipVariant.target,
                   ),
                 ],
@@ -1078,10 +1251,15 @@ class _RubricOrQuestionsTabState extends State<_RubricOrQuestionsTab> {
 }
 
 class _RewriteTranscriptKeyTab extends StatelessWidget {
-  const new({required this.state, required this.notifier});
+  const new({
+    required this.state,
+    required this.notifier,
+    required this.isIran,
+  });
 
   final EvaluationReviewState state;
   final EvaluationReviewNotifier notifier;
+  final bool isIran;
 
   @override
   Widget build(BuildContext context) {
@@ -1100,7 +1278,7 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'Your Submitted Response',
+                    isIran ? 'پاسخ ارسالی شما' : 'Your Submitted Response',
                     style: typography.cardTitle.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -1109,7 +1287,9 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
                   Text(
                     state.submittedEssayText.isNotEmpty
                         ? state.submittedEssayText
-                        : 'Essay text saved locally.',
+                        : (isIran
+                              ? 'متن رایتینگ به‌صورت محلی ذخیره شد.'
+                              : 'Essay text saved locally.'),
                     style: typography.body,
                   ),
                 ],
@@ -1124,7 +1304,9 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
         children: <Widget>[
           if (state.submittedEssayText.isNotEmpty) ...<Widget>[
             SectionHeader(
-              title: 'Submitted Essay (${res.wordCount} words)',
+              title: isIran
+                  ? 'متن ارسالی (${EdgeNumerals.toPersianDigits(res.wordCount)} واژه)'
+                  : 'Submitted Essay (${res.wordCount} words)',
             ),
             MzCard(
               child: SelectableText(
@@ -1134,7 +1316,11 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
             ),
           ],
           if (res.inlineEdits.isNotEmpty) ...<Widget>[
-            const SectionHeader(title: 'Inline Coaching Edits'),
+            SectionHeader(
+              title: isIran
+                  ? 'اصلاحات آموزشی درون‌متنی'
+                  : 'Inline Coaching Edits',
+            ),
             ...res.inlineEdits.map(
               (edit) => Padding(
                 padding: const EdgeInsetsDirectional.only(
@@ -1150,14 +1336,18 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
                       ),
                       const SizedBox(height: SpacingTokens.sm),
                       Text(
-                        'Original: "${edit.originalText}"',
+                        isIran
+                            ? 'متن اولیه: "${edit.originalText}"'
+                            : 'Original: "${edit.originalText}"',
                         style: typography.secondary.copyWith(
                           color: colors.error,
                         ),
                       ),
                       const SizedBox(height: SpacingTokens.xs),
                       Text(
-                        'Upgrade: "${edit.suggestedText}"',
+                        isIran
+                            ? 'پیشنهاد ارتقا: "${edit.suggestedText}"'
+                            : 'Upgrade: "${edit.suggestedText}"',
                         style: typography.secondary.copyWith(
                           color: colors.success,
                           fontWeight: FontWeight.w600,
@@ -1179,7 +1369,9 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
             ),
           ],
           if ((res.modelRewrite ?? res.upgradedExcerpt).isNotEmpty) ...<Widget>[
-            SectionHeader(title: _modelRewriteHeading(state.examTrack)),
+            SectionHeader(
+              title: _modelRewriteHeading(state.examTrack, isIran: isIran),
+            ),
             MzCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1204,7 +1396,9 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
                           size: 14,
                           color: colors.primary,
                         ),
-                        label: Text(AppLocalizations.of(context).practiceSpeechCta),
+                        label: Text(
+                          AppLocalizations.of(context).practiceSpeechCta,
+                        ),
                         onPressed: () => unawaited(
                           SpeechPracticeSheet.show(
                             context,
@@ -1222,12 +1416,17 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
             ),
           ],
           if (res.vocabUpgrades.isNotEmpty) ...<Widget>[
-            const SectionHeader(title: 'Vocabulary Upgrades'),
+            SectionHeader(
+              title: isIran
+                  ? 'پیشنهادهای ارتقای واژگان'
+                  : 'Vocabulary Upgrades',
+            ),
             ..._buildVocabUpgradeCards(
               context,
               res.vocabUpgrades,
               state,
               notifier,
+              isIran: isIran,
             ),
           ],
         ],
@@ -1237,17 +1436,25 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
     if (state.skill == SkillKind.speaking) {
       final res = state.speakingResult;
       if (res == null) {
-        return const EmptyState(
+        return EmptyState(
           glyph: LucideGlyph.headphones,
-          title: 'Transcript in progress',
-          description: 'Your spoken audio will appear transcribed with fluency annotations once AI scoring completes.',
+          title: isIran
+              ? 'در حال پیاده‌سازی متن گفتار'
+              : 'Transcript in progress',
+          description: isIran
+              ? 'متن گفتار شما به همراه نکات روانی کلام بلافاصله پس از پایان ارزیابی نمایش داده می‌شود.'
+              : 'Your spoken audio will appear transcribed with fluency annotations once AI scoring completes.',
         );
       }
 
       return ListView(
         padding: const EdgeInsetsDirectional.only(bottom: SpacingTokens.xxl),
         children: <Widget>[
-          const SectionHeader(title: 'Timestamped Transcript'),
+          SectionHeader(
+            title: isIran
+                ? 'متن پیاده‌شده زمان‌بندی‌شده'
+                : 'Timestamped Transcript',
+          ),
           if (res.transcriptSegments.isNotEmpty)
             ...res.transcriptSegments.map(
               (seg) => Padding(
@@ -1311,17 +1518,24 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
               child: SelectableText(
                 res.transcript.isNotEmpty
                     ? res.transcript
-                    : 'No transcript text available.',
+                    : (isIran
+                          ? 'متن پیاده‌شده‌ای در دسترس نیست.'
+                          : 'No transcript text available.'),
                 style: typography.body,
               ),
             ),
           if (res.vocabUpgrades.isNotEmpty) ...<Widget>[
-            const SectionHeader(title: 'Speaking Vocabulary Upgrades'),
+            SectionHeader(
+              title: isIran
+                  ? 'واژگان پیشنهادی اسپیکینگ'
+                  : 'Speaking Vocabulary Upgrades',
+            ),
             ..._buildVocabUpgradeCards(
               context,
               res.vocabUpgrades,
               state,
               notifier,
+              isIran: isIran,
             ),
           ],
         ],
@@ -1330,10 +1544,12 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
 
     // Objective Reading / Listening compact Answer Key view
     if (state.objectiveQuestions.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
         glyph: LucideGlyph.bookOpen,
-        title: 'No answer key available',
-        description: 'Objective answers are unavailable for this attempt.',
+        title: isIran ? 'پاسخ‌نامه در دسترس نیست' : 'No answer key available',
+        description: isIran
+            ? 'پاسخ‌های تشریحی برای این آزمون در دسترس نیست.'
+            : 'Objective answers are unavailable for this attempt.',
       );
     }
 
@@ -1349,7 +1565,9 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
               SizedBox(
                 width: 44,
                 child: Text(
-                  '#${q.questionNumber}',
+                  isIran
+                      ? '#${EdgeNumerals.toPersianDigits(q.questionNumber)}'
+                      : '#${q.questionNumber}',
                   style: typography.cardTitle.copyWith(
                     fontWeight: FontWeight.w700,
                     color: colors.primary,
@@ -1370,7 +1588,9 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
                     ),
                     if (!q.isCorrect)
                       Text(
-                        'Your answer: ${q.userAnswer.isEmpty ? "(blank)" : q.userAnswer}',
+                        isIran
+                            ? 'پاسخ شما: ${q.userAnswer.isEmpty ? "(خالی)" : q.userAnswer}'
+                            : 'Your answer: ${q.userAnswer.isEmpty ? "(blank)" : q.userAnswer}',
                         style: typography.caption.copyWith(color: colors.error),
                       ),
                   ],
@@ -1394,8 +1614,9 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
     BuildContext context,
     List<VocabUpgrade> upgrades,
     EvaluationReviewState state,
-    EvaluationReviewNotifier notifier,
-  ) {
+    EvaluationReviewNotifier notifier, {
+    required bool isIran,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
 
@@ -1441,8 +1662,9 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
                                 );
                                 showMzToast(
                                   context,
-                                  message:
-                                      'Added "${up.upgraded}" to Vocabulary SRS deck',
+                                  message: isIran
+                                      ? 'عبارت «${up.upgraded}» به دفترچه واژگان اضافه شد.'
+                                      : 'Added "${up.upgraded}" to Vocabulary SRS deck',
                                 );
                               },
                         icon: AppIcon(
@@ -1453,7 +1675,9 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
                           color: colors.primary,
                         ),
                         label: Text(
-                          saved ? 'Saved' : 'Save to Deck',
+                          saved
+                              ? (isIran ? 'ذخیره شد' : 'Saved')
+                              : (isIran ? 'ذخیره در واژگان' : 'Save to Deck'),
                           style: typography.caption.copyWith(
                             color: colors.primary,
                           ),
@@ -1477,7 +1701,9 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
                   if (up.collocation.isNotEmpty) ...<Widget>[
                     const SizedBox(height: SpacingTokens.xs),
                     Text(
-                      'Collocation: "${up.collocation}"',
+                      isIran
+                          ? 'همنشینی واژگانی: "${up.collocation}"'
+                          : 'Collocation: "${up.collocation}"',
                       style: typography.caption.copyWith(
                         color: colors.textSecondary,
                       ),
@@ -1493,20 +1719,28 @@ class _RewriteTranscriptKeyTab extends StatelessWidget {
 }
 
 class _CompareTab extends StatelessWidget {
-  const new({required this.state});
+  const new({required this.state, required this.isIran});
 
   final EvaluationReviewState state;
+  final bool isIran;
 
   @override
   Widget build(BuildContext context) {
     final comp = state.comparison;
     if (comp == null) {
+      final skillLabel = EditionCopy.skillName(
+        state.skill.name,
+        isIran: isIran,
+      );
       return EmptyState(
         glyph: LucideGlyph.gitCompare,
-        title: 'No baseline attempt yet',
-        description:
-            'Complete another ${_skillTitle(state.skill)} attempt in ${state.examTrack.shortName} to compare ${state.examTrack.unitLabel.toLowerCase()} progression side-by-side.',
-        actionLabel: 'Browse Practice Tests',
+        title: isIran ? 'هنوز آزمون قبلی ثبت نشده' : 'No baseline attempt yet',
+        description: isIran
+            ? 'یک آزمون $skillLabel دیگر در مسیر ${state.examTrack.shortName} انجام دهید تا پیشرفت نمرات را کنار هم مقایسه کنید.'
+            : 'Complete another $skillLabel attempt in ${state.examTrack.shortName} to compare ${state.examTrack.unitLabel.toLowerCase()} progression side-by-side.',
+        actionLabel: isIran
+            ? 'مشاهده آزمون‌های تمرینی'
+            : 'Browse Practice Tests',
         onTapAction: () => context.go(AppRoutes.practice),
       );
     }
@@ -1515,8 +1749,12 @@ class _CompareTab extends StatelessWidget {
       padding: const EdgeInsetsDirectional.only(bottom: SpacingTokens.xxl),
       children: <Widget>[
         CompareAttempts(
-          attempt1Title: 'Previous · ${comp.previousTitle}',
-          attempt2Title: 'Current · ${comp.currentTitle}',
+          attempt1Title: isIran
+              ? 'قبلی · ${comp.previousTitle}'
+              : 'Previous · ${comp.previousTitle}',
+          attempt2Title: isIran
+              ? 'فعلی · ${comp.currentTitle}'
+              : 'Current · ${comp.currentTitle}',
           attempt1Overall: comp.previousOverallBand,
           attempt2Overall: comp.currentOverallBand,
           criteriaDeltas: comp.deltas,
@@ -1526,25 +1764,14 @@ class _CompareTab extends StatelessWidget {
   }
 }
 
-String _modelRewriteHeading(ExamTrack track) => switch (track) {
-  ExamTrack.ieltsAcademic ||
-  ExamTrack.ieltsGeneral => 'Band 8.5+ Model Rewrite',
-  ExamTrack.toeflIbt => 'Band 5.5–6.0 Model Rewrite',
-  ExamTrack.pteAcademic => '85+ Model Rewrite',
-  ExamTrack.det => '145+ Model Rewrite',
-};
-
-String _skillTitle(SkillKind skill) {
-  switch (skill) {
-    case SkillKind.speaking:
-      return 'Speaking';
-    case SkillKind.writing:
-      return 'Writing';
-    case SkillKind.reading:
-      return 'Reading';
-    case SkillKind.listening:
-      return 'Listening';
-    case SkillKind.vocabulary:
-      return 'Vocabulary';
-  }
-}
+String _modelRewriteHeading(ExamTrack track, {required bool isIran}) =>
+    switch (track) {
+      ExamTrack.ieltsAcademic || ExamTrack.ieltsGeneral =>
+        isIran ? 'بازنویسی نمونه نمره ۸.۵+' : 'Band 8.5+ Model Rewrite',
+      ExamTrack.toeflIbt =>
+        isIran ? 'بازنویسی نمونه نمره ۵.۵–۶.۰' : 'Band 5.5–6.0 Model Rewrite',
+      ExamTrack.pteAcademic =>
+        isIran ? 'بازنویسی نمونه نمره ۸۵+' : '85+ Model Rewrite',
+      ExamTrack.det =>
+        isIran ? 'بازنویسی نمونه نمره ۱۴۵+' : '145+ Model Rewrite',
+    };

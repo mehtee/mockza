@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_gradients.dart';
 import 'package:mockza/theme/app_shapes.dart';
@@ -17,6 +18,8 @@ class ScoreMeter extends StatelessWidget {
     this.maxScore = 9.0,
     this.trackHeight = 8.0,
     this.showLabels = true,
+    this.targetPrefix = 'Target',
+    this.usePersianDigits = false,
     super.key,
   }) : score = score ?? bandScore ?? 0.0,
        targetScore = targetScore ?? 7.0;
@@ -42,6 +45,12 @@ class ScoreMeter extends StatelessWidget {
   /// Whether to render min/max and target text labels below the meter.
   final bool showLabels;
 
+  /// Prefix word before target score value.
+  final String targetPrefix;
+
+  /// Whether to render numerals in Persian digits.
+  final bool usePersianDigits;
+
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -50,8 +59,10 @@ class ScoreMeter extends StatelessWidget {
     final typography = AppTypography.of(context);
 
     final isIntegerScale = maxScore > 10;
-    String formatVal(double val) =>
+    String formatRaw(double val) =>
         isIntegerScale ? val.round().toString() : val.toStringAsFixed(1);
+    String formatDisplay(String raw) =>
+        usePersianDigits ? EdgeNumerals.toPersianDigits(raw) : raw;
 
     final range = maxScore - minScore;
     final scoreFraction = range > 0
@@ -63,8 +74,8 @@ class ScoreMeter extends StatelessWidget {
 
     return Semantics(
       label:
-          'Score progress ${formatVal(score)} of ${maxScore.toStringAsFixed(0)}, target ${formatVal(targetScore)}',
-      value: formatVal(score),
+          'Score progress ${formatRaw(score)} of ${maxScore.toStringAsFixed(0)}, target ${formatRaw(targetScore)}',
+      value: formatRaw(score),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -79,7 +90,7 @@ class ScoreMeter extends StatelessWidget {
 
               return Stack(
                 clipBehavior: Clip.none,
-                alignment: Alignment.centerLeft,
+                alignment: AlignmentDirectional.centerStart,
                 children: <Widget>[
                   // Track background
                   Container(
@@ -101,8 +112,8 @@ class ScoreMeter extends StatelessWidget {
                     ),
                   ),
                   // Target tick marker line
-                  Positioned(
-                    left: targetX - 1.5,
+                  PositionedDirectional(
+                    start: targetX - 1.5,
                     child: Container(
                       width: 3,
                       height: trackHeight + 6,
@@ -122,20 +133,20 @@ class ScoreMeter extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: <Widget>[
                 Text(
-                  minScore.toStringAsFixed(0),
+                  formatDisplay(minScore.toStringAsFixed(0)),
                   style: typography.caption.copyWith(
                     color: colors.textTertiary,
                   ),
                 ),
                 Text(
-                  'Target ${formatVal(targetScore)}',
+                  '$targetPrefix ${formatDisplay(formatRaw(targetScore))}',
                   style: typography.caption.copyWith(
                     color: colors.textSecondary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
-                  maxScore.toStringAsFixed(0),
+                  formatDisplay(maxScore.toStringAsFixed(0)),
                   style: typography.caption.copyWith(
                     color: colors.textTertiary,
                   ),

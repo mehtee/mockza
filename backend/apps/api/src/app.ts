@@ -13,7 +13,7 @@ import {
   type VerifyAttestationProofFn,
 } from './middleware/attest.js';
 import { createEditionGuardMiddleware } from './middleware/edition-guard.js';
-import { createRateLimitMiddleware } from './middleware/rate-limit.js';
+import { createRateLimitMiddleware, parseTrustedProxyList } from './middleware/rate-limit.js';
 import { type RequestVariables, requestIdMiddleware } from './middleware/request-id.js';
 import { registerAccountRoutes } from './routes/account.js';
 import { registerAdminRoutes } from './routes/admin.js';
@@ -62,12 +62,7 @@ export function createApiApp(
   const challengeStore = createChallengeStore(deps.db);
   const sessionManager = createSessionManager(env, deps.db);
 
-  const trustedProxyIps = new Set(
-    (env.TRUSTED_PROXY_IPS ?? '127.0.0.1,::1')
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0),
-  );
+  const trustedProxyIps = parseTrustedProxyList(env.TRUSTED_PROXY_IPS);
 
   app.onError((err, c) => {
     const requestId = c.get('requestId') ?? 'unknown';

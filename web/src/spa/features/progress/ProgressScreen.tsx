@@ -5,7 +5,6 @@ import {
   computeDetSubscores,
   estimateToeflLegacy120,
   EXAM_TRACK_SPECS,
-  formatExamScoreWithUnit,
   type SkillKind,
   type SupportedExamId,
 } from '@mockza/domain';
@@ -15,7 +14,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { MzBanner, MzButton, MzCard } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import { formatChromeNumber } from '@/edition/bidi/numerals';
-import { formatTrackLocalizedName } from '@/components/bidi/topic-labels';
+import { localizeScaleLabel } from '@/components/bidi/diagnostic-labels';
+import {
+  formatLocalizedExamScoreWithUnit,
+  formatTrackLocalizedName,
+} from '@/components/bidi/topic-labels';
 import { formatDisplayDate } from '@/edition/calendar/jalali-edge';
 import type { PersonalizationStateDto } from '@/gateways/personalization.gateway';
 import type { PronunciationPracticeItemDto } from '@/gateways/speech-practice.gateway';
@@ -297,13 +300,14 @@ export function ProgressScreen() {
         <MzCard variant="hero">
           <p className="text-xs font-semibold text-text-secondary">{t('progressEstimatedHeading')}</p>
           <div className="mt-2 flex flex-wrap items-baseline gap-2.5">
-            <LtrExamBoundary>
-              <p data-testid="progress-overall-score" className="font-mono-exam text-3xl font-bold text-primary">
-                {overallSummary.overallBand !== null
-                  ? formatExamScoreWithUnit(overallSummary.overallBand, examId)
-                  : '—'}
-              </p>
-            </LtrExamBoundary>
+            <p
+              data-testid="progress-overall-score"
+              className={`${deps.edition === 'glb' ? 'font-mono-exam ' : ''}text-3xl font-bold text-primary`}
+            >
+              {overallSummary.overallBand !== null
+                ? formatLocalizedExamScoreWithUnit(overallSummary.overallBand, examId, deps.edition)
+                : '—'}
+            </p>
             {examId === 'toefl_ibt' && overallSummary.overallBand !== null ? (
               <LtrExamBoundary>
                 <span
@@ -317,10 +321,12 @@ export function ProgressScreen() {
           </div>
           <p className="mt-2 text-xs text-text-secondary">
             {readinessGap === null
-              ? overallSummary.scaleLabel
+              ? localizeScaleLabel(overallSummary.scaleLabel, deps.edition)
               : readinessGap === 0
                 ? t('progressTargetReachedBadge')
-                : t('progressReadinessGapLabel', { gap: readinessGap })}
+                : t('progressReadinessGapLabel', {
+                    gap: formatChromeNumber(readinessGap, deps.edition),
+                  })}
           </p>
           {personalization ? (
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -347,15 +353,18 @@ export function ProgressScreen() {
             <Target className="h-4 w-4 text-focus" aria-hidden="true" />
             <span>{t('progressTargetHeading')}</span>
           </div>
-          <LtrExamBoundary>
-            <p className="mt-2 font-mono-exam text-2xl font-bold text-text-primary">
-              {formatExamScoreWithUnit(targetBand, examId)}
-            </p>
-          </LtrExamBoundary>
+          <p
+            className={`mt-2 ${deps.edition === 'glb' ? 'font-mono-exam ' : ''}text-2xl font-bold text-text-primary`}
+          >
+            {formatLocalizedExamScoreWithUnit(targetBand, examId, deps.edition)}
+          </p>
           {overallSummary.changeThisMonth !== null ? (
             <p className="mt-2 text-xs font-semibold text-success">
               {t('progressMonthlyDeltaLabel', {
-                delta: `${overallSummary.changeThisMonth >= 0 ? '+' : ''}${overallSummary.changeThisMonth}`,
+                delta: `${overallSummary.changeThisMonth >= 0 ? '+' : ''}${formatChromeNumber(
+                  overallSummary.changeThisMonth,
+                  deps.edition,
+                )}`,
               })}
             </p>
           ) : null}
@@ -386,7 +395,9 @@ export function ProgressScreen() {
           <div className="mb-3 flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-primary" aria-hidden="true" />
             <h2 className="text-sm font-bold text-text-primary">
-              {t('progressTrendChartTitle', { count: scoredAttempts.length })}
+              {t('progressTrendChartTitle', {
+                count: formatChromeNumber(scoredAttempts.length, deps.edition),
+              })}
             </h2>
           </div>
 
@@ -400,7 +411,7 @@ export function ProgressScreen() {
                 data-testid="progress-trend-chart"
                 viewBox="0 0 620 160"
                 role="img"
-                aria-label="Exam score trajectory"
+                aria-label={t('progressPageTitle')}
                 className="h-44 w-full overflow-visible rounded-[var(--mz-radius-compact)] bg-canvas p-2"
               >
                 {/* Target benchmark dashed line */}
@@ -435,7 +446,13 @@ export function ProgressScreen() {
                     className="text-primary"
                   >
                     <title>
-                      {`${pt.skill}: ${pt.score} (${pt.isCalibrated ? 'Calibrated' : 'Provisional'})`}
+                      {t('progressTrendPointLabel', {
+                        skill: skillLabel(pt.skill),
+                        score: formatChromeNumber(pt.score, deps.edition),
+                        status: t(
+                          pt.isCalibrated ? 'progressStatusCalibrated' : 'progressStatusProvisional',
+                        ),
+                      })}
                     </title>
                   </circle>
                 ))}
@@ -479,16 +496,16 @@ export function ProgressScreen() {
                 className="text-primary"
               />
               <text x="110" y="24" textAnchor="middle" className="fill-text-secondary text-[10px]">
-                {deps.edition === 'irn' ? 'ریدینگ' : 'R'}
+                {deps.edition === 'irn' ? t('homeSkillReading') : 'R'}
               </text>
               <text x="196" y="114" textAnchor="middle" className="fill-text-secondary text-[10px]">
-                {deps.edition === 'irn' ? 'رایتینگ' : 'W'}
+                {deps.edition === 'irn' ? t('homeSkillWriting') : 'W'}
               </text>
               <text x="110" y="204" textAnchor="middle" className="fill-text-secondary text-[10px]">
-                {deps.edition === 'irn' ? 'اسپیکینگ' : 'S'}
+                {deps.edition === 'irn' ? t('homeSkillSpeaking') : 'S'}
               </text>
               <text x="24" y="114" textAnchor="middle" className="fill-text-secondary text-[10px]">
-                {deps.edition === 'irn' ? 'لیسنینگ' : 'L'}
+                {deps.edition === 'irn' ? t('homeSkillListening') : 'L'}
               </text>
             </svg>
           </LtrExamBoundary>
@@ -503,14 +520,34 @@ export function ProgressScreen() {
       {detSubscores ? (
         <MzCard variant="alt" data-testid="progress-det-subscores">
           <p className="mb-2 text-xs font-bold text-text-secondary">{t('detSubscoresTitle')}</p>
-          <LtrExamBoundary>
-            <div className="grid grid-cols-2 gap-3 font-mono-exam text-xs sm:grid-cols-4">
-              <div>Literacy: <strong className="text-primary">{detSubscores.literacy}</strong></div>
-              <div>Comprehension: <strong className="text-primary">{detSubscores.comprehension}</strong></div>
-              <div>Conversation: <strong className="text-primary">{detSubscores.conversation}</strong></div>
-              <div>Production: <strong className="text-primary">{detSubscores.production}</strong></div>
+          <div
+            className={`grid grid-cols-2 gap-3 ${deps.edition === 'glb' ? 'font-mono-exam ' : ''}text-xs sm:grid-cols-4`}
+          >
+            <div>
+              {t('detSubscoreLiteracy')}:{' '}
+              <strong className="text-primary">
+                {formatChromeNumber(detSubscores.literacy ?? '—', deps.edition)}
+              </strong>
             </div>
-          </LtrExamBoundary>
+            <div>
+              {t('detSubscoreComprehension')}:{' '}
+              <strong className="text-primary">
+                {formatChromeNumber(detSubscores.comprehension ?? '—', deps.edition)}
+              </strong>
+            </div>
+            <div>
+              {t('detSubscoreConversation')}:{' '}
+              <strong className="text-primary">
+                {formatChromeNumber(detSubscores.conversation ?? '—', deps.edition)}
+              </strong>
+            </div>
+            <div>
+              {t('detSubscoreProduction')}:{' '}
+              <strong className="text-primary">
+                {formatChromeNumber(detSubscores.production ?? '—', deps.edition)}
+              </strong>
+            </div>
+          </div>
         </MzCard>
       ) : null}
 
@@ -527,13 +564,17 @@ export function ProgressScreen() {
               <p className="text-xs font-semibold text-text-secondary">
                 {skillLabel(metric.skill)}
               </p>
-              <LtrExamBoundary>
-                <p className="mt-1.5 font-mono-exam text-xl font-bold text-text-primary">
-                  {metric.score !== null ? metric.scoreLabel : '—'}
-                </p>
-              </LtrExamBoundary>
+              <p
+                className={`mt-1.5 ${deps.edition === 'glb' ? 'font-mono-exam ' : ''}text-xl font-bold text-text-primary`}
+              >
+                {metric.score !== null
+                  ? formatLocalizedExamScoreWithUnit(metric.score, examId, deps.edition)
+                  : '—'}
+              </p>
               <p className="mt-1 text-[11px] text-text-tertiary">
-                {t('homeSamplesCountLabel', { count: metric.sampleCount })}
+                {t('homeSamplesCountLabel', {
+                  count: formatChromeNumber(metric.sampleCount, deps.edition),
+                })}
               </p>
             </MzCard>
           );
@@ -607,11 +648,11 @@ export function ProgressScreen() {
                     {formatDisplayDate(attempt.completedAtMs, deps.edition)}
                   </span>
                 </div>
-                <LtrExamBoundary>
-                  <span className="font-mono-exam font-bold text-text-primary">
-                    {formatExamScoreWithUnit(score, attempt.examId)}
-                  </span>
-                </LtrExamBoundary>
+                <span
+                  className={`${deps.edition === 'glb' ? 'font-mono-exam ' : ''}font-bold text-text-primary`}
+                >
+                  {formatLocalizedExamScoreWithUnit(score, attempt.examId, deps.edition)}
+                </span>
               </Link>
             ))}
           </div>
@@ -636,7 +677,12 @@ export function ProgressScreen() {
                     <p className="truncate font-semibold text-text-primary">{item.targetText}</p>
                   </LtrExamBoundary>
                   <p className="text-[11px] text-text-secondary">
-                    {item.overallScore != null ? `${t('speechScoreOverall')}: ${item.overallScore}/100` : item.status}{' '}
+                    {item.overallScore != null
+                      ? `${t('speechScoreOverall')}: ${formatChromeNumber(
+                          item.overallScore,
+                          deps.edition,
+                        )}/${formatChromeNumber(100, deps.edition)}`
+                      : item.status}{' '}
                     · {formatDisplayDate(Date.parse(item.createdAt), deps.edition)}
                   </p>
                 </div>

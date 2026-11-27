@@ -7,6 +7,7 @@ import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/diagnostic/diagnostic_models.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/core/localization/edition_copy.dart';
 import 'package:mockza/core/personalization/vocab_wave_scheduler.dart';
 import 'package:mockza/core/result/result.dart';
 import 'package:mockza/core/vocab/serial_day.dart';
@@ -54,9 +55,12 @@ class VocabularyScreen extends ConsumerWidget {
     final allCards = allCardsAsync.asData?.value ?? const <VocabDeckCard>[];
     final previewAll = ref.watch(vocabPreviewAllWavesProvider);
     final vocabTab = ref.watch(vocabTabModeProvider);
-    final newTodayCount = ref.watch(vocabNewReviewedTodayProvider).asData?.value ?? 0;
-    final cachedPersonalization =
-        ref.watch(vocabPersonalizationProvider).asData?.value;
+    final newTodayCount =
+        ref.watch(vocabNewReviewedTodayProvider).asData?.value ?? 0;
+    final cachedPersonalization = ref
+        .watch(vocabPersonalizationProvider)
+        .asData
+        ?.value;
     final unlockedWave = cachedPersonalization?.vocabUnlockedWave ?? 1;
     final dailyCap = cachedPersonalization?.dailyNewVocabCap ?? 10;
 
@@ -78,8 +82,7 @@ class VocabularyScreen extends ConsumerWidget {
         .toList(growable: false);
     final waveResult = VocabWaveScheduler.assignWaves<VocabWaveCardInput>(
       cards: waveInputs,
-      favoriteTopics:
-          cachedPersonalization?.favoriteTopics ?? const <String>[],
+      favoriteTopics: cachedPersonalization?.favoriteTopics ?? const <String>[],
       track: ExamTrack.fromId(
         cachedPersonalization?.examTrack ?? 'ielts_academic',
       ),
@@ -92,8 +95,8 @@ class VocabularyScreen extends ConsumerWidget {
           const <String>[],
       unlockedWave: unlockedWave,
     );
-    final todaySerial =
-        SerialDay.fromUtcDateTime(ref.read(clockProvider).now()).value;
+    final todaySerial = SerialDay.fromUtcDateTime(ref.read(clockProvider).now())
+        .value;
     final queueSelection =
         VocabWaveScheduler.selectDailyReviewQueue<VocabWaveCardInput>(
           assigned: waveResult.assigned,
@@ -205,6 +208,7 @@ class VocabularyScreen extends ConsumerWidget {
                     mastered: masteredCount,
                     learning: learningCount,
                     due: dueCards.length,
+                    edition: edition,
                   ),
                   const SizedBox(height: SpacingTokens.xl),
                   Row(
@@ -231,13 +235,15 @@ class VocabularyScreen extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: SpacingTokens.sm),
-                  _buildSearchBar(context, ref),
+                  _buildSearchBar(context, ref, isIran: isIran),
                   const SizedBox(height: SpacingTokens.sm),
                   Wrap(
                     spacing: SpacingTokens.xs,
                     children: <Widget>[
                       ChoiceChip(
-                        label: Text(AppLocalizations.of(context).vocabTabTodaysWave),
+                        label: Text(
+                          AppLocalizations.of(context).vocabTabTodaysWave,
+                        ),
                         selected: vocabTab == 'wave',
                         onSelected: (_) => ref
                             .read(vocabTabModeProvider.notifier)
@@ -253,7 +259,9 @@ class VocabularyScreen extends ConsumerWidget {
                             .setTab('mistakes'),
                       ),
                       ChoiceChip(
-                        label: Text(AppLocalizations.of(context).vocabTabFullDeck),
+                        label: Text(
+                          AppLocalizations.of(context).vocabTabFullDeck,
+                        ),
                         selected: vocabTab == 'full',
                         onSelected: (_) => ref
                             .read(vocabTabModeProvider.notifier)
@@ -262,10 +270,10 @@ class VocabularyScreen extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: SpacingTokens.sm),
-                  _buildFilterChips(context, ref, filter),
+                  _buildFilterChips(context, ref, filter, isIran: isIran),
                   const SizedBox(height: SpacingTokens.md),
                   if (filteredCards.isEmpty)
-                    _buildEmptyState(context)
+                    _buildEmptyState(context, isIran: isIran)
                   else
                     ...filteredCards.map(
                       (card) => _buildCardTile(context, card, isIran: isIran),
@@ -353,10 +361,10 @@ class VocabularyScreen extends ConsumerWidget {
               const AppIcon(LucideGlyph.layers3),
               const SizedBox(width: SpacingTokens.sm),
               Text(
-                'SPACED REPETITION',
+                isIran ? 'مرور زمان‌بندی‌شده' : 'SPACED REPETITION',
                 style: typography.caption.copyWith(
                   color: colors.textSecondary,
-                  letterSpacing: 1.2,
+                  letterSpacing: isIran ? 0 : 1.2,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -384,7 +392,7 @@ class VocabularyScreen extends ConsumerWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: <Widget>[
                 Text(
-                  'Session cards:',
+                  isIran ? 'تعداد کارت جلسه:' : 'Session cards:',
                   style: typography.caption.copyWith(
                     color: colors.textSecondary,
                     fontWeight: FontWeight.w600,
@@ -392,7 +400,9 @@ class VocabularyScreen extends ConsumerWidget {
                 ),
                 for (final size in <int?>[15, 20, 30, null])
                   MzChip(
-                    label: size == null ? 'All' : '$size',
+                    label: size == null
+                        ? (isIran ? 'همه' : 'All')
+                        : EdgeNumerals.formatChromeNumber(size, edition),
                     isSelected: selectedBatchSize == size,
                     onTap: () => ref
                         .read(vocabBatchSizeProvider.notifier)
@@ -404,7 +414,9 @@ class VocabularyScreen extends ConsumerWidget {
           const SizedBox(height: SpacingTokens.lg),
           PrimaryButton(
             label: ctaLabel,
-            trailingGlyph: LucideGlyph.arrowRight,
+            trailingGlyph: isIran
+                ? LucideGlyph.arrowLeft
+                : LucideGlyph.arrowRight,
             onPressed: onTapCta,
           ),
         ],
@@ -418,9 +430,11 @@ class VocabularyScreen extends ConsumerWidget {
     required int mastered,
     required int learning,
     required int due,
+    required AppEdition edition,
   }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
+    final isIran = edition == AppEdition.iran;
 
     return Row(
       children: <Widget>[
@@ -429,16 +443,16 @@ class VocabularyScreen extends ConsumerWidget {
             children: <Widget>[
               _buildMetricCard(
                 context,
-                'Total Saved',
-                '$total',
+                isIran ? 'کل ذخیره‌شده' : 'Total Saved',
+                EdgeNumerals.formatChromeNumber(total, edition),
                 colors.primary,
                 typography,
               ),
               const SizedBox(height: SpacingTokens.sm),
               _buildMetricCard(
                 context,
-                'Learning',
-                '$learning',
+                isIran ? 'در حال یادگیری' : 'Learning',
+                EdgeNumerals.formatChromeNumber(learning, edition),
                 colors.warning,
                 typography,
               ),
@@ -451,16 +465,16 @@ class VocabularyScreen extends ConsumerWidget {
             children: <Widget>[
               _buildMetricCard(
                 context,
-                'Mastered',
-                '$mastered',
+                isIran ? 'تثبیت‌شده' : 'Mastered',
+                EdgeNumerals.formatChromeNumber(mastered, edition),
                 colors.success,
                 typography,
               ),
               const SizedBox(height: SpacingTokens.sm),
               _buildMetricCard(
                 context,
-                'Due Today',
-                '$due',
+                isIran ? 'مرور امروز' : 'Due Today',
+                EdgeNumerals.formatChromeNumber(due, edition),
                 colors.error,
                 typography,
               ),
@@ -498,7 +512,11 @@ class VocabularyScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSearchBar(BuildContext context, WidgetRef ref) {
+  Widget _buildSearchBar(
+    BuildContext context,
+    WidgetRef ref, {
+    required bool isIran,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
     final shapes = AppShapes.of(context);
@@ -514,7 +532,9 @@ class VocabularyScreen extends ConsumerWidget {
             ref.read(vocabSearchQueryProvider.notifier).setQuery(value),
         style: typography.body.copyWith(color: colors.textPrimary),
         decoration: InputDecoration(
-          hintText: 'Search words or definitions...',
+          hintText: isIran
+              ? 'جستجوی واژه یا معنی...'
+              : 'Search words or definitions...',
           hintStyle: typography.body.copyWith(color: colors.textTertiary),
           prefixIcon: const Padding(
             padding: EdgeInsetsDirectional.only(
@@ -534,8 +554,9 @@ class VocabularyScreen extends ConsumerWidget {
   Widget _buildFilterChips(
     BuildContext context,
     WidgetRef ref,
-    String activeFilter,
-  ) {
+    String activeFilter, {
+    required bool isIran,
+  }) {
     final filters = <String>[
       'All',
       'Writing',
@@ -549,12 +570,15 @@ class VocabularyScreen extends ConsumerWidget {
         children: filters
             .map((f) {
               final isSelected = activeFilter == f;
+              final displayLabel = f == 'All'
+                  ? (isIran ? 'همه' : 'All')
+                  : EditionCopy.skillName(f, isIran: isIran);
               return Padding(
                 padding: const EdgeInsetsDirectional.only(
                   end: SpacingTokens.sm,
                 ),
                 child: MzChip(
-                  label: f,
+                  label: displayLabel,
                   isSelected: isSelected,
                   onTap: () =>
                       ref.read(vocabFilterProvider.notifier).setFilter(f),
@@ -632,7 +656,7 @@ class VocabularyScreen extends ConsumerWidget {
                       const SizedBox(height: SpacingTokens.xs),
                       Text(
                         '${AppLocalizations.of(context).vocabWhyThisWord}: '
-                        '${card.sourceSkill ?? card.canonicalTopic ?? card.topicTag}',
+                        '${card.sourceSkill != null ? EditionCopy.skillName(card.sourceSkill!, isIran: isIran) : EditionCopy.topicLabel(card.canonicalTopic ?? card.topicTag, isIran: isIran)}',
                         style: typography.caption.copyWith(
                           color: colors.primary,
                           fontWeight: FontWeight.w600,
@@ -718,14 +742,16 @@ class VocabularyScreen extends ConsumerWidget {
                 style: typography.cardTitle.copyWith(color: colors.textPrimary),
               ),
               MzChip(
-                label: '${summary.currentWaveLearned}/${summary.currentWaveTotal}',
+                label: isIran
+                    ? '${EdgeNumerals.toPersianDigits('${summary.currentWaveLearned}')}/${EdgeNumerals.toPersianDigits('${summary.currentWaveTotal}')}'
+                    : '${summary.currentWaveLearned}/${summary.currentWaveTotal}',
               ),
             ],
           ),
           const SizedBox(height: SpacingTokens.xs),
           Text(
             isIran
-                ? 'سهمیه واژگان جدید باقی‌مانده امروز: ${summary.dailyNewRemaining} از $dailyCap'
+                ? 'سهمیه واژگان جدید باقی‌مانده امروز: ${EdgeNumerals.toPersianDigits('${summary.dailyNewRemaining}')} از ${EdgeNumerals.toPersianDigits('$dailyCap')}'
                 : 'Daily new words remaining today: ${summary.dailyNewRemaining} / $dailyCap',
             style: typography.caption.copyWith(color: colors.textSecondary),
           ),
@@ -776,9 +802,8 @@ class VocabularyScreen extends ConsumerWidget {
               FilterChip(
                 label: Text(l10n.vocabPreviewAllWaves),
                 selected: previewAll,
-                onSelected: (_) => ref
-                    .read(vocabPreviewAllWavesProvider.notifier)
-                    .toggle(),
+                onSelected: (_) =>
+                    ref.read(vocabPreviewAllWavesProvider.notifier).toggle(),
               ),
             ],
           ),
@@ -787,7 +812,10 @@ class VocabularyScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
+  Widget _buildEmptyState(
+    BuildContext context, {
+    required bool isIran,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
 
@@ -798,12 +826,16 @@ class VocabularyScreen extends ConsumerWidget {
           const AppIcon(LucideGlyph.bookmarkPlus, size: 40),
           const SizedBox(height: SpacingTokens.md),
           Text(
-            'No words match your filter',
+            isIran
+                ? 'واژه‌ای با این فیلتر پیدا نشد'
+                : 'No words match your filter',
             style: typography.cardTitle.copyWith(color: colors.textPrimary),
           ),
           const SizedBox(height: SpacingTokens.xs),
           Text(
-            'Use 1-tap "Save Mistake to Deck" during practice feedback to capture personalized upgrades.',
+            isIran
+                ? 'در صفحه بررسی پاسخ‌ها از دکمه «افزودن به دفترچه واژگان» استفاده کنید تا اصطلاحات ارتقایافته اینجا ذخیره شوند.'
+                : 'Use 1-tap "Save Mistake to Deck" during practice feedback to capture personalized upgrades.',
             textAlign: TextAlign.center,
             style: typography.body.copyWith(
               color: colors.textSecondary,

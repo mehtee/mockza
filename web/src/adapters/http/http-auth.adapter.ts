@@ -28,6 +28,7 @@ import type { IClock } from '@/gateways/telemetry.gateway';
 import type { ApiClient, ApiClientError } from './api-client';
 
 export const DEVICE_INSTALL_ID_STORAGE_KEY = 'mockza_device_install_id_v1' as const;
+export const AUTH_SESSION_STORAGE_PREFIX = 'mockza_auth_session_v1:' as const;
 
 export interface HttpAuthAdapterOptions {
   readonly apiClient: ApiClient;
@@ -36,6 +37,45 @@ export interface HttpAuthAdapterOptions {
   readonly appVersion?: string;
   readonly allowDevAuth?: boolean;
   readonly localStorage?: Storage | null;
+}
+
+function isValidAuthenticatedUser(value: unknown): value is AuthenticatedUser {
+  if (typeof value !== 'object' || value === null) return false;
+  const user = value as Record<string, unknown>;
+  return (
+    typeof user['userId'] === 'string' &&
+    user['userId'].length > 0 &&
+    (user['email'] === null || typeof user['email'] === 'string') &&
+    (user['phoneE164'] === undefined ||
+      user['phoneE164'] === null ||
+      typeof user['phoneE164'] === 'string') &&
+    (user['displayName'] === null || typeof user['displayName'] === 'string') &&
+    Array.isArray(user['linkedProviders']) &&
+    user['linkedProviders'].every((p) => typeof p === 'string') &&
+    typeof user['isPro'] === 'boolean' &&
+    (user['acceptedDevicePolicyAt'] === undefined ||
+      user['acceptedDevicePolicyAt'] === null ||
+      typeof user['acceptedDevicePolicyAt'] === 'string')
+  );
+}
+
+function isPersistedAuthSession(value: unknown): value is AuthSession {
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  const hasValidUser = obj['user'] === null || isValidAuthenticatedUser(obj['user']);
+  const hasValidSessionId =
+    obj['currentSessionId'] === undefined ||
+    obj['currentSessionId'] === null ||
+    typeof obj['currentSessionId'] === 'string';
+  return (
+    typeof obj['accessToken'] === 'string' &&
+    obj['accessToken'].length > 0 &&
+    typeof obj['expiresAt'] === 'string' &&
+    typeof obj['deviceId'] === 'string' &&
+    typeof obj['isAuthenticated'] === 'boolean' &&
+    hasValidUser &&
+    hasValidSessionId
+  );
 }
 
 function generateUuidV4(): string {
@@ -116,6 +156,15 @@ function getSafeStorage(override?: Storage | null): Storage | null {
   }
 }
 
+function getSafeSessionStorage(override?: Storage | null): Storage | null {
+  if (override !== undefined) return override;
+  try {
+    return typeof sessionStorage !== 'undefined' ? sessionStorage : null;
+  } catch {
+    return null;
+  }
+}
+
 interface RawAuthSessionResponse {
   readonly accessToken: string;
   readonly expiresAt: string;
@@ -162,6 +211,7 @@ export class HttpAuthAdapter implements IAuthGateway, IDeviceSlotGateway {
   protected readonly appVersion: string;
   protected readonly allowDevAuth: boolean;
   private readonly storageOverride: Storage | null | undefined;
+  private readonly sessionStorageKey: string;
   private readonly listeners = new Set<(session: AuthSession | null) => void>();
   private readonly revokedListeners = new Set<() => void>();
   private currentSession: AuthSession | null = null;
@@ -174,14 +224,64 @@ export class HttpAuthAdapter implements IAuthGateway, IDeviceSlotGateway {
     this.appVersion = options.appVersion ?? '1.0.0';
     this.allowDevAuth = options.allowDevAuth ?? false;
     this.storageOverride = options.localStorage;
+    this.sessionStorageKey = `${AUTH_SESSION_STORAGE_PREFIX}${this.db.name}`;
+    this.currentSession = this.readPersistedSession();
+  }
+
+  private readPersistedSession(): AuthSession | null {
+    const storage = getSafeSessionStorage(this.storageOverride);
+    if (!storage) return null;
+    try {
+      const raw = storage.getItem(this.sessionStorageKey);
+      if (!raw) return null;
+      const parsed: unknown = JSON.parse(raw);
+      if (!isPersistedAuthSession(parsed)) {
+        storage.removeItem(this.sessionStorageKey);
+        return null;
+      }
+      return parsed;
+    } catch {
+      try {
+        storage.removeItem(this.sessionStorageKey);
+      } catch {
+        // Ignore cleanup errors.
+      }
+      return null;
+    }
+  }
+
+  private writePersistedSession(session: AuthSession | null): void {
+    const storage = getSafeSessionStorage(this.storageOverride);
+    if (!storage) return;
+    try {
+      if (session) {
+        storage.setItem(this.sessionStorageKey, JSON.stringify(session));
+      } else {
+        storage.removeItem(this.sessionStorageKey);
+      }
+      // Clean up any legacy localStorage token entry when using default browser storage.
+      if (this.storageOverride === undefined) {
+        getSafeStorage(undefined)?.removeItem(this.sessionStorageKey);
+      }
+    } catch {
+      // Ignore storage write errors in restricted contexts.
+    }
   }
 
   getCurrentAccessToken(): string | null {
     return this.currentSession?.accessToken ?? null;
   }
 
+  getFreshAccessToken(): string | null {
+    if (!this.currentSession || !this.isSessionFresh(this.currentSession)) {
+      return null;
+    }
+    return this.currentSession.accessToken;
+  }
+
   protected notifySessionListeners(session: AuthSession | null): void {
     this.currentSession = session;
+    this.writePersistedSession(session);
     for (const listener of this.listeners) {
       listener(session);
     }
@@ -286,7 +386,7 @@ export class HttpAuthAdapter implements IAuthGateway, IDeviceSlotGateway {
       return ok(this.currentSession);
     }
 
-    if (!forceRefresh && this.inflightAuth) {
+    if (this.inflightAuth) {
       return this.inflightAuth;
     }
 
@@ -306,6 +406,7 @@ export class HttpAuthAdapter implements IAuthGateway, IDeviceSlotGateway {
 
     const secretRow = await this.db.deviceMeta.get('deviceSecret').catch(() => undefined);
     const deviceSecret = secretRow?.value;
+    const currentToken = this.currentSession?.accessToken;
 
     const res = await this.apiClient.post<RawAnonymousAuthResponse>(
       '/v1/auth/anonymous',
@@ -321,7 +422,9 @@ export class HttpAuthAdapter implements IAuthGateway, IDeviceSlotGateway {
         },
         ...(deviceSecret ? { deviceSecret } : {}),
       },
-      { includeAuthOnAuthRoute: Boolean(this.currentSession?.accessToken) },
+      {
+        ...(currentToken ? { headers: { authorization: `Bearer ${currentToken}` } } : {}),
+      },
     );
 
     if (!res.ok) {
@@ -380,6 +483,7 @@ export class HttpAuthAdapter implements IAuthGateway, IDeviceSlotGateway {
       };
       const meRes = await this.apiClient.get<RawAccountSessionsResponse>('/v1/account/me', {
         skipAuthRefresh: true,
+        headers: { authorization: `Bearer ${res.value.accessToken}` },
       });
       if (meRes.ok && meRes.value.user) {
         resolvedUser = meRes.value.user;
@@ -436,6 +540,7 @@ export class HttpAuthAdapter implements IAuthGateway, IDeviceSlotGateway {
 
     const secretRow = await this.db.deviceMeta.get('deviceSecret').catch(() => undefined);
     const deviceSecret = secretRow?.value;
+    const currentToken = this.currentSession?.accessToken;
 
     const res = await this.apiClient.post<RawAuthSessionResponse>(
       path,
@@ -452,7 +557,9 @@ export class HttpAuthAdapter implements IAuthGateway, IDeviceSlotGateway {
         },
         ...(deviceSecret ? { deviceSecret } : {}),
       },
-      { includeAuthOnAuthRoute: Boolean(this.currentSession?.accessToken) },
+      {
+        ...(currentToken ? { headers: { authorization: `Bearer ${currentToken}` } } : {}),
+      },
     );
 
     if (!res.ok) {

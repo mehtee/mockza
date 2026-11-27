@@ -93,24 +93,6 @@ export function DesktopSimulatorApp({
   const [bgReadyEval, setBgReadyEval] = useState<ReadyBackgroundEvaluation | null>(null);
   const [bgReadyDrop, setBgReadyDrop] = useState<ReadyBackgroundDrop | null>(null);
 
-  useEffect(() => {
-    if (dependencies?.speechPractice) {
-      bindGlobalSpeechGateway(dependencies.speechPractice);
-    }
-    if (dependencies?.personalization) {
-      void dependencies.personalization
-        .getState()
-        .then((res) => {
-          if (res.ok) {
-            setGlobalDefaultTtsAccent(
-              res.value.profile.preferredTtsAccent === 'uk' ? 'uk' : 'us',
-            );
-          }
-        })
-        .catch(() => {});
-    }
-  }, [dependencies]);
-
   useEffect(() => subscribeBackgroundEvaluationReady(setBgReadyEval), []);
   useEffect(() => subscribeBackgroundDropReady(setBgReadyDrop), []);
 
@@ -133,9 +115,32 @@ export function DesktopSimulatorApp({
 
   useEffect(() => {
     if (!dependencies) return;
-    // Ensure first-time guests hold a signed device JWT before clicking Smart Coach tools.
-    void dependencies.auth.ensureAuthenticated(false);
-    void dependencies.syncOutbox.purgeExpiredAudio().then(() => dependencies.syncOutbox.flushPending());
+    let active = true;
+    if (dependencies.speechPractice) {
+      bindGlobalSpeechGateway(dependencies.speechPractice);
+    }
+
+    // Ensure first-time guests/reloads hold a valid signed JWT before startup API fetches.
+    void dependencies.auth.ensureAuthenticated(false).finally(() => {
+      if (!active) return;
+      if (dependencies.personalization) {
+        void dependencies.personalization
+          .getState()
+          .then((res) => {
+            if (active && res.ok) {
+              setGlobalDefaultTtsAccent(
+                res.value.profile.preferredTtsAccent === 'uk' ? 'uk' : 'us',
+              );
+            }
+          })
+          .catch(() => {});
+      }
+      void dependencies.syncOutbox
+        .purgeExpiredAudio()
+        .then(() => dependencies.syncOutbox.flushPending())
+        .catch(() => {});
+    });
+
     const runPrefetch = () => {
       void prefetchOfflineSimulatorChunks().then(() => {
         document.documentElement.dataset['offlineReady'] = 'true';
@@ -151,6 +156,7 @@ export function DesktopSimulatorApp({
     window.addEventListener('mockza:prefetch-offline-chunks', handlePrefetchRequest);
 
     return () => {
+      active = false;
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('mockza:prefetch-offline-chunks', handlePrefetchRequest);
     };

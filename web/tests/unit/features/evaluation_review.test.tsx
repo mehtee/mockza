@@ -223,7 +223,7 @@ describe('W6.1 EvaluationPendingScreen & EvaluationResultScreen', () => {
     await waitFor(() => {
       expect(screen.getByTestId('eval-transcript-card')).toBeTruthy();
     });
-    expect(screen.getByText(/Literacy:/)).toBeTruthy();
+    expect(screen.getByText(/سواد \(Literacy\):/)).toBeTruthy();
     expect(screen.getByText('پرورش دادن یا تقویت کردن')).toBeTruthy();
     expect(screen.getByTestId('ecosystem-handoff-card')).toBeTruthy();
   });

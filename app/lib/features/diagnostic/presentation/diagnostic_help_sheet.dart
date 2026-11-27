@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/services/diagnostic_gateway.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
@@ -11,6 +12,18 @@ import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/status_banner.dart';
 import 'package:mockza/theme/primitives.dart';
 
+bool _isFa(BuildContext context) =>
+    Localizations.localeOf(context).languageCode == 'fa';
+
+bool _matchesActiveExamScale(String scaleExamId, String activeExamId) {
+  if (scaleExamId == activeExamId) return true;
+  final scaleTrack = ExamTrack.fromId(scaleExamId);
+  final activeTrack = ExamTrack.fromId(activeExamId);
+  if (scaleTrack == activeTrack) return true;
+  // Both IELTS Academic and IELTS General share the unified IELTS scale tile.
+  return scaleTrack.isIelts && activeTrack.isIelts;
+}
+
 /// Opens the beginner-friendly "What to do / What not to do" help modal sheet,
 /// with an optional action to switch from standard timing to Extended Help mode.
 Future<void> showDiagnosticHelpSheet(
@@ -20,7 +33,9 @@ Future<void> showDiagnosticHelpSheet(
   VoidCallback? onSwitchToExtendedHelp,
 }) => showMzBottomSheet<void>(
   context: context,
-  title: 'How This Quick Check Works',
+  title: _isFa(context)
+      ? 'نحوه انجام این ارزیابی سریع'
+      : 'How This Quick Check Works',
   child: SingleChildScrollView(
     padding: const EdgeInsetsDirectional.fromSTEB(
       SpacingTokens.lg,
@@ -42,36 +57,41 @@ Future<void> showDiagnosticExamScaleSheet(
   BuildContext context, {
   required List<DiagnosticExamScaleInfo> examScales,
   required String activeExamId,
-}) => showMzBottomSheet<void>(
-  context: context,
-  title: "About Your Exam's Scores",
-  child: SingleChildScrollView(
-    padding: const EdgeInsetsDirectional.fromSTEB(
-      SpacingTokens.lg,
-      SpacingTokens.md,
-      SpacingTokens.lg,
-      SpacingTokens.xl,
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        const StatusBanner(
-          message: 'Official exam scales are shown only for orientation. This ~10–15 minute check suggests your starting practice level and does not predict an official exam score.',
-          variant: StatusBannerVariant.offline,
-        ),
-        const SizedBox(height: SpacingTokens.md),
-        for (final info in examScales) ...<Widget>[
-          _ExamScaleTile(
-            info: info,
-            isSelected: info.examId == activeExamId,
+}) {
+  final isIran = _isFa(context);
+  return showMzBottomSheet<void>(
+    context: context,
+    title: isIran ? 'درباره مقیاس نمرات آزمون‌ها' : "About Your Exam's Scores",
+    child: SingleChildScrollView(
+      padding: const EdgeInsetsDirectional.fromSTEB(
+        SpacingTokens.lg,
+        SpacingTokens.md,
+        SpacingTokens.lg,
+        SpacingTokens.xl,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          StatusBanner(
+            message: isIran
+                ? 'مقیاس رسمی آزمون‌ها صرفاً برای آشنایی شما نمایش داده می‌شود. این ارزیابی ۱۰ تا ۱۵ دقیقه‌ای سطح شروع تمرین را پیشنهاد می‌دهد و نمره رسمی آزمون را پیش‌بینی نمی‌کند.'
+                : 'Official exam scales are shown only for orientation. This ~10–15 minute check suggests your starting practice level and does not predict an official exam score.',
+            variant: StatusBannerVariant.offline,
           ),
-          const SizedBox(height: SpacingTokens.sm),
+          const SizedBox(height: SpacingTokens.md),
+          for (final info in examScales) ...<Widget>[
+            _ExamScaleTile(
+              info: info,
+              isSelected: _matchesActiveExamScale(info.examId, activeExamId),
+            ),
+            const SizedBox(height: SpacingTokens.sm),
+          ],
         ],
-      ],
+      ),
     ),
-  ),
-);
+  );
+}
 
 class _DiagnosticHelpBody extends StatelessWidget {
   const new({
@@ -88,13 +108,16 @@ class _DiagnosticHelpBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
+    final isIran = _isFa(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         Text(
-          'This is a starting estimate — not an exam. Hard questions are normal so we can find the right starting level quickly.',
+          isIran
+              ? 'این یک برآورد اولیه است — نه آزمون رسمی. وجود پرسش‌های دشوار طبیعی است تا سریع‌تر سطح شروع مناسب را پیدا کنیم.'
+              : 'This is a starting estimate — not an exam. Hard questions are normal so we can find the right starting level quickly.',
           style: typography.body.copyWith(color: colors.textSecondary),
         ),
         const SizedBox(height: SpacingTokens.md),
@@ -102,8 +125,10 @@ class _DiagnosticHelpBody extends StatelessWidget {
         const SizedBox(height: SpacingTokens.md),
         if (isTimedSession && isActiveSession && onSwitchToExtendedHelp != null)
           StatusBanner(
-            message: 'Reading this help counts toward your 15-minute timer in standard mode. Need extra time?',
-            actionLabel: 'Extended Help',
+            message: isIran
+                ? 'خواندن این راهنما در حالت استاندارد جزو تایمر ۱۵ دقیقه‌ای محاسبه می‌شود. زمان بیشتری نیاز دارید؟'
+                : 'Reading this help counts toward your 15-minute timer in standard mode. Need extra time?',
+            actionLabel: isIran ? 'زمان بیشتر' : 'Extended Help',
             onTapAction: () {
               Navigator.of(context).pop();
               onSwitchToExtendedHelp!();
@@ -113,7 +138,9 @@ class _DiagnosticHelpBody extends StatelessWidget {
             !isActiveSession &&
             onSwitchToExtendedHelp != null)
           SecondaryButton(
-            label: 'Switch to Extended Help (Untimed)',
+            label: isIran
+                ? 'تغییر به حالت بدون محدودیت زمانی'
+                : 'Switch to Extended Help (Untimed)',
             onPressed: () {
               Navigator.of(context).pop();
               onSwitchToExtendedHelp!();
@@ -121,7 +148,7 @@ class _DiagnosticHelpBody extends StatelessWidget {
           ),
         const SizedBox(height: SpacingTokens.md),
         PrimaryButton(
-          label: 'Got it',
+          label: isIran ? 'متوجه شدم' : 'Got it',
           onPressed: () => Navigator.of(context).pop(),
         ),
       ],
@@ -136,37 +163,54 @@ class _DoDontCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
+    final isIran = _isFa(context);
 
     return MzCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text('What to do', style: typography.cardTitle),
+          Text(
+            isIran ? 'کارهایی که بهتر است انجام دهید' : 'What to do',
+            style: typography.cardTitle,
+          ),
           const SizedBox(height: SpacingTokens.sm),
-          const _RuleRow(
+          _RuleRow(
             isPositive: true,
-            text: 'Answer briefly in your own words across all 4 short parts.',
+            text: isIran
+                ? 'در هر ۴ بخش کوتاه، با جملات خودتان کوتاه پاسخ دهید.'
+                : 'Answer briefly in your own words across all 4 short parts.',
           ),
-          const _RuleRow(
+          _RuleRow(
             isPositive: true,
-            text: 'Tap "I don\'t know" if a Reading or Listening passage is too hard instead of guessing randomly.',
+            text: isIran
+                ? 'اگر متنی بیش از حد سخت بود، به‌جای حدس تصادفی گزینه «نمی‌دانم» را بزنید.'
+                : 'Tap "I don\'t know" if a Reading or Listening passage is too hard instead of guessing randomly.',
           ),
-          const _RuleRow(
+          _RuleRow(
             isPositive: true,
-            text: 'Skip any skill (or continue without Speaking) if needed.',
+            text: isIran
+                ? 'در صورت نیاز می‌توانید هر مهارت را رد کنید (یا بدون اسپیکینگ ادامه دهید).'
+                : 'Skip any skill (or continue without Speaking) if needed.',
           ),
           const SizedBox(height: SpacingTokens.md),
           Divider(color: colors.borderSubtle, height: 1),
           const SizedBox(height: SpacingTokens.md),
-          Text('What not to do', style: typography.cardTitle),
-          const SizedBox(height: SpacingTokens.sm),
-          const _RuleRow(
-            isPositive: false,
-            text: 'Do not use translators, dictionaries, or AI writing tools.',
+          Text(
+            isIran ? 'کارهایی که نباید انجام دهید' : 'What not to do',
+            style: typography.cardTitle,
           ),
-          const _RuleRow(
+          const SizedBox(height: SpacingTokens.sm),
+          _RuleRow(
             isPositive: false,
-            text: 'Do not stay stuck on one tricky item — short answers give a better picture than empty screens.',
+            text: isIran
+                ? 'از مترجم، فرهنگ لغت یا ابزارهای نوشتاری هوش مصنوعی استفاده نکنید.'
+                : 'Do not use translators, dictionaries, or AI writing tools.',
+          ),
+          _RuleRow(
+            isPositive: false,
+            text: isIran
+                ? 'روی یک سوال سخت متوقف نشوید — پاسخ کوتاه بسیار بهتر از صفحه خالی است.'
+                : 'Do not stay stuck on one tricky item — short answers give a better picture than empty screens.',
           ),
         ],
       ),
@@ -223,6 +267,7 @@ class _ExamScaleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
+    final isIran = _isFa(context);
 
     return MzCard(
       variant: isSelected ? MzCardVariant.hero : MzCardVariant.standard,
@@ -236,7 +281,7 @@ class _ExamScaleTile extends StatelessWidget {
               ),
               if (isSelected)
                 Text(
-                  'Your Goal',
+                  isIran ? 'هدف شما' : 'Your Goal',
                   style: typography.caption.copyWith(
                     color: colors.primary,
                     fontWeight: FontWeight.w700,

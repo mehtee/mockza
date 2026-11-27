@@ -243,6 +243,7 @@ class MicroDrillsNotifier extends Notifier<MicroDrillsState> {
       state = state.copyWith(
         availableDrills: drills,
         clearDrillSpec: true,
+        examTrack: profileTrack,
         isLoading: false,
         hasSelectedDrill: false,
         clearSelected: true,
@@ -256,7 +257,7 @@ class MicroDrillsNotifier extends Notifier<MicroDrillsState> {
       );
       return;
     }
-    _activateDrill(drills: drills, spec: matched);
+    _activateDrill(drills: drills, spec: matched, examTrack: profileTrack);
   }
 
   /// Starts a specific drill chosen from the Micro-Drills selector list.
@@ -268,6 +269,7 @@ class MicroDrillsNotifier extends Notifier<MicroDrillsState> {
     required MicroDrillSpec spec,
     List<MicroDrillSpec>? drills,
     List<MicroDrillSpec>? available,
+    ExamTrack? examTrack,
   }) {
     _timer?.cancel();
     _attemptRecorded = false;
@@ -275,7 +277,7 @@ class MicroDrillsNotifier extends Notifier<MicroDrillsState> {
     state = MicroDrillsState(
       availableDrills: list,
       drillSpec: spec,
-      examTrack: state.examTrack,
+      examTrack: examTrack ?? state.examTrack,
       currentIndex: 0,
       selectedOption: null,
       isSubmitted: false,
@@ -409,7 +411,8 @@ class MicroDrillsNotifier extends Notifier<MicroDrillsState> {
 
     try {
       final accuracy = state.score / spec.items.length;
-      final topicKey = CanonicalTopicKey.fromLegacyVocabTag(spec.weaknessCode).wireKey;
+      final topicKey = CanonicalTopicKey.fromLegacyVocabTag(spec.weaknessCode)
+          .wireKey;
       final normalizedSkill = switch (spec.weaknessCode.toLowerCase()) {
         final k when k.contains('listening') => BandEventSkill.listening.wire,
         final k when k.contains('writing') => BandEventSkill.writing.wire,

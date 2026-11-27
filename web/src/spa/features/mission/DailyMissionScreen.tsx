@@ -19,9 +19,10 @@ import { MzCard } from '@/components/ui';
 import {
   ForwardArrowIcon,
 } from '@/components/bidi/DirectionIcon';
+import { localizeAudioError } from '@/components/bidi/diagnostic-labels';
 import { formatTopicLabel } from '@/components/bidi/topic-labels';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
-import { toPersianDigits } from '@/edition/bidi/numerals';
+import { formatChromeNumber } from '@/edition/bidi/numerals';
 import type { ActiveRecordingHandle, RecordedClip } from '@/gateways/audio.gateway';
 import type { DailyMissionSnapshot } from '@/gateways/linguistic.gateway';
 import { createTranslator } from '@/i18n';
@@ -145,7 +146,7 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
         onLevel: () => {},
       });
       if (!startRes.ok) {
-        setError(startRes.error.message);
+        setError(localizeAudioError(startRes.error, deps.edition));
         return;
       }
       handleRef.current = startRes.value;
@@ -162,7 +163,7 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
     if (clipRes.ok) {
       setRecordedClip(clipRes.value);
     } else {
-      setError(clipRes.error.message);
+      setError(localizeAudioError(clipRes.error, deps.edition));
     }
   };
 
@@ -382,7 +383,8 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
               </span>
               {responseMode === 'writing' ? (
                 <span data-testid="mission-target-radar" className="text-[11px] font-semibold text-primary">
-                  {matchedDraftKeys.length}/{mission.payload.forcedTargets.length}{' '}
+                  {formatChromeNumber(matchedDraftKeys.length, deps.edition)}/
+                  {formatChromeNumber(mission.payload.forcedTargets.length, deps.edition)}{' '}
                   {isRtl ? 'در پیش‌نویس' : 'used in draft'}
                 </span>
               ) : null}
@@ -410,7 +412,7 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
                         <button
                           type="button"
                           onClick={() => speakEnglishPhrase(target.phraseEn, { rate: 1.0 })}
-                          title="Listen 1.0x"
+                          title={t('listeningListen1xTitle')}
                           className="inline-flex h-6 items-center gap-1 rounded border border-border-subtle bg-canvas px-1.5 text-[11px] text-text-secondary hover:border-primary hover:text-primary"
                         >
                           <Volume2 className="h-3 w-3" aria-hidden="true" />
@@ -419,7 +421,7 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
                         <button
                           type="button"
                           onClick={() => speakEnglishPhrase(target.phraseEn, { rate: 0.8 })}
-                          title="Listen 0.8x"
+                          title={t('listeningListenSlowTitle')}
                           className="inline-flex h-6 items-center rounded border border-border-subtle bg-canvas px-1.5 text-[11px] text-text-secondary hover:border-primary hover:text-primary"
                         >
                           0.8x
@@ -501,7 +503,7 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                   <span className="text-xs text-text-secondary">
                     {isRtl
-                      ? `${toPersianDigits(wordCount)} واژه (پیشنهادی: ۱۵+ واژه)`
+                      ? `${formatChromeNumber(wordCount, deps.edition)} واژه (پیشنهادی: ۱۵+ واژه)`
                       : `${wordCount} words (aim for 15+ words)`}
                   </span>
                   <button
@@ -546,7 +548,7 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
                   {recordedClip ? (
                     <span className="text-xs font-semibold text-success">
                       {isRtl
-                        ? `فایل آماده (${Math.round(recordedClip.durationMs / 1000)} ثانیه)`
+                        ? `فایل آماده (${formatChromeNumber(Math.round(recordedClip.durationMs / 1000), deps.edition)} ثانیه)`
                         : `Recorded (${Math.round(recordedClip.durationMs / 1000)}s ready)`}
                     </span>
                   ) : null}
@@ -585,7 +587,7 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
                   </div>
                   <span className="rounded-[var(--mz-radius-pill)] border border-primary/30 bg-surface-alt px-3 py-1 text-xs font-bold text-primary">
                     {isRtl
-                      ? `شفافیت: ${toPersianDigits(mission.evaluationResult.clarityScore1To5)} / ۵`
+                      ? `شفافیت: ${formatChromeNumber(mission.evaluationResult.clarityScore1To5, deps.edition)} / ۵`
                       : `Clarity: ${mission.evaluationResult.clarityScore1To5} / 5`}
                   </span>
                 </div>
@@ -637,16 +639,20 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
                           key={`${u.improved}-${idx}`}
                           className="flex flex-wrap items-start justify-between gap-2 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised p-3 text-xs"
                         >
-                          <LtrExamBoundary className="min-w-0 flex-1">
-                            <p>
-                              <del className="text-text-tertiary">{u.original}</del>{' '}
-                              <span className="inline-flex items-center gap-1 font-semibold text-success">
-                                <ForwardArrowIcon edition={deps.edition} className="h-3.5 w-3.5" />
-                                {u.improved}
-                              </span>
+                          <div className="min-w-0 flex-1">
+                            <LtrExamBoundary>
+                              <p>
+                                <del className="text-text-tertiary">{u.original}</del>{' '}
+                                <span className="inline-flex items-center gap-1 font-semibold text-success">
+                                  <ForwardArrowIcon edition="glb" className="h-3.5 w-3.5" />
+                                  {u.improved}
+                                </span>
+                              </p>
+                            </LtrExamBoundary>
+                            <p className="mt-1 text-text-secondary">
+                              {isRtl && u.whyFa ? u.whyFa : u.whyEn}
                             </p>
-                            <p className="mt-1 text-text-secondary">{u.whyEn}</p>
-                          </LtrExamBoundary>
+                          </div>
                           <button
                             type="button"
                             disabled={saved}
@@ -675,14 +681,16 @@ export function DailyMissionScreen({ missionId: _missionId }: DailyMissionScreen
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
+                          title={t('listeningListen1xTitle')}
                           onClick={() => speakEnglishPhrase(mission.evaluationResult!.modelRewriteEn!, { rate: 1.0 })}
                           className="inline-flex items-center gap-1 rounded border border-border-subtle bg-canvas px-2 py-0.5 text-[11px] font-semibold text-text-primary"
                         >
                           <Volume2 className="h-3 w-3" aria-hidden="true" />
-                          <span>Listen 1.0x</span>
+                          <span>{t('listeningListen1xTitle')}</span>
                         </button>
                         <button
                           type="button"
+                          title={t('listeningListenSlowTitle')}
                           onClick={() => speakEnglishPhrase(mission.evaluationResult!.modelRewriteEn!, { rate: 0.8 })}
                           className="inline-flex items-center rounded border border-border-subtle bg-canvas px-2 py-0.5 text-[11px] font-semibold text-text-primary"
                         >

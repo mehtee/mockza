@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_typography.dart';
@@ -19,6 +20,12 @@ class MetricHero extends StatelessWidget {
     this.maxScore = 9,
     this.scoreDeltaText,
     this.scaleLabel = 'Estimated Band',
+    this.unestimatedTitle = 'Not yet estimated',
+    this.unestimatedSubtitle =
+        'Complete your free diagnostic to calculate your baseline band score.',
+    this.diagnosticCtaLabel = 'Start Free Diagnostic',
+    this.targetPrefix = 'Target',
+    this.usePersianDigits = false,
     this.onTapDiagnostic,
     this.onTapCard,
     super.key,
@@ -43,6 +50,21 @@ class MetricHero extends StatelessWidget {
   /// Scale metric label (e.g. "Estimated Band" for IELTS, "Estimated Score" for PTE/DET).
   final String scaleLabel;
 
+  /// Empty-state headline shown when no evaluated attempts exist yet.
+  final String unestimatedTitle;
+
+  /// Empty-state subtitle shown when no evaluated attempts exist yet.
+  final String unestimatedSubtitle;
+
+  /// Call-to-action button label for launching diagnostic.
+  final String diagnosticCtaLabel;
+
+  /// Prefix word before target score value inside [ScoreMeter].
+  final String targetPrefix;
+
+  /// Whether to render numerals using Persian digits.
+  final bool usePersianDigits;
+
   /// Callback when tapping diagnostic CTA.
   final VoidCallback? onTapDiagnostic;
 
@@ -55,6 +77,14 @@ class MetricHero extends StatelessWidget {
     final typography = AppTypography.of(context);
 
     final hasScore = estimatedScore != null && estimatedScore! > 0.0;
+    final rawHeroScore = hasScore
+        ? ((maxScore > 10 || estimatedScore! > 9.5)
+              ? estimatedScore!.round().toString()
+              : estimatedScore!.toStringAsFixed(1))
+        : '';
+    final displayHeroScore = usePersianDigits
+        ? EdgeNumerals.toPersianDigits(rawHeroScore)
+        : rawHeroScore;
 
     return MzCard(
       variant: MzCardVariant.hero,
@@ -91,9 +121,7 @@ class MetricHero extends StatelessWidget {
           if (hasScore) ...<Widget>[
             // Big 72pt tabular score
             Text(
-              (maxScore > 10 || estimatedScore! > 9.5)
-                  ? estimatedScore!.round().toString()
-                  : estimatedScore!.toStringAsFixed(1),
+              displayHeroScore,
               style: typography.heroScore.copyWith(
                 color: colors.textPrimary,
               ),
@@ -105,26 +133,30 @@ class MetricHero extends StatelessWidget {
               targetScore: targetScore,
               minScore: minScore,
               maxScore: maxScore,
+              targetPrefix: targetPrefix,
+              usePersianDigits: usePersianDigits,
             ),
           ] else ...<Widget>[
             // Honest unestimated state (Rule #6)
             Text(
-              'Not yet estimated',
+              unestimatedTitle,
               style: typography.headline.copyWith(
                 color: colors.textPrimary,
               ),
             ),
             const SizedBox(height: SpacingTokens.xs),
             Text(
-              'Complete your free diagnostic to calculate your baseline band score.',
+              unestimatedSubtitle,
               style: typography.secondary.copyWith(
                 color: colors.textSecondary,
               ),
             ),
             const SizedBox(height: SpacingTokens.lg),
             PrimaryButton(
-              label: 'Start Free Diagnostic',
-              trailingGlyph: LucideGlyph.arrowRight,
+              label: diagnosticCtaLabel,
+              trailingGlyph: Directionality.of(context) == TextDirection.rtl
+                  ? LucideGlyph.arrowLeft
+                  : LucideGlyph.arrowRight,
               onPressed: onTapDiagnostic,
             ),
           ],

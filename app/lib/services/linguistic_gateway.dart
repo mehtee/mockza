@@ -177,6 +177,7 @@ class MissionInlineUpgradeDto {
     required this.original,
     required this.upgraded,
     required this.whyEn,
+    this.whyFa,
   });
 
   /// Parses JSON map.
@@ -184,6 +185,7 @@ class MissionInlineUpgradeDto {
     original: '${json['original'] ?? ''}',
     upgraded: '${json['improved'] ?? json['upgraded'] ?? ''}',
     whyEn: '${json['whyEn'] ?? ''}',
+    whyFa: json['whyFa'] as String?,
   );
 
   /// Learner phrase that can be strengthened.
@@ -194,6 +196,9 @@ class MissionInlineUpgradeDto {
 
   /// Concise explanation.
   final String whyEn;
+
+  /// Optional Persian explanation (`irn`).
+  final String? whyFa;
 }
 
 /// Server-reported Smart Coach quota summary from `/v1/quota/me`.

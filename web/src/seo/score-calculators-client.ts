@@ -6,11 +6,55 @@ import {
   type ExamModuleType,
 } from '@mockza/domain';
 
+const FA_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
+const fmtNum = (val: string | number, isIrn: boolean): string =>
+  isIrn ? String(val).replace(/\d/g, (d) => FA_DIGITS[Number(d)] ?? d) : String(val);
+
+function convertPteToIelts(pte: number): { ielts: string; cefr: string } {
+  if (pte >= 89) return { ielts: '9.0', cefr: 'C2' };
+  if (pte >= 85) return { ielts: '8.5', cefr: 'C2' };
+  if (pte >= 76) return { ielts: '8.0', cefr: 'C1–C2' };
+  if (pte >= 66) return { ielts: '7.5', cefr: 'C1' };
+  if (pte >= 59) return { ielts: '7.0', cefr: 'C1' };
+  if (pte >= 52) return { ielts: '6.5', cefr: 'B2' };
+  if (pte >= 43) return { ielts: '6.0', cefr: 'B2' };
+  if (pte >= 36) return { ielts: '5.5', cefr: 'B2' };
+  if (pte >= 30) return { ielts: '5.0', cefr: 'B1' };
+  if (pte >= 24) return { ielts: '4.5', cefr: 'B1' };
+  return { ielts: '4.0', cefr: 'A2' };
+}
+
 export function bindScoreCalculators(root: ParentNode = document): () => void {
   const container = root.querySelector<HTMLElement>('[data-testid="score-calculators-island"]');
-  if (!container) return () => {};
+  const pteInput = root.querySelector<HTMLInputElement>('[data-testid="calc-pte-score"]');
+  const pteLabel = root.querySelector<HTMLElement>('[data-testid="calc-pte-label"]');
+  const pteResult = root.querySelector<HTMLElement>('[data-testid="calc-pte-result"]');
+  const isIrn =
+    container?.dataset['irn'] === 'true' || pteResult?.closest('[data-irn]')?.getAttribute('data-irn') === 'true';
 
-  const isIrn = container.dataset['irn'] === 'true';
+  const updatePte = () => {
+    if (!pteInput) return;
+    const score = Number(pteInput.value ?? 65);
+    const { ielts, cefr } = convertPteToIelts(score);
+    if (pteLabel) {
+      pteLabel.textContent = isIrn
+        ? `نمره PTE: ${fmtNum(score, true)}`
+        : `PTE Academic: ${score} / 90`;
+    }
+    if (pteResult) {
+      pteResult.textContent = isIrn
+        ? `آیلتس ${fmtNum(ielts, true)} · سطح ${cefr}`
+        : `IELTS ${ielts} · CEFR ${cefr}`;
+    }
+  };
+  pteInput?.addEventListener('input', updatePte);
+  updatePte();
+
+  if (!container) {
+    return () => {
+      pteInput?.removeEventListener('input', updatePte);
+    };
+  }
 
   const ieltsModeEl = container.querySelector<HTMLSelectElement>('[data-testid="calc-ielts-mode"]');
   const ieltsRawEl = container.querySelector<HTMLInputElement>('[data-testid="calc-ielts-raw"]');
@@ -36,11 +80,13 @@ export function bindScoreCalculators(root: ParentNode = document): () => void {
         : readingBandFor(raw, (mode === 'reading_gt' ? 'general_training' : 'academic') as ExamModuleType);
     if (ieltsRawLabelEl) {
       ieltsRawLabelEl.textContent = isIrn
-        ? `تعداد پاسخ صحیح: ${raw}`
+        ? `تعداد پاسخ صحیح: ${fmtNum(raw, true)}`
         : `Correct Answers: ${raw} / 40`;
     }
     if (ieltsResultEl) {
-      ieltsResultEl.textContent = `Band ${band.toFixed(1)}`;
+      ieltsResultEl.textContent = isIrn
+        ? `باند ${fmtNum(band.toFixed(1), true)}`
+        : `Band ${band.toFixed(1)}`;
     }
   };
 
@@ -49,11 +95,13 @@ export function bindScoreCalculators(root: ParentNode = document): () => void {
     const legacy = estimateToeflLegacy120(band);
     if (toeflBandLabelEl) {
       toeflBandLabelEl.textContent = isIrn
-        ? `نمره ۲۰۲۶: ${band.toFixed(1)}`
+        ? `نمره ۲۰۲۶: ${fmtNum(band.toFixed(1), true)}`
         : `2026 Band: ${band.toFixed(1)} / 6.0`;
     }
     if (toeflResultEl) {
-      toeflResultEl.textContent = `~${legacy} / 120`;
+      toeflResultEl.textContent = isIrn
+        ? `~${fmtNum(legacy, true)} / ۱۲۰`
+        : `~${legacy} / 120`;
     }
   };
 
@@ -68,16 +116,20 @@ export function bindScoreCalculators(root: ParentNode = document): () => void {
     const lOut = container.querySelector<HTMLElement>('[data-testid="calc-det-listening-val"]');
     const wOut = container.querySelector<HTMLElement>('[data-testid="calc-det-writing-val"]');
     const sOut = container.querySelector<HTMLElement>('[data-testid="calc-det-speaking-val"]');
-    if (rOut) rOut.textContent = String(r);
-    if (lOut) lOut.textContent = String(l);
-    if (wOut) wOut.textContent = String(w);
-    if (sOut) sOut.textContent = String(s);
+    if (rOut) rOut.textContent = fmtNum(r, isIrn);
+    if (lOut) lOut.textContent = fmtNum(l, isIrn);
+    if (wOut) wOut.textContent = fmtNum(w, isIrn);
+    if (sOut) sOut.textContent = fmtNum(s, isIrn);
     if (detResultEl) {
-      detResultEl.innerHTML =
-        `<div>Literacy: ${sub.literacy}</div>` +
-        `<div>Comp: ${sub.comprehension}</div>` +
-        `<div>Conv: ${sub.conversation}</div>` +
-        `<div>Prod: ${sub.production}</div>`;
+      detResultEl.innerHTML = isIrn
+        ? `<div>سواد: ${fmtNum(sub.literacy ?? '—', true)}</div>` +
+          `<div>درک: ${fmtNum(sub.comprehension ?? '—', true)}</div>` +
+          `<div>مکالمه: ${fmtNum(sub.conversation ?? '—', true)}</div>` +
+          `<div>تولید: ${fmtNum(sub.production ?? '—', true)}</div>`
+        : `<div>Literacy: ${sub.literacy ?? '—'}</div>` +
+          `<div>Comp: ${sub.comprehension ?? '—'}</div>` +
+          `<div>Conv: ${sub.conversation ?? '—'}</div>` +
+          `<div>Prod: ${sub.production ?? '—'}</div>`;
     }
   };
 
@@ -94,6 +146,7 @@ export function bindScoreCalculators(root: ParentNode = document): () => void {
   updateDet();
 
   return () => {
+    pteInput?.removeEventListener('input', updatePte);
     ieltsModeEl?.removeEventListener('change', updateIelts);
     ieltsRawEl?.removeEventListener('input', updateIelts);
     toeflBandEl?.removeEventListener('input', updateToefl);

@@ -2,10 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mockza/core/config/edition_config.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/core/localization/edition_copy.dart';
 import 'package:mockza/core/vocab/sm2_scheduler.dart';
 import 'package:mockza/data/repositories/vocab_repository.dart';
 import 'package:mockza/features/vocabulary/presentation/vocabulary_providers.dart';
 import 'package:mockza/l10n/app_localizations.dart';
+import 'package:mockza/providers.dart';
 import 'package:mockza/routing/routes.dart';
 import 'package:mockza/routing/safe_pop.dart';
 import 'package:mockza/theme/app_colors.dart';
@@ -37,15 +41,21 @@ class VocabWordDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final allCardsAsync = ref.watch(allVocabCardsProvider);
     final colors = AppColors.of(context);
+    final isIran = ref.watch(editionConfigProvider).edition == AppEdition.iran;
+    final backIcon = AppIcon(
+      isIran ? LucideGlyph.chevronRight : LucideGlyph.chevronLeft,
+      size: 22,
+    );
+    final titleText = isIran ? 'جزئیات واژه' : 'Word Details';
 
     if (allCardsAsync.isLoading && !allCardsAsync.hasValue) {
       return MzScaffold(
         appBar: AppBar(
           leading: IconButton(
-            icon: const AppIcon(LucideGlyph.chevronLeft, size: 22),
+            icon: backIcon,
             onPressed: () => context.safePopOrGo(AppRoutes.vocabulary),
           ),
-          title: const Text('Word Details'),
+          title: Text(titleText),
         ),
         body: Center(
           child: CircularProgressIndicator(color: colors.primary),
@@ -59,17 +69,20 @@ class VocabWordDetailScreen extends ConsumerWidget {
       return MzScaffold(
         appBar: AppBar(
           leading: IconButton(
-            icon: const AppIcon(LucideGlyph.chevronLeft, size: 22),
+            icon: backIcon,
             onPressed: () => context.safePopOrGo(AppRoutes.vocabulary),
           ),
-          title: const Text('Word Details'),
+          title: Text(titleText),
         ),
         body: EmptyState(
           glyph: LucideGlyph.info,
-          title: 'Word not found',
-          description:
-              'This vocabulary card could not be found in your local deck.',
-          actionLabel: 'Back to Vocabulary',
+          title: isIran ? 'واژه یافت نشد' : 'Word not found',
+          description: isIran
+              ? 'این کارت واژگان در دفترچه فعلی شما پیدا نشد.'
+              : 'This vocabulary card could not be found in your local deck.',
+          actionLabel: isIran
+              ? 'بازگشت به دفترچه واژگان'
+              : 'Back to Vocabulary',
           onTapAction: () => context.safePopOrGo(AppRoutes.vocabulary),
         ),
       );
@@ -78,10 +91,10 @@ class VocabWordDetailScreen extends ConsumerWidget {
     return MzScaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: const AppIcon(LucideGlyph.chevronLeft, size: 22),
+          icon: backIcon,
           onPressed: () => context.safePopOrGo(AppRoutes.vocabulary),
         ),
-        title: const Text('Word Details'),
+        title: Text(titleText),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsetsDirectional.symmetric(
@@ -90,22 +103,24 @@ class VocabWordDetailScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            _buildHeadwordCard(context, card),
+            _buildHeadwordCard(context, card, isIran: isIran),
             const SizedBox(height: SpacingTokens.lg),
-            _buildDefinitionCard(context, card),
+            _buildDefinitionCard(context, card, isIran: isIran),
             if (card.contextSentence != null) ...<Widget>[
               const SizedBox(height: SpacingTokens.md),
-              _buildContextCard(context, card),
+              _buildContextCard(context, card, isIran: isIran),
             ],
             if (card.usageNote != null) ...<Widget>[
               const SizedBox(height: SpacingTokens.md),
               _buildUsageNoteCard(context, card),
             ],
             const SizedBox(height: SpacingTokens.md),
-            _buildSrsStatsCard(context, card),
+            _buildSrsStatsCard(context, card, isIran: isIran),
             const SizedBox(height: SpacingTokens.xl),
             PrimaryButton(
-              label: 'Reset for Review Today',
+              label: isIran
+                  ? 'بازنشانی برای مرور امروز'
+                  : 'Reset for Review Today',
               glyph: LucideGlyph.rotateCcw,
               onPressed: () {
                 unawaited(
@@ -118,7 +133,9 @@ class VocabWordDetailScreen extends ConsumerWidget {
                 );
                 showMzToast(
                   context,
-                  message: 'Card re-queued for review today!',
+                  message: isIran
+                      ? 'کارت دوباره در صف مرور امروز قرار گرفت!'
+                      : 'Card re-queued for review today!',
                 );
               },
             ),
@@ -128,7 +145,11 @@ class VocabWordDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeadwordCard(BuildContext context, VocabDeckCard card) {
+  Widget _buildHeadwordCard(
+    BuildContext context,
+    VocabDeckCard card, {
+    required bool isIran,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
 
@@ -143,10 +164,15 @@ class VocabWordDetailScreen extends ConsumerWidget {
             children: <Widget>[
               if (card.sourceSkill != null)
                 MzChip(
-                  label: card.sourceSkill!,
+                  label: EditionCopy.skillName(
+                    card.sourceSkill!,
+                    isIran: isIran,
+                  ),
                   isSelected: true,
                 ),
-              MzChip(label: card.topicTag),
+              MzChip(
+                label: EditionCopy.topicLabel(card.topicTag, isIran: isIran),
+              ),
             ],
           ),
           const SizedBox(height: SpacingTokens.md),
@@ -212,7 +238,11 @@ class VocabWordDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDefinitionCard(BuildContext context, VocabDeckCard card) {
+  Widget _buildDefinitionCard(
+    BuildContext context,
+    VocabDeckCard card, {
+    required bool isIran,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
 
@@ -221,7 +251,7 @@ class VocabWordDetailScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            'Definition',
+            isIran ? 'معنی و تعریف' : 'Definition',
             style: typography.caption.copyWith(color: colors.textSecondary),
           ),
           if (card.glossFa != null &&
@@ -250,7 +280,11 @@ class VocabWordDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildContextCard(BuildContext context, VocabDeckCard card) {
+  Widget _buildContextCard(
+    BuildContext context,
+    VocabDeckCard card, {
+    required bool isIran,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
 
@@ -259,7 +293,7 @@ class VocabWordDetailScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            'Example Context',
+            isIran ? 'نمونه کاربرد در جمله' : 'Example Context',
             style: typography.caption.copyWith(color: colors.textSecondary),
           ),
           const SizedBox(height: SpacingTokens.xs),
@@ -334,16 +368,28 @@ class VocabWordDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSrsStatsCard(BuildContext context, VocabDeckCard card) {
+  Widget _buildSrsStatsCard(
+    BuildContext context,
+    VocabDeckCard card, {
+    required bool isIran,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
+    final repsStr = isIran
+        ? EdgeNumerals.toPersianDigits('${card.schedule.repetitions}')
+        : '${card.schedule.repetitions}';
+    final intervalStr = isIran
+        ? '${EdgeNumerals.toPersianDigits('${card.schedule.intervalDays}')} روز'
+        : '${card.schedule.intervalDays}d';
+    final rawEase = (card.schedule.easeFactorMilli / 1000).toStringAsFixed(2);
+    final easeStr = isIran ? EdgeNumerals.toPersianDigits(rawEase) : rawEase;
 
     return MzCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            'Spaced Repetition Schedule',
+            isIran ? 'برنامه مرور هوشمند (SRS)' : 'Spaced Repetition Schedule',
             style: typography.cardTitle.copyWith(
               color: colors.textPrimary,
             ),
@@ -353,8 +399,8 @@ class VocabWordDetailScreen extends ConsumerWidget {
             children: <Widget>[
               Expanded(
                 child: _buildStatItem(
-                  'Repetitions',
-                  '${card.schedule.repetitions}',
+                  isIran ? 'تکرارها' : 'Repetitions',
+                  repsStr,
                   typography,
                   colors,
                 ),
@@ -362,8 +408,8 @@ class VocabWordDetailScreen extends ConsumerWidget {
               const SizedBox(width: SpacingTokens.xs),
               Expanded(
                 child: _buildStatItem(
-                  'Interval',
-                  '${card.schedule.intervalDays}d',
+                  isIran ? 'فاصله مرور' : 'Interval',
+                  intervalStr,
                   typography,
                   colors,
                 ),
@@ -371,8 +417,8 @@ class VocabWordDetailScreen extends ConsumerWidget {
               const SizedBox(width: SpacingTokens.xs),
               Expanded(
                 child: _buildStatItem(
-                  'Ease Factor',
-                  (card.schedule.easeFactorMilli / 1000).toStringAsFixed(2),
+                  isIran ? 'ضریب یادآوری' : 'Ease Factor',
+                  easeStr,
                   typography,
                   colors,
                 ),

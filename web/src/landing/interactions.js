@@ -150,6 +150,11 @@ function setupSpeakingAudio({ panel, markers }) {
   const elapsed = panel.querySelector("[data-demo-time]");
   const duration = panel.querySelector("[data-demo-duration]");
   let cueStart = 0;
+  function ensureSrc() {
+    if (!audio.getAttribute("src") && audio.dataset.src) {
+      audio.src = audio.dataset.src;
+    }
+  }
   function unavailable() {
     message.hidden = false;
     play.disabled = true;
@@ -157,6 +162,7 @@ function setupSpeakingAudio({ panel, markers }) {
   }
   function playSample() {
     message.hidden = true;
+    ensureSrc();
     audio.play().catch(error => {
       if (error.name !== "AbortError") message.hidden = false;
     });
@@ -183,11 +189,33 @@ function setupSpeakingAudio({ panel, markers }) {
     const index = SPEAKING_NOTES.findLastIndex(note => audio.currentTime >= note.start);
     markers.forEach((marker, i) => marker.classList.toggle("is-playing-line", i === index && !audio.paused));
   }
-  seek.addEventListener("input", () => { audio.currentTime = Number(seek.value); });
+  let loadingStarted = false;
+  seek.addEventListener("input", () => {
+    ensureSrc();
+    const targetTime = Number(seek.value);
+    if (audio.readyState >= 1) {
+      audio.currentTime = targetTime;
+    } else {
+      cueStart = targetTime;
+      if (!loadingStarted) {
+        loadingStarted = true;
+        audio.load();
+      }
+      elapsed.textContent = clipTime(targetTime);
+      const maxDur = Number(seek.max) || 0;
+      if (maxDur > 0) {
+        wave.style.setProperty("--playhead", `${(targetTime / maxDur) * 100}%`);
+      }
+      seek.setAttribute("aria-valuetext", `${elapsed.textContent} / ${duration.textContent}`);
+    }
+  });
   panel.addEventListener("feedback-select", event => {
     const { note, fromMarker } = event.detail;
     cueStart = note.start;
-    if (!audio.readyState) return;
+    if (!audio.readyState) {
+      if (fromMarker) playSample();
+      return;
+    }
     audio.currentTime = cueStart;
     if (fromMarker && audio.paused) playSample();
     updateTime();
@@ -200,6 +228,8 @@ function setupSpeakingAudio({ panel, markers }) {
     seek.disabled = false;
     updateTime();
   });
+  play.disabled = false;
+  seek.disabled = false;
   updateTime();
 
   return loadLandingClip(audio);
@@ -284,13 +314,17 @@ function setupReportAudio(pane) {
   const cues = [...pane.querySelectorAll("[data-report-cue]")];
   let stopAt = null;
   let frame = 0;
+  let pendingSeek = null;
+  let loadRequested = false;
 
   function sync() {
-    const progress = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.currentTime / audio.duration : 0;
-    seek.value = audio.currentTime;
+    const current = audio.readyState >= 1 ? audio.currentTime : (pendingSeek ?? audio.currentTime);
+    const total = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : Number(seek.max) || 0;
+    const progress = total > 0 ? current / total : 0;
+    seek.value = current;
     wave.style.setProperty("--played", `${progress * 100}%`);
     bars.forEach((bar, i) => bar.classList.toggle("was-played", i + .5 < bars.length * progress));
-    elapsed.textContent = clipTime(audio.currentTime);
+    elapsed.textContent = clipTime(current);
     seek.setAttribute("aria-valuetext", `${numText(elapsed.textContent)} / ${numText(duration.textContent)}`);
     const playing = !audio.paused && !audio.ended;
     play.firstElementChild.textContent = playing ? "Ⅱ" : "▶";
@@ -310,6 +344,14 @@ function setupReportAudio(pane) {
   function monitorCue() {
     stopCueAtBoundary();
     frame = stopAt === null || audio.paused ? 0 : requestAnimationFrame(monitorCue);
+  }
+
+  function seekTo(sec) {
+    if (audio.readyState >= 1) {
+      audio.currentTime = sec;
+    } else {
+      pendingSeek = sec;
+    }
   }
 
   function start() {
@@ -333,13 +375,17 @@ function setupReportAudio(pane) {
   });
   seek.addEventListener("input", () => {
     stopAt = null;
-    audio.currentTime = Number(seek.value);
+    seekTo(Number(seek.value));
+    if (audio.readyState === 0 && !loadRequested) {
+      loadRequested = true;
+      audio.load();
+    }
     sync();
   });
   for (const cue of cues) {
     cue.addEventListener("click", () => {
-      audio.currentTime = Number(cue.dataset.reportCue);
       stopAt = Number(cue.dataset.end);
+      seekTo(Number(cue.dataset.reportCue));
       start();
     });
   }
@@ -348,6 +394,10 @@ function setupReportAudio(pane) {
   audio.addEventListener("loadedmetadata", () => {
     seek.max = audio.duration;
     duration.textContent = clipTime(audio.duration);
+    if (pendingSeek !== null) {
+      audio.currentTime = pendingSeek;
+      pendingSeek = null;
+    }
     for (const control of [play, seek, rate, ...cues]) control.disabled = false;
     sync();
   });
@@ -356,6 +406,7 @@ function setupReportAudio(pane) {
     for (const control of [play, seek, rate, ...cues]) control.disabled = true;
   }
   audio.addEventListener("error", unavailable);
+  for (const control of [play, seek, rate, ...cues]) control.disabled = false;
   const dispose = loadLandingClip(audio);
   return () => {
     cancelAnimationFrame(frame);

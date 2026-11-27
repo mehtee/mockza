@@ -241,7 +241,9 @@ class _LinguisticGraphScreenState extends ConsumerState<LinguisticGraphScreen> {
                       label: isRtl
                           ? 'رفع نقطه‌ضعف در مربی امروز'
                           : 'Fix Weak Spots in 10-Min Coach',
-                      glyph: LucideGlyph.arrowRight,
+                      glyph: isRtl
+                          ? LucideGlyph.arrowLeft
+                          : LucideGlyph.arrowRight,
                       isFullWidth: false,
                       onPressed: () =>
                           context.push(AppRoutes.buildDailyMission()),
@@ -338,7 +340,8 @@ class _LinguisticGraphScreenState extends ConsumerState<LinguisticGraphScreen> {
                                             !t.isMuted &&
                                             (t.displayLabelEn.toLowerCase() ==
                                                     s.labelEn.toLowerCase() ||
-                                                t.displayLabelEn.toLowerCase() ==
+                                                t.displayLabelEn
+                                                        .toLowerCase() ==
                                                     s.wireKey),
                                       ),
                             )

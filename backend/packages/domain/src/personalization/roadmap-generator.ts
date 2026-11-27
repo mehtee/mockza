@@ -1,7 +1,13 @@
 import type { LinguisticNodeSummary } from '../advanced/linguistic-graph-math.js';
 import type { AuthoringTier } from '../diagnostic/types.js';
+import { formatExamScore, formatExamScoreWithUnit } from '../exams/exam-spec.js';
 import type { SupportedExamId } from '../rubrics.js';
 import { estimateCefrTierFromScore, mapCefrTierToExamScore } from './live-band-engine.js';
+import {
+  type CanonicalTopicKey,
+  getTopicLabel,
+  normalizeFavoriteTopicList,
+} from './topic-taxonomy.js';
 import {
   type AdaptationPhase,
   type AdaptiveContentCandidate,
@@ -9,11 +15,6 @@ import {
   selectNextCoachTopic,
   type TopicWeaknessCoverageEntry,
 } from './topic-weakness-rotator.js';
-import {
-  type CanonicalTopicKey,
-  getTopicLabel,
-  normalizeFavoriteTopicList,
-} from './topic-taxonomy.js';
 
 export type RoadmapStudyFocus = 'exams' | 'coach' | 'both';
 export type RoadmapStepKind =
@@ -118,11 +119,17 @@ export function generateOrRecalibrateRoadmap(params: {
       : 'B1';
 
   const daysRemaining =
-    params.targetDateSerial != null ? Math.max(1, params.targetDateSerial - params.todaySerial) : 28;
+    params.targetDateSerial != null
+      ? Math.max(1, params.targetDateSerial - params.todaySerial)
+      : 28;
   const isSprintMode = params.targetDateSerial != null && daysRemaining <= 7;
 
-  const examPacks = params.packs.filter((p) => p.examId === params.examId && p.skill !== 'fullMock');
-  const fullMockPack = params.packs.find((p) => p.examId === params.examId && p.skill === 'fullMock');
+  const examPacks = params.packs.filter(
+    (p) => p.examId === params.examId && p.skill !== 'fullMock',
+  );
+  const fullMockPack = params.packs.find(
+    (p) => p.examId === params.examId && p.skill === 'fullMock',
+  );
   const examDrills = params.drills.filter((d) => d.examId === params.examId);
 
   const rankedPacks = rankAdaptiveCandidates({
@@ -194,7 +201,7 @@ export function generateOrRecalibrateRoadmap(params: {
     weaknessKey: null,
     phaseTag: 'ignition',
     difficultyCefr: currentCefr,
-    titleEn: `Vocab Wave 1: 15 ${favLabelEn} & Core Words`,
+    titleEn: `Vocab Wave 1: 15 ${favLabelEn} Core Words`,
     titleFa: `موج اول واژگان: ۱۵ واژه کلیدی (${favLabelFa})`,
     reasonEn: `Curated around ${favLabelEn} at your ${currentCefr} level instead of 320 words at once.`,
     reasonFa: `به‌جای ۳۲۰ واژه هم‌زمان، با ۱۵ واژه کاربردی در موضوع «${favLabelFa}» و سطح ${currentCefr} شروع می‌کنید.`,
@@ -311,7 +318,8 @@ export function generateOrRecalibrateRoadmap(params: {
     difficultyCefr: currentCefr,
     titleEn: 'Vocab Wave 2: Weakness-Targeting Collocations',
     titleFa: 'موج دوم واژگان: هم‌آواهای رفع نقاط ضعف',
-    reasonEn: 'Unlocks 15 high-yield collocations aligned with your active weaknesses + saved mistakes.',
+    reasonEn:
+      'Unlocks 15 high-yield collocations aligned with your active weaknesses + saved mistakes.',
     reasonFa: '۱۵ ترکیب واژگانی دقیق برای رفع خطاهای ثبت‌شده و واژگان ذخیره‌شده شما.',
     estimatedMinutes: 8,
   });
@@ -327,7 +335,9 @@ export function generateOrRecalibrateRoadmap(params: {
   const transferFa = getTopicLabel(transferTopic, 'irn');
 
   const transferPack =
-    rankedPacks.find((r) => !favTopics.includes(r.matchedTopic)) ?? rankedPacks[2] ?? rankedPacks[0];
+    rankedPacks.find((r) => !favTopics.includes(r.matchedTopic)) ??
+    rankedPacks[2] ??
+    rankedPacks[0];
   if (transferPack) {
     draftSteps.push({
       stepKey: `m3:pack:${transferPack.item.id}`,
@@ -360,12 +370,14 @@ export function generateOrRecalibrateRoadmap(params: {
       difficultyCefr: currentCefr,
       titleEn: `10-Min Coach Transfer Challenge: ${transferEn}`,
       titleFa: `چالش انتقال ۱۰ دقیقه‌ای: ${transferFa}`,
-      reasonEn: coachSelection.phase === 'cross_topic_transfer'
-        ? coachSelection.reasonEn
-        : `Tests your active target phrases in an unfamiliar exam topic (${transferEn}).`,
-      reasonFa: coachSelection.phase === 'cross_topic_transfer'
-        ? coachSelection.reasonFa
-        : `کاربرد ساختارهای جدید شما در یک موضوع غیرتکراری (${transferFa}).`,
+      reasonEn:
+        coachSelection.phase === 'cross_topic_transfer'
+          ? coachSelection.reasonEn
+          : `Tests your active target phrases in an unfamiliar exam topic (${transferEn}).`,
+      reasonFa:
+        coachSelection.phase === 'cross_topic_transfer'
+          ? coachSelection.reasonFa
+          : `کاربرد ساختارهای جدید شما در یک موضوع غیرتکراری (${transferFa}).`,
       estimatedMinutes: 10,
     });
   }
@@ -441,7 +453,8 @@ export function generateOrRecalibrateRoadmap(params: {
       difficultyCefr: estimateCefrTierFromScore(params.targetBand, params.examId) ?? 'C1',
       titleEn: 'Calibrated Full Mock Exam',
       titleFa: 'آزمون کامل آزمایشی استاندارد (Full Mock)',
-      reasonEn: 'Measures real 4-skill stamina under strict timing and produces your calibrated score.',
+      reasonEn:
+        'Measures real 4-skill stamina under strict timing and produces your calibrated score.',
       reasonFa: 'ارزیابی استقامت ۴ مهارت در شرایط واقعی آزمون و ثبت نمره کالیبره‌شده.',
       estimatedMinutes: 45,
     });
@@ -491,6 +504,14 @@ export function generateOrRecalibrateRoadmap(params: {
       : 'upcoming';
   };
 
+  const formattedTargetScore = formatExamScore(params.targetBand, params.examId);
+  const formattedTargetEn = formatExamScoreWithUnit(params.targetBand, params.examId);
+  const formattedTargetFa = formattedTargetScore.replace(
+    /\d/g,
+    (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)] ?? d,
+  );
+  const daysFa = String(daysRemaining).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)] ?? d);
+
   const milestones: RoadmapMilestoneSummary[] = [
     {
       index: 1,
@@ -536,8 +557,8 @@ export function generateOrRecalibrateRoadmap(params: {
       key: 'full_mock_readiness',
       titleEn: 'Full-Exam Stamina & Target Lock',
       titleFa: 'شبیه‌سازی کامل و تثبیت نمره هدف',
-      goalEn: `Lock target ${params.targetBand} with full timed endurance`,
-      goalFa: `آمادگی کامل برای کسب نمره هدف ${params.targetBand}`,
+      goalEn: `Lock target ${formattedTargetScore} with full timed endurance`,
+      goalFa: `آمادگی کامل برای کسب نمره هدف ${formattedTargetFa}`,
       phase: 'exam_breadth',
       startDaySerial: params.todaySerial + stepSpan * 3,
       endDaySerial: params.targetDateSerial ?? params.todaySerial + Math.max(daysRemaining, 4),
@@ -556,9 +577,9 @@ export function generateOrRecalibrateRoadmap(params: {
     activeStep,
     recalibrationReasonEn: isSprintMode
       ? `Sprint Plan (${daysRemaining} days left): focusing strictly on highest-impact steps.`
-      : `Plan calibrated around ${favLabelEn} toward Band ${params.targetBand}.`,
+      : `Plan calibrated around ${favLabelEn} toward ${formattedTargetEn}.`,
     recalibrationReasonFa: isSprintMode
-      ? `برنامه فشرده (${daysRemaining} روز تا آزمون): تمرکز روی بیشترین رشد نمره.`
-      : `نقشه راه بر اساس علاقه «${favLabelFa}» و هدف ${params.targetBand} تنظیم شد.`,
+      ? `برنامه فشرده (${daysFa} روز تا آزمون): تمرکز روی بیشترین رشد نمره.`
+      : `نقشه راه بر اساس علاقه «${favLabelFa}» و هدف ${formattedTargetFa} تنظیم شد.`,
   };
 }

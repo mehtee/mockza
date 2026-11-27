@@ -61,7 +61,7 @@ export function VocabWordDetailScreen({ wordId }: VocabWordDetailScreenProps) {
   if (!entry) {
     return (
       <div data-testid="vocab-word-detail-screen" className="p-6 text-sm text-text-secondary">
-        {notFound ? <MzBanner tone="warning">Vocabulary card not found.</MzBanner> : 'Loading word...'}
+        {notFound ? <MzBanner tone="warning">{t('vocabWordNotFound')}</MzBanner> : t('vocabWordLoading')}
       </div>
     );
   }

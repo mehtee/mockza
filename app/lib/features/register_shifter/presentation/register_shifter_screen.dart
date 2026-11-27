@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/core/localization/edition_copy.dart';
 import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/providers.dart';
 import 'package:mockza/routing/routes.dart';
@@ -21,20 +22,24 @@ import 'package:mockza/theme/components/mz_scaffold.dart';
 import 'package:mockza/theme/components/register_gear_ladder_card.dart';
 import 'package:mockza/theme/primitives.dart';
 
-const List<({String label, String topic, String text})> _kShifterSamples =
-    <({String label, String topic, String text})>[
+const List<({String label, String labelFa, String topic, String text})>
+_kShifterSamples =
+    <({String label, String labelFa, String topic, String text})>[
       (
         label: 'Work Standup',
+        labelFa: 'جلسه کاری',
         topic: 'Workplace',
         text: 'Today our team had a long meeting and the new feature is kind of late, so we need to fix two bugs first.',
       ),
       (
         label: 'Opinion on AI',
+        labelFa: 'نظر درباره هوش مصنوعی',
         topic: 'Technology & AI',
         text: 'I think AI tools are really helpful for students, but sometimes people rely on them too much without thinking.',
       ),
       (
         label: 'Daily Life',
+        labelFa: 'زندگی روزمره',
         topic: 'Travel & Culture',
         text: 'Last weekend I went to a quiet coffee shop near the park and finished reading a really interesting book.',
       ),
@@ -195,7 +200,9 @@ class _RegisterShifterScreenState extends ConsumerState<RegisterShifterScreen> {
         setState(() {
           _processing = false;
           _processingStage = '';
-          _error = jobRes.failureOrNull?.message ?? 'Register shift failed.';
+          _error =
+              jobRes.failureOrNull?.message ??
+              (isRtl ? 'تبدیل لحن ناموفق بود.' : 'Register shift failed.');
         });
       }
       return;
@@ -238,7 +245,9 @@ class _RegisterShifterScreenState extends ConsumerState<RegisterShifterScreen> {
       if (mounted) {
         setState(() {
           _processing = false;
-          _error = stopRes.failureOrNull?.message ?? 'Recording failed.';
+          _error =
+              stopRes.failureOrNull?.message ??
+              (isRtl ? 'ضبط صدا ناموفق بود.' : 'Recording failed.');
         });
       }
       return;
@@ -271,7 +280,10 @@ class _RegisterShifterScreenState extends ConsumerState<RegisterShifterScreen> {
         setState(() {
           _processing = false;
           _error =
-              presignRes.failureOrNull?.message ?? 'Upload presign failed.';
+              presignRes.failureOrNull?.message ??
+              (isRtl
+                  ? 'آماده‌سازی آپلود فایل صوتی ناموفق بود.'
+                  : 'Upload presign failed.');
         });
       }
       return;
@@ -296,7 +308,9 @@ class _RegisterShifterScreenState extends ConsumerState<RegisterShifterScreen> {
       if (mounted) {
         setState(() {
           _processing = false;
-          _error = jobRes.failureOrNull?.message ?? 'Register shift failed.';
+          _error =
+              jobRes.failureOrNull?.message ??
+              (isRtl ? 'تبدیل لحن ناموفق بود.' : 'Register shift failed.');
         });
       }
       return;
@@ -465,7 +479,7 @@ class _RegisterShifterScreenState extends ConsumerState<RegisterShifterScreen> {
                     child: MzChip(
                       label: _quota!.isPro
                           ? (isRtl
-                                ? '${_quota!.shifterRemainingToday} ارتقا باقی‌مانده امروز'
+                                ? '${EdgeNumerals.toPersianDigits(_quota!.shifterRemainingToday)} ارتقا باقی‌مانده امروز'
                                 : '${_quota!.shifterRemainingToday} upgrades left today')
                           : _quota!.freeSampleUsed
                           ? (isRtl
@@ -543,25 +557,36 @@ class _RegisterShifterScreenState extends ConsumerState<RegisterShifterScreen> {
                     children: _kShifterSamples
                         .map(
                           (s) => ActionChip(
-                            label: Text(s.label),
+                            label: Text(isRtl ? s.labelFa : s.label),
                             onPressed: () {
-                              _textInputCtrl.text = s.text;
-                              _topicCtrl.text = s.topic;
+                              setState(() {
+                                _textInputCtrl.text = s.text;
+                                _topicCtrl.text = s.topic;
+                                _error = null;
+                              });
                             },
                           ),
                         )
                         .toList(growable: false),
                   ),
                   const SizedBox(height: SpacingTokens.sm),
-                  LtrExamBoundary(
-                    child: TextField(
-                      key: const ValueKey<String>('shifter_text_input'),
-                      controller: _textInputCtrl,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        hintText: 'Write a casual English sentence to upgrade across 3 levels...',
-                        border: OutlineInputBorder(),
-                      ),
+                  TextField(
+                    key: const ValueKey<String>('shifter_text_input'),
+                    controller: _textInputCtrl,
+                    textDirection: TextDirection.ltr,
+                    maxLines: 3,
+                    onChanged: (_) => setState(() => _error = null),
+                    decoration: InputDecoration(
+                      hintText: isRtl
+                          ? 'یک جمله انگلیسی بنویسید تا در ۳ سطح ارتقا یابد...'
+                          : 'Write a casual English sentence to upgrade across 3 levels...',
+                      hintTextDirection: isRtl
+                          ? TextDirection.rtl
+                          : TextDirection.ltr,
+                      helperText: isRtl
+                          ? 'حداقل ۱۵ کاراکتر (${EdgeNumerals.toPersianDigits(_textInputCtrl.text.trim().length)} / ۱۵)'
+                          : 'Minimum 15 characters (${_textInputCtrl.text.trim().length} / 15)',
+                      border: const OutlineInputBorder(),
                     ),
                   ),
                   const SizedBox(height: SpacingTokens.sm),
@@ -578,7 +603,10 @@ class _RegisterShifterScreenState extends ConsumerState<RegisterShifterScreen> {
                 if (_processingStage.isNotEmpty) ...<Widget>[
                   const SizedBox(height: SpacingTokens.xs),
                   Text(
-                    _processingStage,
+                    EditionCopy.localizeWorkerStage(
+                      _processingStage,
+                      isIran: isRtl,
+                    ),
                     style: typography.caption.copyWith(color: colors.primary),
                   ),
                 ],

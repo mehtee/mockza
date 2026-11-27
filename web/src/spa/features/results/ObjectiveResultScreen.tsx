@@ -1,4 +1,4 @@
-import { estimateToeflLegacy120, formatExamScoreWithUnit } from '@mockza/domain';
+import { estimateToeflLegacy120 } from '@mockza/domain';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { CheckCircle2, Crosshair, HelpCircle, Mic, Sparkles, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -11,7 +11,9 @@ import { InlineListenButton } from '@/components/speech/InlineListenButton';
 import { SpeechPracticeDrawer } from '@/components/speech/SpeechPracticeDrawer';
 import { PlanImpactCard } from '@/components/personalization/PlanImpactCard';
 import { MzBanner, MzButton, MzCard, MzSegmentedControl } from '@/components/ui';
+import { formatLocalizedExamScoreWithUnit } from '@/components/bidi/topic-labels';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
+import { formatChromeNumber } from '@/edition/bidi/numerals';
 import { makePackMediaKey, type ExamBundlePayload } from '@/gateways/catalog.gateway';
 import { resolveWebRoadmapStepPath } from '@/spa/roadmap-route-resolver';
 import type { ExplainQuestionResponse } from '@/gateways/evaluation.gateway';
@@ -192,16 +194,14 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
                 </h1>
               </LtrExamBoundary>
               <div className="mt-1 flex flex-wrap items-baseline gap-3">
-                <LtrExamBoundary>
-                  <span
-                    data-testid="objective-result-band"
-                    className="font-mono-exam text-2xl font-bold text-primary"
-                  >
-                    {attempt.overallBand !== null
-                      ? formatExamScoreWithUnit(attempt.overallBand, attempt.examId)
-                      : '—'}
-                  </span>
-                </LtrExamBoundary>
+                <span
+                  data-testid="objective-result-band"
+                  className={`${deps.edition === 'glb' ? 'font-mono-exam ' : ''}text-2xl font-bold text-primary`}
+                >
+                  {attempt.overallBand !== null
+                    ? formatLocalizedExamScoreWithUnit(attempt.overallBand, attempt.examId, deps.edition)
+                    : '—'}
+                </span>
                 {attempt.examId === 'toefl_ibt' && attempt.overallBand !== null ? (
                   <LtrExamBoundary>
                     <span className="font-mono-exam text-xs font-semibold text-focus">
@@ -211,9 +211,9 @@ export function ObjectiveResultScreen({ attemptId }: ObjectiveResultScreenProps)
                 ) : null}
                 <span className="text-xs font-semibold text-text-primary">
                   {t('objResultAccuracyLabel', {
-                    correct: submission.correctCount,
-                    total: submission.totalCount,
-                    percent: submission.accuracyPercent,
+                    correct: formatChromeNumber(submission.correctCount, deps.edition),
+                    total: formatChromeNumber(submission.totalCount, deps.edition),
+                    percent: formatChromeNumber(submission.accuracyPercent, deps.edition),
                   })}
                 </span>
                 <span className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-canvas/70 px-2.5 py-0.5 text-[11px] font-semibold text-text-secondary">

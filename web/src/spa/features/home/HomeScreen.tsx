@@ -19,6 +19,7 @@ import {
   TrendingUp,
   Zap,
 } from 'lucide-react';
+import { localizeDiagnosticAction } from '@/components/bidi/diagnostic-labels';
 import { MzBanner, MzCard } from '@/components/ui';
 import { ForwardArrowIcon } from '@/components/bidi/DirectionIcon';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
@@ -94,6 +95,9 @@ export function HomeScreen() {
   } = ctrl;
 
   const isRtl = deps.edition === 'irn';
+  const localizedDiagAction = latestDiagnostic?.recommendedFirstAction
+    ? localizeDiagnosticAction(latestDiagnostic.recommendedFirstAction, deps.edition)
+    : null;
   const currentStep = personalization?.roadmap.currentStep ?? null;
   const bandShiftDelta = personalization?.liveBand.bandShift ?? 0;
   const showBandShiftBanner =
@@ -175,7 +179,7 @@ export function HomeScreen() {
           >
             <p className="font-bold">
               {t('roadmapBandUpBannerTitle', {
-                delta: bandShiftDelta > 0 ? `+${bandShiftDelta}` : bandShiftDelta,
+                delta: formatChromeNumber(bandShiftDelta, deps.edition),
                 band: formatExamScore(liveOverallBand ?? targetScore, activeTrack),
               })}
             </p>
@@ -240,7 +244,7 @@ export function HomeScreen() {
                             : 'border-border-subtle bg-canvas text-text-tertiary'
                       }`}
                     >
-                      M{ms.index}
+                      {isRtl ? `گام ${formatChromeNumber(ms.index, deps.edition)}` : `M${ms.index}`}
                     </span>
                     {idx < personalization.roadmap.milestones.length - 1 ? (
                       <span className="h-px w-3 bg-border-subtle" aria-hidden="true" />
@@ -415,12 +419,14 @@ export function HomeScreen() {
               <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
               <div>
                 <h2 className="font-editorial text-3xl text-text-primary">
-                  {resumeSkill?.label ?? latestDiagnostic?.recommendedFirstAction.title ?? t('homeRecommendedNextTitle')}
+                  {resumeSkill?.label ??
+                    localizedDiagAction?.title ??
+                    t('homeRecommendedNextTitle')}
                 </h2>
                 <p className="mt-1 text-xs text-text-secondary">
                   {resumeSkill
                     ? t('homeResumeDescription')
-                    : latestDiagnostic?.recommendedFirstAction.description ??
+                    : localizedDiagAction?.description ??
                       formatTrackFormatHint(activeTrack, deps.edition)}
                 </p>
               </div>
@@ -550,7 +556,9 @@ export function HomeScreen() {
                 {monthlyDeltaText ? (
                   <span className="inline-flex items-center gap-1 rounded-[var(--mz-radius-pill)] bg-mint-bg px-2.5 py-0.5 text-xs font-semibold text-success">
                     <TrendingUp className="h-3 w-3" aria-hidden="true" />
-                    {t('homeMonthlyDeltaLabel', { delta: monthlyDeltaText })}
+                    {t('homeMonthlyDeltaLabel', {
+                      delta: formatChromeNumber(monthlyDeltaText, deps.edition),
+                    })}
                   </span>
                 ) : null}
               </div>
@@ -567,7 +575,7 @@ export function HomeScreen() {
                       data-testid="home-toefl-concordance"
                       className="inline-flex items-center rounded-[var(--mz-radius-pill)] border border-focus/40 bg-blue-bg px-2.5 py-0.5 font-mono-exam text-xs font-semibold text-focus"
                     >
-                      ~{toeflLegacy120} / 120 TOEFL Concordance
+                      ~{toeflLegacy120} / 120 TOEFL
                     </span>
                   </LtrExamBoundary>
                 </div>
@@ -575,14 +583,26 @@ export function HomeScreen() {
 
               {detSubscores.length > 0 ? (
                 <div className="mt-3 flex flex-wrap gap-2" data-testid="home-det-subscores">
-                  {detSubscores.map((sub) => (
-                    <span
-                      key={sub.label}
-                      className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas/75 px-2.5 py-1 text-xs font-semibold text-text-primary"
-                    >
-                      {sub.label}: <span className="font-mono-exam text-primary">{sub.score}</span>
-                    </span>
-                  ))}
+                  {detSubscores.map((sub) => {
+                    const subLabel =
+                      sub.label === 'Literacy'
+                        ? t('detSubscoreLiteracy')
+                        : sub.label === 'Comprehension'
+                          ? t('detSubscoreComprehension')
+                          : sub.label === 'Conversation'
+                            ? t('detSubscoreConversation')
+                            : sub.label === 'Production'
+                              ? t('detSubscoreProduction')
+                              : sub.label;
+                    return (
+                      <span
+                        key={sub.label}
+                        className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas/75 px-2.5 py-1 text-xs font-semibold text-text-primary"
+                      >
+                        {subLabel}: <span className="font-mono-exam text-primary">{sub.score}</span>
+                      </span>
+                    );
+                  })}
                 </div>
               ) : null}
             </div>
@@ -620,7 +640,9 @@ export function HomeScreen() {
               className="inline-flex items-center gap-1 rounded-[var(--mz-radius-pill)] bg-amber-bg px-2.5 py-0.5 text-xs font-semibold text-warning"
             >
               <Flame className="h-3.5 w-3.5" aria-hidden="true" />
-              {t('homeStudyStreakLabel', { days: streakDays })}
+              {t('homeStudyStreakLabel', {
+                days: formatChromeNumber(streakDays, deps.edition),
+              })}
             </span>
           </div>
 
@@ -717,7 +739,9 @@ export function HomeScreen() {
 
                 <div className="mt-3 flex items-center justify-between text-xs">
                   <span className="text-text-secondary">
-                    {t('homeSamplesCountLabel', { count: metric.sampleCount })}
+                    {t('homeSamplesCountLabel', {
+                      count: formatChromeNumber(metric.sampleCount, deps.edition),
+                    })}
                   </span>
                   <Link
                     to={meta.to}
@@ -745,7 +769,9 @@ export function HomeScreen() {
                 </h2>
                 <p className="text-xs text-text-secondary">
                   {dueCards.length > 0
-                    ? t('homeDueVocabCount', { count: dueCards.length })
+                    ? t('homeDueVocabCount', {
+                        count: formatChromeNumber(dueCards.length, deps.edition),
+                      })
                     : t('homeDueVocabAllCaughtUp')}
                 </p>
               </div>

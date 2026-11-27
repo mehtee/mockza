@@ -1,6 +1,4 @@
 import {
-  formatMicroDrillCategoryLabel,
-  getMicroDrillItemHeaderTitle,
   scoreObjectiveAnswers,
   type SkillKind,
   type SupportedExamId,
@@ -8,8 +6,13 @@ import {
 import { useNavigate } from '@tanstack/react-router';
 import { BookmarkPlus, CheckCircle2, Flame, Play, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MzBanner, MzButton, MzCard } from '@/components/ui';
+import { MzBanner, MzButton, MzCard, MzSegmentedControl } from '@/components/ui';
+import {
+  localizeMicroDrillCategory,
+  localizeMicroDrillHeader,
+} from '@/components/bidi/diagnostic-labels';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
+import { formatChromeNumber } from '@/edition/bidi/numerals';
 import type { PersonalizationStateDto } from '@/gateways/personalization.gateway';
 import type { CachedDrillRecord, MicroDrillDto } from '@/gateways/storage.gateway';
 import { createTranslator } from '@/i18n';
@@ -49,6 +52,17 @@ function parseCachedDrill(record: CachedDrillRecord): ParsedDrillView | null {
   }
 }
 
+function matchesExamTrackPrefix(drillId: string, examId: SupportedExamId): boolean {
+  const lower = drillId.trim().toLowerCase();
+  if (lower.startsWith('ielts-')) {
+    return examId === 'ielts_academic' || examId === 'ielts_general';
+  }
+  if (lower.startsWith('toefl-')) return examId === 'toefl_ibt';
+  if (lower.startsWith('pte-')) return examId === 'pte_academic';
+  if (lower.startsWith('det-')) return examId === 'det';
+  return true;
+}
+
 export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: MicroDrillsScreenProps) {
   const deps = useDeps();
   const t = createTranslator(deps.edition);
@@ -56,6 +70,7 @@ export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: Micro
 
   const [drills, setDrills] = useState<readonly ParsedDrillView[]>([]);
   const [profileExamId, setProfileExamId] = useState<SupportedExamId>(initialTrack ?? 'ielts_academic');
+  const [filterMode, setFilterMode] = useState<'recommended' | 'all'>('recommended');
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
   const [activeDrillId, setActiveDrillId] = useState<string | null>(initialDrillId);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -115,6 +130,15 @@ export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: Micro
       mounted = false;
     };
   }, [deps.attemptStore, deps.catalog, deps.clock, initialDrillId, initialTrack, resetClock]);
+
+  const visibleDrills = useMemo(() => {
+    if (filterMode === 'all') return drills;
+    return drills.filter(
+      (d) =>
+        matchesExamTrackPrefix(d.drillId, profileExamId) ||
+        (initialDrillId != null && d.drillId === initialDrillId),
+    );
+  }, [drills, filterMode, initialDrillId, profileExamId]);
 
   const activeDrill = useMemo(
     () => drills.find((d) => d.drillId === activeDrillId) ?? null,
@@ -260,9 +284,22 @@ export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: Micro
   if (!activeDrill) {
     return (
       <div data-testid="micro-drills-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-12 text-start">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">{t('drillsHubTitle')}</h1>
-          <p className="mt-1 text-sm text-text-secondary">{t('drillsHubSubtitle')}</p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary">{t('drillsHubTitle')}</h1>
+            <p className="mt-1 text-sm text-text-secondary">{t('drillsHubSubtitle')}</p>
+          </div>
+          {drills.length > 0 ? (
+            <MzSegmentedControl<'recommended' | 'all'>
+              ariaLabel={t('drillsHubTitle')}
+              value={filterMode}
+              onChange={setFilterMode}
+              options={[
+                { value: 'recommended', label: t('practiceTabForYourPath') },
+                { value: 'all', label: t('practiceTabAllTests') },
+              ]}
+            />
+          ) : null}
         </div>
 
         {personalization?.nextRecommendedDrill ? (() => {
@@ -328,9 +365,24 @@ export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: Micro
               </MzButton>
             </div>
           </MzCard>
+        ) : visibleDrills.length === 0 ? (
+          <MzCard variant="alt" className="text-center">
+            <p className="py-4 text-sm text-text-secondary">{t('drillsTrackEmptyFallback')}</p>
+            <div className="pb-2">
+              <MzButton
+                type="button"
+                variant="secondary"
+                size="md"
+                data-testid="drills-show-all-btn"
+                onClick={() => setFilterMode('all')}
+              >
+                {t('drillsShowAllAction')}
+              </MzButton>
+            </div>
+          </MzCard>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {drills.map((drill) => (
+            {visibleDrills.map((drill) => (
               <MzCard
                 key={drill.drillId}
                 variant="default"
@@ -340,15 +392,18 @@ export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: Micro
                 <div>
                   <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-primary">
                     <Flame className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>{formatMicroDrillCategoryLabel(drill.drillType)}</span>
+                    <span>{localizeMicroDrillCategory(drill.drillType, deps.edition)}</span>
                   </div>
                   <LtrExamBoundary>
                     <h2 className="mt-1.5 text-base font-bold text-text-primary">{drill.title}</h2>
                   </LtrExamBoundary>
                   <p className="mt-1 text-xs text-text-secondary">
                     {t('practicePackMetaSummary', {
-                      minutes: Math.max(1, Math.round(drill.durationSeconds / 60)),
-                      count: drill.items.length,
+                      minutes: formatChromeNumber(
+                        Math.max(1, Math.round(drill.durationSeconds / 60)),
+                        deps.edition,
+                      ),
+                      count: formatChromeNumber(drill.items.length, deps.edition),
                     })}
                   </p>
                 </div>
@@ -378,11 +433,17 @@ export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: Micro
       <div data-testid="micro-drills-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-12 text-start">
         <MzCard variant="hero" data-testid="drill-scorecard">
           <p className="text-xs font-semibold text-primary">
-            {formatMicroDrillCategoryLabel(activeDrill.drillType)}
+            {localizeMicroDrillCategory(activeDrill.drillType, deps.edition)}
           </p>
           <h1 className="mt-1 text-2xl font-bold text-text-primary">{t('drillsScorecardTitle')}</h1>
-          <p className="mt-2 font-mono-exam text-xl font-bold text-text-primary">
-            {correctTotal} / {activeDrill.items.length}
+          <p
+            className={[
+              'mt-2 text-xl font-bold text-text-primary',
+              deps.edition === 'irn' ? '' : 'font-mono-exam',
+            ].join(' ')}
+          >
+            {formatChromeNumber(correctTotal, deps.edition)} /{' '}
+            {formatChromeNumber(activeDrill.items.length, deps.edition)}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <MzButton
@@ -410,8 +471,8 @@ export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: Micro
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle pb-3">
           <div>
             <p className="text-xs font-semibold text-primary">
-              {formatMicroDrillCategoryLabel(activeDrill.drillType)} ·{' '}
-              {getMicroDrillItemHeaderTitle(activeDrill.drillType)}
+              {localizeMicroDrillCategory(activeDrill.drillType, deps.edition)} ·{' '}
+              {localizeMicroDrillHeader(activeDrill.drillType, deps.edition)}
             </p>
             <h1 className="text-base font-bold text-text-primary">{activeDrill.title}</h1>
           </div>
@@ -428,7 +489,10 @@ export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: Micro
         {activeItem ? (
           <div className="mt-4 flex flex-col gap-4">
             <p className="text-xs font-medium text-text-tertiary">
-              Item {currentIndex + 1} / {activeDrill.items.length}
+              {t('drillsItemProgress', {
+                current: formatChromeNumber(currentIndex + 1, deps.edition),
+                total: formatChromeNumber(activeDrill.items.length, deps.edition),
+              })}
             </p>
             <LtrExamBoundary>
               <p className="text-base font-semibold text-text-primary">{activeItem.prompt}</p>
@@ -478,7 +542,7 @@ export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: Micro
                   onChange={(e) =>
                     setAnswersById((prev) => ({ ...prev, [activeItem.id]: e.target.value }))
                   }
-                  placeholder="Type answer..."
+                  placeholder={t('drillsTypeAnswerPlaceholder')}
                   className="h-10 w-full rounded-[var(--mz-radius-control)] border border-border-subtle bg-canvas px-3 text-sm text-text-primary focus:border-primary focus:outline-none"
                 />
               </LtrExamBoundary>
@@ -495,7 +559,9 @@ export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: Micro
                     )}
                     <div className="text-xs">
                       <p className="font-bold text-text-primary">
-                        {isItemCorrect ? 'Correct' : `Accepted: ${activeItem.answer}`}
+                        {isItemCorrect
+                          ? t('drillsCorrectLabel')
+                          : t('drillsAcceptedPrefix', { answer: activeItem.answer })}
                       </p>
                       {activeItem.explanation ? (
                         <p className="mt-1 text-text-secondary">{activeItem.explanation}</p>

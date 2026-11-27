@@ -1,8 +1,13 @@
 import {
+  CANONICAL_TOPICS,
+  EXAM_TRACK_SPECS,
   TOPIC_METADATA,
+  formatExamScore,
   getTopicLabel,
   normalizeCanonicalTopicKey,
+  normalizeSupportedExamId,
   type CanonicalTopicKey,
+  type ExamTrackSpec,
   type SkillKind,
   type SupportedExamId,
 } from '@mockza/domain';
@@ -23,6 +28,12 @@ const EXTRA_TOPIC_LABELS: Readonly<
   seeded: { en: 'Core Academic', fa: 'واژه پایه آکادمیک' },
   writing_grammar: { en: 'Writing Grammar', fa: 'گرامر رایتینگ' },
   speaking_fluency: { en: 'Speaking Fluency', fa: 'روانی گفتار' },
+  explicit_detail: { en: 'Explicit Detail', fa: 'جزئیات صریح متن' },
+  inference: { en: 'Inference & Meaning', fa: 'استنباط و مفهوم ضمنی' },
+  paraphrase: { en: 'Paraphrase Recognition', fa: 'تشخیص بازنویسی' },
+  distractor_filtering: { en: 'Distractor Filtering', fa: 'تشخیص گزینه‌های انحرافی' },
+  main_idea: { en: 'Main Idea & Purpose', fa: 'ایده اصلی و هدف' },
+  vocabulary_in_context: { en: 'Vocabulary in Context', fa: 'واژگان در متن' },
 };
 
 export function formatTopicLabel(
@@ -42,7 +53,11 @@ export function formatTopicLabel(
     return getTopicLabel(lower as CanonicalTopicKey, edition);
   }
   const normalized = normalizeCanonicalTopicKey(trimmed);
-  if (normalized !== 'academic_core' || lower === 'academic_core') {
+  if (
+    normalized !== 'academic_core' ||
+    lower === 'academic_core' ||
+    (CANONICAL_TOPICS as readonly string[]).includes(lower)
+  ) {
     return getTopicLabel(normalized, edition);
   }
   return trimmed.replace(/_/g, ' ');
@@ -120,4 +135,33 @@ export function formatSkillLabel(
     default:
       return formatTopicLabel(skill, edition);
   }
+}
+
+export function formatTargetScoreHeading(
+  trackSpec: Pick<ExamTrackSpec, 'unitLabel'>,
+  edition: EditionCode,
+): string {
+  if (trackSpec.unitLabel === 'Score') {
+    return translate(edition, 'targetScoreHeadingNoUnit');
+  }
+  if (trackSpec.unitLabel === 'Band') {
+    return translate(edition, 'targetScoreHeadingBand');
+  }
+  return translate(edition, 'targetScoreHeadingWithUnit', {
+    unit: trackSpec.unitLabel,
+  });
+}
+
+export function formatLocalizedExamScoreWithUnit(
+  score: number,
+  examId: SupportedExamId,
+  edition: EditionCode,
+): string {
+  const normalized = normalizeSupportedExamId(examId);
+  const spec = EXAM_TRACK_SPECS[normalized];
+  const unit = translate(
+    edition,
+    spec.unitLabel === 'Band' ? 'unitBandLabel' : 'unitScoreLabel',
+  );
+  return `${unit} ${formatExamScore(score, normalized)}`;
 }

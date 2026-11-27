@@ -444,9 +444,13 @@ export class ApiClient {
       if (!headers['accept']) {
         headers['accept'] = 'application/json';
       }
-      if (!authRoute || options.includeAuthOnAuthRoute) {
+      if (
+        (!authRoute || options.includeAuthOnAuthRoute) &&
+        !headers['authorization'] &&
+        !headers['Authorization']
+      ) {
         const token = overrideToken ?? (await this.readAccessToken());
-        if (token && token.length > 0 && !headers['authorization'] && !headers['Authorization']) {
+        if (token && token.length > 0) {
           headers['authorization'] = `Bearer ${token}`;
         }
       }

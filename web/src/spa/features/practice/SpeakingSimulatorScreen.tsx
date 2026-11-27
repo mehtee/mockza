@@ -14,6 +14,7 @@ import {
 import { MzBanner, MzButton, MzCard, MzSegmentedControl } from '@/components/ui';
 import { BackChevronIcon, ForwardChevronIcon } from '@/components/bidi/DirectionIcon';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
+import { formatChromeNumber } from '@/edition/bidi/numerals';
 import type { RecordedClip } from '@/gateways/audio.gateway';
 import type { ExamBundlePayload } from '@/gateways/catalog.gateway';
 import type { QuotaStatusSnapshot } from '@/gateways/evaluation.gateway';
@@ -462,8 +463,8 @@ export function SpeakingSimulatorScreen({
   );
 
   const shortcuts: readonly KeyboardShortcutHint[] = useMemo(
-    () => [{ keys: 'Prev / Next', description: 'Switch Speaking part turns' }],
-    [],
+    () => [{ keys: 'Prev / Next', description: t('speakingSwitchTurnShortcut') }],
+    [t],
   );
 
   if (!bundle) {
@@ -537,7 +538,7 @@ export function SpeakingSimulatorScreen({
             ) : null}
 
             <MzSegmentedControl<'exam' | 'study'>
-              ariaLabel="Simulation Mode"
+              ariaLabel={t('navPractice')}
               value={examMode}
               onChange={setExamMode}
               options={[
@@ -641,10 +642,14 @@ export function SpeakingSimulatorScreen({
                     className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-2.5 py-0.5 text-[11px] font-semibold text-primary"
                   >
                     {phase === 'prep'
-                      ? t('speakingPrepPhaseBadge', { sec: prepRemainingSec })
+                      ? t('speakingPrepPhaseBadge', {
+                          sec: formatChromeNumber(prepRemainingSec, deps.edition),
+                        })
                       : activeTiming.prepSeconds === 0
                         ? t('speakingZeroPrepReadyBadge')
-                        : `${activeTiming.responseSeconds}s`}
+                        : t('unitSecondsShort', {
+                            seconds: formatChromeNumber(activeTiming.responseSeconds, deps.edition),
+                          })}
                   </span>
                 </div>
 

@@ -16,11 +16,15 @@ import {
   OtpRequestSchema,
   OtpVerifyRequestSchema,
 } from '@mockza/contracts';
-import { mergeAccountPersonalizationData, type MockzaDb } from '@mockza/db';
+import { type MockzaDb, mergeAccountPersonalizationData } from '@mockza/db';
 import type { Context } from 'hono';
 import type { ChallengeStore } from '../middleware/attest.js';
 import { createDeviceAuthMiddleware } from '../middleware/auth.js';
-import { createRateLimitMiddleware, resolveClientKey } from '../middleware/rate-limit.js';
+import {
+  createRateLimitMiddleware,
+  parseTrustedProxyList,
+  resolveClientKey,
+} from '../middleware/rate-limit.js';
 import type { RequestVariables } from '../middleware/request-id.js';
 import {
   type DeviceClientMeta,
@@ -153,12 +157,7 @@ export function registerAuthRoutes(
   const sessionManager = deps.sessionManager ?? createSessionManager(env, db);
   const otpService = deps.otpService ?? createOtpChallengeService(env, db);
   const verifyProvider = deps.verifyProviderToken ?? verifyProviderIdToken;
-  const trustedProxyIps = new Set(
-    (env.TRUSTED_PROXY_IPS ?? '127.0.0.1,::1')
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0),
-  );
+  const trustedProxyIps = parseTrustedProxyList(env.TRUSTED_PROXY_IPS);
   const strictAuthRateLimit = createRateLimitMiddleware({
     windowMs: 60_000,
     maxRequests: 25,

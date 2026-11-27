@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mockza/core/config/edition_config.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/core/localization/edition_copy.dart';
 import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/providers.dart';
 import 'package:mockza/routing/routes.dart';
@@ -111,7 +113,7 @@ class _CoachHubScreenState extends ConsumerState<CoachHubScreen> {
                   key: const ValueKey<String>('coach_quota_pill'),
                   label: _quota!.isPro
                       ? (isRtl
-                            ? 'اشتراک ویژه · ${_quota!.shifterRemainingToday} ارتقا / ${_quota!.dropsRemainingToday} محتوا امروز'
+                            ? 'اشتراک ویژه · ${EdgeNumerals.toPersianDigits(_quota!.shifterRemainingToday)} ارتقا / ${EdgeNumerals.toPersianDigits(_quota!.dropsRemainingToday)} محتوا امروز'
                             : 'Pro · ${_quota!.shifterRemainingToday} upgrades / ${_quota!.dropsRemainingToday} studies left today')
                       : _quota!.freeSampleUsed
                       ? (isRtl
@@ -158,7 +160,10 @@ class _CoachHubScreenState extends ConsumerState<CoachHubScreen> {
                       MzChip(
                         label: missionDone
                             ? (isRtl ? 'انجام شد' : 'Done')
-                            : _mission!.focusTopic,
+                            : EditionCopy.topicLabel(
+                                _mission!.focusTopic,
+                                isIran: isRtl,
+                              ),
                         variant: missionDone
                             ? MzChipVariant.positive
                             : MzChipVariant.neutral,
@@ -207,7 +212,9 @@ class _CoachHubScreenState extends ConsumerState<CoachHubScreen> {
             icon: LucideGlyph.cloudUpload,
             title: l10n.dropAnythingTitle,
             badgeLabel: _dropCount > 0
-                ? (isRtl ? '$_dropCount منبع' : '$_dropCount saved')
+                ? (isRtl
+                      ? '${EdgeNumerals.toPersianDigits(_dropCount)} منبع'
+                      : '$_dropCount saved')
                 : null,
             whenToUse: isRtl
                 ? 'چه زمانی استفاده کنیم؟ وقتی مقاله، متن کتاب، اسکرین‌شات یا ویس انگلیسی دارید و می‌خواهید در ۲ دقیقه از آن اصطلاح یاد بگیرید و آزمونک بسازید.'
@@ -255,7 +262,9 @@ class _CoachHubScreenState extends ConsumerState<CoachHubScreen> {
             icon: LucideGlyph.chartIncreasing,
             title: l10n.linguisticGraphTitle,
             badgeLabel: weakSpots > 0
-                ? (isRtl ? '$weakSpots نقطه ضعف' : '$weakSpots tracked')
+                ? (isRtl
+                      ? '${EdgeNumerals.toPersianDigits(weakSpots)} نقطه ضعف'
+                      : '$weakSpots tracked')
                 : null,
             whenToUse: isRtl
                 ? 'چه زمانی استفاده کنیم؟ برای دیدن خطاهای گرامری/واژگانی پرتکرار و انتخاب موضوعات مورد علاقه (مثل فوتبال یا هوش مصنوعی) برای تمرین‌های آینده.'

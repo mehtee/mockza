@@ -1,7 +1,9 @@
 import { Download, KeyRound, Play, Search, ShieldAlert } from 'lucide-react';
 import { useState } from 'react';
 import { MzButton, MzCard } from '@/components/ui';
+import { formatChromeNumber } from '@/edition/bidi/numerals';
 import { getEditionConfig } from '@/edition/edition-config';
+import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
 
 interface UsageRow {
@@ -47,6 +49,7 @@ interface AdminTracePayload {
 
 export function AdminTraceConsoleScreen() {
   const deps = useDeps();
+  const t = createTranslator(deps.edition);
   const baseUrl = getEditionConfig(deps.edition).apiBaseUrl;
   const [adminKey, setAdminKey] = useState('');
   const [fromIso, setFromIso] = useState('');
@@ -70,7 +73,7 @@ export function AdminTraceConsoleScreen() {
 
   const handleLoadSummary = async () => {
     if (!adminKey.trim()) {
-      setErrorMsg('Admin API key is required.');
+      setErrorMsg(t('adminKeyRequiredErr'));
       return;
     }
     setLoading(true);
@@ -80,13 +83,13 @@ export function AdminTraceConsoleScreen() {
         headers: { 'x-admin-api-key': adminKey.trim() },
       });
       if (!res.ok) {
-        setErrorMsg(`Request failed (${res.status})`);
+        setErrorMsg(t('adminReqFailedErr', { status: formatChromeNumber(res.status, deps.edition) }));
         return;
       }
       const json = (await res.json()) as { readonly byFeatureAndModel?: readonly UsageRow[] };
       setSummaryRows(json.byFeatureAndModel ?? []);
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : 'Network error');
+      setErrorMsg(e instanceof Error ? e.message : t('adminNetworkErr'));
     } finally {
       setLoading(false);
     }
@@ -94,7 +97,7 @@ export function AdminTraceConsoleScreen() {
 
   const handleExportCsv = async () => {
     if (!adminKey.trim()) {
-      setErrorMsg('Admin API key is required.');
+      setErrorMsg(t('adminKeyRequiredErr'));
       return;
     }
     setErrorMsg(null);
@@ -103,7 +106,7 @@ export function AdminTraceConsoleScreen() {
         headers: { 'x-admin-api-key': adminKey.trim() },
       });
       if (!res.ok) {
-        setErrorMsg(`CSV export failed (${res.status})`);
+        setErrorMsg(t('adminCsvFailedErr', { status: formatChromeNumber(res.status, deps.edition) }));
         return;
       }
       const csvText = await res.text();
@@ -115,13 +118,13 @@ export function AdminTraceConsoleScreen() {
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : 'Export error');
+      setErrorMsg(e instanceof Error ? e.message : t('adminNetworkErr'));
     }
   };
 
   const handleInspectAccount = async () => {
     if (!adminKey.trim() || !accountKey.trim()) {
-      setErrorMsg('Provide both x-admin-api-key and accountKey.');
+      setErrorMsg(t('adminKeyAndAccountRequiredErr'));
       return;
     }
     setLoading(true);
@@ -132,12 +135,12 @@ export function AdminTraceConsoleScreen() {
         { headers: { 'x-admin-api-key': adminKey.trim() } },
       );
       if (!res.ok) {
-        setErrorMsg(`Trace lookup failed (${res.status})`);
+        setErrorMsg(t('adminTraceFailedErr', { status: formatChromeNumber(res.status, deps.edition) }));
         return;
       }
       setTraceData((await res.json()) as AdminTracePayload);
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : 'Trace error');
+      setErrorMsg(e instanceof Error ? e.message : t('adminNetworkErr'));
     } finally {
       setLoading(false);
     }
@@ -152,28 +155,26 @@ export function AdminTraceConsoleScreen() {
         { headers: { 'x-admin-api-key': adminKey.trim() } },
       );
       if (!res.ok) {
-        setErrorMsg(`Audio stream failed (${res.status})`);
+        setErrorMsg(t('adminAudioFailedErr', { status: formatChromeNumber(res.status, deps.edition) }));
         return;
       }
       const blob = await res.blob();
       if (audioPlayUrl) URL.revokeObjectURL(audioPlayUrl);
       setAudioPlayUrl(URL.createObjectURL(blob));
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : 'Audio error');
+      setErrorMsg(e instanceof Error ? e.message : t('adminNetworkErr'));
     }
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 text-start">
       <header className="flex items-center justify-between gap-3">
         <div>
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
             <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
-            Operator Trace Console
+            {t('adminEyebrow')}
           </span>
-          <h1 className="mt-1 text-xl font-bold text-text-primary">
-            AI Spend, Token Ledger & User Journey Trace
-          </h1>
+          <h1 className="mt-1 text-xl font-bold text-text-primary">{t('adminTitle')}</h1>
         </div>
       </header>
 
@@ -182,30 +183,33 @@ export function AdminTraceConsoleScreen() {
           <label className="flex flex-col gap-1 text-xs text-text-secondary">
             <span className="inline-flex items-center gap-1 font-medium text-text-primary">
               <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
-              x-admin-api-key
+              {t('adminKeyLabel')}
             </span>
             <input
               type="password"
+              dir="ltr"
               value={adminKey}
               onChange={(e) => setAdminKey(e.target.value)}
-              placeholder="Paste ADMIN_API_KEY"
+              placeholder={t('adminKeyPlaceholder')}
               className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-surface px-3 py-2 text-sm text-text-primary"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-text-secondary">
-            <span>Feature filter (optional)</span>
+            <span>{t('adminFeatureFilterLabel')}</span>
             <input
               type="text"
+              dir="ltr"
               value={featureKind}
               onChange={(e) => setFeatureKind(e.target.value)}
-              placeholder="e.g. kokoro_tts, pronunciation_analyze"
+              placeholder={t('adminFeatureFilterPlaceholder')}
               className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-surface px-3 py-2 text-sm text-text-primary"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-text-secondary">
-            <span>From ISO (optional)</span>
+            <span>{t('adminFromIsoLabel')}</span>
             <input
               type="text"
+              dir="ltr"
               value={fromIso}
               onChange={(e) => setFromIso(e.target.value)}
               placeholder="2026-11-01T00:00:00Z"
@@ -213,9 +217,10 @@ export function AdminTraceConsoleScreen() {
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-text-secondary">
-            <span>To ISO (optional)</span>
+            <span>{t('adminToIsoLabel')}</span>
             <input
               type="text"
+              dir="ltr"
               value={toIso}
               onChange={(e) => setToIso(e.target.value)}
               placeholder="2026-12-01T00:00:00Z"
@@ -226,11 +231,11 @@ export function AdminTraceConsoleScreen() {
 
         <div className="mt-4 flex flex-wrap gap-2">
           <MzButton variant="primary" size="sm" onClick={() => void handleLoadSummary()} disabled={loading}>
-            Load AI Usage Summary
+            {t('adminLoadSummaryBtn')}
           </MzButton>
           <MzButton variant="secondary" size="sm" onClick={() => void handleExportCsv()}>
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
-            Export CSV
+            {t('adminExportCsvBtn')}
           </MzButton>
         </div>
 
@@ -243,16 +248,16 @@ export function AdminTraceConsoleScreen() {
 
       {summaryRows.length > 0 ? (
         <MzCard variant="default">
-          <h2 className="text-sm font-semibold text-text-primary">Aggregated Spend by Model & Feature</h2>
+          <h2 className="text-sm font-semibold text-text-primary">{t('adminSummaryHeading')}</h2>
           <div className="mt-3 overflow-x-auto">
             <table className="w-full border-collapse text-start text-xs">
               <thead>
                 <tr className="border-b border-border-subtle text-text-secondary">
-                  <th className="py-2 pe-3">Feature</th>
-                  <th className="py-2 pe-3">Model</th>
-                  <th className="py-2 pe-3">Calls</th>
-                  <th className="py-2 pe-3">In / Out Tokens</th>
-                  <th className="py-2">Est. Cost (USD)</th>
+                  <th className="py-2 pe-3">{t('adminColFeature')}</th>
+                  <th className="py-2 pe-3">{t('adminColModel')}</th>
+                  <th className="py-2 pe-3">{t('adminColCalls')}</th>
+                  <th className="py-2 pe-3">{t('adminColTokens')}</th>
+                  <th className="py-2">{t('adminColCost')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -260,12 +265,15 @@ export function AdminTraceConsoleScreen() {
                   <tr key={`${r.featureKind}:${r.modelId}`} className="border-b border-border-subtle/50">
                     <td className="py-2 pe-3 font-medium text-text-primary">{r.featureKind}</td>
                     <td className="py-2 pe-3 font-mono-exam text-text-secondary">{r.modelId}</td>
-                    <td className="py-2 pe-3 tabular-nums">{r.calls}</td>
                     <td className="py-2 pe-3 tabular-nums">
-                      {r.promptTokens} / {r.completionTokens}
+                      {formatChromeNumber(r.calls, deps.edition)}
+                    </td>
+                    <td className="py-2 pe-3 tabular-nums">
+                      {formatChromeNumber(r.promptTokens, deps.edition)} /{' '}
+                      {formatChromeNumber(r.completionTokens, deps.edition)}
                     </td>
                     <td className="py-2 font-mono-exam tabular-nums text-text-primary">
-                      ${(r.totalCostUsdMicros / 1_000_000).toFixed(4)}
+                      <span dir="ltr">${(r.totalCostUsdMicros / 1_000_000).toFixed(4)}</span>
                     </td>
                   </tr>
                 ))}
@@ -276,18 +284,19 @@ export function AdminTraceConsoleScreen() {
       ) : null}
 
       <MzCard variant="default">
-        <h2 className="text-sm font-semibold text-text-primary">User Trace & Recordings Lookup</h2>
+        <h2 className="text-sm font-semibold text-text-primary">{t('adminTraceHeading')}</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           <input
             type="text"
+            dir="ltr"
             value={accountKey}
             onChange={(e) => setAccountKey(e.target.value)}
-            placeholder="Account key (e.g. usr_... or dev_...)"
+            placeholder={t('adminAccountPlaceholder')}
             className="min-w-60 flex-1 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-surface px-3 py-2 text-sm text-text-primary"
           />
           <MzButton variant="primary" size="sm" onClick={() => void handleInspectAccount()} disabled={loading}>
             <Search className="h-3.5 w-3.5" aria-hidden="true" />
-            Inspect User Trace
+            {t('adminInspectBtn')}
           </MzButton>
         </div>
 
@@ -301,17 +310,26 @@ export function AdminTraceConsoleScreen() {
           <div className="mt-4 flex flex-col gap-3 text-xs">
             <div className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised p-3">
               <div className="font-semibold text-text-primary">
-                Account: {traceData.accountKey ?? accountKey} ({traceData.profile?.edition ?? deps.edition})
+                {t('adminAccountSummary', {
+                  account: traceData.accountKey ?? accountKey,
+                  edition: traceData.profile?.edition ?? deps.edition,
+                })}
               </div>
               <div className="mt-1 text-text-secondary">
-                AI calls: {traceData.totals?.totalAiCalls ?? 0} · Tokens: {traceData.totals?.totalTokens ?? 0} · Total cost: $
-                {((traceData.totals?.totalCostUsdMicros ?? 0) / 1_000_000).toFixed(4)}
+                {t('adminStatsSummary', {
+                  calls: formatChromeNumber(traceData.totals?.totalAiCalls ?? 0, deps.edition),
+                  tokens: formatChromeNumber(traceData.totals?.totalTokens ?? 0, deps.edition),
+                  cost: formatChromeNumber(
+                    ((traceData.totals?.totalCostUsdMicros ?? 0) / 1_000_000).toFixed(4),
+                    deps.edition,
+                  ),
+                })}
               </div>
             </div>
 
             {(traceData.aiUsageLedger ?? []).length > 0 ? (
               <div className="flex flex-col gap-1.5">
-                <h3 className="font-semibold text-text-primary">Recent AI Usage Calls</h3>
+                <h3 className="font-semibold text-text-primary">{t('adminRecentCallsHeading')}</h3>
                 {traceData.aiUsageLedger!.slice(0, 10).map((call) => (
                   <div
                     key={call.usageId}
@@ -319,8 +337,11 @@ export function AdminTraceConsoleScreen() {
                   >
                     <span className="font-medium text-text-primary">{call.featureKind}</span>
                     <span className="font-mono-exam text-text-secondary">
-                      {call.modelId} · {call.totalTokens} tok · $
-                      {(call.estimatedCostUsdMicros / 1_000_000).toFixed(5)}
+                      <span dir="ltr">{call.modelId}</span> ·{' '}
+                      {t('adminTokenCount', {
+                        tokens: formatChromeNumber(call.totalTokens, deps.edition),
+                      })}{' '}
+                      · <span dir="ltr">${(call.estimatedCostUsdMicros / 1_000_000).toFixed(5)}</span>
                     </span>
                   </div>
                 ))}
@@ -329,16 +350,22 @@ export function AdminTraceConsoleScreen() {
 
             {(traceData.pronunciationPractices ?? []).length > 0 ? (
               <div className="flex flex-col gap-1.5">
-                <h3 className="font-semibold text-text-primary">Recorded Pronunciation Takes</h3>
+                <h3 className="font-semibold text-text-primary">{t('adminRecordingsHeading')}</h3>
                 {traceData.pronunciationPractices!.map((p) => (
                   <div
                     key={p.practiceId}
                     className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-surface p-2"
                   >
                     <div>
-                      <span className="font-medium text-text-primary">{p.targetText}</span>
+                      <span dir="ltr" className="font-medium text-text-primary">{p.targetText}</span>
                       <span className="ms-2 text-text-secondary">
-                        ({p.status} · score: {p.overallScore ?? '—'})
+                        {t('adminRecordingStatusScore', {
+                          status: p.status,
+                          score:
+                            p.overallScore != null
+                              ? formatChromeNumber(p.overallScore, deps.edition)
+                              : '—',
+                        })}
                       </span>
                     </div>
                     <MzButton
@@ -347,7 +374,7 @@ export function AdminTraceConsoleScreen() {
                       onClick={() => void handlePlayRecording(p.objectKey)}
                     >
                       <Play className="h-3.5 w-3.5" aria-hidden="true" />
-                      Stream Audio
+                      {t('adminStreamAudioBtn')}
                     </MzButton>
                   </div>
                 ))}

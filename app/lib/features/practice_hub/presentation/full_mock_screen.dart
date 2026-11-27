@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/exams/exam_descriptor.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/core/localization/edition_copy.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/data/repositories/attempt_repository.dart';
 import 'package:mockza/features/practice_hub/presentation/practice_hub_providers.dart';
@@ -134,10 +137,13 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
       String route,
     })
   >
-  get _stages {
+  _buildStages({required bool isIran}) {
     final track = _track;
     final descriptor = ExamDescriptor.forTrack(track);
     final isGeneral = track == ExamTrack.ieltsGeneral;
+    String fmtNum(int value) =>
+        isIran ? EdgeNumerals.toPersianDigits('$value') : '$value';
+
     final writingStages = descriptor.writingTasks.asMap().entries.map((entry) {
       final idx = entry.key;
       final task = entry.value;
@@ -147,12 +153,17 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
         key: 'writing_task${idx + 1}',
         skill: SkillKind.writing,
         packId: descriptor.writingPackId,
-        title:
-            '$stageNum. ${track.isIelts ? 'Writing ${task.shortTabLabel}' : task.fullTitle}',
+        title: isIran
+            ? '${fmtNum(stageNum)}. رایتینگ ${fmtNum(idx + 1)}'
+            : '$stageNum. ${track.isIelts ? 'Writing ${task.shortTabLabel}' : task.fullTitle}',
         subtitle: task.requiresSingleSentence
-            ? 'Single complete sentence (5–75 words)'
-            : 'Target ${task.defaultMinWords}+ words',
-        duration: '$mins min',
+            ? (isIran
+                  ? 'یک جمله کامل (۵ تا ۷۵ واژه)'
+                  : 'Single complete sentence (5–75 words)')
+            : (isIran
+                  ? 'هدف: حداقل ${fmtNum(task.defaultMinWords)} واژه'
+                  : 'Target ${task.defaultMinWords}+ words'),
+        duration: isIran ? '${fmtNum(mins)} دقیقه' : '$mins min',
         route: AppRoutes.buildWritingSim(
           descriptor.writingPackId,
           _examMode,
@@ -164,14 +175,17 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
     });
 
     final speakStageNum = 3 + descriptor.writingTasks.length;
+    final speakMins = track == ExamTrack.toeflIbt ? 8 : 14;
     return [
       (
         key: 'listening',
         skill: SkillKind.listening,
         packId: descriptor.listeningPackId,
-        title: '1. Listening Test',
-        subtitle: '${track.shortName} audio comprehension',
-        duration: '30 min',
+        title: isIran ? '۱. آزمون لیسنینگ' : '1. Listening Test',
+        subtitle: isIran
+            ? 'درک شنیداری ${track.shortName}'
+            : '${track.shortName} audio comprehension',
+        duration: isIran ? '${fmtNum(30)} دقیقه' : '30 min',
         route: AppRoutes.buildListeningSim(
           descriptor.listeningPackId,
           _examMode,
@@ -183,11 +197,15 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
         key: 'reading',
         skill: SkillKind.reading,
         packId: descriptor.readingPackId,
-        title: '2. Reading Test',
+        title: isIran ? '۲. آزمون ریدینگ' : '2. Reading Test',
         subtitle: isGeneral
-            ? 'General Training workplace & societal texts'
-            : '${track.shortName} passages & objective tasks',
-        duration: '60 min',
+            ? (isIran
+                  ? 'متون محیط کار و اجتماعی General Training'
+                  : 'General Training workplace & societal texts')
+            : (isIran
+                  ? 'متون و پرسش‌های تستی ${track.shortName}'
+                  : '${track.shortName} passages & objective tasks'),
+        duration: isIran ? '${fmtNum(60)} دقیقه' : '60 min',
         route: AppRoutes.buildReadingSim(
           descriptor.readingPackId,
           _examMode,
@@ -200,10 +218,13 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
         key: 'speaking',
         skill: SkillKind.speaking,
         packId: descriptor.speakingPackId,
-        title:
-            '$speakStageNum. ${track.isIelts ? 'Speaking Interview' : 'Speaking Test'}',
-        subtitle: '${track.shortName} live microphone recording',
-        duration: track == ExamTrack.toeflIbt ? '8 min' : '14 min',
+        title: isIran
+            ? '${fmtNum(speakStageNum)}. ${track.isIelts ? 'مصاحبه اسپیکینگ' : 'آزمون اسپیکینگ'}'
+            : '$speakStageNum. ${track.isIelts ? 'Speaking Interview' : 'Speaking Test'}',
+        subtitle: isIran
+            ? 'ضبط زنده میکروفون ${track.shortName}'
+            : '${track.shortName} live microphone recording',
+        duration: isIran ? '${fmtNum(speakMins)} دقیقه' : '$speakMins min',
         route: AppRoutes.buildSpeakingSim(
           descriptor.speakingPackId,
           _examMode,
@@ -254,16 +275,20 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
+    final isIran = ref.watch(editionConfigProvider).edition == AppEdition.iran;
     final attempts =
         ref.watch(practiceHubAttemptsProvider).asData?.value ??
         const <AttemptSummary>[];
     final sessionStartMs = _sessionStartedAtUtcMs;
 
+    final track = _track;
+    final stages = _buildStages(isIran: isIran);
+
     // Derive stage state strictly from real linked/session-scoped persisted submissions (`RR-11`).
     final attemptByStageKey = <String, AttemptSummary>{};
     final scoredByStageKey = <String, AttemptSummary>{};
     if (sessionStartMs != null) {
-      for (final stage in _stages) {
+      for (final stage in stages) {
         final found = _findStageAttempt(
           stage.key,
           stage.skill,
@@ -281,8 +306,6 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
       }
     }
 
-    final track = _track;
-    final stages = _stages;
     final completedCount = scoredByStageKey.length;
     final listeningBand = scoredByStageKey['listening']?.overallBand;
     final readingBand = scoredByStageKey['reading']?.overallBand;
@@ -321,18 +344,34 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
       combinedBand = null;
     }
 
+    final completedStr = isIran
+        ? EdgeNumerals.toPersianDigits('$completedCount')
+        : '$completedCount';
+    final totalStagesStr = isIran
+        ? EdgeNumerals.toPersianDigits('${stages.length}')
+        : '${stages.length}';
+
     return MzScaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: const AppIcon(LucideGlyph.arrowLeft, size: 20),
+          icon: AppIcon(
+            isIran ? LucideGlyph.arrowRight : LucideGlyph.arrowLeft,
+            size: 20,
+          ),
           onPressed: () => context.safePopOrGo(AppRoutes.practice),
         ),
-        title: Text('Full ${track.shortName} Mock'),
+        title: Text(
+          isIran
+              ? 'آزمون جامع ${track.shortName}'
+              : 'Full ${track.shortName} Mock',
+        ),
         actions: <Widget>[
           if (attemptByStageKey.isNotEmpty)
             MzIconButton(
               glyph: LucideGlyph.rotateCcw,
-              semanticLabel: 'Reset mock session',
+              semanticLabel: isIran
+                  ? 'شروع مجدد آزمون جامع'
+                  : 'Reset mock session',
               onPressed: () => unawaited(
                 _persistSessionState(
                   startedAtUtcMs: ref
@@ -359,13 +398,19 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
               children: <Widget>[
                 Text(
                   combinedBand != null
-                      ? 'Full Mock ${track.formatScoreWithUnit(combinedBand)} (${stages.length}/${stages.length} Scored)'
-                      : '$completedCount of ${stages.length} Stages Scored',
+                      ? (isIran
+                            ? 'نمره کل آزمون جامع: ${EditionCopy.formatScoreWithUnitFor(track, combinedBand, isIran: true)} ($totalStagesStr/$totalStagesStr نمره‌دهی شده)'
+                            : 'Full Mock ${track.formatScoreWithUnit(combinedBand)} (${stages.length}/${stages.length} Scored)')
+                      : (isIran
+                            ? '$completedStr از $totalStagesStr بخش نمره‌دهی شد'
+                            : '$completedCount of ${stages.length} Stages Scored'),
                   style: typography.cardTitle,
                 ),
                 const SizedBox(height: SpacingTokens.xs),
                 Text(
-                  'Complete all ${track.shortName} Listening, Reading, Writing, and Speaking stages in Exam Mode. Stages mark completed only after final scoring.',
+                  isIran
+                      ? 'هر چهار مهارت لیسنینگ، ریدینگ، رایتینگ و اسپیکینگ ${track.shortName} را در حالت آزمون کامل کنید. هر بخش پس از نمره‌دهی نهایی تکمیل‌شده ثبت می‌شود.'
+                      : 'Complete all ${track.shortName} Listening, Reading, Writing, and Speaking stages in Exam Mode. Stages mark completed only after final scoring.',
                   style: typography.secondary.copyWith(
                     color: colors.textSecondary,
                   ),
@@ -375,7 +420,9 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
                   children: <Widget>[
                     Expanded(
                       child: SecondaryButton(
-                        label: _examMode ? 'Mode: Exam' : 'Mode: Study',
+                        label: isIran
+                            ? (_examMode ? 'حالت: آزمون' : 'حالت: تمرینی')
+                            : (_examMode ? 'Mode: Exam' : 'Mode: Study'),
                         onPressed: () {
                           final nextMode = !_examMode;
                           if (sessionStartMs != null) {
@@ -394,11 +441,11 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
                     const SizedBox(width: SpacingTokens.sm),
                     Expanded(
                       child: PrimaryButton(
-                        label: completedCount < _stages.length
-                            ? 'Start Next Stage'
-                            : 'View Progress',
+                        label: completedCount < stages.length
+                            ? (isIran ? 'شروع بخش بعدی' : 'Start Next Stage')
+                            : (isIran ? 'مشاهده پیشرفت' : 'View Progress'),
                         onPressed: () async {
-                          final remaining = _stages
+                          final remaining = stages
                               .where(
                                 (s) => !attemptByStageKey.containsKey(s.key),
                               )
@@ -417,7 +464,7 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
             ),
           ),
           const SizedBox(height: SpacingTokens.lg),
-          ..._stages.map((stage) {
+          ...stages.map((stage) {
             final submitted = attemptByStageKey[stage.key];
             final isScored =
                 submitted != null &&
@@ -429,10 +476,16 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
             final statusText = submitted == null
                 ? stage.duration
                 : isScored
-                ? track.formatScoreWithUnit(submitted.overallBand!)
+                ? EditionCopy.formatScoreWithUnitFor(
+                    track,
+                    submitted.overallBand!,
+                    isIran: isIran,
+                  )
                 : isFailed
-                ? 'Failed — Tap to Retry'
-                : 'Grading in Progress...';
+                ? (isIran
+                      ? 'ناموفق — لمس برای تلاش مجدد'
+                      : 'Failed — Tap to Retry')
+                : (isIran ? 'در حال نمره‌دهی...' : 'Grading in Progress...');
             return Padding(
               padding: const EdgeInsetsDirectional.only(
                 bottom: SpacingTokens.sm,
@@ -484,7 +537,9 @@ class _FullMockScreenState extends ConsumerState<FullMockScreen> {
                     AppIcon(
                       isScored
                           ? LucideGlyph.checkCircle2
-                          : LucideGlyph.chevronRight,
+                          : (isIran
+                                ? LucideGlyph.chevronLeft
+                                : LucideGlyph.chevronRight),
                       color: isScored ? colors.success : colors.textTertiary,
                       size: 20,
                     ),

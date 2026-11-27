@@ -383,6 +383,7 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
       final l10n = AppLocalizations.of(context);
       final colors = AppColors.of(context);
       final typography = AppTypography.of(context);
+      final isFa = Localizations.localeOf(context).languageCode == 'fa';
 
       return MzScaffold(
         appBar: AppBar(title: Text(l10n.routeNotFoundTitle)),
@@ -395,14 +396,16 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
                 const AppIcon(LucideGlyph.info, size: 48),
                 const SizedBox(height: SpacingTokens.lg),
                 Text(
-                  'Screen Not Found',
+                  isFa ? 'صفحه یافت نشد' : 'Screen Not Found',
                   style: typography.cardTitle.copyWith(
                     color: colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: SpacingTokens.sm),
                 Text(
-                  'The requested route does not exist or has been moved.',
+                  isFa
+                      ? 'مسیر درخواستی وجود ندارد یا جابه‌جا شده است.'
+                      : 'The requested route does not exist or has been moved.',
                   textAlign: TextAlign.center,
                   style: typography.body.copyWith(color: colors.textSecondary),
                 ),

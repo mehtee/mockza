@@ -19,7 +19,9 @@ import {
   useState,
 } from 'react';
 import { MzCard } from '@/components/ui';
+import { localizeWorkerStage } from '@/components/bidi/diagnostic-labels';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
+import { formatChromeNumber } from '@/edition/bidi/numerals';
 import type { QuotaStatusSnapshot } from '@/gateways/evaluation.gateway';
 import type { DropMediaContentType, DroppedContentItem } from '@/gateways/linguistic.gateway';
 import { createTranslator } from '@/i18n';
@@ -274,7 +276,7 @@ export function DropHubScreen({ initialTab }: DropHubScreenProps = {}) {
       pollFn: () => deps.linguistic.pollAdvancedJob<DroppedContentItem>(jobId),
       timeoutMs: 90_000,
       onStage: (stage) => {
-        if (mountedRef.current) setStatusLabel(stage);
+        if (mountedRef.current) setStatusLabel(localizeWorkerStage(stage, deps.edition));
       },
       isCancelled: () => !mountedRef.current,
     });
@@ -324,11 +326,17 @@ export function DropHubScreen({ initialTab }: DropHubScreenProps = {}) {
     if (tab === 'url') {
       const check = validateDropUrlPreFlight(sourceUrl, { allowHttpInDev: true });
       if (!check.ok) {
-        setError(
-          isRtl
-            ? `لینک مسدود یا پشتیبانی‌نشده است (${check.reason ?? 'ویدئو/داخلی'}). لطفاً لینک مقاله، متن یا اسکرین‌شات ارسال کنید.`
-            : check.reason ?? 'Unsupported URL. Share an article URL, text excerpt, or screenshot.',
-        );
+        if (isRtl) {
+          const msg =
+            check.code === 'SSRF_BLOCKED_HOST'
+              ? 'نشانی‌های شبکه داخلی یا پورت‌های سفارشی مجاز نیستند.'
+              : check.code === 'UNSUPPORTED_DROP_SOURCE'
+                ? 'پلتفرم‌های ویدئویی و فایل‌های استریم پشتیبانی نمی‌شوند. لینک مقاله، متن یا اسکرین‌شات ارسال کنید.'
+                : 'نشانی واردشده معتبر نیست. یک لینک عمومی مقاله وارد کنید.';
+          setError(msg);
+        } else {
+          setError(check.reason ?? 'Unsupported URL. Share an article URL, text excerpt, or screenshot.');
+        }
         return;
       }
       setSubmitting(true);
@@ -351,7 +359,15 @@ export function DropHubScreen({ initialTab }: DropHubScreenProps = {}) {
     if (tab === 'text') {
       const tCheck = validateDropTextSnippet(rawText);
       if (!tCheck.ok) {
-        setError(tCheck.reason ?? 'Text must be 40..15,000 characters.');
+        if (isRtl) {
+          setError(
+            tCheck.code === 'DROP_TEXT_TOO_LONG'
+              ? 'حداکثر طول متن ۱۵٬۰۰۰ نویسه است.'
+              : 'متن باید حداقل ۴۰ نویسه انگلیسی باشد.',
+          );
+        } else {
+          setError(tCheck.reason ?? 'Text must be 40..15,000 characters.');
+        }
         return;
       }
       setSubmitting(true);
@@ -379,7 +395,7 @@ export function DropHubScreen({ initialTab }: DropHubScreenProps = {}) {
       setSubmitting(true);
       setStatusLabel(
         isRtl
-          ? `در حال آپلود ${queuedImages.length} تصویر...`
+          ? `در حال آپلود ${formatChromeNumber(queuedImages.length, deps.edition)} تصویر...`
           : `Uploading ${queuedImages.length} image(s)...`,
       );
       const dropId = crypto.randomUUID();
@@ -425,7 +441,7 @@ export function DropHubScreen({ initialTab }: DropHubScreenProps = {}) {
       files: [{ bytes: audioFile.bytes, contentType: audioFile.contentType }],
     });
     if (!up.ok || !up.value.objectKeys[0]) {
-      setError(up.ok ? 'Upload failed.' : up.error.message);
+      setError(up.ok ? (isRtl ? 'آپلود ناموفق بود.' : 'Upload failed.') : up.error.message);
       setSubmitting(false);
       setStatusLabel('');
       return;
@@ -498,7 +514,7 @@ export function DropHubScreen({ initialTab }: DropHubScreenProps = {}) {
             >
               {advQuota.isPro
                 ? isRtl
-                  ? `${advQuota.dropsRemainingToday} محتوا باقی‌مانده امروز`
+                  ? `${formatChromeNumber(advQuota.dropsRemainingToday, deps.edition)} محتوا باقی‌مانده امروز`
                   : `${advQuota.dropsRemainingToday} study sets left today`
                 : advQuota.freeSampleUsed
                   ? isRtl
@@ -587,7 +603,9 @@ export function DropHubScreen({ initialTab }: DropHubScreenProps = {}) {
                 className="w-full rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-surface p-3 text-sm text-text-primary focus:border-primary focus:outline-none"
               />
               <p className="text-[11px] text-text-secondary">
-                {rawText.trim().length} / 15,000 {isRtl ? 'نویسه (حداقل ۴۰)' : 'chars (min 40)'}
+                {formatChromeNumber(rawText.trim().length, deps.edition)} /{' '}
+                {formatChromeNumber('15,000', deps.edition)}{' '}
+                {isRtl ? 'نویسه (حداقل ۴۰)' : 'chars (min 40)'}
               </p>
             </div>
           ) : null}
@@ -691,7 +709,16 @@ export function DropHubScreen({ initialTab }: DropHubScreenProps = {}) {
                 {audioFile ? (
                   <div className="mt-3 space-y-2">
                     <p className="font-mono text-text-primary">
-                      {audioFile.name} ({Math.round(audioFile.durationSeconds)}s)
+                      {audioFile.name} (
+                      {isRtl
+                        ? t('unitSecondsShort', {
+                            seconds: formatChromeNumber(
+                              Math.round(audioFile.durationSeconds),
+                              deps.edition,
+                            ),
+                          })
+                        : `${Math.round(audioFile.durationSeconds)}s`}
+                      )
                     </p>
                     {audioFile.previewUrl ? (
                       <audio controls src={audioFile.previewUrl} className="h-9 w-full max-w-md" />

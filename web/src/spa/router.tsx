@@ -31,6 +31,7 @@ import {
   Sparkles,
   Sun,
   TrendingUp,
+  UserCheck,
   WifiOff,
   X,
 } from 'lucide-react';
@@ -50,6 +51,7 @@ import {
 import { formatChromeNumber } from '@/edition/bidi/numerals';
 import { formatTrackLocalizedName } from '@/components/bidi/topic-labels';
 import { BrandMark, MzTooltip } from '@/components/ui';
+import type { AuthSession } from '@/gateways/auth.gateway';
 import { createTranslator, type TranslationKey } from '@/i18n';
 import { useOptionalDeps } from '@/spa/deps';
 import {
@@ -319,7 +321,7 @@ export function preloadRouteForPathname(pathname: string): Promise<void> {
   if (normalized.startsWith('/evaluation/result/')) return evaluationResultScreen.preload();
   if (normalized === '/vocabulary') return vocabHubScreen.preload();
   if (normalized === '/vocabulary/review') return vocabReviewScreen.preload();
-  if (normalized.startsWith('/vocabulary/word/')) return vocabWordDetailScreen.preload();
+  if (normalized.startsWith('/vocabulary/')) return vocabWordDetailScreen.preload();
   if (normalized === '/progress') return progressScreen.preload();
   if (normalized === '/progress/compare') return compareAttemptsScreen.preload();
   if (normalized === '/settings') return settingsScreen.preload();
@@ -589,6 +591,7 @@ function AppRootLayout() {
   const [resolvedMode, setResolvedMode] = useState<ThemeMode>(
     () => readStoredAppearance().resolvedMode,
   );
+  const [authSession, setAuthSession] = useState<AuthSession | null>(null);
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -603,14 +606,15 @@ function AppRootLayout() {
   useEffect(() => {
     if (!deps) return;
     let mounted = true;
-    void deps.attemptStore.getUserProfile().then((res) => {
-      if (!mounted || !res.ok || !res.value) return;
-      if (res.value.examId) {
-        const normalized = normalizeSupportedExamId(res.value.examId);
-        setActiveTrack(normalized);
-        writeSwrTrack(edition, normalized);
+    void deps.auth.getSession().then((res) => {
+      if (mounted && res.ok) {
+        setAuthSession(res.value);
       }
-      setTargetDateSerial(res.value.targetDateSerial ?? null);
+    });
+    const unsubAuth = deps.auth.onSessionChanged((nextSession) => {
+      if (mounted) {
+        setAuthSession(nextSession);
+      }
     });
     const unsubOutbox = deps.syncOutbox.observePendingCount((count) => {
       setPendingOutboxCount(count);
@@ -621,9 +625,27 @@ function AppRootLayout() {
     window.addEventListener('offline', onOffline);
     return () => {
       mounted = false;
+      unsubAuth();
       unsubOutbox();
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
+    };
+  }, [deps]);
+
+  useEffect(() => {
+    if (!deps) return;
+    let mounted = true;
+    void deps.attemptStore.getUserProfile().then((res) => {
+      if (!mounted || !res.ok || !res.value) return;
+      if (res.value.examId) {
+        const normalized = normalizeSupportedExamId(res.value.examId);
+        setActiveTrack(normalized);
+        writeSwrTrack(edition, normalized);
+      }
+      setTargetDateSerial(res.value.targetDateSerial ?? null);
+    });
+    return () => {
+      mounted = false;
     };
   }, [deps, edition, pathname]);
 
@@ -795,34 +817,73 @@ function AppRootLayout() {
                   </Link>
                 </MzTooltip>
               ))}
-              <MzTooltip
-                label={t('authSignInAction')}
-                enabled={sidebarCollapsed}
-                dir={dir}
-                className="mt-auto"
-              >
-                <Link
-                  to="/auth/login"
-                  aria-label={t('authSignInAction')}
-                  data-testid="nav-auth-link"
-                  onMouseEnter={() => void preloadRouteForPathname('/auth/login')}
-                  onFocus={() => void preloadRouteForPathname('/auth/login')}
-                  className={`flex min-h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-strong px-3 py-2 font-semibold text-primary transition-colors hover:bg-surface-hover ${
-                    sidebarCollapsed ? 'gap-2.5 lg:justify-center lg:gap-0 lg:px-2' : 'gap-2.5'
-                  }`}
+              {authSession?.isAuthenticated ? (
+                <MzTooltip
+                  label={
+                    authSession.user?.displayName ||
+                    authSession.user?.email ||
+                    authSession.user?.phoneE164 ||
+                    t('settingsAccountSection')
+                  }
+                  enabled={sidebarCollapsed}
+                  dir={dir}
+                  className="mt-auto"
                 >
-                  <LogIn className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span
-                    className={`whitespace-nowrap transition-[opacity,max-width] duration-150 ${
-                      sidebarCollapsed
-                        ? 'lg:max-w-0 lg:overflow-hidden lg:opacity-0'
-                        : 'truncate lg:max-w-[170px] lg:opacity-100'
+                  <Link
+                    to="/settings"
+                    aria-label={t('settingsAccountSection')}
+                    data-testid="nav-account-link"
+                    onMouseEnter={() => void preloadRouteForPathname('/settings')}
+                    onFocus={() => void preloadRouteForPathname('/settings')}
+                    className={`flex min-h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-surface-alt px-3 py-2 font-semibold text-text-primary transition-colors hover:bg-surface-hover ${
+                      sidebarCollapsed ? 'gap-2.5 lg:justify-center lg:gap-0 lg:px-2' : 'gap-2.5'
                     }`}
                   >
-                    {t('authSignInAction')}
-                  </span>
-                </Link>
-              </MzTooltip>
+                    <UserCheck className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                    <span
+                      className={`whitespace-nowrap transition-[opacity,max-width] duration-150 ${
+                        sidebarCollapsed
+                          ? 'lg:max-w-0 lg:overflow-hidden lg:opacity-0'
+                          : 'truncate lg:max-w-[170px] lg:opacity-100'
+                      }`}
+                    >
+                      {authSession.user?.displayName ||
+                        authSession.user?.email ||
+                        authSession.user?.phoneE164 ||
+                        t('settingsAccountSection')}
+                    </span>
+                  </Link>
+                </MzTooltip>
+              ) : (
+                <MzTooltip
+                  label={t('authSignInAction')}
+                  enabled={sidebarCollapsed}
+                  dir={dir}
+                  className="mt-auto"
+                >
+                  <Link
+                    to="/auth/login"
+                    aria-label={t('authSignInAction')}
+                    data-testid="nav-auth-link"
+                    onMouseEnter={() => void preloadRouteForPathname('/auth/login')}
+                    onFocus={() => void preloadRouteForPathname('/auth/login')}
+                    className={`flex min-h-11 items-center rounded-[var(--mz-radius-compact)] border border-border-strong px-3 py-2 font-semibold text-primary transition-colors hover:bg-surface-hover ${
+                      sidebarCollapsed ? 'gap-2.5 lg:justify-center lg:gap-0 lg:px-2' : 'gap-2.5'
+                    }`}
+                  >
+                    <LogIn className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span
+                      className={`whitespace-nowrap transition-[opacity,max-width] duration-150 ${
+                        sidebarCollapsed
+                          ? 'lg:max-w-0 lg:overflow-hidden lg:opacity-0'
+                          : 'truncate lg:max-w-[170px] lg:opacity-100'
+                      }`}
+                    >
+                      {t('authSignInAction')}
+                    </span>
+                  </Link>
+                </MzTooltip>
+              )}
             </nav>
           </aside>
         </>

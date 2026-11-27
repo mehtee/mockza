@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/diagnostic/diagnostic_models.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/core/localization/edition_copy.dart';
 import 'package:mockza/features/diagnostic/presentation/diagnostic_help_sheet.dart';
 import 'package:mockza/features/diagnostic/presentation/diagnostic_providers.dart';
 import 'package:mockza/l10n/app_localizations.dart';
@@ -68,6 +71,30 @@ class _DiagnosticResultsScreenState
         ),
       ];
 
+  static const List<DiagnosticExamScaleInfo> _defaultExamScalesFa =
+      <DiagnosticExamScaleInfo>[
+        DiagnosticExamScaleInfo(
+          examId: 'ielts_academic',
+          label: 'آیلتس (باند ۰ تا ۹)',
+          summary: 'چهار مهارت و نمره کل را با گام‌های ۰.۵ گزارش می‌دهد. آزمون‌های شبیه‌ساز کامل استقامت شما در شرایط آزمون را می‌سنجند.',
+        ),
+        DiagnosticExamScaleInfo(
+          examId: 'toefl_ibt',
+          label: 'تافل iBT',
+          summary: 'مهارت‌های ریدینگ، لیسنینگ، اسپیکینگ و رایتینگ آکادمیک را در تسک‌های دانشگاهی می‌سنجد.',
+        ),
+        DiagnosticExamScaleInfo(
+          examId: 'det',
+          label: 'آزمون دولینگو DET (۱۰ تا ۱۶۰)',
+          summary: 'درک مطلب و تولید زبان را به‌صورت تطبیقی در بازه ۱۰ تا ۱۶۰ ارزیابی می‌کند.',
+        ),
+        DiagnosticExamScaleInfo(
+          examId: 'pte_academic',
+          label: 'آزمون PTE Academic (۱۰ تا ۹۰)',
+          summary: 'مهارت‌های ارتباطی و توانایی‌های زبانی را در بازه ۱۰ تا ۹۰ نمره‌گذاری می‌کند.',
+        ),
+      ];
+
   @override
   void initState() {
     super.initState();
@@ -109,18 +136,30 @@ class _DiagnosticResultsScreenState
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
     final snapshot = state.sessionSnapshot;
+    final edition = ref.watch(editionConfigProvider).edition;
+    final isIran =
+        edition == AppEdition.iran ||
+        Localizations.localeOf(context).languageCode == 'fa';
+
+    final localizedAction = snapshot == null
+        ? null
+        : EditionCopy.localizeDiagnosticAction(
+            snapshot.recommendedActionTitle,
+            snapshot.recommendedActionDescription,
+            isIran: isIran,
+          );
 
     return MzScaffold(
       appBar: AppBar(
         leading: IconButton(
-          tooltip: 'Home',
+          tooltip: isIran ? 'خانه' : 'Home',
           onPressed: () => context.go(AppRoutes.home),
           icon: const AppIcon(LucideGlyph.x, size: 22),
         ),
-        title: const Text('Starting Check Results'),
+        title: Text(isIran ? 'نتیجه ارزیابی اولیه' : 'Starting Check Results'),
         actions: <Widget>[
           IconButton(
-            tooltip: 'Refresh status',
+            tooltip: isIran ? 'به‌روزرسانی وضعیت' : 'Refresh status',
             onPressed: notifier.refreshResults,
             icon: const AppIcon(LucideGlyph.refreshCw, size: 20),
           ),
@@ -134,7 +173,9 @@ class _DiagnosticResultsScreenState
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
                   PrimaryButton(
-                    label: 'Start Recommended Practice',
+                    label: isIran
+                        ? 'شروع تمرین پیشنهادی'
+                        : 'Start Recommended Practice',
                     onPressed: () => context.go(
                       _routeForSkill(snapshot.recommendedTargetSkill),
                     ),
@@ -152,12 +193,16 @@ class _DiagnosticResultsScreenState
                                 context,
                                 AppLocalizations,
                               )?.roadmapViewFullCta ??
-                              'View Full Roadmap',
+                              (isIran
+                                  ? 'مشاهده نقشه راه کامل'
+                                  : 'View Full Roadmap'),
                         ),
                       ),
                       TextButton(
                         onPressed: () => context.go(AppRoutes.home),
-                        child: const Text('Continue Home'),
+                        child: Text(
+                          isIran ? 'بازگشت به خانه' : 'Continue Home',
+                        ),
                       ),
                     ],
                   ),
@@ -171,6 +216,7 @@ class _DiagnosticResultsScreenState
         child: snapshot == null
             ? _LoadingSnapshotCard(
                 diagId: widget.diagId,
+                isIran: isIran,
                 onRetry: notifier.refreshResults,
               )
             : Column(
@@ -183,12 +229,16 @@ class _DiagnosticResultsScreenState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
-                          'Your Starting Practice Placement',
+                          isIran
+                              ? 'سطح پیشنهادی شروع تمرین شما'
+                              : 'Your Starting Practice Placement',
                           style: typography.sectionHeading,
                         ),
                         const SizedBox(height: SpacingTokens.xs),
                         Text(
-                          'These provisional suggestions are based only on your short samples so we can tailor your first drills — never an official exam score.',
+                          isIran
+                              ? 'این پیشنهادهای اولیه فقط بر اساس نمونه‌های کوتاه شما ساخته شده‌اند تا تمرین‌های نخست متناسب‌تر شوند — و نمره رسمی آزمون محسوب نمی‌شوند.'
+                              : 'These provisional suggestions are based only on your short samples so we can tailor your first drills — never an official exam score.',
                           style: typography.secondary.copyWith(
                             color: colors.textSecondary,
                           ),
@@ -199,18 +249,26 @@ class _DiagnosticResultsScreenState
                           runSpacing: SpacingTokens.xs,
                           children: <Widget>[
                             if (snapshot.mode == DiagnosticMode.extended)
-                              const MzChip(
-                                label: 'Completed with extended help',
+                              MzChip(
+                                label: isIran
+                                    ? 'تکمیل‌شده با زمان بیشتر'
+                                    : 'Completed with extended help',
                               )
                             else if (snapshot.mode == DiagnosticMode.accessible)
-                              const MzChip(
-                                label: 'Accessible audio mode',
+                              MzChip(
+                                label: isIran
+                                    ? 'حالت صوتی دسترس‌پذیر'
+                                    : 'Accessible audio mode',
                               ),
                             if (snapshot.hasPendingWork)
                               MzChip(
                                 label: state.resultsRemainingSeconds > 0
-                                    ? 'Checking Writing/Speaking (${state.resultsRemainingSeconds}s)'
-                                    : 'Finishing in background',
+                                    ? (isIran
+                                          ? 'در حال بررسی رایتینگ/اسپیکینگ (${EdgeNumerals.toPersianDigits(state.resultsRemainingSeconds)} ثانیه)'
+                                          : 'Checking Writing/Speaking (${state.resultsRemainingSeconds}s)')
+                                    : (isIran
+                                          ? 'در حال تکمیل در پس‌زمینه'
+                                          : 'Finishing in background'),
                                 variant: MzChipVariant.target,
                               ),
                           ],
@@ -224,9 +282,11 @@ class _DiagnosticResultsScreenState
                       state.resultsRemainingSeconds <= 0 &&
                       state.isTimed) ...<Widget>[
                     StatusBanner(
-                      message: 'Your Reading & Listening results are ready now. Writing or Speaking feedback is still finishing in the background — start practice anytime.',
+                      message: isIran
+                          ? 'نتیجه ریدینگ و لیسنینگ شما آماده است. تحلیل رایتینگ یا اسپیکینگ همچنان در پس‌زمینه در حال تکمیل است — هر زمان خواستید تمرین را شروع کنید.'
+                          : 'Your Reading & Listening results are ready now. Writing or Speaking feedback is still finishing in the background — start practice anytime.',
                       variant: StatusBannerVariant.uploading,
-                      actionLabel: 'Check now',
+                      actionLabel: isIran ? 'بررسی مجدد' : 'Check now',
                       onTapAction: notifier.refreshResults,
                     ),
                     const SizedBox(height: SpacingTokens.md),
@@ -248,20 +308,36 @@ class _DiagnosticResultsScreenState
                                       context,
                                       AppLocalizations,
                                     )?.liveBandTitle ??
-                                    'Live Estimated Band',
+                                    (isIran
+                                        ? 'باند تخمینی زنده'
+                                        : 'Live Estimated Band'),
                                 style: typography.secondary.copyWith(
                                   color: colors.textSecondary,
                                 ),
                               ),
                               Text(
-                                '${_personalization!.liveBand.currentBand?.toStringAsFixed(1) ?? '--'} → ${_personalization!.targetBand.toStringAsFixed(1)}',
+                                () {
+                                  final cur =
+                                      _personalization!.liveBand.currentBand !=
+                                          null
+                                      ? _personalization!.liveBand.currentBand!
+                                            .toStringAsFixed(1)
+                                      : '--';
+                                  final tgt = _personalization!.targetBand
+                                      .toStringAsFixed(1);
+                                  return isIran
+                                      ? '${EdgeNumerals.toPersianDigits(cur)} → ${EdgeNumerals.toPersianDigits(tgt)}'
+                                      : '$cur → $tgt';
+                                }(),
                                 style: typography.cardScore.copyWith(
                                   color: colors.primary,
                                 ),
                               ),
                             ],
                           ),
-                          if (_personalization!.weaknesses.isNotEmpty) ...<Widget>[
+                          if (_personalization!
+                              .weaknesses
+                              .isNotEmpty) ...<Widget>[
                             const SizedBox(height: SpacingTokens.sm),
                             Wrap(
                               spacing: SpacingTokens.xs,
@@ -270,9 +346,7 @@ class _DiagnosticResultsScreenState
                                   .take(2)
                                   .map(
                                     (w) => MzChip(
-                                      label: Localizations.localeOf(context)
-                                                  .languageCode ==
-                                              'fa'
+                                      label: isIran
                                           ? w.displayLabelFa
                                           : w.displayLabelEn,
                                     ),
@@ -280,21 +354,28 @@ class _DiagnosticResultsScreenState
                                   .toList(growable: false),
                             ),
                           ],
-                          if (_personalization!.milestones.isNotEmpty) ...<Widget>[
+                          if (_personalization!
+                              .milestones
+                              .isNotEmpty) ...<Widget>[
                             const SizedBox(height: SpacingTokens.sm),
                             Wrap(
                               spacing: SpacingTokens.xs,
                               children: _personalization!.milestones
                                   .map(
                                     (m) => MzChip(
-                                      label: 'M${m.index}',
+                                      label: EditionCopy.milestoneChipLabel(
+                                        m.index,
+                                        isIran: isIran,
+                                        completed: m.status == 'completed',
+                                      ),
                                       isSelected: m.status == 'active',
                                     ),
                                   )
                                   .toList(growable: false),
                             ),
                           ],
-                          if (_personalization!.currentStep != null) ...<Widget>[
+                          if (_personalization!.currentStep !=
+                              null) ...<Widget>[
                             const SizedBox(height: SpacingTokens.sm),
                             PrimaryButton(
                               label:
@@ -302,8 +383,12 @@ class _DiagnosticResultsScreenState
                                     context,
                                     AppLocalizations,
                                   )?.diagStartStepCta ??
-                                  'Start Step 1 on Your Roadmap',
-                              glyph: LucideGlyph.arrowRight,
+                                  (isIran
+                                      ? 'شروع گام اول در نقشه راه'
+                                      : 'Start Step 1 on Your Roadmap'),
+                              glyph: isIran
+                                  ? LucideGlyph.arrowLeft
+                                  : LucideGlyph.arrowRight,
                               onPressed: () => context.go(
                                 resolveFlutterRoadmapStepRoute(
                                   _personalization!.currentStep!,
@@ -331,18 +416,20 @@ class _DiagnosticResultsScreenState
                             const SizedBox(width: SpacingTokens.sm),
                             Expanded(
                               child: Text(
-                                snapshot.recommendedActionTitle,
+                                localizedAction?.title ??
+                                    snapshot.recommendedActionTitle,
                                 style: typography.cardTitle,
                               ),
                             ),
                           ],
                         ),
-                        if (snapshot
-                            .recommendedActionDescription
+                        if ((localizedAction?.description ??
+                                snapshot.recommendedActionDescription)
                             .isNotEmpty) ...<Widget>[
                           const SizedBox(height: SpacingTokens.xs),
                           Text(
-                            snapshot.recommendedActionDescription,
+                            localizedAction?.description ??
+                                snapshot.recommendedActionDescription,
                             style: typography.secondary.copyWith(
                               color: colors.textSecondary,
                             ),
@@ -353,7 +440,10 @@ class _DiagnosticResultsScreenState
                   ),
                   const SizedBox(height: SpacingTokens.lg),
 
-                  Text('Skill Breakdown', style: typography.sectionHeading),
+                  Text(
+                    isIran ? 'تحلیل مهارت‌ها' : 'Skill Breakdown',
+                    style: typography.sectionHeading,
+                  ),
                   const SizedBox(height: SpacingTokens.sm),
 
                   for (final outcome in <DiagnosticSkillOutcomeSnapshot>[
@@ -364,11 +454,13 @@ class _DiagnosticResultsScreenState
                   ]) ...<Widget>[
                     _SkillOutcomeCard(
                       outcome: outcome,
+                      isIran: isIran,
                       onRetakeSkill: () async {
                         final router = GoRouter.of(context);
                         final id = await notifier.startSingleSkillRetake(
                           outcome.skill,
                         );
+                        if (!mounted) return;
                         if (id != null) {
                           router.go(AppRoutes.buildDiagnosticSession(id));
                         }
@@ -379,16 +471,24 @@ class _DiagnosticResultsScreenState
 
                   TextButton(
                     onPressed: () {
+                      final fallbackScales = isIran
+                          ? _defaultExamScalesFa
+                          : _defaultExamScales;
                       unawaited(
                         showDiagnosticExamScaleSheet(
                           context,
-                          examScales:
-                              state.bank?.examScaleInfo ?? _defaultExamScales,
+                          examScales: isIran
+                              ? fallbackScales
+                              : (state.bank?.examScaleInfo ?? fallbackScales),
                           activeExamId: snapshot.examId,
                         ),
                       );
                     },
-                    child: const Text("About Your Exam's Scores"),
+                    child: Text(
+                      isIran
+                          ? 'درباره مقیاس نمرات آزمون‌ها'
+                          : "About Your Exam's Scores",
+                    ),
                   ),
                 ],
               ),
@@ -408,10 +508,12 @@ class _DiagnosticResultsScreenState
 class _LoadingSnapshotCard extends StatelessWidget {
   const new({
     required this.diagId,
+    required this.isIran,
     required this.onRetry,
   });
 
   final String diagId;
+  final bool isIran;
   final VoidCallback onRetry;
 
   @override
@@ -426,25 +528,27 @@ class _LoadingSnapshotCard extends StatelessWidget {
           const Center(child: CircularProgressIndicator()),
           const SizedBox(height: SpacingTokens.md),
           Text(
-            'Loading your starting check...',
+            isIran
+                ? 'در حال بارگذاری نتیجه ارزیابی اولیه...'
+                : 'Loading your starting check...',
             textAlign: TextAlign.center,
             style: typography.cardTitle,
           ),
           const SizedBox(height: SpacingTokens.xs),
           Text(
-            'Session ID: $diagId',
+            isIran ? 'شناسه جلسه: $diagId' : 'Session ID: $diagId',
             textAlign: TextAlign.center,
             style: typography.caption.copyWith(color: colors.textSecondary),
           ),
           const SizedBox(height: SpacingTokens.md),
           SecondaryButton(
-            label: 'Refresh status',
+            label: isIran ? 'به‌روزرسانی وضعیت' : 'Refresh status',
             onPressed: onRetry,
           ),
           const SizedBox(height: SpacingTokens.sm),
           TextButton(
             onPressed: () => context.go(AppRoutes.home),
-            child: const Text('Back to Home'),
+            child: Text(isIran ? 'بازگشت به خانه' : 'Back to Home'),
           ),
         ],
       ),
@@ -455,10 +559,12 @@ class _LoadingSnapshotCard extends StatelessWidget {
 class _SkillOutcomeCard extends StatelessWidget {
   const new({
     required this.outcome,
+    required this.isIran,
     required this.onRetakeSkill,
   });
 
   final DiagnosticSkillOutcomeSnapshot outcome;
+  final bool isIran;
   final VoidCallback onRetakeSkill;
 
   @override
@@ -466,43 +572,45 @@ class _SkillOutcomeCard extends StatelessWidget {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
 
-    final (
-      String title,
-      LucideGlyph glyph,
-      IconWellTint tint,
-    ) = switch (outcome.skill) {
-      'reading' => ('Reading', LucideGlyph.bookOpen, IconWellTint.mint),
-      'listening' => ('Listening', LucideGlyph.headphones, IconWellTint.blue),
-      'writing' => ('Writing', LucideGlyph.pencil, IconWellTint.violet),
-      _ => ('Speaking', LucideGlyph.mic, IconWellTint.blue),
+    final (LucideGlyph glyph, IconWellTint tint) = switch (outcome.skill) {
+      'reading' => (LucideGlyph.bookOpen, IconWellTint.mint),
+      'listening' => (LucideGlyph.headphones, IconWellTint.blue),
+      'writing' => (LucideGlyph.pencil, IconWellTint.violet),
+      _ => (LucideGlyph.mic, IconWellTint.blue),
     };
+    final title = EditionCopy.skillName(outcome.skill, isIran: isIran);
 
     final (
       String statusLabel,
       MzChipVariant chipVariant,
     ) = switch (outcome.status) {
       DiagnosticSkillStatus.provisional => (
-        outcome.suggestedPracticeLevel ?? 'Provisional placement',
+        outcome.suggestedPracticeLevel != null
+            ? EditionCopy.localizeDiagnosticLevel(
+                outcome.suggestedPracticeLevel!,
+                isIran: isIran,
+              )
+            : (isIran ? 'تعیین سطح اولیه' : 'Provisional placement'),
         MzChipVariant.positive,
       ),
       DiagnosticSkillStatus.pending => (
-        'Checking your response...',
+        isIran ? 'در حال بررسی پاسخ شما...' : 'Checking your response...',
         MzChipVariant.target,
       ),
       DiagnosticSkillStatus.insufficientEvidence => (
-        'Not enough evidence yet',
+        isIran ? 'شواهد کافی وجود ندارد' : 'Not enough evidence yet',
         MzChipVariant.neutral,
       ),
       DiagnosticSkillStatus.unscorable => (
-        'Audio/response unclear',
+        isIran ? 'صدا یا پاسخ نامشخص بود' : 'Audio/response unclear',
         MzChipVariant.neutral,
       ),
       DiagnosticSkillStatus.failed => (
-        'Evaluation unavailable',
+        isIran ? 'ارزیابی در دسترس نیست' : 'Evaluation unavailable',
         MzChipVariant.neutral,
       ),
       DiagnosticSkillStatus.skipped => (
-        'Skipped',
+        isIran ? 'رد شده' : 'Skipped',
         MzChipVariant.neutral,
       ),
     };
@@ -519,8 +627,8 @@ class _SkillOutcomeCard extends StatelessWidget {
               const SizedBox(width: SpacingTokens.sm),
               Expanded(child: Text(title, style: typography.cardTitle)),
               if (outcome.quotaRefunded)
-                const MzChip(
-                  label: 'Credit refunded',
+                MzChip(
+                  label: isIran ? 'اعتبار بازگشت خورد' : 'Credit refunded',
                   variant: MzChipVariant.positive,
                 ),
             ],
@@ -532,8 +640,13 @@ class _SkillOutcomeCard extends StatelessWidget {
             const SizedBox(height: SpacingTokens.xs),
             Text(
               [
-                if (outcome.reducedSampling) 'Limited sample collected',
-                if (outcome.hasContradictoryEvidence)
+                if (outcome.reducedSampling && isIran)
+                  'نمونه محدود جمع‌آوری شد'
+                else if (outcome.reducedSampling)
+                  'Limited sample collected',
+                if (outcome.hasContradictoryEvidence && isIran)
+                  'عملکرد ترکیبی در پرسش‌ها مشاهده شد'
+                else if (outcome.hasContradictoryEvidence)
                   'Mixed item performance observed',
               ].join(' · '),
               style: typography.caption.copyWith(color: colors.textSecondary),
@@ -547,7 +660,7 @@ class _SkillOutcomeCard extends StatelessWidget {
                   bottom: SpacingTokens.xs / 2,
                 ),
                 child: Text(
-                  '• $obs',
+                  '• ${EditionCopy.localizeDiagnosticObservation(obs, isIran: isIran)}',
                   style: typography.secondary.copyWith(
                     color: colors.textSecondary,
                   ),
@@ -560,7 +673,9 @@ class _SkillOutcomeCard extends StatelessWidget {
               alignment: AlignmentDirectional.centerStart,
               child: TextButton(
                 onPressed: onRetakeSkill,
-                child: const Text('Check this skill again'),
+                child: Text(
+                  isIran ? 'بررسی مجدد این مهارت' : 'Check this skill again',
+                ),
               ),
             ),
           ],

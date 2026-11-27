@@ -89,7 +89,7 @@ final class AuthSessionService {
     }
 
     final inflight = _inflightAuth;
-    if (inflight != null && !forceRefresh) {
+    if (inflight != null) {
       return await inflight;
     }
 

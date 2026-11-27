@@ -287,7 +287,10 @@ class _GoalSetupStep extends ConsumerWidget {
             _ => 'Foundation Builder (B1+)',
           };
     if (track == ExamTrack.toeflIbt) {
-      return '$cefr · ~${ExamSpec.estimateToeflLegacy120(score)}/120';
+      final legacy = ExamSpec.estimateToeflLegacy120(score);
+      return isIran
+          ? '$cefr · ~${EdgeNumerals.toPersianDigits('$legacy/۱۲۰')}'
+          : '$cefr · ~$legacy/120';
     }
     return cefr;
   }

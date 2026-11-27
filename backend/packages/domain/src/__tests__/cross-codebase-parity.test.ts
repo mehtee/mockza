@@ -894,6 +894,12 @@ describe('Cross-Codebase Golden Parity Suite (@mockza/domain <-> shared-fixtures
         expectedOk: boolean;
         expectedCode: string | null;
       }>;
+      clozeCases: Array<{
+        id: string;
+        input: string;
+        expected: string;
+        matches: boolean;
+      }>;
     }>('drop_bounds_vectors.json');
 
     for (const v of graphFixtures.masteryUpdates) {

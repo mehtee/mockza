@@ -12,8 +12,9 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { RegisterGearLadderCard } from '@/components/exam-kit';
 import { MzCard } from '@/components/ui';
+import { localizeAudioError, localizeWorkerStage } from '@/components/bidi/diagnostic-labels';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
-import { toPersianDigits } from '@/edition/bidi/numerals';
+import { formatChromeNumber } from '@/edition/bidi/numerals';
 import type { ActiveRecordingHandle } from '@/gateways/audio.gateway';
 import type { QuotaStatusSnapshot } from '@/gateways/evaluation.gateway';
 import type {
@@ -101,13 +102,13 @@ export function RegisterShifterScreen({ runId: _runId }: RegisterShifterScreenPr
   }, [deps]);
 
   const pollUntilComplete = async (jobId: string) => {
-    setProcessingStage(isRtl ? 'در حال تبدیل صدا و تحلیل لحن...' : 'Analyzing phrasing across 3 levels...');
+    setProcessingStage(t('shifterStageShifting'));
     const outcome = await pollAdvancedJobUntilDone<RegisterShifterResult>({
       pollFn: () => deps.linguistic.pollAdvancedJob<RegisterShifterResult>(jobId),
       timeoutMs: 90_000,
       onStage: (stage) => {
         if (!mountedRef.current) return;
-        setProcessingStage(stage);
+        setProcessingStage(localizeWorkerStage(stage, deps.edition));
       },
       isCancelled: () => !mountedRef.current,
     });
@@ -134,7 +135,7 @@ export function RegisterShifterScreen({ runId: _runId }: RegisterShifterScreenPr
       return;
     }
     if (outcome.kind === 'failed') {
-      setError(isRtl ? 'پردازش تغییر لحن با خطا مواجه شد.' : 'Register Shift job failed.');
+      setError(t('shifterStageFailed'));
     }
   };
 
@@ -170,7 +171,7 @@ export function RegisterShifterScreen({ runId: _runId }: RegisterShifterScreenPr
         onLevel: () => {},
       });
       if (!startRes.ok) {
-        setError(startRes.error.message);
+        setError(localizeAudioError(startRes.error, deps.edition));
         return;
       }
       handleRef.current = startRes.value;
@@ -185,7 +186,7 @@ export function RegisterShifterScreen({ runId: _runId }: RegisterShifterScreenPr
 
     const clipRes = await active.stop();
     if (!clipRes.ok) {
-      setError(clipRes.error.message);
+      setError(localizeAudioError(clipRes.error, deps.edition));
       return;
     }
 
@@ -236,7 +237,7 @@ export function RegisterShifterScreen({ runId: _runId }: RegisterShifterScreenPr
         onLevel: () => {},
       });
       if (!startRes.ok) {
-        setError(startRes.error.message);
+        setError(localizeAudioError(startRes.error, deps.edition));
         return;
       }
       repeatHandleRef.current = startRes.value;
@@ -251,7 +252,7 @@ export function RegisterShifterScreen({ runId: _runId }: RegisterShifterScreenPr
 
     const clipRes = await active.stop();
     if (!clipRes.ok) {
-      setError(clipRes.error.message);
+      setError(localizeAudioError(clipRes.error, deps.edition));
       return;
     }
 
@@ -290,7 +291,7 @@ export function RegisterShifterScreen({ runId: _runId }: RegisterShifterScreenPr
             <span className="rounded-[var(--mz-radius-pill)] border border-border-subtle bg-surface px-3 py-1 text-xs font-semibold text-primary">
               {quota.advancedQuota.isPro
                 ? isRtl
-                  ? `${quota.advancedQuota.shifterRemainingToday} ارتقا باقی‌مانده امروز`
+                  ? `${formatChromeNumber(quota.advancedQuota.shifterRemainingToday, deps.edition)} ارتقا باقی‌مانده امروز`
                   : `${quota.advancedQuota.shifterRemainingToday} upgrades left today`
                 : quota.advancedQuota.freeSampleUsed
                   ? isRtl
@@ -400,18 +401,30 @@ export function RegisterShifterScreen({ runId: _runId }: RegisterShifterScreenPr
               rows={3}
               data-testid="shifter-text-input"
               value={rawText}
-              onChange={(e) => setRawText(e.target.value)}
+              onChange={(e) => {
+                setRawText(e.target.value);
+                if (error) setError(null);
+              }}
               placeholder="Write a casual English sentence to upgrade across Everyday, Workplace, and Band 8+..."
               className="w-full rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-surface p-3 text-sm text-text-primary focus:border-primary focus:outline-none"
             />
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-[11px] text-text-secondary">
-                {rawText.trim().length}/600
-              </span>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-text-secondary">
+                <span>
+                  {formatChromeNumber(rawText.trim().length, deps.edition)}/
+                  {formatChromeNumber(600, deps.edition)}
+                </span>
+                <span>·</span>
+                <span>
+                  {t('shifterMinCharsHint', {
+                    min: formatChromeNumber(15, deps.edition),
+                  })}
+                </span>
+              </div>
               <button
                 type="button"
                 data-testid="shifter-submit-text-btn"
-                disabled={processing || rawText.trim().length < 15}
+                disabled={processing}
                 onClick={() => void handleShiftText()}
                 className="inline-flex h-10 items-center gap-2 rounded-[var(--mz-radius-compact)] bg-primary px-4 text-sm font-semibold text-on-primary disabled:opacity-50"
               >
@@ -468,6 +481,7 @@ export function RegisterShifterScreen({ runId: _runId }: RegisterShifterScreenPr
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
+                  title={t('listeningListen1xTitle')}
                   onClick={() => speakEnglishPhrase(result.repeatAloudTarget.targetSentence, { rate: 1.0 })}
                   className="inline-flex min-h-10 items-center gap-1 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-3 text-xs font-semibold text-text-primary hover:border-primary"
                 >
@@ -476,6 +490,7 @@ export function RegisterShifterScreen({ runId: _runId }: RegisterShifterScreenPr
                 </button>
                 <button
                   type="button"
+                  title={t('listeningListenSlowTitle')}
                   onClick={() => speakEnglishPhrase(result.repeatAloudTarget.targetSentence, { rate: 0.8 })}
                   className="inline-flex min-h-10 items-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-3 text-xs font-semibold text-text-secondary hover:border-primary hover:text-text-primary"
                 >
@@ -515,7 +530,7 @@ export function RegisterShifterScreen({ runId: _runId }: RegisterShifterScreenPr
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
                   {isRtl
-                    ? `روانی گفتار: ${toPersianDigits(repeatResult.fluencyScore1To5)}/۵ · عبارات ثبت‌شده در گراف: ${toPersianDigits(repeatResult.matchedTargets.length)}`
+                    ? `روانی گفتار: ${formatChromeNumber(repeatResult.fluencyScore1To5, deps.edition)}/۵ · عبارات ثبت‌شده در گراف: ${formatChromeNumber(repeatResult.matchedTargets.length, deps.edition)}`
                     : `Fluency ${repeatResult.fluencyScore1To5}/5 · ${repeatResult.matchedTargets.length} target(s) logged to Graph`}
                 </span>
               ) : null}

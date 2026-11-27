@@ -4,8 +4,8 @@ import {
   type AiUsageRecord,
   bufferAudioStream,
   EvaluationModelError,
-  ingestDroppedContentGraph,
   type IngestDroppedContentOptions,
+  ingestDroppedContentGraph,
   prepareAudioForModel,
   validateAndStripImageForModel,
 } from '@mockza/ai';
@@ -18,11 +18,7 @@ import {
   recordUserActivityLedger,
   refundQuotaAtomic,
 } from '@mockza/db';
-import {
-  safeFetchBinaryUrl,
-  safeFetchReadableUrl,
-  SafeUrlFetchError,
-} from '@mockza/storage';
+import { SafeUrlFetchError, safeFetchBinaryUrl, safeFetchReadableUrl } from '@mockza/storage';
 import { and, eq, isNull, lt, notInArray, or } from 'drizzle-orm';
 import { JOB_LEASE_DURATION_MS, startEvaluationLeaseRenewal } from './evaluation-lease.js';
 import type { WorkerRetryContext } from './grade-writing.js';
@@ -77,7 +73,7 @@ export async function handleDropIngestJob(
       .update(evaluationJobs)
       .set({
         status: 'evaluating',
-        stageDetail: 'Extracting key expressions and synthesizing 2-minute micro-drill',
+        stageDetail: 'stage.drop_extracting',
         claimToken,
         claimExpiresAt,
         attemptsCount: attemptNumber,
@@ -137,7 +133,7 @@ export async function handleDropIngestJob(
       if (db && payload.jobId) {
         await db
           .update(evaluationJobs)
-          .set({ stageDetail: 'Reading uploaded image(s)', updatedAt: new Date() })
+          .set({ stageDetail: 'stage.drop_reading_images', updatedAt: new Date() })
           .where(eq(evaluationJobs.jobId, payload.jobId))
           .catch(() => {});
       }
@@ -145,14 +141,9 @@ export async function handleDropIngestJob(
       imageDataUris = [];
       for (const objKey of req.imageObjectKeys ?? []) {
         if (s3Client && bucket) {
-          const obj = await s3Client.send(
-            new GetObjectCommand({ Bucket: bucket, Key: objKey }),
-          );
+          const obj = await s3Client.send(new GetObjectCommand({ Bucket: bucket, Key: objKey }));
           if (obj.Body) {
-            const buf = await bufferAudioStream(
-              obj.Body as NodeJS.ReadableStream,
-              5 * 1024 * 1024,
-            );
+            const buf = await bufferAudioStream(obj.Body as NodeJS.ReadableStream, 5 * 1024 * 1024);
             const stripped = validateAndStripImageForModel(buf);
             imageDataUris.push(stripped.dataUri);
             mediaKeys.push(objKey);
@@ -191,11 +182,12 @@ export async function handleDropIngestJob(
           maxBytes: 5 * 1024 * 1024,
         });
         const ctLower = fetchedAudio.contentType.toLowerCase();
-        const extHint = ctLower.includes('mpeg') || req.audioUrl.endsWith('.mp3')
-          ? 'drop.mp3'
-          : ctLower.includes('wav') || req.audioUrl.endsWith('.wav')
-            ? 'drop.wav'
-            : 'drop.m4a';
+        const extHint =
+          ctLower.includes('mpeg') || req.audioUrl.endsWith('.mp3')
+            ? 'drop.mp3'
+            : ctLower.includes('wav') || req.audioUrl.endsWith('.wav')
+              ? 'drop.wav'
+              : 'drop.m4a';
         const prepared = await prepareAudioForModel(fetchedAudio.body, extHint, {
           maxDurationSeconds: 180,
         });
@@ -208,7 +200,7 @@ export async function handleDropIngestJob(
     if (db && payload.jobId) {
       await db
         .update(evaluationJobs)
-        .set({ stageDetail: 'Picking high-value expressions & building 2-min drill', updatedAt: new Date() })
+        .set({ stageDetail: 'stage.drop_building_drill', updatedAt: new Date() })
         .where(eq(evaluationJobs.jobId, payload.jobId))
         .catch(() => {});
     }
@@ -297,7 +289,7 @@ export async function handleDropIngestJob(
           .update(evaluationJobs)
           .set({
             status: 'completed',
-            stageDetail: 'Micro-drill ready',
+            stageDetail: 'stage.drop_ready',
             resultJson: responseDto,
             modelId:
               req.inputKind === 'audio' ? 'google/gemini-3.1-flash-lite' : 'cloudflare/clairic',
@@ -380,17 +372,14 @@ export async function handleDropIngestJob(
           .update(evaluationJobs)
           .set({
             status: 'repairing',
-            stageDetail: `Retrying Drop extraction (${attemptNumber}/${maxAttempts})`,
+            stageDetail: `stage.drop_retrying:${attemptNumber}/${maxAttempts}`,
             attemptsCount: attemptNumber,
             claimToken: null,
             claimExpiresAt: null,
             updatedAt: new Date(),
           })
           .where(
-            and(
-              eq(evaluationJobs.jobId, payload.jobId),
-              eq(evaluationJobs.claimToken, claimToken),
-            ),
+            and(eq(evaluationJobs.jobId, payload.jobId), eq(evaluationJobs.claimToken, claimToken)),
           );
       } else {
         const errorCode =
@@ -407,7 +396,7 @@ export async function handleDropIngestJob(
             .update(evaluationJobs)
             .set({
               status: 'failed',
-              stageDetail: error instanceof Error ? error.message.slice(0, 200) : 'Drop failed',
+              stageDetail: 'stage.drop_failed',
               errorCode,
               claimToken: null,
               claimExpiresAt: null,

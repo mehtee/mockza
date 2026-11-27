@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
 import 'package:mockza/core/vocab/sm2_scheduler.dart';
 import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/theme/app_colors.dart';
@@ -82,6 +83,7 @@ class VocabFlipCard extends StatelessWidget {
     final colors = AppColors.of(context);
     final shapes = AppShapes.of(context);
     final typography = AppTypography.of(context);
+    final isFa = Localizations.localeOf(context).languageCode == 'fa';
 
     return MzCard(
       onTap: isRevealed ? null : onTapFlip,
@@ -104,7 +106,7 @@ class VocabFlipCard extends StatelessWidget {
                 const SizedBox.shrink(),
               if (onTapSpeaker != null)
                 IconButton(
-                  tooltip: 'Pronunciation',
+                  tooltip: isFa ? 'تلفظ' : 'Pronunciation',
                   onPressed: onTapSpeaker,
                   icon: AppIcon(
                     LucideGlyph.volume2,
@@ -129,7 +131,9 @@ class VocabFlipCard extends StatelessWidget {
                   SpeechPracticeSheet.show(
                     context,
                     targetText: headword,
-                    practiceKind: headword.contains(' ') ? 'collocation' : 'word',
+                    practiceKind: headword.contains(' ')
+                        ? 'collocation'
+                        : 'word',
                     sourceRefType: 'vocab_card',
                     sourceRefId: cardId ?? headword,
                     sourceContext: 'vocab_card',
@@ -258,7 +262,9 @@ class VocabFlipCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: SpacingTokens.xl),
               child: Text(
-                'Tap card to reveal definition',
+                isFa
+                    ? 'برای مشاهده معنی روی کارت بزنید'
+                    : 'Tap card to reveal definition',
                 style: typography.secondary.copyWith(
                   color: colors.textTertiary,
                 ),
@@ -292,7 +298,7 @@ class VocabFlipCard extends StatelessWidget {
             if (synonyms.isNotEmpty) ...<Widget>[
               const SizedBox(height: SpacingTokens.lg),
               Text(
-                'Academic Synonyms',
+                isFa ? 'مترادف‌های آکادمیک' : 'Academic Synonyms',
                 style: typography.caption.copyWith(
                   color: colors.textSecondary,
                   fontWeight: FontWeight.w600,
@@ -316,32 +322,44 @@ class VocabFlipCard extends StatelessWidget {
             Row(
               children: <Widget>[
                 _Sm2Button(
-                  label: 'Again',
-                  intervalText: previewIntervals?[ReviewQuality.again] ?? '1m',
+                  label: isFa ? 'دوباره' : 'Again',
+                  intervalText: _formatInterval(
+                    previewIntervals?[ReviewQuality.again] ?? '1m',
+                    isFa: isFa,
+                  ),
                   quality: ReviewQuality.again,
                   color: colors.error,
                   onPressed: () => onSelectRating(ReviewQuality.again),
                 ),
                 const SizedBox(width: SpacingTokens.xs + 2),
                 _Sm2Button(
-                  label: 'Hard',
-                  intervalText: previewIntervals?[ReviewQuality.hard] ?? '1d',
+                  label: isFa ? 'سخت' : 'Hard',
+                  intervalText: _formatInterval(
+                    previewIntervals?[ReviewQuality.hard] ?? '1d',
+                    isFa: isFa,
+                  ),
                   quality: ReviewQuality.hard,
                   color: colors.warning,
                   onPressed: () => onSelectRating(ReviewQuality.hard),
                 ),
                 const SizedBox(width: SpacingTokens.xs + 2),
                 _Sm2Button(
-                  label: 'Good',
-                  intervalText: previewIntervals?[ReviewQuality.good] ?? '4d',
+                  label: isFa ? 'خوب' : 'Good',
+                  intervalText: _formatInterval(
+                    previewIntervals?[ReviewQuality.good] ?? '4d',
+                    isFa: isFa,
+                  ),
                   quality: ReviewQuality.good,
                   color: colors.success,
                   onPressed: () => onSelectRating(ReviewQuality.good),
                 ),
                 const SizedBox(width: SpacingTokens.xs + 2),
                 _Sm2Button(
-                  label: 'Easy',
-                  intervalText: previewIntervals?[ReviewQuality.easy] ?? '7d',
+                  label: isFa ? 'آسان' : 'Easy',
+                  intervalText: _formatInterval(
+                    previewIntervals?[ReviewQuality.easy] ?? '7d',
+                    isFa: isFa,
+                  ),
                   quality: ReviewQuality.easy,
                   color: colors.speakingAccent,
                   onPressed: () => onSelectRating(ReviewQuality.easy),
@@ -352,6 +370,21 @@ class VocabFlipCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _formatInterval(String raw, {required bool isFa}) {
+    if (!isFa) return raw;
+    var text = raw;
+    if (text.endsWith('mo')) {
+      text = '${text.substring(0, text.length - 2)} ماه';
+    } else if (text.endsWith('m')) {
+      text = '${text.substring(0, text.length - 1)} دقیقه';
+    } else if (text.endsWith('d')) {
+      text = '${text.substring(0, text.length - 1)} روز';
+    } else if (text.endsWith('y')) {
+      text = '${text.substring(0, text.length - 1)} سال';
+    }
+    return EdgeNumerals.toPersianDigits(text);
   }
 }
 

@@ -1,7 +1,6 @@
 import {
   computeDetSubscores,
   estimateToeflLegacy120,
-  formatExamScoreWithUnit,
   type SupportedExamId,
 } from '@mockza/domain';
 import { Link, useNavigate } from '@tanstack/react-router';
@@ -12,7 +11,9 @@ import { InlineListenButton } from '@/components/speech/InlineListenButton';
 import { SpeechPracticeDrawer } from '@/components/speech/SpeechPracticeDrawer';
 import { PlanImpactCard } from '@/components/personalization/PlanImpactCard';
 import { MzBanner, MzButton, MzCard } from '@/components/ui';
+import { formatLocalizedExamScoreWithUnit } from '@/components/bidi/topic-labels';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
+import { formatChromeNumber } from '@/edition/bidi/numerals';
 import type { CompletedAttemptRecord, EvaluationOutputDto } from '@/gateways/storage.gateway';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
@@ -77,7 +78,7 @@ function buildInlineEditSlices(
 export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
   const deps = useDeps();
   const navigate = useNavigate();
-  const t = createTranslator(deps.edition);
+  const t = useMemo(() => createTranslator(deps.edition), [deps.edition]);
 
   const [attempt, setAttempt] = useState<CompletedAttemptRecord | null>(null);
   const [evaluation, setEvaluation] = useState<EvaluationOutputDto | null>(null);
@@ -137,14 +138,14 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
       if (pollRes.ok && pollRes.value.status === 'completed' && pollRes.value.result) {
         setEvaluation(pollRes.value.result);
       } else {
-        setErrorMsg('Evaluation report not found locally.');
+        setErrorMsg(t('evalResultNotFound'));
       }
     }
     void hydrate();
     return () => {
       mounted = false;
     };
-  }, [deps.attemptStore, deps.evaluation, id]);
+  }, [deps.attemptStore, deps.evaluation, id, t]);
 
   const inlineEdits = useMemo(() => evaluation?.inlineEdits ?? [], [evaluation?.inlineEdits]);
   const textSlices = useMemo(
@@ -208,7 +209,7 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
   if (!evaluation) {
     return (
       <div data-testid="evaluation-result-screen" className="p-6 text-sm text-text-secondary">
-        {errorMsg ? <MzBanner tone="danger">{errorMsg}</MzBanner> : 'Loading AI evaluation report...'}
+        {errorMsg ? <MzBanner tone="danger">{errorMsg}</MzBanner> : t('evalResultLoading')}
       </div>
     );
   }
@@ -226,14 +227,12 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
           <div>
             <p className="text-xs font-semibold text-text-secondary">{t('evalResultTitle')}</p>
             <div className="mt-1 flex flex-wrap items-baseline gap-3">
-              <LtrExamBoundary>
-                <span
-                  data-testid="eval-result-overall-band"
-                  className="font-mono-exam text-3xl font-bold text-primary"
-                >
-                  {formatExamScoreWithUnit(evaluation.overallBand, examId)}
-                </span>
-              </LtrExamBoundary>
+              <span
+                data-testid="eval-result-overall-band"
+                className={`${deps.edition === 'glb' ? 'font-mono-exam ' : ''}text-3xl font-bold text-primary`}
+              >
+                {formatLocalizedExamScoreWithUnit(evaluation.overallBand, examId, deps.edition)}
+              </span>
               {examId === 'toefl_ibt' ? (
                 <LtrExamBoundary>
                   <span className="font-mono-exam text-xs font-semibold text-focus">
@@ -248,10 +247,18 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
 
             {detSubscores ? (
               <div className="mt-2 flex flex-wrap gap-3 text-xs text-text-secondary">
-                <span>Literacy: {detSubscores.literacy}</span>
-                <span>Comprehension: {detSubscores.comprehension}</span>
-                <span>Conversation: {detSubscores.conversation}</span>
-                <span>Production: {detSubscores.production}</span>
+                <span>
+                  {t('detSubscoreLiteracy')}: {formatChromeNumber(detSubscores.literacy ?? '—', deps.edition)}
+                </span>
+                <span>
+                  {t('detSubscoreComprehension')}: {formatChromeNumber(detSubscores.comprehension ?? '—', deps.edition)}
+                </span>
+                <span>
+                  {t('detSubscoreConversation')}: {formatChromeNumber(detSubscores.conversation ?? '—', deps.edition)}
+                </span>
+                <span>
+                  {t('detSubscoreProduction')}: {formatChromeNumber(detSubscores.production ?? '—', deps.edition)}
+                </span>
               </div>
             ) : null}
           </div>
@@ -397,7 +404,7 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-bold text-text-primary">{c.label}</span>
                         <span className="font-mono-exam font-bold text-primary">
-                          {formatExamScoreWithUnit(c.band, examId)}
+                          {formatLocalizedExamScoreWithUnit(c.band, examId, deps.edition)}
                         </span>
                       </div>
                       <p className="mt-1.5 leading-relaxed text-text-secondary">{c.feedbackNote}</p>
@@ -413,7 +420,7 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
                     <Sparkles className="h-4 w-4" aria-hidden="true" />
                     <span>
                       {t('evalResultModelRewriteTitle', {
-                        delta: evaluation.modelRewrite.targetBandDelta,
+                        delta: formatChromeNumber(evaluation.modelRewrite.targetBandDelta, deps.edition),
                       })}
                     </span>
                   </div>
@@ -554,7 +561,12 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
                         </p>
                         <p className="text-text-secondary">
                           {evaluation.recommendedDrill.weakestCriterionCode} ·{' '}
-                          {evaluation.recommendedDrill.durationMinutes} min
+                          {t('unitMinutesShort', {
+                            minutes: formatChromeNumber(
+                              evaluation.recommendedDrill.durationMinutes,
+                              deps.edition,
+                            ),
+                          })}
                         </p>
                       </div>
                     </div>
@@ -586,7 +598,7 @@ export function EvaluationResultScreen({ id }: EvaluationResultScreenProps) {
                           <p className="mt-0.5 text-text-secondary">
                             {weakest
                               ? isIrn
-                                ? `پایین‌ترین معیار شما: ${weakest.label} (${weakest.band}). با مربی ۱۰ دقیقه‌ای یا ارتقای جملات دقیقاً همین بخش را تقویت کنید.`
+                                ? `پایین‌ترین معیار شما: ${weakest.label} (${formatChromeNumber(weakest.band, deps.edition)}). با مربی ۱۰ دقیقه‌ای یا ارتقای جملات دقیقاً همین بخش را تقویت کنید.`
                                 : `Lowest area: ${weakest.label} (${weakest.band}). Lock in stronger phrasing in 10 minutes.`
                               : isIrn
                                 ? 'نقاط ضعف این پاسخ به بخش نقاط ضعف مربی هوشمند اضافه شد.'

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:mockza/core/advanced/linguistic_graph_math.dart';
 import 'package:mockza/core/diagnostic/diagnostic_models.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
 import 'package:mockza/core/personalization/live_band_engine.dart';
 import 'package:mockza/core/personalization/topic_taxonomy.dart';
 import 'package:mockza/core/personalization/topic_weakness_rotator.dart';
@@ -418,7 +419,7 @@ abstract final class RoadmapGenerator {
         weaknessKey: null,
         phaseTag: AdaptationPhase.ignition,
         difficultyCefr: currentCefr,
-        titleEn: 'Vocab Wave 1: 15 ${primaryFav.labelEn} & Core Words',
+        titleEn: 'Vocab Wave 1: 15 ${primaryFav.labelEn} Core Words',
         titleFa: 'موج اول واژگان: ۱۵ واژه کلیدی (${primaryFav.labelFa})',
         reasonEn:
             'Curated around ${primaryFav.labelEn} at your ${currentCefr.name.toUpperCase()} level instead of 320 words at once.',
@@ -853,8 +854,10 @@ abstract final class RoadmapGenerator {
         key: 'full_mock_readiness',
         titleEn: 'Full-Exam Stamina & Target Lock',
         titleFa: 'شبیه‌سازی کامل و تثبیت نمره هدف',
-        goalEn: 'Lock target $targetBand with full timed endurance',
-        goalFa: 'آمادگی کامل برای کسب نمره هدف $targetBand',
+        goalEn:
+            'Lock target ${track.formatScore(targetBand)} with full timed endurance',
+        goalFa:
+            'آمادگی کامل برای کسب نمره هدف ${EdgeNumerals.toPersianDigits(track.formatScore(targetBand))}',
         phase: AdaptationPhase.examBreadth,
         startDaySerial: todaySerial + stepSpan * 3,
         endDaySerial:
@@ -864,6 +867,12 @@ abstract final class RoadmapGenerator {
       ),
     ];
 
+    final formattedTargetEn = track.formatScoreWithUnit(targetBand);
+    final formattedTargetFa = EdgeNumerals.toPersianDigits(
+      track.formatScore(targetBand),
+    );
+    final daysFa = EdgeNumerals.toPersianDigits(daysRemaining);
+
     return GeneratedRoadmap(
       isSprintMode: isSprintMode,
       currentPhase: activeStep?.phaseTag ?? coachSelection.phase,
@@ -872,10 +881,10 @@ abstract final class RoadmapGenerator {
       activeStep: activeStep,
       recalibrationReasonEn: isSprintMode
           ? 'Sprint Plan ($daysRemaining days left): focusing strictly on highest-impact steps.'
-          : 'Plan calibrated around ${primaryFav.labelEn} toward Band $targetBand.',
+          : 'Plan calibrated around ${primaryFav.labelEn} toward $formattedTargetEn.',
       recalibrationReasonFa: isSprintMode
-          ? 'برنامه فشرده ($daysRemaining روز تا آزمون): تمرکز روی بیشترین رشد نمره.'
-          : 'نقشه راه بر اساس علاقه «${primaryFav.labelFa}» و هدف $targetBand تنظیم شد.',
+          ? 'برنامه فشرده ($daysFa روز تا آزمون): تمرکز روی بیشترین رشد نمره.'
+          : 'نقشه راه بر اساس علاقه «${primaryFav.labelFa}» و هدف $formattedTargetFa تنظیم شد.',
     );
   }
 }

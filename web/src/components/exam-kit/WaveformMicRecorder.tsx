@@ -1,5 +1,6 @@
 import { Mic, Square, Volume2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { localizeAudioError } from '@/components/bidi/diagnostic-labels';
 import { MzBanner, MzButton } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import { getActiveEditionCode } from '@/edition/edition-config';
@@ -141,7 +142,7 @@ export function WaveformMicRecorder({
 
     const res = await active.stop();
     if (!res.ok) {
-      setErrorMessage(res.error.message);
+      setErrorMessage(localizeAudioError(res.error, edition));
       return;
     }
 
@@ -151,7 +152,7 @@ export function WaveformMicRecorder({
       setPreviewUrl(URL.createObjectURL(res.value.blob));
     }
     onRecordingComplete(res.value);
-  }, [allowPreviewPlayback, onRecordingComplete, previewUrl]);
+  }, [allowPreviewPlayback, edition, onRecordingComplete, previewUrl]);
 
   useEffect(() => {
     if (!isRecording) return;
@@ -189,7 +190,7 @@ export function WaveformMicRecorder({
     });
 
     if (!res.ok) {
-      setErrorMessage(res.error.message);
+      setErrorMessage(localizeAudioError(res.error, edition));
       return;
     }
 
@@ -200,6 +201,7 @@ export function WaveformMicRecorder({
     deps?.audioRecorder,
     deviceId,
     disabled,
+    edition,
     isRecording,
     maxDurationSec,
     onRecordingStart,

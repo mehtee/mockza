@@ -4,7 +4,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/core/localization/edition_copy.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/core/models/evaluation_models.dart';
 import 'package:mockza/features/progress/presentation/progress_providers.dart';
@@ -70,6 +73,7 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
     if (!mounted) return;
     setState(() => _isLoading = true);
 
+    final isIran = ref.read(editionConfigProvider).edition == AppEdition.iran;
     final targetSkill = SkillKind.values.firstWhere(
       (s) => s.name.toLowerCase() == widget.skill.toLowerCase(),
       orElse: () => SkillKind.speaking,
@@ -193,15 +197,35 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
     if (criterionAvgs.isNotEmpty) {
       final sorted = [...criterionAvgs]
         ..sort((a, b) => b.band.compareTo(a.band));
-      strongest =
-          '${sorted.first.label} (${activeTrack.formatScore(sorted.first.band)}): ${feedbackByCriterion[sorted.first.label] ?? 'Highest scoring criterion across recent attempts.'}';
-      weakest =
-          '${sorted.last.label} (${activeTrack.formatScore(sorted.last.band)}): ${feedbackByCriterion[sorted.last.label] ?? 'Focus on this criterion in your next practice test.'}';
+      final topScore = EditionCopy.formatScoreFor(
+        activeTrack,
+        sorted.first.band,
+        isIran: isIran,
+      );
+      final lowScore = EditionCopy.formatScoreFor(
+        activeTrack,
+        sorted.last.band,
+        isIran: isIran,
+      );
+      strongest = isIran
+          ? '${sorted.first.label} ($topScore): ${feedbackByCriterion[sorted.first.label] ?? 'بالاترین معیار در آزمون‌های اخیر.'}'
+          : '${sorted.first.label} ($topScore): ${feedbackByCriterion[sorted.first.label] ?? 'Highest scoring criterion across recent attempts.'}';
+      weakest = isIran
+          ? '${sorted.last.label} ($lowScore): ${feedbackByCriterion[sorted.last.label] ?? 'در تمرین بعدی روی این معیار تمرکز کنید.'}'
+          : '${sorted.last.label} ($lowScore): ${feedbackByCriterion[sorted.last.label] ?? 'Focus on this criterion in your next practice test.'}';
     } else if (totalQuestions > 0) {
       final acc = ((totalCorrect / totalQuestions) * 100).round();
-      strongest =
-          '$totalCorrect of $totalQuestions answers correct overall ($acc% accuracy).';
-      weakest = 'Review missed items and distractor explanations inside recent attempt feedback.';
+      if (isIran) {
+        final correctStr = EdgeNumerals.toPersianDigits('$totalCorrect');
+        final totalStr = EdgeNumerals.toPersianDigits('$totalQuestions');
+        final accStr = EdgeNumerals.toPersianDigits('$acc%');
+        strongest = '$correctStr از $totalStr پاسخ صحیح (دقت $accStr).';
+        weakest = 'پرسش‌های اشتباه و نکات گزینه‌های انحرافی را در بازخورد آزمون‌های اخیر مرور کنید.';
+      } else {
+        strongest =
+            '$totalCorrect of $totalQuestions answers correct overall ($acc% accuracy).';
+        weakest = 'Review missed items and distractor explanations inside recent attempt feedback.';
+      }
     }
 
     if (!mounted) return;
@@ -227,15 +251,19 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
     final profile = ref.watch(progressProfileProvider).asData?.value;
     final activeTrack = ExamTrack.fromId(profile?.examId ?? 'ielts_academic');
     final targetBand = profile?.targetBand ?? activeTrack.targetScoreDefault;
-    final skillName = _formattedSkillName(widget.skill);
+    final isIran = ref.watch(editionConfigProvider).edition == AppEdition.iran;
+    final skillName = EditionCopy.skillName(widget.skill, isIran: isIran);
 
     return MzScaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: const AppIcon(LucideGlyph.chevronLeft, size: 22),
+          icon: AppIcon(
+            isIran ? LucideGlyph.chevronRight : LucideGlyph.chevronLeft,
+            size: 22,
+          ),
           onPressed: () => context.safePopOrGo(AppRoutes.progress),
         ),
-        title: Text('$skillName Analytics'),
+        title: Text(isIran ? 'تحلیل $skillName' : '$skillName Analytics'),
       ),
       body: _isLoading
           ? Center(
@@ -244,10 +272,15 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
           : (_attemptCount == 0 || _averageBand == null
                 ? EmptyState(
                     glyph: LucideGlyph.chartIncreasing,
-                    title: 'No scored $skillName sessions yet',
-                    description:
-                        'Complete a $skillName practice session to unlock detailed rubric & trend analytics.',
-                    actionLabel: 'Practice $skillName',
+                    title: isIran
+                        ? 'هنوز آزمون نمره‌دار $skillName ثبت نشده'
+                        : 'No scored $skillName sessions yet',
+                    description: isIran
+                        ? 'یک تمرین یا آزمون $skillName را کامل کنید تا تحلیل جزئیات و روند پیشرفت باز شود.'
+                        : 'Complete a $skillName practice session to unlock detailed rubric & trend analytics.',
+                    actionLabel: isIran
+                        ? 'تمرین $skillName'
+                        : 'Practice $skillName',
                     onTapAction: () => context.push(
                       AppRoutes.buildPracticeSetup(widget.skill),
                     ),
@@ -266,11 +299,12 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
                           averageBand: _averageBand!,
                           targetBand: targetBand,
                           attemptCount: _attemptCount,
+                          isIran: isIran,
                         ),
                         if (_criterionAverages.isNotEmpty) ...<Widget>[
                           const SizedBox(height: SpacingTokens.lg),
                           Text(
-                            'Criterion Averages',
+                            isIran ? 'میانگین معیارها' : 'Criterion Averages',
                             style: typography.cardTitle.copyWith(
                               color: colors.textPrimary,
                             ),
@@ -283,6 +317,7 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
                               c.label,
                               c.band,
                               targetBand,
+                              isIran: isIran,
                             ),
                           ),
                         ] else if (_objectiveAccuracyPct != null) ...<Widget>[
@@ -292,11 +327,17 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: <Widget>[
                                 Text(
-                                  'Overall Objective Accuracy',
+                                  isIran
+                                      ? 'دقت کلی پاسخ‌های تستی'
+                                      : 'Overall Objective Accuracy',
                                   style: typography.cardTitle,
                                 ),
                                 MzChip(
-                                  label: '${_objectiveAccuracyPct!.round()}%',
+                                  label: isIran
+                                      ? EdgeNumerals.toPersianDigits(
+                                          '${_objectiveAccuracyPct!.round()}%',
+                                        )
+                                      : '${_objectiveAccuracyPct!.round()}%',
                                   variant: MzChipVariant.positive,
                                 ),
                               ],
@@ -307,18 +348,20 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
                             _weakestNote != null) ...<Widget>[
                           const SizedBox(height: SpacingTokens.xl),
                           Text(
-                            'Strengths & Focus Areas',
+                            isIran
+                                ? 'نقاط قوت و حوزه‌های تمرکز'
+                                : 'Strengths & Focus Areas',
                             style: typography.cardTitle.copyWith(
                               color: colors.textPrimary,
                             ),
                           ),
                           const SizedBox(height: SpacingTokens.sm),
-                          _buildStrengthsWeaknesses(context),
+                          _buildStrengthsWeaknesses(context, isIran: isIran),
                         ],
                         if (_nextStepRecommendation != null ||
                             _recommendedDrill != null) ...<Widget>[
                           const SizedBox(height: SpacingTokens.xl),
-                          _buildNextStepsCard(context),
+                          _buildNextStepsCard(context, isIran: isIran),
                         ],
                         const SizedBox(height: SpacingTokens.xxl),
                       ],
@@ -334,6 +377,7 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
     required double averageBand,
     required double targetBand,
     required int attemptCount,
+    required bool isIran,
   }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
@@ -341,9 +385,18 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
     final formattedGap = track.usesIntegerDisplay
         ? gap.round().toString()
         : gap.toStringAsFixed(1);
+    final displayGap = isIran
+        ? EdgeNumerals.toPersianDigits(formattedGap)
+        : formattedGap;
+    final unit = EditionCopy.unitLabelFor(track, isIran: isIran);
     final gapLabel = gap >= 0
-        ? 'On target (+$formattedGap)'
-        : 'Gap to Target: $formattedGap ${track.unitLabel}';
+        ? (isIran ? 'در سطح هدف (+$displayGap)' : 'On target (+$displayGap)')
+        : (isIran
+              ? 'فاصله تا هدف: $displayGap $unit'
+              : 'Gap to Target: $displayGap ${track.unitLabel}');
+    final attemptStr = isIran
+        ? EdgeNumerals.toPersianDigits('$attemptCount')
+        : '$attemptCount';
 
     return MzCard(
       variant: MzCardVariant.hero,
@@ -354,17 +407,27 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
             children: <Widget>[
               MzChip(label: skillName, isSelected: true),
               const Spacer(),
-              MzChip(label: 'Target ${track.formatScore(targetBand)}'),
+              MzChip(
+                label: isIran
+                    ? 'هدف ${EditionCopy.formatScoreFor(track, targetBand, isIran: true)}'
+                    : 'Target ${track.formatScore(targetBand)}',
+              ),
             ],
           ),
           const SizedBox(height: SpacingTokens.md),
           Text(
-            track.formatScoreWithUnit(averageBand),
+            EditionCopy.formatScoreWithUnitFor(
+              track,
+              averageBand,
+              isIran: isIran,
+            ),
             style: typography.heroScore.copyWith(color: colors.textPrimary),
           ),
           const SizedBox(height: SpacingTokens.xs),
           Text(
-            'Averaged across $attemptCount scored $skillName attempts.',
+            isIran
+                ? 'میانگین بر اساس $attemptStr آزمون نمره‌دار $skillName.'
+                : 'Averaged across $attemptCount scored $skillName attempts.',
             style: typography.body.copyWith(color: colors.textSecondary),
           ),
           const SizedBox(height: SpacingTokens.md),
@@ -374,6 +437,8 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
             minScore: track.minScore,
             maxScore: track.maxScore,
             label: gapLabel,
+            targetPrefix: isIran ? 'هدف' : 'Target',
+            usePersianDigits: isIran,
           ),
         ],
       ),
@@ -385,8 +450,9 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
     ExamTrack track,
     String name,
     double score,
-    double targetBand,
-  ) {
+    double targetBand, {
+    required bool isIran,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
 
@@ -408,7 +474,11 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
                   ),
                 ),
                 Text(
-                  track.formatScoreWithUnit(score),
+                  EditionCopy.formatScoreWithUnitFor(
+                    track,
+                    score,
+                    isIran: isIran,
+                  ),
                   style: typography.cardScore.copyWith(
                     color: colors.textPrimary,
                   ),
@@ -423,6 +493,7 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
               maxScore: track.maxScore,
               trackHeight: 6,
               showLabels: false,
+              usePersianDigits: isIran,
             ),
           ],
         ),
@@ -430,7 +501,10 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
     );
   }
 
-  Widget _buildStrengthsWeaknesses(BuildContext context) {
+  Widget _buildStrengthsWeaknesses(
+    BuildContext context, {
+    required bool isIran,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
     final shapes = AppShapes.of(context);
@@ -459,7 +533,7 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        'Top Strength',
+                        isIran ? 'برجسته‌ترین نقطه قوت' : 'Top Strength',
                         style: typography.secondary.copyWith(
                           color: colors.success,
                           fontWeight: FontWeight.w600,
@@ -498,7 +572,7 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        'Primary Focus Area',
+                        isIran ? 'اولویت اصلی بهبود' : 'Primary Focus Area',
                         style: typography.secondary.copyWith(
                           color: colors.error,
                           fontWeight: FontWeight.w600,
@@ -521,7 +595,7 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
     );
   }
 
-  Widget _buildNextStepsCard(BuildContext context) {
+  Widget _buildNextStepsCard(BuildContext context, {required bool isIran}) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
     final drill = _recommendedDrill;
@@ -534,12 +608,16 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
             children: <Widget>[
               const AppIcon(LucideGlyph.trendingUp, size: 20),
               const SizedBox(width: SpacingTokens.sm),
-              Text(
-                'NEXT PRACTICE RECOMMENDATION',
-                style: typography.caption.copyWith(
-                  color: colors.textSecondary,
-                  letterSpacing: 1.2,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Text(
+                  isIran
+                      ? 'پیشنهاد تمرین بعدی'
+                      : 'NEXT PRACTICE RECOMMENDATION',
+                  style: typography.caption.copyWith(
+                    color: colors.textSecondary,
+                    letterSpacing: isIran ? 0 : 1.2,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -561,7 +639,9 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
           ],
           if (drill != null)
             PrimaryButton(
-              label: 'Start ${drill.durationMinutes}-Min Micro-Drill',
+              label: isIran
+                  ? 'شروع تمرین ${EdgeNumerals.toPersianDigits('${drill.durationMinutes}')} دقیقه‌ای'
+                  : 'Start ${drill.durationMinutes}-Min Micro-Drill',
               glyph: LucideGlyph.circlePlay,
               onPressed: () => context.push(
                 AppRoutes.buildMicroDrill(drill.drillId),
@@ -569,7 +649,7 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
             )
           else
             SecondaryButton(
-              label: 'Open Practice Drills',
+              label: isIran ? 'مشاهده تمرین‌های کوتاه' : 'Open Practice Drills',
               glyph: LucideGlyph.circlePlay,
               onPressed: () => context.push(AppRoutes.microDrills),
             ),
@@ -592,12 +672,4 @@ class _ProgressSkillScreenState extends ConsumerState<ProgressSkillScreen> {
     }
     return const <String, Object?>{};
   }
-
-  String _formattedSkillName(String raw) => switch (raw.toLowerCase()) {
-    'speaking' => 'Speaking',
-    'writing' => 'Writing',
-    'reading' => 'Reading',
-    'listening' => 'Listening',
-    _ => raw,
-  };
 }

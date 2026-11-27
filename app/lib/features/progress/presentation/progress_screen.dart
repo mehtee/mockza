@@ -9,6 +9,7 @@ import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/exams/study_metrics_calculator.dart';
 import 'package:mockza/core/formatting/edge_numerals.dart';
 import 'package:mockza/core/formatting/jalali_edge_formatter.dart';
+import 'package:mockza/core/localization/edition_copy.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/core/vocab/serial_day.dart';
 import 'package:mockza/data/repositories/attempt_repository.dart';
@@ -158,7 +159,7 @@ class ProgressScreen extends ConsumerWidget {
                   const SizedBox(height: SpacingTokens.xl),
                   Text(
                     isIran
-                        ? 'روند پیشرفت ($timeframe)'
+                        ? 'روند پیشرفت (${_timeframeLabel(timeframe, isIran: true)})'
                         : 'Score Trend ($timeframe)',
                     style: typography.cardTitle.copyWith(
                       color: colors.textPrimary,
@@ -207,8 +208,7 @@ class ProgressScreen extends ConsumerWidget {
                     onPressed: () => unawaited(
                       SpeechPracticeSheet.show(
                         context,
-                        targetText:
-                            'Consistent daily articulation sharpens clarity and fluency.',
+                        targetText: 'Consistent daily articulation sharpens clarity and fluency.',
                         sourceRefType: 'progress_studio',
                         sourceContext: 'progress',
                       ),
@@ -285,6 +285,17 @@ class ProgressScreen extends ConsumerWidget {
     );
   }
 
+  String _timeframeLabel(String timeframe, {required bool isIran}) {
+    if (!isIran) return timeframe;
+    return switch (timeframe) {
+      '7D' => '۷ روز',
+      '30D' => '۳۰ روز',
+      '90D' => '۹۰ روز',
+      'ALL' => 'همه',
+      _ => timeframe,
+    };
+  }
+
   Widget _buildScoreHero(
     BuildContext context,
     EstimatedBandSummary summary,
@@ -296,7 +307,11 @@ class ProgressScreen extends ConsumerWidget {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
     final scoreText = summary.overallBand != null
-        ? track.formatScoreWithUnit(summary.overallBand!)
+        ? EditionCopy.formatScoreWithUnitFor(
+            track,
+            summary.overallBand!,
+            isIran: isIran,
+          )
         : (isIran ? 'هنوز برآورد نشده' : 'Not yet estimated');
     final headingLabel = isIran
         ? 'نمره کل تخمینی'
@@ -317,6 +332,16 @@ class ProgressScreen extends ConsumerWidget {
             speaking: skillVal(SkillKind.speaking),
           )
         : const <({String label, String detail})>[];
+
+    final attemptedCountStr = isIran
+        ? EdgeNumerals.toPersianDigits('${summary.attemptedSkillsCount}')
+        : '${summary.attemptedSkillsCount}';
+    final rawDelta = summary.changeThisMonth != null
+        ? '${summary.changeThisMonth! >= 0 ? '+' : ''}${track.usesIntegerDisplay ? summary.changeThisMonth!.round().toString() : summary.changeThisMonth!.toStringAsFixed(1)}'
+        : null;
+    final deltaStr = rawDelta != null && isIran
+        ? EdgeNumerals.toPersianDigits(rawDelta)
+        : rawDelta;
 
     return MzCard(
       variant: MzCardVariant.hero,
@@ -340,45 +365,61 @@ class ProgressScreen extends ConsumerWidget {
                           ? headingLabel
                           : (summary.isFullFourSkillEstimate
                                 ? headingLabel
-                                : 'PARTIAL ESTIMATE (${summary.attemptedSkillsCount}/4 SKILLS)'),
+                                : (isIran
+                                      ? 'تخمین ناقص ($attemptedCountStr از ۴ مهارت)'
+                                      : 'PARTIAL ESTIMATE (${summary.attemptedSkillsCount}/4 SKILLS)')),
                       style: typography.caption.copyWith(
                         color: colors.textSecondary,
-                        letterSpacing: 1.2,
+                        letterSpacing: isIran ? 0 : 1.2,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                 ],
               ),
-              if (summary.changeThisMonth != null)
+              if (deltaStr != null)
                 MzChip(
-                  label:
-                      '${summary.changeThisMonth! >= 0 ? '+' : ''}${track.usesIntegerDisplay ? summary.changeThisMonth!.round().toString() : summary.changeThisMonth!.toStringAsFixed(1)} this month',
+                  label: isIran ? '$deltaStr این ماه' : '$deltaStr this month',
                   isSelected: true,
                 ),
             ],
           ),
           const SizedBox(height: SpacingTokens.md),
-          LtrExamBoundary(
-            useLatinFont: summary.overallBand != null,
-            child: Text(
+          if (isIran)
+            Text(
               scoreText,
               style: typography.heroScore.copyWith(color: colors.textPrimary),
+            )
+          else
+            LtrExamBoundary(
+              useLatinFont: summary.overallBand != null,
+              child: Text(
+                scoreText,
+                style: typography.heroScore.copyWith(color: colors.textPrimary),
+              ),
             ),
-          ),
           const SizedBox(height: SpacingTokens.sm),
-          LtrExamBoundary(
-            useLatinFont: !isIran,
-            child: ScoreMeter(
+          if (isIran)
+            ScoreMeter(
               score: summary.overallBand ?? track.minScore,
               targetScore: target,
               minScore: track.minScore,
               maxScore: track.maxScore,
-              label: isIran
-                  ? 'هدف ${track.formatScoreWithUnit(target)}'
-                  : 'Target ${track.formatScoreWithUnit(target)}',
+              targetPrefix: 'هدف',
+              usePersianDigits: true,
+              label:
+                  'هدف ${EditionCopy.formatScoreWithUnitFor(track, target, isIran: true)}',
+            )
+          else
+            LtrExamBoundary(
+              child: ScoreMeter(
+                score: summary.overallBand ?? track.minScore,
+                targetScore: target,
+                minScore: track.minScore,
+                maxScore: track.maxScore,
+                label: 'Target ${track.formatScoreWithUnit(target)}',
+              ),
             ),
-          ),
           if (insights.isNotEmpty) ...<Widget>[
             const SizedBox(height: SpacingTokens.sm),
             Wrap(
@@ -387,7 +428,11 @@ class ProgressScreen extends ConsumerWidget {
               children: insights
                   .map(
                     (i) => MzChip(
-                      label: '${i.label}: ${i.detail}',
+                      label: isIran
+                          ? EdgeNumerals.toPersianDigits(
+                              '${i.label}: ${i.detail}',
+                            )
+                          : '${i.label}: ${i.detail}',
                       isSelected: true,
                     ),
                   )
@@ -511,7 +556,12 @@ class ProgressScreen extends ConsumerWidget {
         glyph = LucideGlyph.layers3;
     }
 
-    final skillName = metric.skill.name.toUpperCase();
+    final skillName = isIran
+        ? EditionCopy.skillName(metric.skill.name, isIran: true)
+        : metric.skill.name.toUpperCase();
+    final displayScoreLabel = isIran
+        ? EdgeNumerals.toPersianDigits(metric.scoreLabel)
+        : metric.scoreLabel;
 
     return Padding(
       padding: const EdgeInsetsDirectional.only(bottom: SpacingTokens.sm),
@@ -534,14 +584,22 @@ class ProgressScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    LtrExamBoundary(
-                      child: Text(
+                    if (isIran)
+                      Text(
                         skillName,
                         style: typography.cardTitle.copyWith(
                           color: colors.textPrimary,
                         ),
+                      )
+                    else
+                      LtrExamBoundary(
+                        child: Text(
+                          skillName,
+                          style: typography.cardTitle.copyWith(
+                            color: colors.textPrimary,
+                          ),
+                        ),
                       ),
-                    ),
                     Text(
                       isIran
                           ? '${EdgeNumerals.formatChromeNumber(metric.sampleCount, edition)} تمرین'
@@ -554,8 +612,9 @@ class ProgressScreen extends ConsumerWidget {
                 ),
               ),
               LtrExamBoundary(
+                useLatinFont: !isIran,
                 child: Text(
-                  metric.scoreLabel,
+                  displayScoreLabel,
                   style: typography.cardScore.copyWith(
                     color: metric.score != null
                         ? colors.textPrimary

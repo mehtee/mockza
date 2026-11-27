@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mockza/core/config/edition_config.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/core/localization/edition_copy.dart';
 import 'package:mockza/core/personalization/topic_taxonomy.dart';
 import 'package:mockza/core/result/failure.dart';
 import 'package:mockza/core/result/result.dart';
@@ -85,6 +87,7 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
 
   Future<void> _stepAction(RoadmapStepDto step, String status) async {
     if (_updatingStep) return;
+    final isIrn = ref.read(editionConfigProvider).edition == AppEdition.iran;
     setState(() => _updatingStep = true);
     final res = await ref
         .read(personalizationGatewayProvider)
@@ -101,8 +104,10 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
         showMzToast(
           context,
           message: status == 'completed'
-              ? 'Step completed! Next step unlocked.'
-              : 'Step skipped.',
+              ? (isIrn
+                    ? 'گام تکمیل شد! گام بعدی باز شد.'
+                    : 'Step completed! Next step unlocked.')
+              : (isIrn ? 'گام رد شد.' : 'Step skipped.'),
         );
       case Err<PersonalizationStateDto, Failure>(:final failure):
         setState(() => _updatingStep = false);
@@ -231,8 +236,15 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
                           textBaseline: TextBaseline.alphabetic,
                           children: <Widget>[
                             Text(
-                              state.liveBand.currentBand?.toStringAsFixed(1) ??
-                                  '--',
+                              state.liveBand.currentBand != null
+                                  ? (isIrn
+                                        ? EdgeNumerals.toPersianDigits(
+                                            state.liveBand.currentBand!
+                                                .toStringAsFixed(1),
+                                          )
+                                        : state.liveBand.currentBand!
+                                              .toStringAsFixed(1))
+                                  : '--',
                               style: typography.headline.copyWith(
                                 color: colors.primary,
                                 fontWeight: FontWeight.w800,
@@ -240,7 +252,9 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
                             ),
                             const SizedBox(width: SpacingTokens.sm),
                             Text(
-                              '→ ${state.targetBand.toStringAsFixed(1)}',
+                              isIrn
+                                  ? '← ${EdgeNumerals.toPersianDigits(state.targetBand.toStringAsFixed(1))}'
+                                  : '→ ${state.targetBand.toStringAsFixed(1)}',
                               style: typography.cardTitle.copyWith(
                                 color: colors.textSecondary,
                               ),
@@ -330,7 +344,10 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
                                     MainAxisAlignment.spaceBetween,
                                 children: <Widget>[
                                   Text(
-                                    'M${m.index}',
+                                    EditionCopy.milestoneChipLabel(
+                                      m.index,
+                                      isIran: isIrn,
+                                    ),
                                     style: typography.caption.copyWith(
                                       color: isActive
                                           ? colors.primary
@@ -341,7 +358,9 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
                                   Text(
                                     isDone
                                         ? '✓'
-                                        : '+${m.targetBandDelta.toStringAsFixed(1)}',
+                                        : (isIrn
+                                              ? '+${EdgeNumerals.toPersianDigits(m.targetBandDelta.toStringAsFixed(1))}'
+                                              : '+${m.targetBandDelta.toStringAsFixed(1)}'),
                                     style: typography.caption.copyWith(
                                       color: isDone
                                           ? colors.success
@@ -429,7 +448,9 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
                                   label: topic.labelFor(isIran: isIrn),
                                 ),
                                 Text(
-                                  '~${step.estimatedMinutes} min',
+                                  isIrn
+                                      ? 'حدود ${EdgeNumerals.toPersianDigits('${step.estimatedMinutes}')} دقیقه'
+                                      : '~${step.estimatedMinutes} min',
                                   style: typography.caption.copyWith(
                                     color: colors.textTertiary,
                                   ),
@@ -458,7 +479,9 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
                               children: <Widget>[
                                 PrimaryButton(
                                   label: l10n.studyStart,
-                                  glyph: LucideGlyph.arrowRight,
+                                  glyph: isIrn
+                                      ? LucideGlyph.arrowLeft
+                                      : LucideGlyph.arrowRight,
                                   isFullWidth: false,
                                   onPressed: () {
                                     if (step.stepKind == 'pronunciation') {
@@ -521,7 +544,7 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: <Widget>[
                           Text(
-                            '${l10n.roadmapUpcomingLabel} (${upcomingSteps.length})',
+                            '${l10n.roadmapUpcomingLabel} (${isIrn ? EdgeNumerals.toPersianDigits('${upcomingSteps.length}') : upcomingSteps.length})',
                             style: typography.secondary.copyWith(
                               color: colors.textSecondary,
                               fontWeight: FontWeight.w700,
@@ -557,7 +580,7 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: <Widget>[
                               Text(
-                                'M${s.milestoneIndex} · ${isIrn ? s.titleFa : s.titleEn}',
+                                '${EditionCopy.milestoneChipLabel(s.milestoneIndex, isIran: isIrn)} · ${isIrn ? s.titleFa : s.titleEn}',
                                 style: typography.secondary.copyWith(
                                   color: colors.textSecondary,
                                   fontWeight: FontWeight.w600,
@@ -635,7 +658,7 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
                           bottom: SpacingTokens.xs,
                         ),
                         child: Text(
-                          '✓ M${cs.milestoneIndex} · ${isIrn ? cs.titleFa : cs.titleEn}',
+                          '✓ ${EditionCopy.milestoneChipLabel(cs.milestoneIndex, isIran: isIrn)} · ${isIrn ? cs.titleFa : cs.titleEn}',
                           style: typography.caption.copyWith(
                             color: colors.textSecondary,
                           ),
@@ -720,7 +743,11 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
                     children: <int>[5, 10, 20]
                         .map(
                           (cap) => ChoiceChip(
-                            label: Text('$cap'),
+                            label: Text(
+                              isIrn
+                                  ? EdgeNumerals.toPersianDigits('$cap')
+                                  : '$cap',
+                            ),
                             selected: selectedCap == cap,
                             onSelected: (_) =>
                                 setSheetState(() => selectedCap = cap),

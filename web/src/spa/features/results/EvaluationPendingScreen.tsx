@@ -1,9 +1,9 @@
 import { Link, useNavigate } from '@tanstack/react-router';
 import { CheckCircle2, Clock, Loader2, RefreshCw } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MzBanner, MzButton, MzCard } from '@/components/ui';
 import type { JobStatusResponse } from '@/gateways/evaluation.gateway';
-import { createTranslator } from '@/i18n';
+import { createTranslator, type TranslationKey } from '@/i18n';
 import { useDeps } from '@/spa/deps';
 import {
   persistEvaluationJobCompletion,
@@ -14,39 +14,50 @@ export interface EvaluationPendingScreenProps {
   readonly jobId: string;
 }
 
-const ORDERED_STAGES = [
-  { key: 'queued', label: 'Queued in grading pipeline' },
-  { key: 'processing_audio', label: 'Normalizing media & transcript' },
-  { key: 'evaluating', label: 'Scoring official rubric criteria' },
-  { key: 'completed', label: 'Report ready' },
-] as const;
+const ORDERED_STAGES: ReadonlyArray<{
+  readonly key: 'queued' | 'processing_audio' | 'evaluating' | 'completed';
+  readonly labelKey: TranslationKey;
+}> = [
+  { key: 'queued', labelKey: 'evalPendingStageQueued' },
+  { key: 'processing_audio', labelKey: 'evalPendingStageProcessingAudio' },
+  { key: 'evaluating', labelKey: 'evalPendingStageEvaluating' },
+  { key: 'completed', labelKey: 'evalPendingStageCompleted' },
+];
 
 const MAX_ACTIVE_POLL_MS = 45_000;
 const POLL_BACKOFF_SCHEDULE_MS = [1500, 3000, 6000] as const;
 
 export function EvaluationPendingScreen({ jobId }: EvaluationPendingScreenProps) {
   const deps = useDeps();
-  const t = createTranslator(deps.edition);
+  const t = useMemo(() => createTranslator(deps.edition), [deps.edition]);
   const navigate = useNavigate();
 
   const [job, setJob] = useState<JobStatusResponse | null>(null);
   const [pollTimedOut, setPollTimedOut] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const nextDelayOverrideMsRef = useRef<number | null>(null);
 
   const pollOnce = useCallback(async () => {
     const res = await deps.evaluation.pollEvaluationJob(jobId);
     if (!res.ok) {
+      if (res.error.kind === 'quota_exceeded') {
+        nextDelayOverrideMsRef.current = Math.max(8000, (res.error.retryAfterSec ?? 8) * 1000);
+        setErrorMsg(t('rateLimitFriendlyError'));
+        return false;
+      }
       setErrorMsg(res.error.message);
       return true;
     }
 
+    nextDelayOverrideMsRef.current = null;
+    setErrorMsg(null);
     setJob(res.value);
 
     if (res.value.status === 'failed') {
       setErrorMsg(
         res.value.quotaRefunded
           ? t('evalPendingRefundedNotice')
-          : res.value.errorCode ?? 'Evaluation failed.',
+          : res.value.errorCode ?? t('evalPendingFailedFallback'),
       );
       return true;
     }
@@ -81,10 +92,12 @@ export function EvaluationPendingScreen({ jobId }: EvaluationPendingScreenProps)
         return;
       }
 
-      const delayMs =
+      const defaultDelayMs =
         POLL_BACKOFF_SCHEDULE_MS[
           Math.min(attemptCount, POLL_BACKOFF_SCHEDULE_MS.length - 1)
         ] ?? 6000;
+      const delayMs = nextDelayOverrideMsRef.current ?? defaultDelayMs;
+      nextDelayOverrideMsRef.current = null;
       attemptCount += 1;
 
       timerId = window.setTimeout(() => {
@@ -139,7 +152,7 @@ export function EvaluationPendingScreen({ jobId }: EvaluationPendingScreenProps)
                   />
                 )}
                 <span className={isCurrent ? 'font-bold text-primary' : 'font-medium text-text-primary'}>
-                  {stage.label}
+                  {t(stage.labelKey)}
                 </span>
               </li>
             );
@@ -154,7 +167,7 @@ export function EvaluationPendingScreen({ jobId }: EvaluationPendingScreenProps)
             leadingIcon={<RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />}
             onClick={() => void pollOnce()}
           >
-            Refresh Status
+            {t('evalPendingRefreshStatus')}
           </MzButton>
           <Link
             to="/practice"

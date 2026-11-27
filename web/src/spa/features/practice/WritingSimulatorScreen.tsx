@@ -19,6 +19,7 @@ import {
 } from '@/components/exam-kit';
 import { MzBanner, MzButton, MzCard, MzSegmentedControl } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
+import { formatChromeNumber } from '@/edition/bidi/numerals';
 import type { ExamBundlePayload } from '@/gateways/catalog.gateway';
 import type { QuotaStatusSnapshot } from '@/gateways/evaluation.gateway';
 import { createTranslator } from '@/i18n';
@@ -699,8 +700,11 @@ export function WritingSimulatorScreen({
                 <div data-testid="det-interactive-writing-steps">
                   <MzBanner tone="info">
                     {sortedSections.length >= 2
-                      ? `DET Interactive Writing — Step ${activeTaskIndex + 1} of ${sortedSections.length}`
-                      : 'DET Interactive Writing — Step 1 (5 min Prompt) → Step 2 (3 min Follow-Up)'}
+                      ? t('writingDetBannerStep', {
+                          current: formatChromeNumber(activeTaskIndex + 1, deps.edition),
+                          total: formatChromeNumber(sortedSections.length, deps.edition),
+                        })
+                      : t('writingDetBannerFallback')}
                   </MzBanner>
                 </div>
               ) : null}

@@ -87,7 +87,13 @@ export function createEditionDependencies(options: EditionBootstrapOptions): App
     apiBaseUrl,
     edition: options.edition,
     fetchFn: options.fetchFn,
-    readAccessToken: () => authAdapter?.getCurrentAccessToken() ?? null,
+    readAccessToken: async () => {
+      if (!authAdapter) return null;
+      const freshToken = authAdapter.getFreshAccessToken();
+      if (freshToken) return freshToken;
+      const ensured = await authAdapter.ensureAuthenticated(false);
+      return ensured.ok ? ensured.value.accessToken : authAdapter.getCurrentAccessToken();
+    },
     refreshAccessToken: async () => {
       if (!authAdapter) return null;
       const current = await authAdapter.getSession();

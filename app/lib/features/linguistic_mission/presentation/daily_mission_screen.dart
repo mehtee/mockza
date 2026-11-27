@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/core/localization/edition_copy.dart';
 import 'package:mockza/core/result/failure.dart';
 import 'package:mockza/l10n/app_localizations.dart';
 import 'package:mockza/providers.dart';
@@ -225,8 +226,11 @@ class _DailyMissionScreenState extends ConsumerState<DailyMissionScreen> {
     _activeRecordingPath = null;
     if (!mounted) return;
     if (path == null || path.isEmpty) {
+      final isRtl = ref.read(editionConfigProvider).edition == AppEdition.iran;
       setState(
-        () => _error = stopRes.failureOrNull?.message ?? 'Recording failed.',
+        () => _error =
+            stopRes.failureOrNull?.message ??
+            (isRtl ? 'ضبط صدا ناموفق بود.' : 'Recording failed.'),
       );
       return;
     }
@@ -254,12 +258,14 @@ class _DailyMissionScreenState extends ConsumerState<DailyMissionScreen> {
           'mission-upg-${item.upgraded.toLowerCase().replaceAll(RegExp('[^a-z0-9]+'), '-')}',
       headword: item.upgraded,
       definition: item.whyEn,
-      glossFa: isRtl ? item.whyEn : null,
+      glossFa: isRtl ? (item.whyFa ?? item.whyEn) : null,
       topicTag: m.focusTopic,
       contextSentence: m.modelRewriteEn ?? item.upgraded,
       sourceSkill: _speakMode ? 'speaking' : 'writing',
       sourceAttemptId: m.missionId,
-      sourceRefLabel: "Today's 10-Min Coach",
+      sourceRefLabel: isRtl
+          ? 'مأموریت ۱۰ دقیقه‌ای امروز'
+          : "Today's 10-Min Coach",
     );
     if (mounted) {
       setState(() => _savedUpgrades.add(item.upgraded));
@@ -280,9 +286,13 @@ class _DailyMissionScreenState extends ConsumerState<DailyMissionScreen> {
       final bytes = await readRecordedAudioBytes(audioPath);
       if (!mounted) return;
       if (bytes == null || bytes.isEmpty) {
+        final isRtl =
+            ref.read(editionConfigProvider).edition == AppEdition.iran;
         setState(() {
           _submitting = false;
-          _error = 'Recorded audio could not be read.';
+          _error = isRtl
+              ? 'فایل صوتی قابل خواندن نبود.'
+              : 'Recorded audio could not be read.';
         });
         return;
       }
@@ -452,7 +462,10 @@ class _DailyMissionScreenState extends ConsumerState<DailyMissionScreen> {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: <Widget>[
                       MzChip(
-                        label: m.focusTopic,
+                        label: EditionCopy.topicLabel(
+                          m.focusTopic,
+                          isIran: isRtl,
+                        ),
                         variant: MzChipVariant.target,
                       ),
                       ActionChip(
@@ -484,7 +497,12 @@ class _DailyMissionScreenState extends ConsumerState<DailyMissionScreen> {
                             children: _kTopicQuickPicks
                                 .map(
                                   (t) => ActionChip(
-                                    label: Text(t),
+                                    label: Text(
+                                      EditionCopy.topicLabel(
+                                        t,
+                                        isIran: isRtl,
+                                      ),
+                                    ),
                                     onPressed: _refreshingTopic
                                         ? null
                                         : () => unawaited(_refreshTopic(t)),
@@ -547,7 +565,9 @@ class _DailyMissionScreenState extends ConsumerState<DailyMissionScreen> {
                             if (!_speakMode) ...<Widget>[
                               const SizedBox(width: SpacingTokens.xs),
                               Text(
-                                '${detectedTargets.length}/${m.forcedTargets.length}',
+                                isRtl
+                                    ? '${EdgeNumerals.toPersianDigits(detectedTargets.length)}/${EdgeNumerals.toPersianDigits(m.forcedTargets.length)}'
+                                    : '${detectedTargets.length}/${m.forcedTargets.length}',
                                 style: typography.caption.copyWith(
                                   color: colors.primary,
                                   fontWeight: FontWeight.w700,
@@ -812,7 +832,11 @@ class _DailyMissionScreenState extends ConsumerState<DailyMissionScreen> {
                                         ),
                                       ),
                                       Text(
-                                        u.whyEn,
+                                        (isRtl &&
+                                                u.whyFa != null &&
+                                                u.whyFa!.trim().isNotEmpty)
+                                            ? u.whyFa!
+                                            : u.whyEn,
                                         style: typography.caption.copyWith(
                                           color: colors.textSecondary,
                                         ),

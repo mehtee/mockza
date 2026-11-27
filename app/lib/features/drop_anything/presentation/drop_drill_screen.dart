@@ -435,13 +435,25 @@ class _DropDrillScreenState extends ConsumerState<DropDrillScreen> {
                       ),
                       if (_showClozeHint) ...<Widget>[
                         const SizedBox(height: SpacingTokens.xs),
-                        LtrExamBoundary(
-                          child: Text(
-                            'Hint: ${_buildHint(d.clozeAnswer)}',
-                            style: typography.caption.copyWith(
-                              color: colors.primary,
+                        Wrap(
+                          spacing: SpacingTokens.xs,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: <Widget>[
+                            Text(
+                              isRtl ? 'راهنما:' : 'Hint:',
+                              style: typography.caption.copyWith(
+                                color: colors.primary,
+                              ),
                             ),
-                          ),
+                            LtrExamBoundary(
+                              child: Text(
+                                _buildHint(d.clozeAnswer),
+                                style: typography.caption.copyWith(
+                                  color: colors.primary,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                       if (_clozeSubmitted) ...<Widget>[
@@ -487,13 +499,25 @@ class _DropDrillScreenState extends ConsumerState<DropDrillScreen> {
                         ),
                       ],
                       const SizedBox(height: SpacingTokens.md),
-                      LtrExamBoundary(
-                        child: Text(
-                          'Shadow aloud: ${d.shadowingPrompt}',
-                          style: typography.caption.copyWith(
-                            color: colors.textSecondary,
+                      Wrap(
+                        spacing: SpacingTokens.xs,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: <Widget>[
+                          Text(
+                            isRtl ? 'تکرار با صدای بلند:' : 'Shadow aloud:',
+                            style: typography.caption.copyWith(
+                              color: colors.textSecondary,
+                            ),
                           ),
-                        ),
+                          LtrExamBoundary(
+                            child: Text(
+                              d.shadowingPrompt,
+                              style: typography.caption.copyWith(
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: SpacingTokens.md),
                       if (!_drillCompleted)

@@ -311,9 +311,9 @@ export function renderLanding(irn) {
         <audio data-demo-audio preload="none" data-src="/sample-media/speaking-feedback.mp3"></audio>
         <div class="speaking-wave" data-demo-wave aria-hidden="true">${waveform}</div>
         <div class="speaking-controls">
-          <button type="button" class="demo-play" data-demo-play aria-label="${L("Play sample recording", "پخش صدای نمونه")}" disabled><span aria-hidden="true">▶</span></button>
+          <button type="button" class="demo-play" data-demo-play aria-label="${L("Play sample recording", "پخش صدای نمونه")}"><span aria-hidden="true">▶</span></button>
           <span data-demo-time>0:00</span>
-          <input type="range" min="0" max="12" step=".05" value="0" data-demo-seek aria-label="${L("Recording playback position", "موقعیت پخش صدا")}" disabled>
+          <input type="range" min="0" max="12" step=".05" value="0" data-demo-seek aria-label="${L("Recording playback position", "موقعیت پخش صدا")}">
           <span data-demo-duration>0:12</span>
         </div>
         <p class="audio-message" data-audio-message role="status" hidden>${L("Audio could not be played. The transcript is available below.", "صدا پخش نشد. متن را می‌توانی در ادامه بخوانی.")}</p>
@@ -510,7 +510,7 @@ export function renderLanding(irn) {
     return `<div class="report-listening-source">
       ${reportPlayer(LISTENING_REVIEW_CLIP, LISTENING_CUES[1].start)}
       <div class="report-cues" aria-label="${L("Replay a transcript line", "پخش یک جمله از متن")}">
-        ${LISTENING_CUES.map((cue, i) => `<button type="button" class="report-cue ${i ? "cue-earlier" : ""}" data-report-cue="${cue.start}" data-end="${cue.end}" disabled>
+        ${LISTENING_CUES.map((cue, i) => `<button type="button" class="report-cue ${i ? "cue-earlier" : ""}" data-report-cue="${cue.start}" data-end="${cue.end}">
           <span class="cue-time"><span aria-hidden="true">▶</span> <bdi dir="ltr">${numText(clipTime(cue.start))}</bdi></span>
           <span class="cue-copy"><b>${bi(cue.label)}</b><span lang="en" dir="ltr">${markEvidence(cue.text, cue.evidence)}</span></span>
         </button>`).join("")}
@@ -522,17 +522,17 @@ export function renderLanding(irn) {
     return `<div class="report-player" aria-label="${L("Listening audio", "فایل شنیداری")}">
       <audio src="${clip.source}" preload="none" controls></audio>
       <div class="report-player-controls">
-        <button type="button" class="demo-play" data-report-play aria-label="${L("Play recording", "پخش صدا")}" disabled><span aria-hidden="true">▶</span></button>
+        <button type="button" class="demo-play" data-report-play aria-label="${L("Play recording", "پخش صدا")}"><span aria-hidden="true">▶</span></button>
         <div class="report-player-track" dir="ltr">
           <div class="report-wave" data-report-wave aria-hidden="true">
             ${clip.levels.map(height => `<i style="--height:${height}%"></i>`).join("")}
             ${cue == null ? "" : `<span style="--cue:${cue / clip.duration * 100}%"></span>`}
           </div>
           <div class="report-seek">
-            <span data-report-time>0:00</span><input type="range" min="0" max="${clip.duration}" step="0.01" value="0" data-report-seek aria-label="${L("Recording playback position", "موقعیت پخش صدا")}" disabled><span data-report-duration>${clipTime(clip.duration)}</span>
+            <span data-report-time>0:00</span><input type="range" min="0" max="${clip.duration}" step="0.01" value="0" data-report-seek aria-label="${L("Recording playback position", "موقعیت پخش صدا")}"><span data-report-duration>${clipTime(clip.duration)}</span>
           </div>
         </div>
-        <button type="button" class="report-speed" data-report-speed aria-label="${L("Slow playback to three-quarter speed", "پخش با سه‌چهارم سرعت")}" aria-pressed="false" disabled><bdi dir="ltr">${num(1)}×</bdi></button>
+        <button type="button" class="report-speed" data-report-speed aria-label="${L("Slow playback to three-quarter speed", "پخش با سه‌چهارم سرعت")}" aria-pressed="false"><bdi dir="ltr">${num(1)}×</bdi></button>
       </div>
       <p class="report-audio-error" data-report-audio-error role="status" hidden>${L("Audio is unavailable. You can read the transcript.", "صدا در دسترس نیست. می‌توانی متن را بخوانی.")}</p>
     </div>`;
@@ -563,7 +563,7 @@ export function renderLanding(irn) {
       ${isReading ? "" : `<details class="report-drill-transcript">
         <summary>${L("Read the transcript", "خواندن متن فایل صوتی")}</summary>
         <blockquote class="report-evidence" lang="en" dir="ltr">${LISTENING_DRILL_TRANSCRIPT.map(text => markEvidence(text, "moved it to ten fifty")).join(" ")}</blockquote>
-        <button type="button" class="btn outline small" data-report-cue="3.64" data-end="7.63" disabled>${L("Replay the new start time", "پخش دوبارهٔ ساعت جدید")}</button>
+        <button type="button" class="btn outline small" data-report-cue="3.64" data-end="7.63">${L("Replay the new start time", "پخش دوبارهٔ ساعت جدید")}</button>
       </details>`}
     </div>`;
   }

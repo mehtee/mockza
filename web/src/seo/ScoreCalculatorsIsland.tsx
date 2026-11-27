@@ -6,7 +6,10 @@ import {
   type ExamModuleType,
 } from '@mockza/domain';
 import { useState } from 'react';
-import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
+
+const FA_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
+const fmt = (val: string | number, isIrn: boolean): string =>
+  isIrn ? String(val).replace(/\d/g, (d) => FA_DIGITS[Number(d)] ?? d) : String(val);
 
 export interface ScoreCalculatorsIslandProps {
   readonly isIrn?: boolean;
@@ -69,7 +72,7 @@ export function ScoreCalculatorsIsland({ isIrn = false }: ScoreCalculatorsIsland
           </select>
 
           <label htmlFor="calc-ielts-raw" className="mt-2 text-text-secondary">
-            {isIrn ? `تعداد پاسخ صحیح: ${ieltsRaw}` : `Correct Answers: ${ieltsRaw} / 40`}
+            {isIrn ? `تعداد پاسخ صحیح: ${fmt(ieltsRaw, true)}` : `Correct Answers: ${ieltsRaw} / 40`}
           </label>
           <input
             id="calc-ielts-raw"
@@ -82,14 +85,12 @@ export function ScoreCalculatorsIsland({ isIrn = false }: ScoreCalculatorsIsland
             className="w-full accent-primary"
           />
 
-          <LtrExamBoundary>
-            <p
-              data-testid="calc-ielts-result"
-              className="mt-2 font-mono-exam text-2xl font-bold text-primary"
-            >
-              Band {ieltsBand.toFixed(1)}
-            </p>
-          </LtrExamBoundary>
+          <p
+            data-testid="calc-ielts-result"
+            className="mt-2 font-mono-exam text-2xl font-bold text-primary"
+          >
+            {isIrn ? `باند ${fmt(ieltsBand.toFixed(1), true)}` : `Band ${ieltsBand.toFixed(1)}`}
+          </p>
         </div>
       </section>
 
@@ -100,7 +101,9 @@ export function ScoreCalculatorsIsland({ isIrn = false }: ScoreCalculatorsIsland
         </h2>
         <div className="mt-3 flex flex-col gap-2 text-xs">
           <label htmlFor="calc-toefl-band" className="text-text-secondary">
-            {isIrn ? `نمره ۲۰۲۶: ${toeflBand.toFixed(1)}` : `2026 Band: ${toeflBand.toFixed(1)} / 6.0`}
+            {isIrn
+              ? `نمره ۲۰۲۶: ${fmt(toeflBand.toFixed(1), true)}`
+              : `2026 Band: ${toeflBand.toFixed(1)} / 6.0`}
           </label>
           <input
             id="calc-toefl-band"
@@ -114,14 +117,12 @@ export function ScoreCalculatorsIsland({ isIrn = false }: ScoreCalculatorsIsland
             className="w-full accent-primary"
           />
 
-          <LtrExamBoundary>
-            <p
-              data-testid="calc-toefl-result"
-              className="mt-2 font-mono-exam text-2xl font-bold text-primary"
-            >
-              ~{toefl120} / 120
-            </p>
-          </LtrExamBoundary>
+          <p
+            data-testid="calc-toefl-result"
+            className="mt-2 font-mono-exam text-2xl font-bold text-primary"
+          >
+            {isIrn ? `~${fmt(toefl120, true)} / ۱۲۰` : `~${toefl120} / 120`}
+          </p>
         </div>
       </section>
 
@@ -133,7 +134,7 @@ export function ScoreCalculatorsIsland({ isIrn = false }: ScoreCalculatorsIsland
         <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
           <label className="flex flex-col gap-1">
             <span>
-              {isIrn ? 'ریدینگ' : 'Reading'} ({detReading})
+              {isIrn ? 'ریدینگ' : 'Reading'} ({fmt(detReading, isIrn)})
             </span>
             <input
               type="range"
@@ -147,7 +148,7 @@ export function ScoreCalculatorsIsland({ isIrn = false }: ScoreCalculatorsIsland
           </label>
           <label className="flex flex-col gap-1">
             <span>
-              {isIrn ? 'لیسنینگ' : 'Listening'} ({detListening})
+              {isIrn ? 'لیسنینگ' : 'Listening'} ({fmt(detListening, isIrn)})
             </span>
             <input
               type="range"
@@ -161,7 +162,7 @@ export function ScoreCalculatorsIsland({ isIrn = false }: ScoreCalculatorsIsland
           </label>
           <label className="flex flex-col gap-1">
             <span>
-              {isIrn ? 'رایتینگ' : 'Writing'} ({detWriting})
+              {isIrn ? 'رایتینگ' : 'Writing'} ({fmt(detWriting, isIrn)})
             </span>
             <input
               type="range"
@@ -175,7 +176,7 @@ export function ScoreCalculatorsIsland({ isIrn = false }: ScoreCalculatorsIsland
           </label>
           <label className="flex flex-col gap-1">
             <span>
-              {isIrn ? 'اسپیکینگ' : 'Speaking'} ({detSpeaking})
+              {isIrn ? 'اسپیکینگ' : 'Speaking'} ({fmt(detSpeaking, isIrn)})
             </span>
             <input
               type="range"
@@ -189,17 +190,15 @@ export function ScoreCalculatorsIsland({ isIrn = false }: ScoreCalculatorsIsland
           </label>
         </div>
 
-        <LtrExamBoundary>
-          <dl
-            data-testid="calc-det-result"
-            className="mt-3 grid grid-cols-2 gap-1.5 font-mono-exam text-xs font-semibold text-primary"
-          >
-            <div>Literacy: {detSub.literacy}</div>
-            <div>Comp: {detSub.comprehension}</div>
-            <div>Conv: {detSub.conversation}</div>
-            <div>Prod: {detSub.production}</div>
-          </dl>
-        </LtrExamBoundary>
+        <dl
+          data-testid="calc-det-result"
+          className={`mt-3 grid grid-cols-2 gap-1.5 ${isIrn ? '' : 'font-mono-exam '}text-xs font-semibold text-primary`}
+        >
+          <div>{isIrn ? `سواد: ${fmt(detSub.literacy ?? '—', true)}` : `Literacy: ${detSub.literacy ?? '—'}`}</div>
+          <div>{isIrn ? `درک: ${fmt(detSub.comprehension ?? '—', true)}` : `Comp: ${detSub.comprehension ?? '—'}`}</div>
+          <div>{isIrn ? `مکالمه: ${fmt(detSub.conversation ?? '—', true)}` : `Conv: ${detSub.conversation ?? '—'}`}</div>
+          <div>{isIrn ? `تولید: ${fmt(detSub.production ?? '—', true)}` : `Prod: ${detSub.production ?? '—'}`}</div>
+        </dl>
       </section>
     </div>
   );

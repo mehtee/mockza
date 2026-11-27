@@ -11,6 +11,7 @@ import 'package:mockza/core/exams/exam_descriptor.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/formatting/edge_numerals.dart';
 import 'package:mockza/core/formatting/jalali_edge_formatter.dart';
+import 'package:mockza/core/localization/edition_copy.dart';
 import 'package:mockza/core/personalization/topic_taxonomy.dart';
 import 'package:mockza/core/vocab/serial_day.dart';
 import 'package:mockza/features/settings/presentation/settings_notifier.dart';
@@ -189,9 +190,10 @@ class SettingsScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      isIran
-                          ? 'نمره هدف (${state.track.unitLabel})'
-                          : 'Target ${state.track.unitLabel} Score',
+                      EditionCopy.targetScoreTitle(
+                        state.track,
+                        isIran: isIran,
+                      ),
                       style: typography.body.copyWith(
                         color: colors.textPrimary,
                         fontWeight: FontWeight.w600,
@@ -199,7 +201,9 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     Text(
                       state.track == ExamTrack.toeflIbt
-                          ? 'Comparable to ~${ExamSpec.estimateToeflLegacy120(state.targetBand)}/120'
+                          ? (isIran
+                                ? 'معادل تقریبی ${EdgeNumerals.toPersianDigits(ExamSpec.estimateToeflLegacy120(state.targetBand))} از ۱۲۰'
+                                : 'Comparable to ~${ExamSpec.estimateToeflLegacy120(state.targetBand)}/120')
                           : (isIran
                                 ? 'هدف شخصی برای پیگیری پیشرفت'
                                 : 'Personal goal used for progress tracking'),
@@ -211,7 +215,9 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               IconButton(
-                tooltip: 'Decrease target band score',
+                tooltip: isIran
+                    ? 'کاهش نمره هدف'
+                    : 'Decrease target band score',
                 icon: const AppIcon(LucideGlyph.minus, size: 20),
                 onPressed: state.targetBand > state.track.minScore
                     ? () => notifier.setTargetBand(
@@ -220,13 +226,20 @@ class SettingsScreen extends ConsumerWidget {
                     : null,
               ),
               LtrExamBoundary(
+                useLatinFont: !isIran,
                 child: Text(
-                  state.track.formatScore(state.targetBand),
+                  EditionCopy.formatScoreFor(
+                    state.track,
+                    state.targetBand,
+                    isIran: isIran,
+                  ),
                   style: typography.cardTitle.copyWith(color: colors.primary),
                 ),
               ),
               IconButton(
-                tooltip: 'Increase target band score',
+                tooltip: isIran
+                    ? 'افزایش نمره هدف'
+                    : 'Increase target band score',
                 icon: const AppIcon(LucideGlyph.plus, size: 20),
                 onPressed: state.targetBand < state.track.maxScore
                     ? () => notifier.setTargetBand(
@@ -312,6 +325,7 @@ class SettingsScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
+    final isIran = state.edition == AppEdition.iran;
     final options = <({String key, String label})>[
       (key: 'both', label: l10n.learningModeBoth),
       (key: 'exams', label: l10n.learningModeExams),
@@ -360,7 +374,7 @@ class SettingsScreen extends ConsumerWidget {
                   return FilterChip(
                     key: ValueKey<String>('settings_topic_$wire'),
                     label: Text(
-                      topic.labelFor(isIran: state.edition == AppEdition.iran),
+                      topic.labelFor(isIran: isIran),
                     ),
                     selected: selected,
                     onSelected: (_) =>
@@ -384,7 +398,9 @@ class SettingsScreen extends ConsumerWidget {
             children: <int>[5, 10, 20]
                 .map(
                   (cap) => ChoiceChip(
-                    label: Text('$cap'),
+                    label: Text(
+                      isIran ? EdgeNumerals.toPersianDigits(cap) : '$cap',
+                    ),
                     selected: state.dailyNewVocabCap == cap,
                     onSelected: (_) =>
                         unawaited(notifier.setDailyNewVocabCap(cap)),
@@ -432,10 +448,11 @@ class SettingsScreen extends ConsumerWidget {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
     final shapes = AppShapes.of(context);
+    final isIran = state.edition == AppEdition.iran;
     final modes = <({String key, String label})>[
-      (key: 'dark', label: 'Dark'),
-      (key: 'light', label: 'Light'),
-      (key: 'system', label: 'System'),
+      (key: 'dark', label: isIran ? 'تیره' : 'Dark'),
+      (key: 'light', label: isIran ? 'روشن' : 'Light'),
+      (key: 'system', label: isIran ? 'سیستم' : 'System'),
     ];
     final presets = MzThemeCatalog.allPresets;
 
@@ -444,7 +461,7 @@ class SettingsScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            'Brightness',
+            isIran ? 'روشنایی' : 'Brightness',
             style: typography.secondary.copyWith(
               color: colors.textPrimary,
               fontWeight: FontWeight.w600,
@@ -467,7 +484,7 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const Divider(height: SpacingTokens.xl),
           Text(
-            'Color Theme',
+            isIran ? 'پالت رنگی' : 'Color Theme',
             style: typography.secondary.copyWith(
               color: colors.textPrimary,
               fontWeight: FontWeight.w600,
@@ -475,7 +492,9 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: SpacingTokens.xs),
           Text(
-            'Choose any visual palette for reading comfort.',
+            isIran
+                ? 'پالت رنگی مناسب برای مطالعه راحت‌تر خود را انتخاب کنید.'
+                : 'Choose any visual palette for reading comfort.',
             style: typography.caption.copyWith(color: colors.textSecondary),
           ),
           const SizedBox(height: SpacingTokens.sm),
@@ -593,6 +612,7 @@ class SettingsScreen extends ConsumerWidget {
   ) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
+    final isIran = state.edition == AppEdition.iran;
 
     return MzCard(
       variant: state.isPro ? MzCardVariant.hero : MzCardVariant.standard,
@@ -606,21 +626,25 @@ class SettingsScreen extends ConsumerWidget {
             runSpacing: SpacingTokens.xs,
             children: <Widget>[
               MzChip(
-                label: state.isPro ? 'PRO ACTIVE' : 'FREE STARTER',
+                label: state.isPro
+                    ? (isIran ? 'سنجیا پرو فعال' : 'PRO ACTIVE')
+                    : (isIran ? 'نسخه رایگان' : 'FREE STARTER'),
                 isSelected: state.isPro,
               ),
               if (!state.isPro)
                 TextButton(
                   onPressed: () => context.push(AppRoutes.paywall),
-                  child: const Text('Upgrade ->'),
+                  child: Text(isIran ? 'ارتقا به پرو ←' : 'Upgrade ->'),
                 ),
             ],
           ),
           const SizedBox(height: SpacingTokens.md),
           Text(
             state.isPro
-                ? 'Daily Evaluation Quota'
-                : 'Free Diagnostic Allowance',
+                ? (isIran ? 'سهمیه ارزیابی روزانه' : 'Daily Evaluation Quota')
+                : (isIran
+                      ? 'سهمیه ارزیابی رایگان'
+                      : 'Free Diagnostic Allowance'),
             style: typography.body.copyWith(
               color: colors.textPrimary,
               fontWeight: FontWeight.w600,
@@ -629,15 +653,23 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: SpacingTokens.xs),
           Text(
             state.isPro
-                ? '${state.speakingRemaining} Speaking & ${state.writingRemaining} Writing evaluations remaining today.'
+                ? (isIran
+                      ? 'امروز ${EdgeNumerals.toPersianDigits(state.speakingRemaining)} ارزیابی اسپیکینگ و ${EdgeNumerals.toPersianDigits(state.writingRemaining)} ارزیابی رایتینگ باقی مانده است.'
+                      : '${state.speakingRemaining} Speaking & ${state.writingRemaining} Writing evaluations remaining today.')
                 : ((state.speakingRemaining > 0 || state.writingRemaining > 0)
-                      ? '1 shared free diagnostic AI evaluation remaining (Speaking or Writing).'
-                      : 'Free diagnostic AI evaluation used. Upgrade to Pro for 10 Speaking + 10 Writing evaluations daily.'),
+                      ? (isIran
+                            ? '۱ ارزیابی رایگان هوش مصنوعی باقی مانده است (اسپیکینگ یا رایتینگ).'
+                            : '1 shared free diagnostic AI evaluation remaining (Speaking or Writing).')
+                      : (isIran
+                            ? 'ارزیابی رایگان شما مصرف شده است. برای دریافت ۱۰ ارزیابی اسپیکینگ + ۱۰ ارزیابی رایتینگ در روز به پرو ارتقا دهید.'
+                            : 'Free diagnostic AI evaluation used. Upgrade to Pro for 10 Speaking + 10 Writing evaluations daily.')),
             style: typography.caption.copyWith(color: colors.textSecondary),
           ),
           const SizedBox(height: SpacingTokens.md),
           SecondaryButton(
-            label: state.isBusy ? 'Restoring...' : 'Restore Purchases',
+            label: state.isBusy
+                ? (isIran ? 'در حال بازیابی...' : 'Restoring...')
+                : (isIran ? 'بازیابی خریدها' : 'Restore Purchases'),
             onPressed: state.isBusy
                 ? null
                 : () => unawaited(notifier.restorePurchases()),
@@ -662,6 +694,7 @@ class SettingsScreen extends ConsumerWidget {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
     final shapes = AppShapes.of(context);
+    final isIran = state.edition == AppEdition.iran;
     final snapshot = state.accountSessions;
     final user = snapshot?.user;
     final isSignedIn = (snapshot?.isAuthenticated ?? false) && user != null;
@@ -681,7 +714,10 @@ class SettingsScreen extends ConsumerWidget {
                       Text(
                         user.displayName?.isNotEmpty ?? false
                             ? user.displayName!
-                            : (user.email ?? 'Signed-in Account'),
+                            : (user.email ??
+                                  (isIran
+                                      ? 'حساب کاربری فعال'
+                                      : 'Signed-in Account')),
                         style: typography.cardTitle.copyWith(
                           color: colors.textPrimary,
                         ),
@@ -710,13 +746,17 @@ class SettingsScreen extends ConsumerWidget {
                 TextButton.icon(
                   onPressed: state.isManagingSession
                       ? null
-                      : () => _confirmSignOutCurrentDevice(context, notifier),
+                      : () => _confirmSignOutCurrentDevice(
+                          context,
+                          notifier,
+                          isIran: isIran,
+                        ),
                   icon: AppIcon(
                     LucideGlyph.logOut,
                     size: 16,
                     color: colors.textPrimary,
                   ),
-                  label: const Text('Sign Out'),
+                  label: Text(isIran ? 'خروج' : 'Sign Out'),
                 ),
               ],
             ),
@@ -725,7 +765,9 @@ class SettingsScreen extends ConsumerWidget {
               children: <Widget>[
                 Expanded(
                   child: Text(
-                    'Active Device Slots (1 Phone + 1 Desktop Web)',
+                    isIran
+                        ? 'دستگاه‌های فعال (۱ گوشی موبایل + ۱ وب دسکتاپ)'
+                        : 'Active Device Slots (1 Phone + 1 Desktop Web)',
                     style: typography.secondary.copyWith(
                       color: colors.textPrimary,
                       fontWeight: FontWeight.w600,
@@ -733,7 +775,9 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Refresh active devices',
+                  tooltip: isIran
+                      ? 'به‌روزرسانی دستگاه‌های فعال'
+                      : 'Refresh active devices',
                   onPressed: state.isLoadingSessions || state.isManagingSession
                       ? null
                       : () => unawaited(notifier.refreshAccountSessions()),
@@ -757,12 +801,17 @@ class SettingsScreen extends ConsumerWidget {
                   isBusy: state.isManagingSession,
                   onTerminate: () {
                     if (session.isCurrentDevice) {
-                      _confirmSignOutCurrentDevice(context, notifier);
+                      _confirmSignOutCurrentDevice(
+                        context,
+                        notifier,
+                        isIran: isIran,
+                      );
                     } else {
                       _confirmTerminateRemoteSession(
                         context,
                         notifier,
                         session,
+                        isIran: isIran,
                       );
                     }
                   },
@@ -773,12 +822,20 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: SpacingTokens.xs),
               SecondaryButton(
                 label: state.isManagingSession
-                    ? 'Updating Sessions...'
-                    : 'Terminate All Other Devices',
+                    ? (isIran
+                          ? 'در حال به‌روزرسانی...'
+                          : 'Updating Sessions...')
+                    : (isIran
+                          ? 'خروج از سایر دستگاه‌ها'
+                          : 'Terminate All Other Devices'),
                 isDestructive: true,
                 onPressed: state.isManagingSession
                     ? null
-                    : () => _confirmTerminateOtherSessions(context, notifier),
+                    : () => _confirmTerminateOtherSessions(
+                        context,
+                        notifier,
+                        isIran: isIran,
+                      ),
               ),
             ],
             const Divider(height: SpacingTokens.xl),
@@ -794,7 +851,9 @@ class SettingsScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
                   Text(
-                    'Sign In & Device Protection',
+                    isIran
+                        ? 'ورود به حساب و محافظت از دستگاه'
+                        : 'Sign In & Device Protection',
                     style: typography.body.copyWith(
                       color: colors.textPrimary,
                       fontWeight: FontWeight.w600,
@@ -802,14 +861,18 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: SpacingTokens.xs),
                   Text(
-                    'Use your account on 1 Mobile Phone and 1 Desktop Web browser with Google, Apple, or Email & Password.',
+                    isIran
+                        ? 'حساب خود را هم‌زمان روی ۱ گوشی موبایل و ۱ مرورگر دسکتاپ با شماره موبایل یا ایمیل متصل کنید.'
+                        : 'Use your account on 1 Mobile Phone and 1 Desktop Web browser with Google, Apple, or Email & Password.',
                     style: typography.caption.copyWith(
                       color: colors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: SpacingTokens.md),
                   PrimaryButton(
-                    label: 'Sign In or Create Account',
+                    label: isIran
+                        ? 'ورود یا ساخت حساب کاربری'
+                        : 'Sign In or Create Account',
                     onPressed: () async {
                       final router = GoRouter.of(context);
                       await router.push<Object?>(AppRoutes.auth);
@@ -824,7 +887,7 @@ class SettingsScreen extends ConsumerWidget {
             const SizedBox(height: SpacingTokens.md),
           ],
           Text(
-            'Pseudonymous Device Identifier',
+            isIran ? 'شناسه ناشناس دستگاه' : 'Pseudonymous Device Identifier',
             style: typography.caption.copyWith(color: colors.textSecondary),
           ),
           const SizedBox(height: SpacingTokens.xs),
@@ -840,7 +903,7 @@ class SettingsScreen extends ConsumerWidget {
             children: <Widget>[
               Expanded(
                 child: SecondaryButton(
-                  label: 'Copy User ID',
+                  label: isIran ? 'کپی شناسه' : 'Copy User ID',
                   onPressed: () async {
                     await Clipboard.setData(
                       ClipboardData(text: state.appUserId),
@@ -848,7 +911,9 @@ class SettingsScreen extends ConsumerWidget {
                     if (context.mounted) {
                       showMzToast(
                         context,
-                        message: 'User ID copied to clipboard.',
+                        message: isIran
+                            ? 'شناسه کاربری در کلیپ‌بورد کپی شد.'
+                            : 'User ID copied to clipboard.',
                       );
                     }
                   },
@@ -857,7 +922,9 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(width: SpacingTokens.sm),
               Expanded(
                 child: SecondaryButton(
-                  label: state.isSyncingCatalog ? 'Syncing...' : 'Sync Catalog',
+                  label: state.isSyncingCatalog
+                      ? (isIran ? 'در حال همگام‌سازی...' : 'Syncing...')
+                      : (isIran ? 'همگام‌سازی بسته آزمون' : 'Sync Catalog'),
                   glyph: LucideGlyph.rotateCcw,
                   onPressed: state.isSyncingCatalog
                       ? null
@@ -878,7 +945,9 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: SpacingTokens.sm),
           SecondaryButton(
-            label: 'Export Study Data (JSON)',
+            label: isIran
+                ? 'خروجی داده‌های مطالعه (JSON)'
+                : 'Export Study Data (JSON)',
             glyph: LucideGlyph.download,
             onPressed: () async {
               final json = await notifier.exportStudyDataJson();
@@ -886,8 +955,9 @@ class SettingsScreen extends ConsumerWidget {
               if (context.mounted) {
                 showMzToast(
                   context,
-                  message:
-                      'Study backup (${json.length} chars) copied as JSON.',
+                  message: isIran
+                      ? 'نسخه پشتیبان (${EdgeNumerals.toPersianDigits(json.length)} کاراکتر) با فرمت JSON کپی شد.'
+                      : 'Study backup (${json.length} chars) copied as JSON.',
                 );
               }
             },
@@ -899,27 +969,30 @@ class SettingsScreen extends ConsumerWidget {
 
   void _confirmSignOutCurrentDevice(
     BuildContext context,
-    SettingsNotifier notifier,
-  ) {
+    SettingsNotifier notifier, {
+    required bool isIran,
+  }) {
     unawaited(
       showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('Sign Out This Device?'),
-          content: const Text(
-            'Signing out immediately frees this device slot on your account and pauses Pro access on this device until you sign in again.',
+          title: Text(isIran ? 'خروج از این دستگاه؟' : 'Sign Out This Device?'),
+          content: Text(
+            isIran
+                ? 'با خروج از حساب، ظرفیت این دستگاه فوراً آزاد می‌شود و دسترسی پرو روی این دستگاه تا ورود مجدد متوقف خواهد شد.'
+                : 'Signing out immediately frees this device slot on your account and pauses Pro access on this device until you sign in again.',
           ),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
+              child: Text(isIran ? 'انصراف' : 'Cancel'),
             ),
             FilledButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop();
                 unawaited(notifier.signOutCurrentDevice());
               },
-              child: const Text('Sign Out'),
+              child: Text(isIran ? 'خروج' : 'Sign Out'),
             ),
           ],
         ),
@@ -930,20 +1003,27 @@ class SettingsScreen extends ConsumerWidget {
   void _confirmTerminateRemoteSession(
     BuildContext context,
     SettingsNotifier notifier,
-    DeviceSessionInfo session,
-  ) {
+    DeviceSessionInfo session, {
+    required bool isIran,
+  }) {
     unawaited(
       showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: Text('Terminate ${session.deviceName}?'),
+          title: Text(
+            isIran
+                ? 'قطع دسترسی ${session.deviceName}؟'
+                : 'Terminate ${session.deviceName}?',
+          ),
           content: Text(
-            'This will immediately sign out ${session.deviceName} (${session.locationLabel}) and open your ${session.slotKind.displayLabel} slot for another device.',
+            isIran
+                ? 'دسترسی دستگاه ${session.deviceName} (${session.locationLabel}) بلافاصله قطع می‌شود و ظرفیت آن برای دستگاه دیگری آزاد خواهد شد.'
+                : 'This will immediately sign out ${session.deviceName} (${session.locationLabel}) and open your ${session.slotKind.displayLabel} slot for another device.',
           ),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
+              child: Text(isIran ? 'انصراف' : 'Cancel'),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
@@ -953,7 +1033,7 @@ class SettingsScreen extends ConsumerWidget {
                 Navigator.of(dialogContext).pop();
                 unawaited(notifier.terminateDeviceSession(session.deviceId));
               },
-              child: const Text('Terminate Session'),
+              child: Text(isIran ? 'قطع دسترسی' : 'Terminate Session'),
             ),
           ],
         ),
@@ -963,20 +1043,27 @@ class SettingsScreen extends ConsumerWidget {
 
   void _confirmTerminateOtherSessions(
     BuildContext context,
-    SettingsNotifier notifier,
-  ) {
+    SettingsNotifier notifier, {
+    required bool isIran,
+  }) {
     unawaited(
       showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('Terminate All Other Devices?'),
-          content: const Text(
-            'Every other signed-in phone or desktop browser will lose access right away while keeping this device signed in.',
+          title: Text(
+            isIran
+                ? 'قطع دسترسی سایر دستگاه‌ها؟'
+                : 'Terminate All Other Devices?',
+          ),
+          content: Text(
+            isIran
+                ? 'تمامی گوشی‌ها و مرورگرهای دیگر بلافاصله از حساب خارج می‌شوند، اما همین دستگاه متصل باقی می‌ماند.'
+                : 'Every other signed-in phone or desktop browser will lose access right away while keeping this device signed in.',
           ),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
+              child: Text(isIran ? 'انصراف' : 'Cancel'),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
@@ -986,7 +1073,7 @@ class SettingsScreen extends ConsumerWidget {
                 Navigator.of(dialogContext).pop();
                 unawaited(notifier.terminateOtherSessions());
               },
-              child: const Text('Terminate Others'),
+              child: Text(isIran ? 'قطع سایر دستگاه‌ها' : 'Terminate Others'),
             ),
           ],
         ),
@@ -1003,11 +1090,16 @@ class SettingsScreen extends ConsumerWidget {
   }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
+    final isIran = state.edition == AppEdition.iran;
 
-    final sizeLabel = _formatBytes(cacheBytes);
+    final sizeLabel = _formatBytes(cacheBytes, isIran: isIran);
     final subtitle = cachedPacksCount == 0 && cacheBytes == 0
-        ? 'No offline exam packs cached'
-        : '$cachedPacksCount offline packs cached ($sizeLabel)';
+        ? (isIran
+              ? 'بسته آفلاینی ذخیره نشده است'
+              : 'No offline exam packs cached')
+        : (isIran
+              ? '${EdgeNumerals.toPersianDigits(cachedPacksCount)} بسته آفلاین ذخیره شده ($sizeLabel)'
+              : '$cachedPacksCount offline packs cached ($sizeLabel)');
 
     return MzCard(
       child: Row(
@@ -1017,7 +1109,9 @@ class SettingsScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'Offline Audio & Content',
+                  isIran
+                      ? 'فایل‌های صوتی و محتوای آفلاین'
+                      : 'Offline Audio & Content',
                   style: typography.body.copyWith(
                     color: colors.textPrimary,
                     fontWeight: FontWeight.w600,
@@ -1040,11 +1134,17 @@ class SettingsScreen extends ConsumerWidget {
                     if (context.mounted) {
                       showMzToast(
                         context,
-                        message: 'Offline caches purged.',
+                        message: isIran
+                            ? 'حافظه موقت آفلاین پاک شد.'
+                            : 'Offline caches purged.',
                       );
                     }
                   },
-            child: Text(state.isClearingCache ? 'Clearing...' : 'Clear Cache'),
+            child: Text(
+              state.isClearingCache
+                  ? (isIran ? 'در حال پاک‌سازی...' : 'Clearing...')
+                  : (isIran ? 'پاک‌سازی حافظه' : 'Clear Cache'),
+            ),
           ),
         ],
       ),
@@ -1102,6 +1202,7 @@ class SettingsScreen extends ConsumerWidget {
     final colors = AppColors.of(context);
     final shapes = AppShapes.of(context);
     final typography = AppTypography.of(context);
+    final isIran = state.edition == AppEdition.iran;
 
     return Container(
       padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
@@ -1114,7 +1215,7 @@ class SettingsScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            'Danger Zone',
+            isIran ? 'منطقه خطر (حذف کامل داده‌ها)' : 'Danger Zone',
             style: typography.cardTitle.copyWith(
               color: colors.error,
               fontWeight: FontWeight.w700,
@@ -1122,18 +1223,22 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: SpacingTokens.xs),
           Text(
-            'Permanently deletes your server anonymous account along with all practice attempts, essays, audio recordings, and flashcards from this device.',
+            isIran
+                ? 'حساب کاربری شما روی سرور به‌همراه تمامی آزمون‌ها، مقالات، فایل‌های صوتی و فلش‌کارت‌های این دستگاه برای همیشه پاک می‌شوند.'
+                : 'Permanently deletes your server anonymous account along with all practice attempts, essays, audio recordings, and flashcards from this device.',
             style: typography.caption.copyWith(color: colors.textSecondary),
           ),
           const SizedBox(height: SpacingTokens.md),
           SecondaryButton(
             label: state.isBusy
-                ? 'Erasing Data...'
-                : 'Delete All My Data & Account',
+                ? (isIran ? 'در حال پاک‌سازی...' : 'Erasing Data...')
+                : (isIran
+                      ? 'حذف کامل حساب و تمام داده‌ها'
+                      : 'Delete All My Data & Account'),
             isDestructive: true,
             onPressed: state.isBusy
                 ? null
-                : () => _confirmDataWipe(context, notifier),
+                : () => _confirmDataWipe(context, notifier, isIran: isIran),
           ),
         ],
       ),
@@ -1156,19 +1261,27 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _confirmDataWipe(BuildContext context, SettingsNotifier notifier) {
+  void _confirmDataWipe(
+    BuildContext context,
+    SettingsNotifier notifier, {
+    required bool isIran,
+  }) {
     unawaited(
       showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('Delete Account & All Data?'),
-          content: const Text(
-            'This action is irreversible. Your remote evaluation account and all local essays, audio recordings, progress history, and flashcards will be permanently erased.',
+          title: Text(
+            isIran ? 'حذف حساب و تمام داده‌ها؟' : 'Delete Account & All Data?',
+          ),
+          content: Text(
+            isIran
+                ? 'این عمل غیرقابل بازگشت است. حساب سرور و تمامی تمرین‌ها، فایل‌های صوتی، تاریخچه پیشرفت و فلش‌کارت‌های محلی برای همیشه حذف می‌شوند.'
+                : 'This action is irreversible. Your remote evaluation account and all local essays, audio recordings, progress history, and flashcards will be permanently erased.',
           ),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
+              child: Text(isIran ? 'انصراف' : 'Cancel'),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
@@ -1181,7 +1294,7 @@ class SettingsScreen extends ConsumerWidget {
                   context.go(AppRoutes.onboarding);
                 }
               },
-              child: const Text('Erase Everything'),
+              child: Text(isIran ? 'حذف همه‌چیز' : 'Erase Everything'),
             ),
           ],
         ),
@@ -1189,11 +1302,15 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  String _formatBytes(int bytes) {
-    if (bytes <= 0) return '0 KB';
-    if (bytes < 1024 * 1024) {
-      return '${(bytes / 1024).round()} KB';
+  String _formatBytes(int bytes, {required bool isIran}) {
+    final String raw;
+    if (bytes <= 0) {
+      raw = '0 KB';
+    } else if (bytes < 1024 * 1024) {
+      raw = '${(bytes / 1024).round()} KB';
+    } else {
+      raw = '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     }
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return isIran ? EdgeNumerals.toPersianDigits(raw) : raw;
   }
 }

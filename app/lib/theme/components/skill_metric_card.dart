@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
@@ -21,6 +22,7 @@ class SkillMetricCard extends StatelessWidget {
     this.score,
     this.minScore = 0,
     this.maxScore = 9.0,
+    this.usePersianDigits = false,
     this.onTap,
     super.key,
   }) : skillTitle = skillTitle ?? title ?? '',
@@ -51,6 +53,9 @@ class SkillMetricCard extends StatelessWidget {
   /// Scale maximum (`9` IELTS, `6` TOEFL, `90` PTE, `160` DET).
   final double maxScore;
 
+  /// Whether to render score numerals in Persian digits.
+  final bool usePersianDigits;
+
   /// Tap callback opening skill analytics.
   final VoidCallback? onTap;
 
@@ -74,6 +79,15 @@ class SkillMetricCard extends StatelessWidget {
       IconWellTint.danger => colors.error,
       IconWellTint.neutral => colors.primary,
     };
+
+    final rawScore = hasScore
+        ? ((maxScore > 10 || score! > 9.5)
+              ? score!.round().toString()
+              : score!.toStringAsFixed(1))
+        : '—';
+    final displayScore = hasScore && usePersianDigits
+        ? EdgeNumerals.toPersianDigits(rawScore)
+        : rawScore;
 
     return MzCard(
       onTap: onTap,
@@ -106,11 +120,7 @@ class SkillMetricCard extends StatelessWidget {
           const SizedBox(height: SpacingTokens.md),
           // Score display
           Text(
-            hasScore
-                ? ((maxScore > 10 || score! > 9.5)
-                      ? score!.round().toString()
-                      : score!.toStringAsFixed(1))
-                : '—',
+            displayScore,
             style: typography.cardScore.copyWith(
               color: colors.textPrimary,
             ),

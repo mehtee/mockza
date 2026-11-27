@@ -7,6 +7,7 @@ import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/exams/exam_descriptor.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/core/localization/edition_copy.dart';
 import 'package:mockza/core/models/attempt_status.dart';
 import 'package:mockza/features/home/presentation/home_providers.dart';
 import 'package:mockza/l10n/app_localizations.dart';
@@ -44,6 +45,8 @@ class HomeScreen extends ConsumerWidget {
     final typography = AppTypography.of(context);
     final state = ref.watch(homeNotifierProvider);
     final l10n = AppLocalizations.of(context);
+    final edition = ref.watch(editionConfigProvider).edition;
+    final isIran = edition == AppEdition.iran;
     final resumeRoute = state.resumeSpeakingRoute;
     final needsLevelCheck =
         state.estimatedSummary.overallBand == null &&
@@ -61,7 +64,9 @@ class HomeScreen extends ConsumerWidget {
       final formattedDelta = state.track.usesIntegerDisplay
           ? delta.round().toString()
           : delta.toStringAsFixed(1);
-      deltaText = '$prefix$formattedDelta this month';
+      deltaText = isIran
+          ? '$prefix${EdgeNumerals.toPersianDigits(formattedDelta)} این ماه'
+          : '$prefix$formattedDelta this month';
     }
 
     // Extract four individual skill score readouts
@@ -106,11 +111,9 @@ class HomeScreen extends ConsumerWidget {
         })
         .toList(growable: false);
 
-    final edition = ref.watch(editionConfigProvider).edition;
-    final isIran = edition == AppEdition.iran;
     final descriptor = ExamDescriptor.forTrack(state.track);
     final targetChipText = isIran
-        ? 'هدف ${state.track.formatScore(state.targetBand)}'
+        ? 'هدف ${EditionCopy.formatScoreFor(state.track, state.targetBand, isIran: true)}'
         : 'Target ${state.track.formatScore(state.targetBand)}';
     final insights = state.estimatedSummary.overallBand != null
         ? descriptor.buildScoreInsights(
@@ -131,6 +134,7 @@ class HomeScreen extends ConsumerWidget {
               context,
               ref,
               activeTrack: state.track,
+              isIran: isIran,
             ),
             onTapSettings: () => context.push(AppRoutes.settings),
           ),
@@ -216,12 +220,15 @@ class HomeScreen extends ConsumerWidget {
                         ? l10n.speakingSimTitle
                         : needsLevelCheck
                         ? l10n.homeCheckLevel
-                        : state.recommendedTitle,
+                        : _localizeRecTitle(state.recommendedTitle, isIran),
                     subtitle: resumeRoute != null
                         ? l10n.homeResumeDescription
                         : needsLevelCheck
                         ? l10n.homeLevelCheckDescription
-                        : state.recommendedSubtitle,
+                        : _localizeRecSubtitle(
+                            state.recommendedSubtitle,
+                            isIran,
+                          ),
                     onTapStart: () => context.push(
                       resumeRoute ??
                           (needsLevelCheck
@@ -246,12 +253,15 @@ class HomeScreen extends ConsumerWidget {
                         ? l10n.speakingSimTitle
                         : needsLevelCheck
                         ? l10n.homeCheckLevel
-                        : state.recommendedTitle,
+                        : _localizeRecTitle(state.recommendedTitle, isIran),
                     subtitle: resumeRoute != null
                         ? l10n.homeResumeDescription
                         : needsLevelCheck
                         ? l10n.homeLevelCheckDescription
-                        : state.recommendedSubtitle,
+                        : _localizeRecSubtitle(
+                            state.recommendedSubtitle,
+                            isIran,
+                          ),
                     onTapStart: () => context.push(
                       resumeRoute ??
                           (needsLevelCheck
@@ -290,7 +300,9 @@ class HomeScreen extends ConsumerWidget {
                     isIran: isIran,
                     bandShiftDismissed: state.bandShiftDismissed,
                     onAckBandShift: () => unawaited(
-                      ref.read(homeNotifierProvider.notifier).acknowledgeBandShift(),
+                      ref
+                          .read(homeNotifierProvider.notifier)
+                          .acknowledgeBandShift(),
                     ),
                   ),
                   const SizedBox(height: SpacingTokens.lg),
@@ -303,7 +315,23 @@ class HomeScreen extends ConsumerWidget {
                   minScore: state.track.minScore,
                   maxScore: state.track.maxScore,
                   scoreDeltaText: deltaText,
-                  scaleLabel: state.track.scaleLabel,
+                  scaleLabel: EditionCopy.scaleLabelFor(
+                    state.track,
+                    isIran: isIran,
+                  ),
+                  targetPrefix: isIran ? 'هدف' : 'Target',
+                  usePersianDigits: isIran,
+                  unestimatedTitle: isIran
+                      ? 'هنوز برآورد نشده'
+                      : 'Not yet estimated',
+                  unestimatedSubtitle: isIran
+                      ? 'برای محاسبه سطح پایه خود، ارزیابی اولیه رایگان را انجام دهید.'
+                      : state.track.unitLabel == 'Band'
+                          ? 'Complete your free diagnostic to calculate your baseline band score.'
+                          : 'Complete your free diagnostic to calculate your baseline score.',
+                  diagnosticCtaLabel: isIran
+                      ? 'شروع ارزیابی رایگان'
+                      : 'Start Free Diagnostic',
                   onTapDiagnostic: () {
                     final diagId = state.latestDiagnosticId;
                     if (diagId != null &&
@@ -332,7 +360,9 @@ class HomeScreen extends ConsumerWidget {
                     children: insights
                         .map(
                           (item) => MzChip(
-                            label: '${item.label}: ${item.detail}',
+                            label: isIran
+                                ? '${item.label}: ${EdgeNumerals.toPersianDigits(item.detail)}'
+                                : '${item.label}: ${item.detail}',
                             isSelected: true,
                           ),
                         )
@@ -346,12 +376,16 @@ class HomeScreen extends ConsumerWidget {
                   children: <Widget>[
                     Expanded(
                       child: SkillMetricCard(
-                        skillTitle: 'Speaking',
+                        skillTitle: EditionCopy.skillName(
+                          'speaking',
+                          isIran: isIran,
+                        ),
                         glyph: LucideGlyph.mic,
                         tint: IconWellTint.blue,
                         score: speakingScore,
                         minScore: state.track.minScore,
                         maxScore: state.track.maxScore,
+                        usePersianDigits: isIran,
                         onTap: () => context.push(
                           AppRoutes.buildSpeakingSim(descriptor.speakingPackId),
                         ),
@@ -360,12 +394,16 @@ class HomeScreen extends ConsumerWidget {
                     const SizedBox(width: SpacingTokens.md),
                     Expanded(
                       child: SkillMetricCard(
-                        skillTitle: 'Writing',
+                        skillTitle: EditionCopy.skillName(
+                          'writing',
+                          isIran: isIran,
+                        ),
                         glyph: LucideGlyph.pencil,
                         tint: IconWellTint.violet,
                         score: writingScore,
                         minScore: state.track.minScore,
                         maxScore: state.track.maxScore,
+                        usePersianDigits: isIran,
                         onTap: () => context.push(
                           AppRoutes.buildWritingSim(descriptor.writingPackId),
                         ),
@@ -378,12 +416,16 @@ class HomeScreen extends ConsumerWidget {
                   children: <Widget>[
                     Expanded(
                       child: SkillMetricCard(
-                        skillTitle: 'Reading',
+                        skillTitle: EditionCopy.skillName(
+                          'reading',
+                          isIran: isIran,
+                        ),
                         glyph: LucideGlyph.bookOpen,
                         tint: IconWellTint.mint,
                         score: readingScore,
                         minScore: state.track.minScore,
                         maxScore: state.track.maxScore,
+                        usePersianDigits: isIran,
                         onTap: () => context.push(
                           AppRoutes.buildReadingSim(descriptor.readingPackId),
                         ),
@@ -392,12 +434,16 @@ class HomeScreen extends ConsumerWidget {
                     const SizedBox(width: SpacingTokens.md),
                     Expanded(
                       child: SkillMetricCard(
-                        skillTitle: 'Listening',
+                        skillTitle: EditionCopy.skillName(
+                          'listening',
+                          isIran: isIran,
+                        ),
                         glyph: LucideGlyph.headphones,
                         tint: IconWellTint.blue,
                         score: listeningScore,
                         minScore: state.track.minScore,
                         maxScore: state.track.maxScore,
+                        usePersianDigits: isIran,
                         onTap: () => context.push(
                           AppRoutes.buildListeningSim(
                             descriptor.listeningPackId,
@@ -413,6 +459,10 @@ class HomeScreen extends ConsumerWidget {
                 StudyWeekStrip(
                   days: weekTiles,
                   daysStudiedCount: state.studyWeek.completedCount,
+                  title: isIran ? 'فعالیت مطالعه' : 'Study Activity',
+                  daysStudiedLabel: isIran
+                      ? '${EdgeNumerals.toPersianDigits(state.studyWeek.completedCount)} از ۷ روز مطالعه'
+                      : null,
                 ),
                 const SizedBox(height: SpacingTokens.xxl),
               ],
@@ -423,10 +473,54 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
+  static String _localizeRecTitle(String raw, bool isIran) {
+    if (!isIran) return raw;
+    return switch (raw) {
+      'Speaking Part 1–3 Simulation' => 'شبیه‌ساز اسپیکینگ (بخش ۱ تا ۳)',
+      'Writing Task 1 & 2 Assessment' => 'ارزیابی رایتینگ (تسک ۱ و ۲)',
+      'Reading Passage & Evidence Drill' => 'تمرین درک مطلب و ریدینگ',
+      'Listening Audio & Comprehension' => 'تمرین شنیداری و لیسنینگ',
+      _ => raw,
+    };
+  }
+
+  static String _localizeRecSubtitle(String raw, bool isIran) {
+    if (!isIran) return raw;
+    if (raw == 'Take a baseline Speaking simulation to calibrate fluency.') {
+      return 'برای سنجش پایه روانی گفتار، یک شبیه‌ساز اسپیکینگ انجام دهید.';
+    }
+    if (raw ==
+        'Complete a recorded Speaking test to establish your fluency baseline.') {
+      return 'برای ثبت سطح پایه اسپیکینگ، یک آزمون ضبط‌شده انجام دهید.';
+    }
+    final noAttemptMatch = RegExp(
+      r'^No scored (\w+) attempt yet — build your full baseline\.$',
+      caseSensitive: false,
+    ).firstMatch(raw);
+    if (noAttemptMatch != null) {
+      final skill = EditionCopy.skillName(
+        noAttemptMatch.group(1)!,
+        isIran: true,
+      );
+      return 'هنوز آزمونی در مهارت $skill ثبت نشده است — پروفایل پایه خود را کامل کنید.';
+    }
+    final lowestMatch = RegExp(
+      r'^Your lowest skill is (\w+) \((.+)\)\. Raise it to reach your target\.$',
+      caseSensitive: false,
+    ).firstMatch(raw);
+    if (lowestMatch != null) {
+      final skill = EditionCopy.skillName(lowestMatch.group(1)!, isIran: true);
+      final score = EdgeNumerals.toPersianDigits(lowestMatch.group(2)!);
+      return 'کمترین نمره شما در $skill ($score) است. با تقویت آن به نمره هدف نزدیک‌تر شوید.';
+    }
+    return raw;
+  }
+
   void _openTrackPicker(
     BuildContext context,
     WidgetRef ref, {
     required ExamTrack activeTrack,
+    required bool isIran,
   }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
@@ -434,7 +528,7 @@ class HomeScreen extends ConsumerWidget {
     unawaited(
       showMzBottomSheet<void>(
         context: context,
-        title: 'Switch Exam Track',
+        title: isIran ? 'تغییر آزمون هدف' : 'Switch Exam Track',
         child: Builder(
           builder: (sheetCtx) => SingleChildScrollView(
             padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
@@ -544,8 +638,20 @@ class _PersonalizationRoadmapCard extends StatelessWidget {
                       children: <Widget>[
                         Text(
                           l10n.roadmapBandUpTitle(
-                            personalization.liveBand.bandShift.toStringAsFixed(1),
-                            personalization.liveBand.currentBand!.toStringAsFixed(1),
+                            isIran
+                                ? EdgeNumerals.toPersianDigits(
+                                    personalization.liveBand.bandShift
+                                        .toStringAsFixed(1),
+                                  )
+                                : personalization.liveBand.bandShift
+                                      .toStringAsFixed(1),
+                            isIran
+                                ? EdgeNumerals.toPersianDigits(
+                                    personalization.liveBand.currentBand!
+                                        .toStringAsFixed(1),
+                                  )
+                                : personalization.liveBand.currentBand!
+                                      .toStringAsFixed(1),
                           ),
                           style: typography.caption.copyWith(
                             color: colors.success,
@@ -593,8 +699,11 @@ class _PersonalizationRoadmapCard extends StatelessWidget {
               children: personalization.milestones
                   .map(
                     (m) => MzChip(
-                      label:
-                          'M${m.index}${m.status == 'completed' ? ' ✓' : ''}',
+                      label: EditionCopy.milestoneChipLabel(
+                        m.index,
+                        isIran: isIran,
+                        completed: m.status == 'completed',
+                      ),
                       isSelected: m.status == 'active',
                       variant: m.status == 'completed'
                           ? MzChipVariant.positive

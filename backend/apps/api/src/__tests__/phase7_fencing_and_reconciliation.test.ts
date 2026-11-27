@@ -358,8 +358,8 @@ describe('Phase 7 Live PostgreSQL Fencing, Reconciliation, Proxy & Catalog Integ
     }
   });
 
-  it('RR-17: ignores spoofed proxy headers when remoteAddr is not in TRUSTED_PROXY_IPS', () => {
-    const trusted = new Set(['127.0.0.1', '10.0.0.10']);
+  it('RR-17: ignores spoofed proxy headers when remoteAddr is not in TRUSTED_PROXY_IPS and supports CIDRs', () => {
+    const trusted = new Set(['127.0.0.1', '10.0.0.10', '172.16.0.0/12', 'fc00::/7']);
     const spoofed = resolveClientKey({
       forwardedFor: '1.2.3.4, 5.6.7.8',
       cfIp: '9.9.9.9',
@@ -374,6 +374,20 @@ describe('Phase 7 Live PostgreSQL Fencing, Reconciliation, Proxy & Catalog Integ
       trustedProxyIps: trusted,
     });
     expect(viaTrustedProxy).toBe('198.51.100.9');
+
+    const viaDockerBridgeProxy = resolveClientKey({
+      forwardedFor: '198.51.100.77, 172.22.0.5',
+      remoteAddr: '::ffff:172.22.0.8',
+      trustedProxyIps: trusted,
+    });
+    expect(viaDockerBridgeProxy).toBe('198.51.100.77');
+
+    const viaIpv6Cidr = resolveClientKey({
+      forwardedFor: '2001:db8::99',
+      remoteAddr: 'fd12:3456:789a::1',
+      trustedProxyIps: trusted,
+    });
+    expect(viaIpv6Cidr).toBe('2001:db8::99');
   });
 
   it('RR-14 & RR-18: blocks publishing unreviewed packs and blocks explain-question on unpublished packs', async (ctx) => {

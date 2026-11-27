@@ -205,6 +205,10 @@ enum ExamTrack {
     if (lower.startsWith('det')) return det;
     if (lower.contains('-gt-')) return ieltsGeneral;
     if (lower.contains('-acad-')) return ieltsAcademic;
+    if (lower.startsWith('ielts-')) {
+      final profileTrack = fromId(profileExamId);
+      return profileTrack.isIelts ? profileTrack : ieltsAcademic;
+    }
     return fromId(profileExamId);
   }
 }

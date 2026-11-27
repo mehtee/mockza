@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_shapes.dart';
@@ -20,6 +21,8 @@ class AttemptListRow extends StatelessWidget {
     required this.tint,
     this.overallBand,
     this.statusLabel,
+    this.retryLabel = 'Retry',
+    this.usePersianDigits = false,
     this.isPending = false,
     this.isFailed = false,
     this.onTap,
@@ -47,6 +50,12 @@ class AttemptListRow extends StatelessWidget {
 
   /// Status description when not scored yet.
   final String? statusLabel;
+
+  /// Localized retry chip label when failed.
+  final String retryLabel;
+
+  /// Whether to render the score pill in Persian numerals.
+  final bool usePersianDigits;
 
   /// Whether attempt is currently uploading or evaluating.
   final bool isPending;
@@ -91,7 +100,7 @@ class AttemptListRow extends StatelessWidget {
               AppIcon(LucideGlyph.refreshCw, size: 14, color: colors.error),
               const SizedBox(width: SpacingTokens.xs),
               Text(
-                'Retry',
+                retryLabel,
                 style: typography.caption.copyWith(
                   color: colors.error,
                   fontWeight: FontWeight.w600,
@@ -107,6 +116,12 @@ class AttemptListRow extends StatelessWidget {
         glyph: LucideGlyph.loaderCircle,
       );
     } else if (overallBand != null) {
+      final rawScore = overallBand! > 9.5
+          ? overallBand!.round().toString()
+          : overallBand!.toStringAsFixed(1);
+      final displayScore = usePersianDigits
+          ? EdgeNumerals.toPersianDigits(rawScore)
+          : rawScore;
       trailingWidget = Container(
         padding: const EdgeInsets.symmetric(
           horizontal: SpacingTokens.md,
@@ -121,9 +136,7 @@ class AttemptListRow extends StatelessWidget {
           ),
         ),
         child: Text(
-          overallBand! > 9.5
-              ? overallBand!.round().toString()
-              : overallBand!.toStringAsFixed(1),
+          displayScore,
           style: typography.cardTitle.copyWith(
             fontWeight: FontWeight.w700,
             color: colors.textPrimary,

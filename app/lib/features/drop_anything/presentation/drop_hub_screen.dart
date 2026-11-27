@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mockza/core/advanced/drop_input_policy.dart';
 import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/core/localization/edition_copy.dart';
 import 'package:mockza/core/result/failure.dart';
 import 'package:mockza/core/result/result.dart';
 import 'package:mockza/l10n/app_localizations.dart';
@@ -24,18 +25,21 @@ import 'package:mockza/theme/components/mz_chip.dart';
 import 'package:mockza/theme/components/mz_scaffold.dart';
 import 'package:mockza/theme/primitives.dart';
 
-const List<({String label, String text})> _kDropSampleExcerpts =
-    <({String label, String text})>[
+const List<({String label, String labelFa, String text})> _kDropSampleExcerpts =
+    <({String label, String labelFa, String text})>[
       (
         label: 'AI & Work',
+        labelFa: 'هوش مصنوعی و کار',
         text: 'Generative tools accelerate initial drafting, albeit often introducing subtle factual hallucinations that require seasoned human judgment and deliberate editorial verification before publication.',
       ),
       (
         label: 'Urban Design',
+        labelFa: 'طراحی شهری',
         text: 'Forward-thinking municipalities have prioritized walkable green corridors rather than widening highways, recognizing that congestion cannot simply be paved away in dense metropolitan regions.',
       ),
       (
         label: 'Habit Science',
+        labelFa: 'علم عادت‌سازی',
         text: 'Sustainable fluency rarely stems from marathon weekend cramming; rather, it compounds through compact daily feedback loops that surface recurring errors while memory traces remain fresh.',
       ),
     ];
@@ -281,7 +285,9 @@ class _DropHubScreenState extends ConsumerState<DropHubScreen> {
     setState(() => _recordingAudio = false);
     if (path == null || path.isEmpty) {
       setState(
-        () => _error = stopRes.failureOrNull?.message ?? 'Recording failed.',
+        () => _error =
+            stopRes.failureOrNull?.message ??
+            (isRtl ? 'ضبط صدا ناموفق بود.' : 'Recording failed.'),
       );
       return;
     }
@@ -349,7 +355,11 @@ class _DropHubScreenState extends ConsumerState<DropHubScreen> {
       final tCheck = DropInputPolicy.validateTextSnippet(txt);
       if (!tCheck.ok) {
         setState(
-          () => _error = tCheck.reason ?? 'Text must be 40..15,000 chars.',
+          () => _error = isRtl
+              ? (txt.length < 40
+                    ? 'متن باید حداقل ۴۰ کاراکتر باشد تا بتوان تمرین ساخت.'
+                    : 'متن نباید بیشتر از ۱۵٬۰۰۰ کاراکتر باشد.')
+              : (tCheck.reason ?? 'Text must be 40..15,000 chars.'),
         );
         return;
       }
@@ -371,7 +381,7 @@ class _DropHubScreenState extends ConsumerState<DropHubScreen> {
       setState(() {
         _submitting = true;
         _statusStage = isRtl
-            ? 'در حال آپلود تصاویر (${_pickedImages.length})...'
+            ? 'در حال آپلود تصاویر (${EdgeNumerals.toPersianDigits(_pickedImages.length)})...'
             : 'Uploading ${_pickedImages.length} image(s)...';
       });
       final dropBatchId = entropy.nextUuidV4();
@@ -394,7 +404,9 @@ class _DropHubScreenState extends ConsumerState<DropHubScreen> {
         setState(() {
           _submitting = false;
           _statusStage = '';
-          _error = batch.failureOrNull?.message ?? 'Image upload failed.';
+          _error =
+              batch.failureOrNull?.message ??
+              (isRtl ? 'آپلود تصویر ناموفق بود.' : 'Image upload failed.');
         });
         return;
       }
@@ -432,7 +444,9 @@ class _DropHubScreenState extends ConsumerState<DropHubScreen> {
         setState(() {
           _submitting = false;
           _statusStage = '';
-          _error = up.failureOrNull?.message ?? 'Audio upload failed.';
+          _error =
+              up.failureOrNull?.message ??
+              (isRtl ? 'آپلود فایل صوتی ناموفق بود.' : 'Audio upload failed.');
         });
         return;
       }
@@ -449,7 +463,9 @@ class _DropHubScreenState extends ConsumerState<DropHubScreen> {
       setState(() {
         _submitting = false;
         _statusStage = '';
-        _error = res.failureOrNull?.message ?? 'Drop failed.';
+        _error =
+            res.failureOrNull?.message ??
+            (isRtl ? 'پردازش محتوا ناموفق بود.' : 'Drop failed.');
       });
       return;
     }
@@ -481,10 +497,16 @@ class _DropHubScreenState extends ConsumerState<DropHubScreen> {
         unawaited(context.push(AppRoutes.buildDropDrill(dto.dropId)));
       },
       failure: (f) async {
+        final isIran =
+            ref.read(editionConfigProvider).edition == AppEdition.iran;
         setState(() {
           _submitting = false;
           _statusStage = '';
-          _error = f.message;
+          _error = EditionCopy.localizeDropPolicyReason(
+            f.code,
+            f.message,
+            isIran: isIran,
+          );
         });
       },
     );
@@ -514,7 +536,7 @@ class _DropHubScreenState extends ConsumerState<DropHubScreen> {
                 child: MzChip(
                   label: _quota!.isPro
                       ? (isRtl
-                            ? '${_quota!.dropsRemainingToday} محتوا باقی‌مانده امروز'
+                            ? '${EdgeNumerals.toPersianDigits(_quota!.dropsRemainingToday)} محتوا باقی‌مانده امروز'
                             : '${_quota!.dropsRemainingToday} study sets left today')
                       : _quota!.freeSampleUsed
                       ? (isRtl ? 'نمونه رایگان مصرف شد' : 'Free sample used')
@@ -600,8 +622,11 @@ class _DropHubScreenState extends ConsumerState<DropHubScreen> {
                         children: _kDropSampleExcerpts
                             .map(
                               (ex) => ActionChip(
-                                label: Text(ex.label),
-                                onPressed: () => _textCtrl.text = ex.text,
+                                label: Text(isRtl ? ex.labelFa : ex.label),
+                                onPressed: () => setState(() {
+                                  _textCtrl.text = ex.text;
+                                  _error = null;
+                                }),
                               ),
                             )
                             .toList(growable: false),
@@ -612,9 +637,11 @@ class _DropHubScreenState extends ConsumerState<DropHubScreen> {
                           key: const ValueKey<String>('drop_text_field'),
                           controller: _textCtrl,
                           maxLines: 5,
-                          decoration: const InputDecoration(
-                            hintText: 'Paste English article, book quote, or podcast transcript (40..15,000 chars)...',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            hintText: isRtl
+                                ? 'متن مقاله، نقل‌قول کتاب یا رونوشت پادکست انگلیسی را وارد کنید (۴۰ تا ۱۵٬۰۰۰ کاراکتر)...'
+                                : 'Paste English article, book quote, or podcast transcript (40..15,000 chars)...',
+                            border: const OutlineInputBorder(),
                           ),
                         ),
                       ),
@@ -740,7 +767,10 @@ class _DropHubScreenState extends ConsumerState<DropHubScreen> {
                 if (_statusStage.isNotEmpty) ...<Widget>[
                   const SizedBox(height: SpacingTokens.sm),
                   Text(
-                    _statusStage,
+                    EditionCopy.localizeWorkerStage(
+                      _statusStage,
+                      isIran: isRtl,
+                    ),
                     style: typography.caption.copyWith(color: colors.primary),
                   ),
                 ],

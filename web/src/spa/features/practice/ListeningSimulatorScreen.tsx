@@ -102,7 +102,7 @@ export function ListeningSimulatorScreen({
     () => [
       { keys: 'J / K', description: t('simNextQuestionAction') },
       { keys: 'F', description: t('simFlagQuestionAction') },
-      { keys: '1–9', description: 'Select choice' },
+      { keys: '1–9', description: t('listeningSelectChoiceShortcut') },
     ],
     [t],
   );

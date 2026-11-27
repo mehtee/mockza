@@ -3,7 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockza/core/config/edition_config.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/core/formatting/jalali_edge_formatter.dart';
+import 'package:mockza/core/localization/edition_copy.dart';
 import 'package:mockza/core/models/attempt_status.dart';
+import 'package:mockza/core/vocab/serial_day.dart';
 import 'package:mockza/data/repositories/attempt_repository.dart';
 import 'package:mockza/features/progress/presentation/progress_providers.dart';
 import 'package:mockza/providers.dart';
@@ -102,6 +107,8 @@ class _ProgressAttemptsScreenState
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
     final activeFilter = ref.watch(historyFilterProvider);
+    final edition = ref.watch(editionConfigProvider).edition;
+    final isIran = edition == AppEdition.iran;
 
     if (_loadedFilter != activeFilter && !_isInitialLoading) {
       unawaited(Future.microtask(() => _reloadPage(reset: true)));
@@ -125,17 +132,25 @@ class _ProgressAttemptsScreenState
         )
         .toList(growable: false);
 
+    final completedCountText = EdgeNumerals.formatChromeNumber(
+      completedAttempts.length,
+      edition,
+    );
+
     return MzScaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: const AppIcon(LucideGlyph.chevronLeft, size: 22),
+          icon: AppIcon(
+            isIran ? LucideGlyph.chevronRight : LucideGlyph.chevronLeft,
+            size: 22,
+          ),
           onPressed: () => context.safePopOrGo(AppRoutes.progress),
         ),
-        title: const Text('Attempt History'),
+        title: Text(isIran ? 'تاریخچه آزمون‌ها' : 'Attempt History'),
         actions: <Widget>[
           MzIconButton(
             glyph: LucideGlyph.rotateCcw,
-            semanticLabel: 'Refresh history',
+            semanticLabel: isIran ? 'به‌روزرسانی تاریخچه' : 'Refresh history',
             onPressed: () => unawaited(_reloadPage(reset: true)),
           ),
         ],
@@ -147,7 +162,7 @@ class _ProgressAttemptsScreenState
               padding: const EdgeInsetsDirectional.symmetric(
                 vertical: SpacingTokens.md,
               ),
-              child: _buildFilterChips(context, activeFilter),
+              child: _buildFilterChips(context, activeFilter, isIran: isIran),
             ),
           ),
           if (_isInitialLoading)
@@ -165,7 +180,9 @@ class _ProgressAttemptsScreenState
                     top: SpacingTokens.sm,
                   ),
                   child: Text(
-                    'Pending Sync & Retries',
+                    isIran
+                        ? 'در انتظار همگام‌سازی و تلاش مجدد'
+                        : 'Pending Sync & Retries',
                     style: typography.cardTitle.copyWith(color: colors.warning),
                   ),
                 ),
@@ -176,8 +193,11 @@ class _ProgressAttemptsScreenState
                 ),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
-                    (context, index) =>
-                        _buildRow(context, pendingOrFailed[index]),
+                    (context, index) => _buildRow(
+                      context,
+                      pendingOrFailed[index],
+                      edition: edition,
+                    ),
                     childCount: pendingOrFailed.length,
                   ),
                 ),
@@ -189,7 +209,9 @@ class _ProgressAttemptsScreenState
                   top: SpacingTokens.sm,
                 ),
                 child: Text(
-                  'Completed Sessions (${completedAttempts.length})',
+                  isIran
+                      ? 'آزمون‌های تکمیل‌شده ($completedCountText)'
+                      : 'Completed Sessions (${completedAttempts.length})',
                   style: typography.cardTitle.copyWith(
                     color: colors.textPrimary,
                   ),
@@ -198,7 +220,7 @@ class _ProgressAttemptsScreenState
             ),
             if (completedAttempts.isEmpty && pendingOrFailed.isEmpty)
               SliverToBoxAdapter(
-                child: _buildEmptyState(context),
+                child: _buildEmptyState(context, isIran: isIran),
               )
             else
               SliverPadding(
@@ -207,8 +229,11 @@ class _ProgressAttemptsScreenState
                 ),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
-                    (context, index) =>
-                        _buildRow(context, completedAttempts[index]),
+                    (context, index) => _buildRow(
+                      context,
+                      completedAttempts[index],
+                      edition: edition,
+                    ),
                     childCount: completedAttempts.length,
                   ),
                 ),
@@ -220,9 +245,13 @@ class _ProgressAttemptsScreenState
                     vertical: SpacingTokens.md,
                   ),
                   child: SecondaryButton(
-                    label: _isLoadingMore
-                        ? 'Loading Older Attempts...'
-                        : 'Load Older Attempts',
+                    label: isIran
+                        ? (_isLoadingMore
+                              ? 'در حال دریافت آزمون‌های قدیمی‌تر...'
+                              : 'نمایش آزمون‌های قدیمی‌تر')
+                        : (_isLoadingMore
+                              ? 'Loading Older Attempts...'
+                              : 'Load Older Attempts'),
                     onPressed: _isLoadingMore
                         ? null
                         : () => unawaited(_reloadPage()),
@@ -238,30 +267,43 @@ class _ProgressAttemptsScreenState
     );
   }
 
-  Widget _buildFilterChips(BuildContext context, String activeFilter) {
-    final filters = <String>[
-      'All',
-      'Speaking',
-      'Writing',
-      'Reading',
-      'Listening',
-      'Vocabulary',
+  Widget _buildFilterChips(
+    BuildContext context,
+    String activeFilter, {
+    required bool isIran,
+  }) {
+    final filters = <({String key, String label})>[
+      (key: 'All', label: isIran ? 'همه' : 'All'),
+      (
+        key: 'Speaking',
+        label: EditionCopy.skillName('speaking', isIran: isIran),
+      ),
+      (key: 'Writing', label: EditionCopy.skillName('writing', isIran: isIran)),
+      (key: 'Reading', label: EditionCopy.skillName('reading', isIran: isIran)),
+      (
+        key: 'Listening',
+        label: EditionCopy.skillName('listening', isIran: isIran),
+      ),
+      (
+        key: 'Vocabulary',
+        label: EditionCopy.skillName('vocabulary', isIran: isIran),
+      ),
     ];
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: filters
             .map((f) {
-              final isSelected = activeFilter == f;
+              final isSelected = activeFilter == f.key;
               return Padding(
                 padding: const EdgeInsetsDirectional.only(
                   end: SpacingTokens.sm,
                 ),
                 child: MzChip(
-                  label: f,
+                  label: f.label,
                   isSelected: isSelected,
                   onTap: () =>
-                      ref.read(historyFilterProvider.notifier).setFilter(f),
+                      ref.read(historyFilterProvider.notifier).setFilter(f.key),
                 ),
               );
             })
@@ -270,11 +312,24 @@ class _ProgressAttemptsScreenState
     );
   }
 
-  Widget _buildRow(BuildContext context, AttemptSummary attempt) {
+  Widget _buildRow(
+    BuildContext context,
+    AttemptSummary attempt, {
+    required AppEdition edition,
+  }) {
+    final isIran = edition == AppEdition.iran;
     final (glyph, tint) = _skillVisuals(attempt.skill);
-    final formattedDate =
-        '${attempt.updatedAt.month}/${attempt.updatedAt.day} · ${attempt.durationSeconds ~/ 60}m';
-    final title = '${attempt.skill.name.toUpperCase()} · ${attempt.packId}';
+    final mins = attempt.durationSeconds ~/ 60;
+    final formattedDate = isIran
+        ? '${JalaliEdgeFormatter.formatSerialDay(SerialDay.fromUtcDateTime(attempt.updatedAt), edition)} · ${EdgeNumerals.toPersianDigits('$mins')} دقیقه'
+        : '${attempt.updatedAt.month}/${attempt.updatedAt.day} · ${mins}m';
+    final skillLabel = EditionCopy.skillName(
+      attempt.skill.name,
+      isIran: isIran,
+    );
+    final title = isIran
+        ? '$skillLabel · ${attempt.packId}'
+        : '${attempt.skill.name.toUpperCase()} · ${attempt.packId}';
 
     return Padding(
       padding: const EdgeInsetsDirectional.only(bottom: SpacingTokens.sm),
@@ -285,21 +340,29 @@ class _ProgressAttemptsScreenState
         glyph: glyph,
         tint: tint,
         overallBand: attempt.overallBand,
+        statusLabel: isIran ? 'در حال ارزیابی...' : 'Evaluating...',
+        retryLabel: isIran ? 'تلاش مجدد' : 'Retry',
+        usePersianDigits: isIran,
         isPending:
             attempt.status == AttemptStatus.uploadingAudio ||
             attempt.status == AttemptStatus.queuedRemote,
         isFailed: attempt.status == AttemptStatus.failedRetryable,
         onTap: () =>
             context.push(AppRoutes.buildAttemptReview(attempt.attemptId)),
-        onTapRetry: () => unawaited(_retryPendingSync(context)),
+        onTapRetry: () => unawaited(_retryPendingSync(context, isIran: isIran)),
       ),
     );
   }
 
-  Future<void> _retryPendingSync(BuildContext context) async {
+  Future<void> _retryPendingSync(
+    BuildContext context, {
+    required bool isIran,
+  }) async {
     showMzToast(
       context,
-      message: 'Syncing pending submission...',
+      message: isIran
+          ? 'در حال همگام‌سازی ارسال‌های معلق...'
+          : 'Syncing pending submission...',
       glyph: LucideGlyph.cloudUpload,
     );
     await ref.read(authSessionServiceProvider).ensureAuthenticated();
@@ -308,7 +371,7 @@ class _ProgressAttemptsScreenState
     if (mounted) {
       showMzToast(
         this.context,
-        message: 'Queue sync checked.',
+        message: isIran ? 'صف ارسال بررسی شد.' : 'Queue sync checked.',
       );
     }
   }
@@ -321,7 +384,7 @@ class _ProgressAttemptsScreenState
     SkillKind.vocabulary => (LucideGlyph.layers3, IconWellTint.amber),
   };
 
-  Widget _buildEmptyState(BuildContext context) {
+  Widget _buildEmptyState(BuildContext context, {required bool isIran}) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
 
@@ -332,12 +395,14 @@ class _ProgressAttemptsScreenState
           const AppIcon(LucideGlyph.chartIncreasing, size: 40),
           const SizedBox(height: SpacingTokens.md),
           Text(
-            'No attempts found',
+            isIran ? 'آزمونی یافت نشد' : 'No attempts found',
             style: typography.cardTitle.copyWith(color: colors.textPrimary),
           ),
           const SizedBox(height: SpacingTokens.xs),
           Text(
-            'Your completed timed simulations and drills will appear here.',
+            isIran
+                ? 'شبیه‌سازی‌های زمان‌دار و تمرین‌های تکمیل‌شده شما اینجا نمایش داده می‌شوند.'
+                : 'Your completed timed simulations and drills will appear here.',
             textAlign: TextAlign.center,
             style: typography.body.copyWith(color: colors.textSecondary),
           ),

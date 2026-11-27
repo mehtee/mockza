@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mockza/core/auth/auth_models.dart';
+import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/result/failure.dart';
 import 'package:mockza/core/result/result.dart';
 import 'package:mockza/providers.dart';
@@ -15,6 +16,7 @@ class AuthState {
   const new({
     this.isSignUp = false,
     this.isLoadingProviders = true,
+    this.serverProvidersLoaded = false,
     this.isSubmitting = false,
     this.providers = AuthProvidersCatalog.fallback,
     this.errorMessage,
@@ -30,6 +32,9 @@ class AuthState {
 
   /// `true` while fetching `GET /v1/auth/providers`.
   final bool isLoadingProviders;
+
+  /// `true` once `GET /v1/auth/providers` returned a live server response.
+  final bool serverProvidersLoaded;
 
   /// `true` while register, login, or OAuth exchange is in flight.
   final bool isSubmitting;
@@ -59,6 +64,7 @@ class AuthState {
   AuthState copyWith({
     bool? isSignUp,
     bool? isLoadingProviders,
+    bool? serverProvidersLoaded,
     bool? isSubmitting,
     AuthProvidersCatalog? providers,
     String? errorMessage,
@@ -73,6 +79,7 @@ class AuthState {
   }) => AuthState(
     isSignUp: isSignUp ?? this.isSignUp,
     isLoadingProviders: isLoadingProviders ?? this.isLoadingProviders,
+    serverProvidersLoaded: serverProvidersLoaded ?? this.serverProvidersLoaded,
     isSubmitting: isSubmitting ?? this.isSubmitting,
     providers: providers ?? this.providers,
     errorMessage: clearErrorMessage
@@ -107,9 +114,11 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> loadProviders() async {
     final res = await ref.read(authSessionServiceProvider).fetchAuthProviders();
     if (_isDisposed) return;
+    final live = res.valueOrNull;
     state = state.copyWith(
       isLoadingProviders: false,
-      providers: res.valueOrNull ?? AuthProvidersCatalog.fallback,
+      serverProvidersLoaded: live != null,
+      providers: live ?? AuthProvidersCatalog.fallback,
     );
   }
 
@@ -147,24 +156,31 @@ class AuthNotifier extends Notifier<AuthState> {
     required String password,
     String? displayName,
   }) async {
+    final isIran = ref.read(editionConfigProvider).edition == AppEdition.iran;
     final cleanEmail = email.trim();
     if (!cleanEmail.contains('@') || !cleanEmail.contains('.')) {
       state = state.copyWith(
-        errorMessage: 'Please enter a valid email address.',
+        errorMessage: isIran
+            ? 'لطفاً یک نشانی ایمیل معتبر وارد کنید.'
+            : 'Please enter a valid email address.',
         clearSlotConflict: true,
       );
       return false;
     }
     if (state.isSignUp && password.length < 8) {
       state = state.copyWith(
-        errorMessage: 'Password must be at least 8 characters long.',
+        errorMessage: isIran
+            ? 'رمز عبور باید حداقل ۸ کاراکتر باشد.'
+            : 'Password must be at least 8 characters long.',
         clearSlotConflict: true,
       );
       return false;
     }
     if (!state.isSignUp && password.isEmpty) {
       state = state.copyWith(
-        errorMessage: 'Please enter your password.',
+        errorMessage: isIran
+            ? 'لطفاً رمز عبور خود را وارد کنید.'
+            : 'Please enter your password.',
         clearSlotConflict: true,
       );
       return false;

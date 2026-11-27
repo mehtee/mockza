@@ -6,8 +6,8 @@ import {
   EvaluationModelError,
   prepareAudioForModel,
   type RegisterShifterResult,
-  shiftRegisterGraph,
   type ShiftRegisterOptions,
+  shiftRegisterGraph,
 } from '@mockza/ai';
 import {
   commitQuotaReservationAtomic,
@@ -60,7 +60,7 @@ export async function handleRegisterShifterJob(
       .update(evaluationJobs)
       .set({
         status: 'processing_audio',
-        stageDetail: 'Shifting your spoken idea into Casual, Workplace, and Academic registers',
+        stageDetail: 'stage.register_shifting',
         claimToken,
         claimExpiresAt,
         attemptsCount: attemptNumber,
@@ -144,7 +144,7 @@ export async function handleRegisterShifterJob(
           .update(evaluationJobs)
           .set({
             status: 'completed',
-            stageDetail: 'Register shift complete',
+            stageDetail: 'stage.register_complete',
             resultJson: result,
             modelId: 'google/gemini-3.1-flash-lite',
             rubricVersion: 'register-shifter-v1',
@@ -224,17 +224,14 @@ export async function handleRegisterShifterJob(
           .update(evaluationJobs)
           .set({
             status: 'repairing',
-            stageDetail: `Retrying register shift (${attemptNumber}/${maxAttempts})`,
+            stageDetail: `stage.register_retrying:${attemptNumber}/${maxAttempts}`,
             attemptsCount: attemptNumber,
             claimToken: null,
             claimExpiresAt: null,
             updatedAt: new Date(),
           })
           .where(
-            and(
-              eq(evaluationJobs.jobId, payload.jobId),
-              eq(evaluationJobs.claimToken, claimToken),
-            ),
+            and(eq(evaluationJobs.jobId, payload.jobId), eq(evaluationJobs.claimToken, claimToken)),
           );
       } else {
         const errorCode = error instanceof EvaluationModelError ? error.code : 'internal_error';
@@ -243,7 +240,7 @@ export async function handleRegisterShifterJob(
             .update(evaluationJobs)
             .set({
               status: 'failed',
-              stageDetail: 'Register shift failed',
+              stageDetail: 'stage.register_failed',
               errorCode,
               claimToken: null,
               claimExpiresAt: null,

@@ -1,7 +1,5 @@
 import {
   EXAM_DESCRIPTORS,
-  EXAM_TRACK_SPECS,
-  formatExamScoreWithUnit,
   normalizeSupportedExamId,
   type SkillKind,
   type SupportedExamId,
@@ -10,10 +8,16 @@ import { Link } from '@tanstack/react-router';
 import { CheckCircle2, Coffee, Play, RotateCcw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CompactPreflightHeader, formatMmSs } from '@/components/exam-kit';
+import {
+  formatLocalizedExamScoreWithUnit,
+  formatTrackLocalizedName,
+} from '@/components/bidi/topic-labels';
 import { MzButton, MzCard, MzSegmentedControl } from '@/components/ui';
+import { type EditionCode } from '@/edition/edition-config';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
+import { formatChromeNumber } from '@/edition/bidi/numerals';
 import type { CompletedAttemptRecord, MockSessionRecord } from '@/gateways/storage.gateway';
-import { createTranslator } from '@/i18n';
+import { createTranslator, translate } from '@/i18n';
 import { useDeps } from '@/spa/deps';
 import { useCountdownClock } from '@/spa/useCountdownClock';
 import { ListeningSimulatorScreen } from './ListeningSimulatorScreen';
@@ -40,31 +44,34 @@ const STAGE_ORDER_BY_TRACK: Record<SupportedExamId, readonly Exclude<SkillKind, 
   det: ['reading', 'listening', 'writing', 'speaking'],
 };
 
-function resolveStageOrderForTrack(track: SupportedExamId): readonly MockStageSpec[] {
+function resolveStageOrderForTrack(
+  track: SupportedExamId,
+  edition: EditionCode,
+): readonly MockStageSpec[] {
   const desc = EXAM_DESCRIPTORS[track];
   const bySkill: Record<Exclude<SkillKind, 'vocabulary'>, MockStageSpec> = {
     listening: {
       stageKey: 'listening',
       skill: 'listening',
-      title: 'Listening Section',
+      title: translate(edition, 'fullMockStageListening'),
       packId: desc.listeningPackId,
     },
     reading: {
       stageKey: 'reading',
       skill: 'reading',
-      title: 'Reading Section',
+      title: translate(edition, 'fullMockStageReading'),
       packId: desc.readingPackId,
     },
     writing: {
       stageKey: 'writing',
       skill: 'writing',
-      title: 'Writing Section',
+      title: translate(edition, 'fullMockStageWriting'),
       packId: desc.writingPackId,
     },
     speaking: {
       stageKey: 'speaking',
       skill: 'speaking',
-      title: 'Speaking Section',
+      title: translate(edition, 'fullMockStageSpeaking'),
       packId: desc.speakingPackId,
     },
   };
@@ -162,8 +169,8 @@ export function FullMockOrchestratorScreen({
   }, [deps.attemptStore, session]);
 
   const stages = useMemo(
-    () => resolveStageOrderForTrack(session?.track ?? 'ielts_academic'),
-    [session?.track],
+    () => resolveStageOrderForTrack(session?.track ?? 'ielts_academic', deps.edition),
+    [deps.edition, session?.track],
   );
 
   const nextPendingStage = useMemo(
@@ -220,7 +227,7 @@ export function FullMockOrchestratorScreen({
   if (!session) {
     return (
       <div data-testid="full-mock-screen" className="p-6 text-sm text-text-secondary">
-        Preparing Full Mock...
+        {t('fullMockPreparing')}
       </div>
     );
   }
@@ -248,7 +255,7 @@ export function FullMockOrchestratorScreen({
         <MzCard variant="hero" data-testid="full-mock-break-card">
           <div className="flex items-center gap-2 text-primary">
             <Coffee className="h-5 w-5" aria-hidden="true" />
-            <span className="text-xs font-bold uppercase tracking-wider">Mock Day Break</span>
+            <span className="text-xs font-bold uppercase tracking-wider">{t('fullMockBreakBadge')}</span>
           </div>
           <h1 className="mt-2 text-2xl font-bold text-text-primary">{t('fullMockBreakTitle')}</h1>
           <p className="mt-1 text-sm text-text-secondary">{t('fullMockBreakSubtitle')}</p>
@@ -279,32 +286,19 @@ export function FullMockOrchestratorScreen({
   }
 
   const allCompleted = !nextPendingStage;
+  const trackLabel = formatTrackLocalizedName(session.track, deps.edition);
 
   return (
     <div data-testid="full-mock-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-12 text-start">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold text-primary">
-            {deps.edition === 'irn'
-              ? t(
-                  session.track === 'ielts_academic'
-                    ? 'trackIeltsAcademic'
-                    : session.track === 'ielts_general'
-                      ? 'trackIeltsGeneral'
-                      : session.track === 'toefl_ibt'
-                        ? 'trackToeflIbt'
-                        : session.track === 'pte_academic'
-                          ? 'trackPteAcademic'
-                          : 'trackDet',
-                )
-              : EXAM_TRACK_SPECS[session.track].displayName}
-          </p>
+          <p className="text-xs font-semibold text-primary">{trackLabel}</p>
           <h1 className="text-2xl font-bold text-text-primary">{t('fullMockOrchestratorTitle')}</h1>
           <p className="mt-1 text-sm text-text-secondary">{t('fullMockSubtitle')}</p>
         </div>
 
         <MzSegmentedControl<'exam' | 'study'>
-          ariaLabel="Mock Exam Mode"
+          ariaLabel={t('fullMockOrchestratorTitle')}
           fullWidth
           value={examMode}
           onChange={setExamMode}
@@ -316,7 +310,7 @@ export function FullMockOrchestratorScreen({
       </div>
 
       <CompactPreflightHeader<'exam' | 'study'>
-        title={EXAM_TRACK_SPECS[session.track].displayName}
+        title={trackLabel}
         subtitle={t('fullMockSubtitle')}
         modeOptions={[
           { value: 'exam', label: t('workspaceExamModeBadge') },
@@ -325,8 +319,8 @@ export function FullMockOrchestratorScreen({
         selectedMode={examMode}
         onModeChange={setExamMode}
         rulesSummary={[
-          'Complete stages sequentially with optional 5-minute inter-section breaks.',
-          'Audio playback is locked in Exam Simulation Mode.',
+          t('fullMockRuleSequential'),
+          t('fullMockRuleAudioLocked'),
         ]}
       />
 
@@ -345,16 +339,14 @@ export function FullMockOrchestratorScreen({
                   data-testid={`full-mock-scorecard-${st.stageKey}`}
                   className="rounded-[var(--mz-radius-compact)] border border-border-subtle bg-canvas px-3 py-2 text-xs"
                 >
-                  <LtrExamBoundary>
-                    <p className="font-semibold text-text-secondary">{st.title}</p>
-                    <p className="mt-0.5 font-mono-exam text-sm font-bold text-primary">
-                      {att && att.overallBand !== null
-                        ? formatExamScoreWithUnit(att.overallBand, session.track)
-                        : deps.edition === 'irn'
-                          ? 'در انتظار'
-                          : 'Pending'}
-                    </p>
-                  </LtrExamBoundary>
+                  <p className="font-semibold text-text-secondary">{st.title}</p>
+                  <p
+                    className={`mt-0.5 ${deps.edition === 'glb' ? 'font-mono-exam ' : ''}text-sm font-bold text-primary`}
+                  >
+                    {att && att.overallBand !== null
+                      ? formatLocalizedExamScoreWithUnit(att.overallBand, session.track, deps.edition)
+                      : t('diagPendingStatusLabel')}
+                  </p>
                 </div>
               );
             })}
@@ -402,14 +394,20 @@ export function FullMockOrchestratorScreen({
                           : 'bg-surface-alt text-text-secondary',
                     ].join(' ')}
                   >
-                    {isDone ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : index + 1}
+                    {isDone ? (
+                      <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      formatChromeNumber(index + 1, deps.edition)
+                    )}
                   </span>
-                  <LtrExamBoundary>
+                  <div>
                     <p className="text-sm font-bold text-text-primary">{stage.title}</p>
-                    <p className="font-mono-exam text-[11px] text-text-tertiary">
-                      {stage.packId}
-                    </p>
-                  </LtrExamBoundary>
+                    <LtrExamBoundary>
+                      <p className="font-mono-exam text-[11px] text-text-tertiary">
+                        {stage.packId}
+                      </p>
+                    </LtrExamBoundary>
+                  </div>
                 </div>
 
                 {isNext ? (

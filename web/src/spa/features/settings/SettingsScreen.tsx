@@ -32,7 +32,10 @@ import {
 import { formatByteSize } from '@/edition/bidi/format-bytes';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import { formatChromeNumber } from '@/edition/bidi/numerals';
-import { formatTrackSubtitle } from '@/components/bidi/topic-labels';
+import {
+  formatTargetScoreHeading,
+  formatTrackSubtitle,
+} from '@/components/bidi/topic-labels';
 import { formatDisplayDate } from '@/edition/calendar/jalali-edge';
 import { BdiLtr, createTranslator, type TranslationKey } from '@/i18n';
 import { useDeps } from '@/spa/deps';
@@ -63,6 +66,7 @@ export function SettingsScreen({ onExternalRedirect }: SettingsScreenProps = {})
   const ctrl = useSettingsController({ onExternalRedirect });
 
   const trackSpec = EXAM_TRACK_SPECS[ctrl.activeTrack];
+  const targetScoreHeading = formatTargetScoreHeading(trackSpec, deps.edition);
   const isAuthenticated = Boolean(ctrl.session?.isAuthenticated);
   const identityLabel =
     ctrl.session?.user?.email ??
@@ -88,15 +92,19 @@ export function SettingsScreen({ onExternalRedirect }: SettingsScreenProps = {})
       case 'device_revoked':
         return t('settingsDeviceRevokedToast');
       case 'others_revoked':
-        return `${t('settingsDeviceRevokedToast')} (${banner.count})`;
+        return `${t('settingsDeviceRevokedToast')} (${formatChromeNumber(banner.count, deps.edition)})`;
       case 'catalog_synced':
-        return t('settingsCatalogSyncedToast', { count: banner.count });
+        return t('settingsCatalogSyncedToast', {
+          count: formatChromeNumber(banner.count, deps.edition),
+        });
       case 'cache_cleared':
         return t('settingsCacheClearedToast', { size: formatByteSize(banner.bytes, deps.edition) });
       case 'id_copied':
         return t('settingsCopiedToast');
       case 'data_exported':
-        return t('settingsExportReadyToast', { bytes: banner.chars });
+        return t('settingsExportReadyToast', {
+          bytes: formatChromeNumber(banner.chars, deps.edition),
+        });
       case 'account_deleted':
         return banner.completed
           ? t('settingsDeletionDoneMessage', { receipt: banner.receipt })
@@ -243,7 +251,9 @@ export function SettingsScreen({ onExternalRedirect }: SettingsScreenProps = {})
                 {ctrl.lastSyncedAtIso ? (
                   <p className="text-[11px] text-text-secondary">
                     {t('settingsLastSyncedLabel', {
-                      time: new Date(ctrl.lastSyncedAtIso).toLocaleTimeString(),
+                      time: new Date(ctrl.lastSyncedAtIso).toLocaleTimeString(
+                        deps.edition === 'irn' ? 'fa-IR' : undefined,
+                      ),
                     })}
                   </p>
                 ) : null}
@@ -317,7 +327,7 @@ export function SettingsScreen({ onExternalRedirect }: SettingsScreenProps = {})
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-sm font-semibold text-text-primary">
-                    {t('settingsTargetScoreLabel', { unit: trackSpec.unitLabel })}
+                    {targetScoreHeading}
                   </p>
                   <span className="rounded-[var(--mz-radius-pill)] border border-primary/30 bg-surface-alt px-2.5 py-0.5 text-[11px] font-semibold text-primary">
                     {t(
@@ -338,7 +348,10 @@ export function SettingsScreen({ onExternalRedirect }: SettingsScreenProps = {})
                 <p className="mt-0.5 text-xs text-text-secondary">
                   {ctrl.activeTrack === 'toefl_ibt'
                     ? t('settingsToeflBridgeHint', {
-                        legacy: estimateToeflLegacy120(ctrl.targetScore),
+                        legacy: formatChromeNumber(
+                          estimateToeflLegacy120(ctrl.targetScore),
+                          deps.edition,
+                        ),
                       })
                     : t('settingsPersonalGoalHint')}
                 </p>
@@ -380,7 +393,7 @@ export function SettingsScreen({ onExternalRedirect }: SettingsScreenProps = {})
               <LtrExamBoundary>
                 <input
                   type="range"
-                  aria-label={t('settingsTargetScoreLabel', { unit: trackSpec.unitLabel })}
+                  aria-label={targetScoreHeading}
                   data-testid="settings-target-slider"
                   min={trackSpec.minScore}
                   max={trackSpec.maxScore}
@@ -654,7 +667,9 @@ export function SettingsScreen({ onExternalRedirect }: SettingsScreenProps = {})
                 <MzBanner tone="warning">{t('settingsMicPermissionDenied')}</MzBanner>
               ) : (
                 <p className="text-xs text-text-secondary">
-                  {t('settingsMicReadyLabel', { count: ctrl.micStatus?.devices.length ?? 0 })}
+                  {t('settingsMicReadyLabel', {
+                    count: formatChromeNumber(ctrl.micStatus?.devices.length ?? 0, deps.edition),
+                  })}
                 </p>
               )}
 
@@ -663,7 +678,7 @@ export function SettingsScreen({ onExternalRedirect }: SettingsScreenProps = {})
                   <span>{t('settingsMicLevelLabel')}</span>
                   <LtrExamBoundary>
                     <span className="font-mono-exam">
-                      {Math.round(ctrl.micLevelRms * 100)}%
+                      {formatChromeNumber(Math.round(ctrl.micLevelRms * 100), deps.edition)}%
                     </span>
                   </LtrExamBoundary>
                 </div>
@@ -692,7 +707,7 @@ export function SettingsScreen({ onExternalRedirect }: SettingsScreenProps = {})
                   <p className="mt-0.5 text-xs text-text-secondary" data-testid="settings-cache-summary">
                     {ctrl.cacheSummary && (ctrl.cacheSummary.packCount > 0 || ctrl.cacheSummary.totalBytes > 0)
                       ? t('settingsCacheUsageSummary', {
-                          count: ctrl.cacheSummary.packCount,
+                          count: formatChromeNumber(ctrl.cacheSummary.packCount, deps.edition),
                           size: formatByteSize(ctrl.cacheSummary.totalBytes, deps.edition),
                         })
                       : t('settingsCacheEmptySummary')}

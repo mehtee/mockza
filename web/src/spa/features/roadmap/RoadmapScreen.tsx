@@ -333,7 +333,7 @@ export function RoadmapScreen() {
             </h2>
             <span className="text-xs text-text-secondary">
               {state.profile.favoriteTopics.length > 0
-                ? `${state.profile.favoriteTopics.length} ${isRtl ? 'موضوع مورد علاقه فعال' : 'favorite topics active'}`
+                ? `${formatChromeNumber(state.profile.favoriteTopics.length, deps.edition)} ${isRtl ? 'موضوع مورد علاقه فعال' : 'favorite topics active'}`
                 : isRtl
                   ? 'مسیر تطبیقی هوشمند'
                   : 'Adaptive trajectory'}
@@ -391,7 +391,11 @@ export function RoadmapScreen() {
             className="inline-flex items-center gap-2 rounded-[var(--mz-radius-pill)] border border-success/40 bg-mint-bg px-3 py-1 text-xs font-semibold text-success"
           >
             <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>{t('roadmapCollapseCompletedLabel', { count: completedSteps.length })}</span>
+            <span>
+              {t('roadmapCollapseCompletedLabel', {
+                count: formatChromeNumber(completedSteps.length, deps.edition),
+              })}
+            </span>
           </button>
           {showCompletedSteps ? (
             <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -547,7 +551,9 @@ export function RoadmapScreen() {
               <ChevronDown className="h-4 w-4" aria-hidden="true" />
             )}
             <span>
-              {showUpcoming ? t('roadmapHideUpcomingToggle') : `${t('roadmapUpcomingToggle')} (${upcomingSteps.length})`}
+              {showUpcoming
+                ? t('roadmapHideUpcomingToggle')
+                : `${t('roadmapUpcomingToggle')} (${formatChromeNumber(upcomingSteps.length, deps.edition)})`}
             </span>
           </button>
 
@@ -561,7 +567,9 @@ export function RoadmapScreen() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1">
                       <p className="font-semibold text-text-primary">
-                        {isRtl ? `ایستگاه ${step.milestoneIndex} · ${step.titleFa}` : `Milestone ${step.milestoneIndex} · ${step.titleEn}`}
+                        {isRtl
+                          ? `ایستگاه ${formatChromeNumber(step.milestoneIndex, deps.edition)} · ${step.titleFa}`
+                          : `Milestone ${step.milestoneIndex} · ${step.titleEn}`}
                       </p>
                       <p className="text-text-secondary">{isRtl ? step.reasonFa : step.reasonEn}</p>
                     </div>
@@ -625,7 +633,9 @@ export function RoadmapScreen() {
 
           <div>
             <p className="font-semibold text-text-primary">
-              {isRtl ? `زمان مطالعه روزانه: ${draftMinutes} دقیقه` : `Daily study pace: ${draftMinutes} min/day`}
+              {isRtl
+                ? `زمان مطالعه روزانه: ${formatChromeNumber(draftMinutes, deps.edition)} دقیقه`
+                : `Daily study pace: ${draftMinutes} min/day`}
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               {[15, 30, 45, 60, 90].map((mins) => (
@@ -639,7 +649,9 @@ export function RoadmapScreen() {
                       : 'border-border-subtle bg-bg-raised text-text-secondary'
                   }`}
                 >
-                  {mins}m
+                  {isRtl
+                    ? t('unitMinutesShort', { minutes: formatChromeNumber(mins, deps.edition) })
+                    : `${mins}m`}
                 </button>
               ))}
             </div>

@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/core/localization/edition_copy.dart';
 import 'package:mockza/features/micro_drills/presentation/micro_drills_notifier.dart';
 import 'package:mockza/features/micro_drills/presentation/micro_drills_providers.dart';
 import 'package:mockza/l10n/app_localizations.dart';
@@ -27,7 +30,7 @@ import 'package:mockza/theme/components/score_meter.dart';
 import 'package:mockza/theme/components/timer_bar.dart';
 import 'package:mockza/theme/primitives.dart';
 
-/// Targeted Postgres-synced IELTS micro-drills workout screen.
+/// Targeted Postgres-synced exam micro-drills workout screen.
 class MicroDrillsScreen extends ConsumerStatefulWidget {
   /// Creates a [MicroDrillsScreen].
   const new({
@@ -45,6 +48,10 @@ class MicroDrillsScreen extends ConsumerStatefulWidget {
 class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
   bool _pathOnly = true;
   PersonalizationStateDto? _personalization;
+
+  bool _isFa(BuildContext context) =>
+      Localizations.localeOf(context).languageCode == 'fa' ||
+      ref.watch(editionConfigProvider).edition == AppEdition.iran;
 
   @override
   void initState() {
@@ -95,6 +102,7 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
     final state = ref.watch(microDrillsNotifierProvider);
     final notifier = ref.read(microDrillsNotifierProvider.notifier);
     final colors = AppColors.of(context);
+    final isFa = _isFa(context);
 
     final activeSpec = state.drillSpec;
     final canPopSafely =
@@ -102,16 +110,18 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
 
     return ExamExitGuard(
       enabled: !canPopSafely,
-      dialogTitle: 'Exit Micro-Drill?',
-      dialogMessage: 'Your progress in this workout session will be discarded.',
-      cancelLabel: 'Stay',
+      dialogTitle: isFa ? 'خروج از تمرین سریع؟' : 'Exit Micro-Drill?',
+      dialogMessage: isFa
+          ? 'پیشرفت شما در این جلسه تمرینی ذخیره نخواهد شد.'
+          : 'Your progress in this workout session will be discarded.',
+      cancelLabel: isFa ? 'ادامه تمرین' : 'Stay',
       onConfirmedExit: () => context.safePopOrGo(AppRoutes.practice),
       child: MzScaffold(
         appBar: AppBar(
           backgroundColor: colors.background,
           elevation: 0,
           leading: IconButton(
-            tooltip: 'Back',
+            tooltip: isFa ? 'بازگشت' : 'Back',
             icon: const AppIcon(LucideGlyph.x, size: 20),
             onPressed: () async {
               final popped = await Navigator.of(context).maybePop();
@@ -121,7 +131,7 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
             },
           ),
           title: Text(
-            activeSpec?.title ?? 'Micro-Drills',
+            activeSpec?.title ?? (isFa ? 'تمرین‌های سریع' : 'Micro-Drills'),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -144,7 +154,7 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
               ),
           ],
         ),
-        body: _buildBody(context, state, notifier),
+        body: _buildBody(context, state, notifier, isFa: isFa),
         bottomBar:
             (!state.isLoading &&
                 state.hasSelectedDrill &&
@@ -152,7 +162,13 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
                 !state.isFinished &&
                 state.currentItem != null)
             ? MzStickyBottomBar(
-                child: _buildBottomAction(context, state, activeSpec, notifier),
+                child: _buildBottomAction(
+                  context,
+                  state,
+                  activeSpec,
+                  notifier,
+                  isFa: isFa,
+                ),
               )
             : null,
       ),
@@ -162,8 +178,9 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
   Widget _buildBody(
     BuildContext context,
     MicroDrillsState state,
-    MicroDrillsNotifier notifier,
-  ) {
+    MicroDrillsNotifier notifier, {
+    required bool isFa,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
 
@@ -175,11 +192,15 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
 
     if (state.availableDrills.isEmpty) {
       return EmptyState(
-        title: 'No drills synced yet',
+        title: isFa
+            ? 'هنوز تمرینی همگام‌سازی نشده است'
+            : 'No drills synced yet',
         description:
             state.errorMessage ??
-            'Micro-drills are downloaded from the server catalog.',
-        actionLabel: 'Sync Drills',
+            (isFa
+                ? 'تمرین‌های کوتاه از کاتالوگ سرور دریافت می‌شوند.'
+                : 'Micro-drills are downloaded from the server catalog.'),
+        actionLabel: isFa ? 'همگام‌سازی تمرین‌ها' : 'Sync Drills',
         onTapAction: () =>
             unawaited(notifier.loadDrill(widget.drillId, forceSync: true)),
       );
@@ -190,30 +211,43 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
       final recIds =
           _personalization?.recommendedDrills.map((d) => d.id).toSet() ??
           const <String>{};
-      final visibleDrills = (_pathOnly && recIds.isNotEmpty)
-          ? state.availableDrills
-                .where((d) => recIds.contains(d.drillId))
-                .toList(growable: false)
+      final trackMatched = state.availableDrills
+          .where(
+            (d) => EditionCopy.matchesDrillTrack(d.drillId, state.examTrack),
+          )
+          .toList(growable: false);
+      final trackBase = trackMatched.isNotEmpty
+          ? trackMatched
           : state.availableDrills;
-      final listToRender =
-          visibleDrills.isNotEmpty ? visibleDrills : state.availableDrills;
+      final recAndTrack = recIds.isEmpty
+          ? trackBase
+          : trackBase
+                .where((d) => recIds.contains(d.drillId))
+                .toList(growable: false);
+      final pathList = recAndTrack.isNotEmpty ? recAndTrack : trackBase;
+      final listToRender = _pathOnly ? pathList : trackBase;
+      final hasFilterToggle =
+          recAndTrack.isNotEmpty && recAndTrack.length < trackBase.length;
+
       return ListView(
         padding: const EdgeInsetsDirectional.symmetric(
           vertical: SpacingTokens.lg,
         ),
         children: <Widget>[
           Text(
-            'Focused 3-Minute Workouts',
+            isFa ? 'تمرین‌های متمرکز ۳ دقیقه‌ای' : 'Focused 3-Minute Workouts',
             style: typography.sectionHeading.copyWith(
               color: colors.textPrimary,
             ),
           ),
           const SizedBox(height: SpacingTokens.xs),
           Text(
-            'Target specific IELTS grading criteria with short high-yield exercises.',
+            isFa
+                ? 'تقویت معیارهای نمره‌دهی ${state.examTrack.shortName} با تمرین‌های کوتاه و پربازده.'
+                : 'Target specific ${state.examTrack.shortName} grading criteria with short high-yield exercises.',
             style: typography.body.copyWith(color: colors.textSecondary),
           ),
-          if (recIds.isNotEmpty) ...<Widget>[
+          if (hasFilterToggle) ...<Widget>[
             const SizedBox(height: SpacingTokens.md),
             Wrap(
               spacing: SpacingTokens.xs,
@@ -232,8 +266,15 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
             ),
           ],
           const SizedBox(height: SpacingTokens.lg),
-          ...listToRender.map(
-            (drill) => Padding(
+          ...listToRender.map((drill) {
+            final itemCount = isFa
+                ? EdgeNumerals.toPersianDigits(drill.items.length)
+                : '${drill.items.length}';
+            final mins = (drill.durationSeconds / 60).ceil();
+            final minsText = isFa
+                ? EdgeNumerals.toPersianDigits(mins)
+                : '$mins';
+            return Padding(
               padding: const EdgeInsetsDirectional.only(
                 bottom: SpacingTokens.md,
               ),
@@ -246,7 +287,10 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
                           MzChip(
-                            label: drill.displayCategoryLabel,
+                            label: EditionCopy.localizeMicroDrillCategory(
+                              drill.weaknessCode,
+                              isIran: isFa,
+                            ),
                             variant: MzChipVariant.target,
                           ),
                           const SizedBox(height: SpacingTokens.sm),
@@ -258,7 +302,9 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
                           ),
                           const SizedBox(height: SpacingTokens.xs),
                           Text(
-                            '${drill.items.length} items · ${(drill.durationSeconds / 60).ceil()} min · ${drill.subtitle}',
+                            isFa
+                                ? '$itemCount پرسش · $minsText دقیقه · ${drill.subtitle}'
+                                : '$itemCount items · $minsText min · ${drill.subtitle}',
                             style: typography.secondary.copyWith(
                               color: colors.textSecondary,
                             ),
@@ -271,27 +317,36 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
                   ],
                 ),
               ),
-            ),
-          ),
+            );
+          }),
         ],
       );
     }
 
     final spec = state.drillSpec!;
     if (state.isFinished) {
-      return _buildCompletionView(context, state, spec);
+      return _buildCompletionView(context, state, spec, isFa: isFa);
     }
 
     final currentItem = state.currentItem;
     if (currentItem == null) {
       return EmptyState(
         glyph: LucideGlyph.info,
-        title: 'Drill has no questions',
-        description: 'Choose another workout to begin.',
-        actionLabel: 'Back to Practice Hub',
+        title: isFa ? 'این تمرین پرسشی ندارد' : 'Drill has no questions',
+        description: isFa
+            ? 'تمرین دیگری را برای شروع انتخاب کنید.'
+            : 'Choose another workout to begin.',
+        actionLabel: isFa ? 'بازگشت به بخش تمرین' : 'Back to Practice Hub',
         onTapAction: () => context.go(AppRoutes.practice),
       );
     }
+
+    final currentNum = isFa
+        ? EdgeNumerals.toPersianDigits(state.currentIndex + 1)
+        : '${state.currentIndex + 1}';
+    final totalNum = isFa
+        ? EdgeNumerals.toPersianDigits(spec.items.length)
+        : '${spec.items.length}';
 
     return SingleChildScrollView(
       padding: const EdgeInsetsDirectional.symmetric(
@@ -306,13 +361,18 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
             children: <Widget>[
               Flexible(
                 child: MzChip(
-                  label: spec.displayCategoryLabel,
+                  label: EditionCopy.localizeMicroDrillCategory(
+                    spec.weaknessCode,
+                    isIran: isFa,
+                  ),
                   variant: MzChipVariant.target,
                 ),
               ),
               const SizedBox(width: SpacingTokens.sm),
               Text(
-                'Question ${state.currentIndex + 1} of ${spec.items.length}',
+                isFa
+                    ? 'پرسش $currentNum از $totalNum'
+                    : 'Question $currentNum of $totalNum',
                 style: typography.caption.copyWith(
                   color: colors.textSecondary,
                 ),
@@ -325,7 +385,10 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  spec.itemHeaderTitle,
+                  EditionCopy.localizeMicroDrillHeader(
+                    spec.weaknessCode,
+                    isIran: isFa,
+                  ),
                   style: typography.cardTitle.copyWith(
                     color: colors.textPrimary,
                   ),
@@ -333,6 +396,7 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
                 const SizedBox(height: SpacingTokens.sm),
                 Text(
                   currentItem.prompt,
+                  textDirection: TextDirection.ltr,
                   style: typography.body.copyWith(
                     color: colors.textPrimary,
                     height: 1.5,
@@ -343,7 +407,7 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
           ),
           const SizedBox(height: SpacingTokens.lg),
           Text(
-            'Select the best option:',
+            isFa ? 'بهترین گزینه را انتخاب کنید:' : 'Select the best option:',
             style: typography.secondary.copyWith(color: colors.textSecondary),
           ),
           const SizedBox(height: SpacingTokens.sm),
@@ -358,7 +422,7 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
           ),
           if (state.isSubmitted) ...<Widget>[
             const SizedBox(height: SpacingTokens.md),
-            _buildFeedbackCard(context, state, currentItem),
+            _buildFeedbackCard(context, state, currentItem, isFa: isFa),
           ],
           const SizedBox(height: SpacingTokens.md),
         ],
@@ -417,8 +481,9 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
   Widget _buildFeedbackCard(
     BuildContext context,
     MicroDrillsState state,
-    MicroDrillItemSpec item,
-  ) {
+    MicroDrillItemSpec item, {
+    required bool isFa,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
     final shapes = AppShapes.of(context);
@@ -447,7 +512,9 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  isCorrect ? 'Well done! Correct.' : 'Incorrect variant.',
+                  isCorrect
+                      ? (isFa ? 'آفرین! پاسخ درست است.' : 'Well done! Correct.')
+                      : (isFa ? 'پاسخ نادرست.' : 'Incorrect variant.'),
                   style: typography.secondary.copyWith(
                     color: isCorrect ? colors.success : colors.error,
                     fontWeight: FontWeight.w600,
@@ -456,6 +523,7 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
                 const SizedBox(height: SpacingTokens.xs),
                 Text(
                   item.explanation,
+                  textDirection: TextDirection.ltr,
                   style: typography.body.copyWith(color: colors.textPrimary),
                 ),
               ],
@@ -470,19 +538,22 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
     BuildContext context,
     MicroDrillsState state,
     MicroDrillSpec spec,
-    MicroDrillsNotifier notifier,
-  ) {
+    MicroDrillsNotifier notifier, {
+    required bool isFa,
+  }) {
     if (!state.isSubmitted) {
       return PrimaryButton(
-        label: 'Check Answer',
+        label: isFa ? 'بررسی پاسخ' : 'Check Answer',
         onPressed: state.selectedOption == null ? null : notifier.submitAnswer,
       );
     }
 
     final isLast = state.currentIndex + 1 >= spec.items.length;
     return PrimaryButton(
-      label: isLast ? 'Complete Workout' : 'Next Exercise',
-      trailingGlyph: LucideGlyph.arrowRight,
+      label: isLast
+          ? (isFa ? 'پایان تمرین' : 'Complete Workout')
+          : (isFa ? 'تمرین بعدی' : 'Next Exercise'),
+      trailingGlyph: isFa ? LucideGlyph.arrowLeft : LucideGlyph.arrowRight,
       onPressed: notifier.nextItem,
     );
   }
@@ -490,13 +561,30 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
   Widget _buildCompletionView(
     BuildContext context,
     MicroDrillsState state,
-    MicroDrillSpec spec,
-  ) {
+    MicroDrillSpec spec, {
+    required bool isFa,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
     final total = spec.items.isEmpty ? 1 : spec.items.length;
     final percentage = ((state.score / total) * 100).round();
     final minsLabel = (spec.durationSeconds / 60).ceil();
+    final minsDisplay = isFa
+        ? EdgeNumerals.toPersianDigits(minsLabel)
+        : '$minsLabel';
+    final scoreDisplay = isFa
+        ? EdgeNumerals.toPersianDigits(state.score)
+        : '${state.score}';
+    final totalDisplay = isFa
+        ? EdgeNumerals.toPersianDigits(spec.items.length)
+        : '${spec.items.length}';
+    final pctDisplay = isFa
+        ? EdgeNumerals.toPersianDigits(percentage)
+        : '$percentage';
+    final categoryLabel = EditionCopy.localizeMicroDrillCategory(
+      spec.weaknessCode,
+      isIran: isFa,
+    );
 
     return Padding(
       padding: const EdgeInsetsDirectional.all(SpacingTokens.xl),
@@ -512,12 +600,16 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
               minScore: state.effectiveExamTrack.minScore,
               maxScore: state.effectiveExamTrack.maxScore,
               targetScore: state.effectiveExamTrack.targetScoreDefault,
-              label: 'Drill ${state.effectiveExamTrack.unitLabel} Impact',
+              label: isFa
+                  ? 'برآورد اثر تمرین (${EditionCopy.unitLabelFor(state.effectiveExamTrack, isIran: true)})'
+                  : 'Drill ${state.effectiveExamTrack.unitLabel} Impact',
             ),
           ),
           const SizedBox(height: SpacingTokens.lg),
           Text(
-            '$minsLabel-Minute Workout Complete!',
+            isFa
+                ? 'تمرین $minsDisplay دقیقه‌ای کامل شد!'
+                : '$minsLabel-Minute Workout Complete!',
             textAlign: TextAlign.center,
             style: typography.sectionHeading.copyWith(
               color: colors.textPrimary,
@@ -525,7 +617,9 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
           ),
           const SizedBox(height: SpacingTokens.xs),
           Text(
-            '${state.score} of ${spec.items.length} correct ($percentage%) · ${spec.displayCategoryLabel}',
+            isFa
+                ? '$scoreDisplay از $totalDisplay پاسخ درست ($pctDisplay٪) · $categoryLabel'
+                : '${state.score} of ${spec.items.length} correct ($percentage%) · $categoryLabel',
             textAlign: TextAlign.center,
             style: typography.body.copyWith(color: colors.textSecondary),
           ),
@@ -540,13 +634,17 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        'Study Activity Recorded',
+                        isFa
+                            ? 'فعالیت مطالعه ثبت شد'
+                            : 'Study Activity Recorded',
                         style: typography.cardTitle.copyWith(
                           color: colors.textPrimary,
                         ),
                       ),
                       Text(
-                        "Your completed drill has been logged to today's study progress.",
+                        isFa
+                            ? 'تمرین تکمیل‌شده شما در گزارش پیشرفت امروز ثبت شد.'
+                            : "Your completed drill has been logged to today's study progress.",
                         style: typography.caption.copyWith(
                           color: colors.textSecondary,
                         ),
@@ -559,7 +657,7 @@ class _MicroDrillsScreenState extends ConsumerState<MicroDrillsScreen> {
           ),
           const SizedBox(height: SpacingTokens.xxl),
           PrimaryButton(
-            label: 'Back to Practice Hub',
+            label: isFa ? 'بازگشت به بخش تمرین' : 'Back to Practice Hub',
             onPressed: () => context.go(AppRoutes.practice),
           ),
         ],

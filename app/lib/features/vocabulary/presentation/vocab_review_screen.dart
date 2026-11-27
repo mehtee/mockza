@@ -2,10 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mockza/core/config/edition_config.dart';
+import 'package:mockza/core/formatting/edge_numerals.dart';
+import 'package:mockza/core/localization/edition_copy.dart';
 import 'package:mockza/core/vocab/sm2_scheduler.dart';
 import 'package:mockza/data/repositories/vocab_repository.dart';
 import 'package:mockza/features/vocabulary/presentation/vocabulary_notifier.dart';
 import 'package:mockza/features/vocabulary/presentation/vocabulary_providers.dart';
+import 'package:mockza/providers.dart';
 import 'package:mockza/routing/routes.dart';
 import 'package:mockza/routing/safe_pop.dart';
 import 'package:mockza/theme/app_colors.dart';
@@ -75,11 +79,19 @@ class _VocabReviewScreenState extends ConsumerState<VocabReviewScreen> {
     final state = ref.watch(vocabularyNotifierProvider);
     final notifier = ref.read(vocabularyNotifierProvider.notifier);
     final colors = AppColors.of(context);
+    final isIran = ref.watch(editionConfigProvider).edition == AppEdition.iran;
 
     final cards = state.sessionCards;
     final isDone =
         !state.isLoading &&
         (state.activeCardIndex >= cards.length || cards.isEmpty);
+
+    final curStr = isIran
+        ? EdgeNumerals.toPersianDigits('${state.activeCardIndex + 1}')
+        : '${state.activeCardIndex + 1}';
+    final totalStr = isIran
+        ? EdgeNumerals.toPersianDigits('${cards.length}')
+        : '${cards.length}';
 
     return MzScaffold(
       appBar: AppBar(
@@ -89,10 +101,12 @@ class _VocabReviewScreenState extends ConsumerState<VocabReviewScreen> {
         ),
         title: Text(
           state.isLoading
-              ? 'Loading Deck...'
+              ? (isIran ? 'در حال بارگذاری کارت‌ها...' : 'Loading Deck...')
               : (isDone
-                    ? 'Review Complete'
-                    : 'Card ${state.activeCardIndex + 1} of ${cards.length}'),
+                    ? (isIran ? 'مرور کامل شد' : 'Review Complete')
+                    : (isIran
+                          ? 'کارت $curStr از $totalStr'
+                          : 'Card $curStr of $totalStr')),
         ),
       ),
       body: state.isLoading
@@ -100,12 +114,13 @@ class _VocabReviewScreenState extends ConsumerState<VocabReviewScreen> {
               child: CircularProgressIndicator(color: colors.primary),
             )
           : (isDone
-                ? _buildCompletionView(context, state, notifier)
+                ? _buildCompletionView(context, state, notifier, isIran: isIran)
                 : _buildCardView(
                     context,
                     cards[state.activeCardIndex],
                     state.showAnswer,
                     notifier,
+                    isIran: isIran,
                   )),
     );
   }
@@ -114,9 +129,15 @@ class _VocabReviewScreenState extends ConsumerState<VocabReviewScreen> {
     BuildContext context,
     VocabDeckCard card,
     bool isRevealed,
-    VocabularyNotifier notifier,
-  ) {
+    VocabularyNotifier notifier, {
+    required bool isIran,
+  }) {
     final previewIntervals = Sm2Scheduler.previewIntervals(card.schedule);
+    final sourceLabel = card.sourceSkill != null
+        ? (isIran
+              ? 'از ${EditionCopy.skillName(card.sourceSkill!, isIran: true)}'
+              : 'From ${card.sourceSkill}')
+        : null;
 
     return SingleChildScrollView(
       padding: const EdgeInsetsDirectional.symmetric(
@@ -136,15 +157,15 @@ class _VocabReviewScreenState extends ConsumerState<VocabReviewScreen> {
             },
             ipa: card.ipa,
             contextSentence: card.contextSentence,
-            sourceLabel: card.sourceSkill != null
-                ? 'From ${card.sourceSkill}'
-                : null,
+            sourceLabel: sourceLabel,
             previewIntervals: previewIntervals,
           ),
           const SizedBox(height: SpacingTokens.lg),
           if (!isRevealed)
             PrimaryButton(
-              label: 'Tap Card or Press to Reveal Answer',
+              label: isIran
+                  ? 'کارت را لمس کنید تا پاسخ نمایش داده شود'
+                  : 'Tap Card or Press to Reveal Answer',
               onPressed: notifier.toggleReveal,
             ),
         ],
@@ -155,10 +176,14 @@ class _VocabReviewScreenState extends ConsumerState<VocabReviewScreen> {
   Widget _buildCompletionView(
     BuildContext context,
     VocabularyState state,
-    VocabularyNotifier notifier,
-  ) {
+    VocabularyNotifier notifier, {
+    required bool isIran,
+  }) {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
+    final reviewedStr = isIran
+        ? EdgeNumerals.toPersianDigits('${state.reviewedCount}')
+        : '${state.reviewedCount}';
 
     return Padding(
       padding: const EdgeInsetsDirectional.all(SpacingTokens.xl),
@@ -175,7 +200,7 @@ class _VocabReviewScreenState extends ConsumerState<VocabReviewScreen> {
           ),
           const SizedBox(height: SpacingTokens.lg),
           Text(
-            'Flashcard Session Done!',
+            isIran ? 'جلسه مرور واژگان تمام شد!' : 'Flashcard Session Done!',
             textAlign: TextAlign.center,
             style: typography.sectionHeading.copyWith(
               color: colors.textPrimary,
@@ -184,8 +209,12 @@ class _VocabReviewScreenState extends ConsumerState<VocabReviewScreen> {
           const SizedBox(height: SpacingTokens.sm),
           Text(
             state.reviewedCount > 0
-                ? 'You reviewed ${state.reviewedCount} words. Spaced repetition intervals have been refreshed.'
-                : 'All caught up! No cards currently due for review.',
+                ? (isIran
+                      ? 'شما $reviewedStr واژه را مرور کردید. بازه‌های تکرار فاصله‌دار به‌روزرسانی شدند.'
+                      : 'You reviewed ${state.reviewedCount} words. Spaced repetition intervals have been refreshed.')
+                : (isIran
+                      ? 'همه مرورهای امروز انجام شده است و کارتی در انتظار نیست.'
+                      : 'All caught up! No cards currently due for review.'),
             textAlign: TextAlign.center,
             style: typography.body.copyWith(color: colors.textSecondary),
           ),
@@ -200,13 +229,15 @@ class _VocabReviewScreenState extends ConsumerState<VocabReviewScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        'Memory Reinforced',
+                        isIran ? 'تثبیت حافظه بلندمدت' : 'Memory Reinforced',
                         style: typography.cardTitle.copyWith(
                           color: colors.textPrimary,
                         ),
                       ),
                       Text(
-                        'Daily spaced reviews protect high-band collocations from forgetting.',
+                        isIran
+                            ? 'مرور روزانه فاصله‌دار، همنشینی‌های نمره‌آور را از فراموشی حفظ می‌کند.'
+                            : 'Daily spaced reviews protect high-band collocations from forgetting.',
                         style: typography.caption.copyWith(
                           color: colors.textSecondary,
                         ),
@@ -220,14 +251,16 @@ class _VocabReviewScreenState extends ConsumerState<VocabReviewScreen> {
           const SizedBox(height: SpacingTokens.xl),
           if (!state.isReviewAhead && state.sessionCards.isEmpty) ...<Widget>[
             SecondaryButton(
-              label: 'Review Ahead Instead',
+              label: isIran ? 'مرور زودتر از موعد' : 'Review Ahead Instead',
               onPressed: () =>
                   unawaited(notifier.loadSession(reviewAhead: true)),
             ),
             const SizedBox(height: SpacingTokens.md),
           ],
           PrimaryButton(
-            label: 'Back to Vocabulary Deck',
+            label: isIran
+                ? 'بازگشت به دفترچه واژگان'
+                : 'Back to Vocabulary Deck',
             onPressed: () => context.safePopOrGo(AppRoutes.vocabulary),
           ),
         ],

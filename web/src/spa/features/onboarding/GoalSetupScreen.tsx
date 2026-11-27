@@ -10,7 +10,11 @@ import {
 import { MzBanner, MzButton, MzCard, resolveOfficialCefrTier } from '@/components/ui';
 import { BackArrowIcon } from '@/components/bidi/DirectionIcon';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
-import { formatTrackLocalizedName } from '@/components/bidi/topic-labels';
+import { formatChromeNumber } from '@/edition/bidi/numerals';
+import {
+  formatTargetScoreHeading,
+  formatTrackLocalizedName,
+} from '@/components/bidi/topic-labels';
 import { formatDisplayDate } from '@/edition/calendar/jalali-edge';
 import { createTranslator } from '@/i18n';
 import { useDeps } from '@/spa/deps';
@@ -40,7 +44,7 @@ export function GoalSetupScreen() {
     const base = t(tierKey);
 
     if (ctrl.selectedTrack === 'toefl_ibt') {
-      return `${base} · ~${estimateToeflLegacy120(ctrl.targetScore)}/120`;
+      return `${base} · ~${formatChromeNumber(estimateToeflLegacy120(ctrl.targetScore), deps.edition)}/${formatChromeNumber(120, deps.edition)}`;
     }
     return base;
   };
@@ -61,6 +65,7 @@ export function GoalSetupScreen() {
   };
 
   const isIrn = deps.edition === 'irn';
+  const targetScoreHeading = formatTargetScoreHeading(ctrl.trackSpec, deps.edition);
 
   return (
     <div data-testid="goal-setup-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-6 pb-10 text-start">
@@ -81,7 +86,10 @@ export function GoalSetupScreen() {
 
       <header>
         <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-          {t('onboardingStepBadge', { current: 2, total: 2 })}
+          {t('onboardingStepBadge', {
+            current: formatChromeNumber(2, deps.edition),
+            total: formatChromeNumber(2, deps.edition),
+          })}
         </p>
         <h1 className="mt-1 text-2xl font-bold text-text-primary">{t('onboardingGoalHeadline')}</h1>
         <p className="mt-1 text-sm text-text-secondary">{t('onboardingGoalSubtitle')}</p>
@@ -182,7 +190,7 @@ export function GoalSetupScreen() {
         <MzCard variant="hero" className="lg:col-span-6">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-text-secondary">
-              {t('settingsTargetScoreLabel', { unit: ctrl.trackSpec.unitLabel })}
+              {targetScoreHeading}
             </h2>
             <Target className="h-4 w-4 text-primary" aria-hidden="true" />
           </div>
@@ -220,7 +228,7 @@ export function GoalSetupScreen() {
               <input
                 type="range"
                 data-testid="goal-target-slider"
-                aria-label={t('settingsTargetScoreLabel', { unit: ctrl.trackSpec.unitLabel })}
+                aria-label={targetScoreHeading}
                 min={ctrl.trackSpec.minScore}
                 max={ctrl.trackSpec.maxScore}
                 step={ctrl.trackSpec.scoreStep}
@@ -261,7 +269,9 @@ export function GoalSetupScreen() {
                 onClick={() => ctrl.setExamDateDaysFromNow(days)}
                 className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-3.5 text-xs font-semibold text-text-secondary hover:bg-surface-hover hover:text-text-primary"
               >
-                {t('onboardingPresetDays', { days })}
+                {t('onboardingPresetDays', {
+                  days: formatChromeNumber(days, deps.edition),
+                })}
               </button>
             ))}
             <button

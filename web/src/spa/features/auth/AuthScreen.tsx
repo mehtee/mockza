@@ -181,7 +181,11 @@ export function AuthScreen({
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xl font-bold text-text-primary">
-              {ctrl.mode === 'sign_in' ? t('authSignInAction') : t('authSignUpAction')}
+              {showSmsOtp
+                ? ctrl.mode === 'sign_in'
+                  ? t('authSignInAction')
+                  : t('authSignUpAction')
+                : t('authAccountHeading')}
             </h2>
 
             {showSmsOtp ? (
@@ -207,6 +211,10 @@ export function AuthScreen({
               />
             )}
           </div>
+
+          {ctrl.editionCfg.features.smsOtp && !showSmsOtp && (
+            <MzBanner tone="info">{t('authSmsOtpUnavailableNote')}</MzBanner>
+          )}
 
           {ctrl.errorMessage && !ctrl.slotConflict && (
             <MzBanner tone="danger">{ctrl.errorMessage}</MzBanner>

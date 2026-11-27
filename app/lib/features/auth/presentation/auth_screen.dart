@@ -152,6 +152,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
     final showGoogle = !isIran && state.providers.google.enabled;
     final showApple = !isIran && state.providers.apple.enabled;
+    final iranSmsDisabledByServer =
+        isIran &&
+        state.serverProvidersLoaded &&
+        !state.providers.smsOtp.enabled;
 
     return MzScaffold(
       appBar: AppBar(
@@ -162,8 +166,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         ),
         title: Text(
           isIran
-              ? (state.isSignUp ? 'ایجاد حساب' : 'ورود با موبایل')
-              : (state.isSignUp ? 'Create Account' : 'Sign In'),
+              ? (iranSmsDisabledByServer
+                    ? 'حساب کاربری سنجیا'
+                    : (state.isSignUp ? 'ایجاد حساب' : 'ورود با موبایل'))
+              : 'Mockza Account',
         ),
       ),
       body: Center(
@@ -211,26 +217,40 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   const SizedBox(height: SpacingTokens.md),
                 ],
                 if (isIran) ...<Widget>[
-                  _buildIranSmsOtpSection(context, state, notifier),
-                  const SizedBox(height: SpacingTokens.lg),
-                  TextButton(
-                    onPressed: () => setState(() {
-                      _showIranEmailFallback = !_showIranEmailFallback;
-                    }),
-                    child: Text(
-                      _showIranEmailFallback
-                          ? 'بستن ورود با ایمیل'
-                          : 'ورود یا ثبت‌نام با ایمیل (اختیاری)',
+                  if (iranSmsDisabledByServer) ...<Widget>[
+                    const StatusBanner(
+                      variant: StatusBannerVariant.uploading,
+                      message: 'ورود پیامکی در این سرور فعال نیست؛ لطفاً با ایمیل وارد شوید.',
                     ),
-                  ),
-                  if (_showIranEmailFallback) ...<Widget>[
-                    const SizedBox(height: SpacingTokens.sm),
+                    const SizedBox(height: SpacingTokens.md),
                     _buildEmailSection(
                       context,
                       state,
                       notifier,
                       isIran: true,
                     ),
+                  ] else ...<Widget>[
+                    _buildIranSmsOtpSection(context, state, notifier),
+                    const SizedBox(height: SpacingTokens.lg),
+                    TextButton(
+                      onPressed: () => setState(() {
+                        _showIranEmailFallback = !_showIranEmailFallback;
+                      }),
+                      child: Text(
+                        _showIranEmailFallback
+                            ? 'بستن ورود با ایمیل'
+                            : 'ورود یا ثبت‌نام با ایمیل (اختیاری)',
+                      ),
+                    ),
+                    if (_showIranEmailFallback) ...<Widget>[
+                      const SizedBox(height: SpacingTokens.sm),
+                      _buildEmailSection(
+                        context,
+                        state,
+                        notifier,
+                        isIran: true,
+                      ),
+                    ],
                   ],
                 ] else ...<Widget>[
                   Center(
