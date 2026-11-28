@@ -2,9 +2,9 @@
 
 Offline-first, AI-native **5-Track High-Stakes English Exam Simulator Hub**, **Adaptive Personalization & Step-by-Step Roadmap (*Durnama* / دورنما)**, **Closed-Loop Smart Coach Engine**, **OpenRouter `hexgrad/kokoro-82m` Neural TTS & `google/gemini-3.1-flash-lite` Pronunciation Studio**, **SM-2 Contextual Vocabulary Coach**, and **End-to-End User/Recording/Token/Cost Observability Platform** — engineered with a **Dual-Edition (`GLB` Mockza & `IRN` Sanjia)**, **Dual-Client (`Astro 5 + React 19` Desktop Web + `Flutter 3.47.9` Mobile/Web)**, and **Container-First Low-RAM Architecture** (`Docker Compose` & `Podman Compose` ready).
 
-> **Live Release (`v4.0`):**
-> - **Global Clean-Room Edition (`GLB` — `Mockza`, `1.0.0+10001.glb`):** English-first clean-room hub (`:45280` Web / `:45281` API) with RevenueCat & Web Checkout USD billing, Email + Google + Apple OAuth.
-> - **Iran Domestic Edition (`IRN` — `Sanjia` / `سنجیا`, `1.0.0+20001.irn`):** Persian-first RTL BiDi hub (`:45282` Web / `:45283` API) with `LtrExamBoundary` stimulus isolation, Jalali (`شمسی`) calendar, SMS OTP auth, Zarinpal/Cafe Bazaar/Myket integer-Rial billing, Persian examiner rubrics (`irn_*_fa_v1.0`), and `Navia` (`ناویا`) admissions handoff.
+> **Live Release (`v4.0` — Verified `2026-11-28`):**
+> - **Global Clean-Room Edition (`GLB` — `Mockza`, `1.0.0+10001.glb`):** English-first clean-room hub (Astro Web `:45280` / API `127.0.0.1:45281`, Flutter Web `mockza.mehtea.ir`) with RevenueCat & Web Checkout USD billing, Email + Google + Apple OAuth.
+> - **Iran Domestic Edition (`IRN` — `Sanjia` / `سنجیا`, `1.0.0+20001.irn`):** Persian-first RTL BiDi hub (Astro Web `:45282` / API `:45283`, Flutter Web `sanjia.mehtea.ir`) with `LtrExamBoundary` stimulus isolation, Jalali (`شمسی`) calendar, SMS OTP auth, Zarinpal/Cafe Bazaar/Myket integer-Rial billing, Persian examiner rubrics (`irn_*_fa_v1.0`), and `Navia` (`ناویا`) admissions handoff.
 
 ---
 
@@ -28,8 +28,9 @@ Offline-first, AI-native **5-Track High-Stakes English Exam Simulator Hub**, **A
   - **3-Gear Pragmatic Register Shifter (`/v1/register-shifter/*`):** Upgrades learner sentences across *Gear 1 (Casual)* -> *Gear 2 (Academic)* -> *Gear 3 (Band 8.5+ Executive)* with spoken/written repeat verification.
   - **Drop Anything Micro-Drill Generator (`/v1/drop/*`):** Turns any pasted article, paragraph, or note into an instant 2-minute active upgrade drill.
 - **Standalone Desktop Web (`web/` — Astro 5 Static SEO/GEO + React 19 SPA) & Mobile/Web Flutter Client (`app/`):**
-  - **0KB-JS SEO & Generative Engine Optimization (GEO):** 85 prerendered pages per edition (`dist-glb` & `dist-irn`), 5 exam pillar guides, `<1KB` interactive score calculators, annotated writing/speaking sample banks, public vocabulary hubs, `robots.txt`, `llms.txt`, `llms-full.txt`, Markdown `.md` twins, and dynamic `/og/*.svg` & `.png` cards.
-  - **Hexagonal React 19 Desktop Studio (`/app/*`):** Unified `max-w-6xl` SPA layout with aligned `h-14` topbar/sidebar chrome, animated `localStorage`-persisted collapsible desktop rail (`240px <-> 80px`), 5-tab mobile bottom nav (`>= 40px` touch targets, `0px` horizontal overflow), shared vector `BrandMark` icon, single-focus onboarding (`/app/welcome` + exam switching in Settings via `ExamTrackSelector`), exam-specific CEFR goal calibration, BiDi RTL/LTR helpers (`DirectionIcon`, `LtrExamBoundary`), dynamic `measureElement` virtualized Vocab cards, Dexie v4 + `429`-resilient caching, OPFS media cache, Web Audio API waveform recorder/player, strict CSP (zero `unsafe-inline`), DOMPurify SVG sanitization, and Brotli/Gzip pre-compression (`~62.1 KB` GLB / `~64.5 KB` IRN gzip main chunks).
+  - **0KB-JS SEO & Generative Engine Optimization (GEO):** 85 prerendered pages per edition (`dist-glb` & `dist-irn`), 5 exam pillar guides, `<1KB` interactive score calculators (including PTE↔IELTS concordance), instant lazy-loaded landing audio previews, annotated writing/speaking sample banks, public vocabulary hubs, `robots.txt`, `llms.txt`, `llms-full.txt`, Markdown `.md` twins, `/favicon.ico`, and dynamic `/og/*.svg` & `.png` cards.
+  - **Hexagonal React 19 Desktop Studio (`/app/*`):** Unified `max-w-6xl` SPA layout with aligned `h-14` topbar/sidebar chrome, animated `localStorage`-persisted collapsible desktop rail (`240px <-> 80px`), 5-tab mobile bottom nav (`>= 40px` touch targets, `0px` horizontal overflow), shared calligraphic `BrandMark` icon, Settings-only exam-track focus (`ExamTrackSelector`), single primary CTA hierarchy on Home, natural `stepOrder` Roadmap sorting, `10m`/`۱۰ دقیقه‌ای` diagnostic copy consistency, `sessionStorage`-scoped reactive auth with strict shape validation & coalesced token refresh, `useMemo`-stabilized translators, BiDi RTL/LTR helpers (`DirectionIcon`, `LtrExamBoundary`, zero monospace on Persian text), dynamic `measureElement` virtualized Vocab cards, Dexie v4 + `429`-resilient caching, OPFS media cache, Web Audio API waveform recorder/player, strict CSP (zero `unsafe-inline`), DOMPurify SVG sanitization, and Brotli/Gzip pre-compression (`~62.1 KB` GLB / `~64.5 KB` IRN gzip main chunks).
+  - **Systemic Responsive Flutter Client (`app/`):** Device-adaptive UI across mobile, tablet, and desktop (`ChartStageCard` automatic SVG header/legend collision prevention, `AudioPlayerBar` compact `LayoutBuilder` wrap, `VocabularyScreen` 2×2 mobile / 4-col tablet+ grid, responsive `CoachHubScreen` buttons, RTL-aware `ScoreMeter`), pure-Dart `EditionCopy` localization mirroring Web labels & structured worker `stage.*` codes, unified `SanjiaMark` emblem parity, sanitized `ContentSyncService._friendlyDioError` network errors, and nested Reading `evidence.exactQuote` parsing.
 - **Bidirectional Cross-Device Sync & End-to-End Server Tracing (`AdminTraceConsole`):**
   - Syncs roadmap progress, live band snapshots, exam attempts, SM-2 vocabulary SRS cards, and pronunciation history across Phone and Desktop Web (`/v1/personalization/*`, `/v1/sync/*`).
   - Records every user activity event, audio recording object key, AI model call, prompt/completion/audio token count, latency, and exact USD cost in PostgreSQL (`ai_usage_ledger`, `user_activity_ledger`), inspectable and exportable via `/v1/admin/usage/*` and the Web **Admin Trace Console** (`/app/admin/trace`).
@@ -50,6 +51,8 @@ mockza/
 │   ├── ADAPTIVE_PERSONALIZATION_AND_ROADMAP_PLAN.md
 │   ├── ADAPTIVE_PERSONALIZATION_AUDIT_AND_REMEDIATION_PLAN.md
 │   ├── UI_UX_PERFECTION_PLAN.md & ui_ux_audit_screenshots/  # Responsive & RTL/BiDi audit plan and visual captures
+│   ├── QA_REPORT.md · QA_BUGS_AND_TECHNICAL_DEBTS.md · CODE_REVIEW_ISSUES_2026-11-27.md  # QA & 95-file audit logs
+│   ├── nov-28-screenshots.zip · nov-28-flutter-screenshots.zip  # Verified 50 Web + 52 Flutter visual captures
 │   └── SMART_COACH_PRODUCTION_UX_AND_RELIABILITY_PLAN.md · advanced_plan.md · sanjia_flutter_plan.md
 ├── packages/
 │   └── design-tokens/          # Canonical W3C design tokens SSOT (tokens.json + schema) for Flutter & Web
@@ -100,8 +103,9 @@ On memory-constrained hosts (`<= 8 GiB` RAM), always follow [AGENTS.md](file:///
 1. **Check available RAM first:** Run `free -m` and ensure `available >= 900 MiB` before starting any test, typecheck, or build.
 2. **Never run heavy processes concurrently:** Run Backend, Web, and Flutter builds/tests strictly sequentially (`maxWorkers=1`, `--concurrency=1`).
 3. **Cap VM heaps:**
-   - Web/Backend Vitest: `NODE_OPTIONS="--max-old-space-size=768"` with `--pool=forks --poolOptions.forks.singleFork --maxWorkers=1`
+   - Web/Backend Vitest & Astro builds: `NODE_OPTIONS="--max-old-space-size=768"` with `--pool=forks --poolOptions.forks.singleFork --maxWorkers=1`
    - Flutter test batches (`<= 10` files per batch): `DART_VM_OPTIONS="--old_gen_heap_size=768" flutter test --no-pub --concurrency=1 ...`
+   - Flutter web release builds (`<= 8 GiB` hosts): `DART_VM_OPTIONS="--old_gen_heap_size=640" flutter build web --release --no-wasm-dry-run -t lib/main_global.dart` (or `lib/main_iran.dart`), never run concurrently with other builds.
 
 ---
 
@@ -141,9 +145,10 @@ make up
 | Service | Host Binding | Purpose |
 | :--- | :--- | :--- |
 | `mockza-web` (`GLB` Web) | `0.0.0.0:45280` | Standalone Astro 5 + React 19 Global Edition (`dist-glb`, Brotli/Gzip, `/v1/*` proxy) |
-| `mockza-api` (`GLB` API) | `0.0.0.0:45281` | Global Edition Hono REST/OpenAPI v1 ingress (`EDITION=glb`) |
+| `mockza-api` (`GLB` API) | `127.0.0.1:45281` *(configurable via `MOCKZA_API_BIND`)* | Global Edition Hono REST/OpenAPI v1 ingress (`EDITION=glb`, CIDR-aware `TRUSTED_PROXY_IPS`) |
 | `sanjia-web` (`IRN` Web) | `0.0.0.0:45282` | Standalone Astro 5 + React 19 Iran Domestic Edition (`dist-irn`, Persian RTL + BiDi) |
-| `sanjia-api` (`IRN` API) | `0.0.0.0:45283` | Iran Domestic Edition Hono REST/OpenAPI v1 ingress (`EDITION=irn`) |
+| `sanjia-api` (`IRN` API) | `127.0.0.1:45283` | Iran Domestic Edition Hono REST/OpenAPI v1 ingress (`EDITION=irn`, CIDR-aware `TRUSTED_PROXY_IPS`) |
+| `mockza-flutter` / `sanjia-flutter` | `mockza.mehtea.ir` / `sanjia.mehtea.ir` | Live Nginx-served Flutter Web editions (`main_global.dart` & `main_iran.dart`, preserving `/v1/*` API proxy) |
 | `postgres` (PostgreSQL 16) | `127.0.0.1:45432` | Primary relational database (41 Drizzle tables) & `pg-boss` durable queue |
 | `pgbouncer` (v1.24.1) | `127.0.0.1:45433` | Transaction connection pool (`PG_PGBOUNCER=true` for API; bypassed by worker & migrate) |
 | `seaweedfs` (S3 + Master) | `127.0.0.1:45833`, `45933` | Buckets `mockza-audio-private` (speaking/pronunciation clips & TTS cache) & `mockza-media` |
@@ -183,5 +188,6 @@ cd backend && pnpm --filter @mockza/db seed && pnpm --filter @mockza/content-pip
 - **[docs/DESKTOP_WEB_PLAN.md](file:///home/mahdi/projects/ideas/mockza/docs/DESKTOP_WEB_PLAN.md)** — Standalone Desktop Web (`Astro 5 Static + React 19 SPA`) architecture, SSOT token/engine sync, and SEO+GEO layer.
 - **[docs/ADAPTIVE_PERSONALIZATION_AND_ROADMAP_PLAN.md](file:///home/mahdi/projects/ideas/mockza/docs/ADAPTIVE_PERSONALIZATION_AND_ROADMAP_PLAN.md)** & **[docs/ADAPTIVE_PERSONALIZATION_AUDIT_AND_REMEDIATION_PLAN.md](file:///home/mahdi/projects/ideas/mockza/docs/ADAPTIVE_PERSONALIZATION_AUDIT_AND_REMEDIATION_PLAN.md)** — Adaptive roadmap (*Durnama*), live band evolution, Kokoro TTS, pronunciation studio, and full-stack tracing blueprints.
 - **[docs/UI_UX_PERFECTION_PLAN.md](file:///home/mahdi/projects/ideas/mockza/docs/UI_UX_PERFECTION_PLAN.md)** & **[docs/ui_ux_audit_screenshots/](file:///home/mahdi/projects/ideas/mockza/docs/ui_ux_audit_screenshots)** — End-to-end responsive, BiDi/RTL, shell consistency, onboarding, CEFR calibration, and Playwright visual audit documentation.
+- **[docs/QA_REPORT.md](file:///home/mahdi/projects/ideas/mockza/docs/QA_REPORT.md)**, **[docs/QA_BUGS_AND_TECHNICAL_DEBTS.md](file:///home/mahdi/projects/ideas/mockza/docs/QA_BUGS_AND_TECHNICAL_DEBTS.md)** & **[docs/CODE_REVIEW_ISSUES_2026-11-27.md](file:///home/mahdi/projects/ideas/mockza/docs/CODE_REVIEW_ISSUES_2026-11-27.md)** — End-to-end QA report (`QA-001`–`QA-014`), technical debt log, and 95-file full code review resolution record.
 - **[app/README.md](file:///home/mahdi/projects/ideas/mockza/app/README.md)** — Flutter client architecture, 19 feature modules, components, and low-RAM commands.
 - **[app/test/e2e/README.md](file:///home/mahdi/projects/ideas/mockza/app/test/e2e/README.md)** — Hermetic 9-suite Flutter E2E harness and Page-Object Robot guide.
