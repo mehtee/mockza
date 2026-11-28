@@ -688,11 +688,15 @@ function AppRootLayout() {
 
   const syncBadgeLabel = !isOnline
     ? t('topBarOfflineBadge')
-    : pendingOutboxCount > 0
-      ? t('topBarPendingOutboxBadge', {
-          count: formatChromeNumber(pendingOutboxCount, edition),
-        })
-      : t('topBarOnlineBadge');
+    : !authSession?.isAuthenticated
+      ? edition === 'irn'
+        ? 'ذخیره محلی'
+        : 'Local only'
+      : pendingOutboxCount > 0
+        ? t('topBarPendingOutboxBadge', {
+            count: formatChromeNumber(pendingOutboxCount, edition),
+          })
+        : t('topBarOnlineBadge');
 
   return (
     <div

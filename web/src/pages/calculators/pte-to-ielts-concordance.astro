@@ -16,6 +16,7 @@ const concordance = [
   { pte: '52–58', ielts: '6.5', cefr: 'B2' },
   { pte: '43–51', ielts: '6.0', cefr: 'B2' },
   { pte: '36–42', ielts: '5.5', cefr: 'B2' },
+  { pte: '10–35', ielts: '< 5.5', cefr: 'A1–B1' },
 ];
 
 const breadcrumbJsonLd = {
@@ -51,8 +52,8 @@ const breadcrumbJsonLd = {
       </h1>
       <p class="mt-2 text-sm text-text-secondary">
         {isIrn
-          ? 'بررسی نمره معادل PTE برای اهداف مهاجرتی استرالیا، کانادا و پذیرش دانشگاه‌ها.'
-          : 'Reference published PTE Academic 10–90 score ranges alongside IELTS Academic bands and CEFR proficiency.'}
+          ? 'تخمین مرجع هم‌ترازی نمره PTE Academic (۱۰ تا ۹۰) با بند آیلتس و سطح CEFR. توجه: سازمان‌های مهاجرتی و دانشگاه‌ها ممکن است شرایط جداگانه برای هر مهارت داشته باشند و این جدول جایگزین تطبیق رسمی نیست.'
+          : 'Informational reference comparing PTE Academic (10–90) ranges with IELTS bands and CEFR levels. Immigration agencies and universities set their own component requirements; this table is not an official guarantee.'}
       </p>
       <div
         data-irn={isIrn ? 'true' : 'false'}
@@ -62,7 +63,7 @@ const breadcrumbJsonLd = {
           <label for="calc-pte-score" data-testid="calc-pte-label" class="text-xs font-semibold text-text-primary">
             {isIrn ? 'نمره PTE: ۶۵' : 'PTE Academic: 65 / 90'}
           </label>
-          <p data-testid="calc-pte-result" class="font-mono-exam text-lg font-bold text-primary">
+          <p data-testid="calc-pte-result" class={`${isIrn ? '' : 'font-mono-exam '}text-lg font-bold text-primary`}>
             {isIrn ? 'آیلتس ۷.۰ · سطح C1' : 'IELTS 7.0 · CEFR C1'}
           </p>
         </div>
@@ -70,6 +71,7 @@ const breadcrumbJsonLd = {
           id="calc-pte-score"
           data-testid="calc-pte-score"
           type="range"
+          dir="ltr"
           min="10"
           max="90"
           step="1"
@@ -89,9 +91,15 @@ const breadcrumbJsonLd = {
         <tbody>
           {concordance.map((row) => (
             <tr class="border-b border-border-subtle/50">
-              <td class="py-2 font-mono-exam">{isIrn ? row.pte.replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)] ?? d) : row.pte}</td>
-              <td class="py-2 text-end font-mono-exam font-bold text-primary">{isIrn ? row.ielts.replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)] ?? d) : row.ielts}</td>
-              <td class="py-2 text-end font-mono-exam text-text-secondary">{row.cefr}</td>
+              <td class="py-2 font-mono-exam">
+                <bdi dir="ltr">{isIrn ? row.pte.replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)] ?? d) : row.pte}</bdi>
+              </td>
+              <td class="py-2 text-end font-mono-exam font-bold text-primary">
+                <bdi dir="ltr">{isIrn ? row.ielts.replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)] ?? d) : row.ielts}</bdi>
+              </td>
+              <td class="py-2 text-end font-mono-exam text-text-secondary">
+                <bdi dir="ltr">{row.cefr}</bdi>
+              </td>
             </tr>
           ))}
         </tbody>

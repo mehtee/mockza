@@ -70,6 +70,6 @@ In addition to all 64 core requirements (`FR-001`..`FR-064`) in [PDR.md](file://
 | Plan (`طرح اشتراک`) | Suggested Toman Tier *(Indexed Monthly to USD)* | Target Persona | Payment Channel | AI Fair-Use Cap |
 | :--- | :--- | :--- | :--- | :--- |
 | **رایگان (`Free Starter`)** | **0 تومان** | All new installs | Instant start | **1 Rapid 4-Skill Starting-Level Check** + **Durnama Roadmap preview** + **starter Reading/Listening** + **20 Vocab/day** |
-| **فشرده هفتگی (`Cram 7-Day`)** | **~149,000 – 199,000 تومان / هفته** | Urgent Crammers (`۱۰ روز مانده به آزمون`) | Zarinpal / Bazaar / Myket | **8 Speaking + 8 Writing AI evals/day**; 60 req/min TTS cap; full Roadmap, Smart Coach & Pronunciation Studio unlocked |
-| **حرفه‌ای ماهانه (`Monthly Pro`)** | **~349,000 – 490,000 تومان / ماه** | Main retakers & *Navia* applicants | Zarinpal (~1–2% PSP fee) / Bazaar | **8 Speaking + 8 Writing AI evals/day** (`120/mo` max AI ceiling); `1 Phone + 1 Desktop Web` |
+| **فشرده هفتگی (`Cram 7-Day`)** | **199,000 تومان / هفته** (`1,990,000` ریال) | Urgent Crammers (`۱۰ روز مانده به آزمون`) | Zarinpal / Bazaar / Myket | **10 Speaking + 10 Writing AI evals/day**; 60 req/min TTS cap; full Roadmap, Smart Coach & Pronunciation Studio unlocked |
+| **حرفه‌ای ماهانه (`Monthly Pro`)** | **390,000 تومان / ماه** (`3,900,000` ریال) | Main retakers & *Navia* applicants | Zarinpal (~1–2% PSP fee) / Bazaar | **10 Speaking + 10 Writing AI evals/day** (`120/mo` combined ceiling); `1 Phone + 1 Desktop Web` |
 | **پکیج ۳ ماهه اپلای (`Apply Quarterly`)** | **~790,000 – 1,090,000 تومان / ۳ ماه** | BS/MS/PhD cohort + *Navia* bundle promo | Zarinpal Web Checkout | Full 5-track access + **Navia Bundle Discount Code** |

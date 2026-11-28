@@ -380,7 +380,7 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
           clearError: true,
         );
 
-        if (!hasClipForTarget && prepSecs > 0) {
+        if (!hasClipForTarget && prepSecs > 0 && state.hasMicPermission) {
           _startPrepCountdown(prepSecs);
         }
       } else {
@@ -415,6 +415,18 @@ class SpeakingSimNotifier extends Notifier<SpeakingSimState> {
       state = state.copyWith(hasMicPermission: granted);
       if (granted) {
         await startMicPreview();
+        final activePrompt = state.currentPrompt;
+        if (activePrompt != null &&
+            activePrompt.prepSeconds > 0 &&
+            state.phase == SpeakingPhase.prepOrReady &&
+            !state.recordedTurns.containsKey(activePrompt.promptId) &&
+            _countdownTimer == null) {
+          _startPrepCountdown(activePrompt.prepSeconds);
+        }
+      } else {
+        // Never burn scored/prep timer while microphone permission is missing (`M12`).
+        _countdownTimer?.cancel();
+        _countdownTimer = null;
       }
     } on Object {
       if (!_isDisposed) {

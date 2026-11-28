@@ -126,9 +126,7 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
                         ),
                         const SizedBox(height: SpacingTokens.xs),
                         Text(
-                          isIran
-                              ? 'زمان‌بندی رسمی و پخش خطی فایل صوتی.'
-                              : 'Official timer & linear audio.',
+                          _examModeDescription(_skillKind, isIran: isIran),
                           style: typography.caption.copyWith(
                             color: colors.textSecondary,
                           ),
@@ -170,9 +168,7 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
                         ),
                         const SizedBox(height: SpacingTokens.xs),
                         Text(
-                          isIran
-                              ? 'متن پیاده‌سازی، تنظیم سرعت و راهنمای هوشمند.'
-                              : 'Transcripts, speed & AI hints.',
+                          _studyModeDescription(_skillKind, isIran: isIran),
                           style: typography.caption.copyWith(
                             color: colors.textSecondary,
                           ),
@@ -254,6 +250,52 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
       ),
     );
   }
+
+  String _examModeDescription(SkillKind skill, {required bool isIran}) =>
+      switch (skill) {
+        SkillKind.reading =>
+          isIran
+              ? 'زمان‌بندی آزمون، بدون راهنما و نمایش پاسخ پس از ثبت.'
+              : 'Timed reading assessment with no answer assistance.',
+        SkillKind.listening =>
+          isIran
+              ? 'زمان‌بندی آزمون و پخش خطی فایل صوتی (یک‌بار پخش).'
+              : 'Timed listening with single-play linear audio.',
+        SkillKind.writing =>
+          isIran
+              ? 'زمان‌بندی آزمون، بدون راهنمای نوشتاری تا پایان زمان.'
+              : 'Timed essay workspace with strict exam conditions.',
+        SkillKind.speaking =>
+          isIran
+              ? 'زمان‌بندی رسمی نوبت‌ها و ضبط تک‌مرحله‌ای پاسخ.'
+              : 'Timed turns with single-take exam recording.',
+        SkillKind.vocabulary =>
+          isIran ? 'ارزیابی زمان‌دار واژگان.' : 'Timed vocabulary check.',
+      };
+
+  String _studyModeDescription(SkillKind skill, {required bool isIran}) =>
+      switch (skill) {
+        SkillKind.reading =>
+          isIran
+              ? 'تمرین منعطف با راهنما، واژگان و مرور شواهد متن.'
+              : 'Untimed reading with hints, vocabulary & evidence review.',
+        SkillKind.listening =>
+          isIran
+              ? 'متن پیاده‌سازی، تنظیم سرعت پخش و تکرار بخش‌ها.'
+              : 'Transcripts, playback speed & section replay.',
+        SkillKind.writing =>
+          isIran
+              ? 'تمرین بدون فشار زمان با بازبینی ساختار و ایده‌ها.'
+              : 'Flexible pacing with structural guidance & review.',
+        SkillKind.speaking =>
+          isIran
+              ? 'امکان بازپخش پاسخ، ضبط مجدد و راهنمای هوشمند.'
+              : 'Playback review, re-recording & coaching hints.',
+        SkillKind.vocabulary =>
+          isIran
+              ? 'مرور هوشمند با تلفظ و مثال‌های کاربردی.'
+              : 'Spaced review with audio & usage examples.',
+      };
 
   String _defaultPackForSkill(ExamTrack track) =>
       ExamDescriptor.forTrack(track).defaultPackIdForSkill(_skillKind);

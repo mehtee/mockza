@@ -51,7 +51,6 @@ class VocabularyScreen extends ConsumerWidget {
         (dueCardsAsync.isLoading && !dueCardsAsync.hasValue) ||
         (allCardsAsync.isLoading && !allCardsAsync.hasValue);
 
-    final dueCards = dueCardsAsync.asData?.value ?? const <VocabDeckCard>[];
     final allCards = allCardsAsync.asData?.value ?? const <VocabDeckCard>[];
     final previewAll = ref.watch(vocabPreviewAllWavesProvider);
     final vocabTab = ref.watch(vocabTabModeProvider);
@@ -176,7 +175,7 @@ class VocabularyScreen extends ConsumerWidget {
                     _buildDueTodayHero(
                       context,
                       ref,
-                      dueCount: dueCards.length,
+                      dueCount: queueSelection.queue.length,
                       totalCount: allCards.length,
                       edition: edition,
                     ),
@@ -207,7 +206,7 @@ class VocabularyScreen extends ConsumerWidget {
                     total: allCards.length,
                     mastered: masteredCount,
                     learning: learningCount,
-                    due: dueCards.length,
+                    due: queueSelection.queue.length,
                     edition: edition,
                   ),
                   const SizedBox(height: SpacingTokens.xl),

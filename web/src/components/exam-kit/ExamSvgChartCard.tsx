@@ -1,6 +1,6 @@
 import DOMPurify from 'dompurify';
 import { Maximize2, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
-import { useState, type WheelEvent } from 'react';
+import { useEffect, useState, type WheelEvent } from 'react';
 import { MzButton, MzModal } from '@/components/ui';
 import { LtrExamBoundary } from '@/edition/bidi/LtrExamBoundary';
 import { getActiveEditionCode } from '@/edition/edition-config';
@@ -18,9 +18,110 @@ const MIN_INLINE_SCALE = 1;
 const MAX_INLINE_SCALE = 3;
 const MAX_LIGHTBOX_SCALE = 4;
 
+/**
+ * Prevents chart titles from colliding with top-anchored SVG legends by
+ * inspecting `<text>` and legend `<g>` coordinates and shifting the legend
+ * downward (or expanding the viewBox slightly) when vertical bounds overlap.
+ * Works generically for any dynamically authored SVG chart.
+ */
+function preventSvgHeaderLegendOverlap(svgMarkup: string): string {
+  if (typeof window === 'undefined' || typeof DOMParser === 'undefined' || !svgMarkup) {
+    return svgMarkup;
+  }
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgMarkup, 'image/svg+xml');
+    const svg = doc.querySelector('svg');
+    if (!svg || doc.querySelector('parsererror')) return svgMarkup;
+
+    const texts = Array.from(svg.querySelectorAll('text'));
+    if (texts.length < 2) return svgMarkup;
+
+    // Locate top header title (y <= 54, font-size >= 15 or bold) and optional subtitle (y <= 74)
+    let titleBottomY = 0;
+    let subtitleBottomY = 0;
+    for (const el of texts) {
+      const y = Number.parseFloat(el.getAttribute('y') ?? '');
+      if (!Number.isFinite(y) || y > 74) continue;
+      const fs = Number.parseFloat(el.getAttribute('font-size') ?? '14');
+      const fw = (el.getAttribute('font-weight') ?? '').toLowerCase();
+      if (y <= 54 && (fs >= 15 || fw === 'bold' || fw === '700' || fw === '600')) {
+        titleBottomY = Math.max(titleBottomY, y + 6);
+      } else if (y > 46 && y <= 74 && fs <= 14) {
+        subtitleBottomY = Math.max(subtitleBottomY, y + 6);
+      }
+    }
+    if (titleBottomY <= 0) return svgMarkup;
+
+    // Look for legend rects/lines/circles placed in the top header band (y <= titleBottomY + 12)
+    const legendSwatches = Array.from(svg.querySelectorAll('rect, line, circle')).filter((el) => {
+      const tag = el.tagName.toLowerCase();
+      const yAttr = tag === 'circle' ? 'cy' : tag === 'line' ? 'y1' : 'y';
+      const y = Number.parseFloat(el.getAttribute(yAttr) ?? '');
+      if (!Number.isFinite(y) || y <= 4 || y > titleBottomY + 12) return false;
+      if (tag === 'rect') {
+        const w = Number.parseFloat(el.getAttribute('width') ?? '0');
+        const h = Number.parseFloat(el.getAttribute('height') ?? '0');
+        // Exclude full-bleed background rects
+        return w > 0 && w <= 36 && h > 0 && h <= 20;
+      }
+      return true;
+    });
+
+    if (legendSwatches.length === 0) return svgMarkup;
+
+    const minSwatchY = Math.min(
+      ...legendSwatches.map((el) => {
+        const tag = el.tagName.toLowerCase();
+        const attr = tag === 'circle' ? 'cy' : tag === 'line' ? 'y1' : 'y';
+        return Number.parseFloat(el.getAttribute(attr) ?? '30');
+      }),
+    );
+    const targetLegendTopY = Math.max(titleBottomY + 10, subtitleBottomY + 4);
+    const shiftY = Math.max(18, Math.round(targetLegendTopY - minSwatchY));
+
+    // Collect parent <g> or individual legend elements that overlap the header
+    const legendGroup = legendSwatches[0]?.closest('g');
+    if (legendGroup && legendGroup !== svg) {
+      const existing = legendGroup.getAttribute('transform') ?? '';
+      legendGroup.setAttribute('transform', `${existing} translate(0, ${shiftY})`.trim());
+      return new XMLSerializer().serializeToString(svg);
+    }
+
+    // Fallback: shift top-band swatches & adjacent legend text labels down cleanly below header/subtitle
+    for (const swatch of legendSwatches) {
+      const tag = swatch.tagName.toLowerCase();
+      if (tag === 'rect') {
+        const y = Number.parseFloat(swatch.getAttribute('y') ?? '0');
+        swatch.setAttribute('y', String(y + shiftY));
+      } else if (tag === 'circle') {
+        const cy = Number.parseFloat(swatch.getAttribute('cy') ?? '0');
+        swatch.setAttribute('cy', String(cy + shiftY));
+      } else if (tag === 'line') {
+        const y1 = Number.parseFloat(swatch.getAttribute('y1') ?? '0');
+        const y2 = Number.parseFloat(swatch.getAttribute('y2') ?? '0');
+        swatch.setAttribute('y1', String(y1 + shiftY));
+        swatch.setAttribute('y2', String(y2 + shiftY));
+      }
+    }
+    for (const el of texts) {
+      const y = Number.parseFloat(el.getAttribute('y') ?? '');
+      const fs = Number.parseFloat(el.getAttribute('font-size') ?? '12');
+      const fw = (el.getAttribute('font-weight') ?? '').toLowerCase();
+      const isTitle = fs >= 15 || fw === 'bold' || fw === '700' || fw === '600';
+      if (!isTitle && Number.isFinite(y) && y > 16 && y <= titleBottomY + 12 && fs <= 13) {
+        el.setAttribute('y', String(y + shiftY));
+      }
+    }
+    return new XMLSerializer().serializeToString(svg);
+  } catch {
+    return svgMarkup;
+  }
+}
+
 export function sanitizeSvgMarkup(rawSvg: string): string {
   if (typeof window === 'undefined' || !rawSvg) return '';
-  return DOMPurify.sanitize(rawSvg, {
+  const purified = DOMPurify.sanitize(rawSvg, {
     USE_PROFILES: { svg: true, svgFilters: true },
     FORBID_TAGS: [
       'foreignObject',
@@ -34,6 +135,7 @@ export function sanitizeSvgMarkup(rawSvg: string): string {
     ],
     FORBID_ATTR: ['onload', 'onerror', 'onclick', 'onmouseover', 'onfocus', 'href', 'xlink:href'],
   });
+  return preventSvgHeaderLegendOverlap(purified);
 }
 
 export function ExamSvgChartCard({
@@ -49,8 +151,36 @@ export function ExamSvgChartCard({
   const [scale, setScale] = useState(1);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxScale, setLightboxScale] = useState(1);
+  const [fetchedSvgMarkup, setFetchedSvgMarkup] = useState<string | null>(null);
 
-  const cleanedSvg = svgMarkup ? sanitizeSvgMarkup(svgMarkup) : null;
+  useEffect(() => {
+    if (svgMarkup || !svgUrl || typeof window === 'undefined') {
+      setFetchedSvgMarkup(null);
+      return;
+    }
+    const lowerUrl = svgUrl.toLowerCase();
+    if (!lowerUrl.includes('.svg') && !lowerUrl.startsWith('/v1/media/')) {
+      setFetchedSvgMarkup(null);
+      return;
+    }
+    let cancelled = false;
+    void fetch(svgUrl)
+      .then((res) => (res.ok ? res.text() : null))
+      .then((text) => {
+        if (!cancelled && text && text.includes('<svg')) {
+          setFetchedSvgMarkup(text);
+        }
+      })
+      .catch(() => {
+        // Fall back gracefully to <img> if fetch fails.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [svgMarkup, svgUrl]);
+
+  const effectiveRawSvg = svgMarkup || fetchedSvgMarkup;
+  const cleanedSvg = effectiveRawSvg ? sanitizeSvgMarkup(effectiveRawSvg) : null;
 
   const handleViewportWheel = (e: WheelEvent<HTMLDivElement>, maxScale: number, setter: (fn: (prev: number) => number) => void) => {
     if (!e.ctrlKey && !e.metaKey) return;

@@ -78,6 +78,7 @@ export function ScoreCalculatorsIsland({ isIrn = false }: ScoreCalculatorsIsland
             id="calc-ielts-raw"
             data-testid="calc-ielts-raw"
             type="range"
+            dir="ltr"
             min={0}
             max={40}
             value={ieltsRaw}
@@ -90,6 +91,11 @@ export function ScoreCalculatorsIsland({ isIrn = false }: ScoreCalculatorsIsland
             className={`mt-2 ${isIrn ? '' : 'font-mono-exam '}text-2xl font-bold text-primary`}
           >
             {isIrn ? `باند ${fmt(ieltsBand.toFixed(1), true)}` : `Band ${ieltsBand.toFixed(1)}`}
+          </p>
+          <p className="text-[11px] text-text-tertiary">
+            {isIrn
+              ? 'تخمین مرجع بر اساس جدول استاندارد (ممکن است بر اساس نسخه آزمون متفاوت باشد).'
+              : 'Reference estimate only; exact cutoffs vary slightly by test form.'}
           </p>
         </div>
       </section>
@@ -109,6 +115,7 @@ export function ScoreCalculatorsIsland({ isIrn = false }: ScoreCalculatorsIsland
             id="calc-toefl-band"
             data-testid="calc-toefl-band"
             type="range"
+            dir="ltr"
             min={1}
             max={6}
             step={0.5}
@@ -121,7 +128,12 @@ export function ScoreCalculatorsIsland({ isIrn = false }: ScoreCalculatorsIsland
             data-testid="calc-toefl-result"
             className={`mt-2 ${isIrn ? '' : 'font-mono-exam '}text-2xl font-bold text-primary`}
           >
-            {isIrn ? `~${fmt(toefl120, true)} / ۱۲۰` : `~${toefl120} / 120`}
+            <bdi dir="ltr">{isIrn ? `~${fmt(toefl120, true)} / ۱۲۰` : `~${toefl120} / 120`}</bdi>
+          </p>
+          <p className="text-[11px] text-text-tertiary">
+            {isIrn
+              ? 'تخمین تطبیق مرجع؛ جایگزین کارنامه رسمی ETS نیست.'
+              : 'Approximate concordance estimate; not an official ETS score guarantee.'}
           </p>
         </div>
       </section>
@@ -194,10 +206,10 @@ export function ScoreCalculatorsIsland({ isIrn = false }: ScoreCalculatorsIsland
           data-testid="calc-det-result"
           className={`mt-3 grid grid-cols-2 gap-1.5 ${isIrn ? '' : 'font-mono-exam '}text-xs font-semibold text-primary`}
         >
-          <div>{isIrn ? `سواد: ${fmt(detSub.literacy ?? '—', true)}` : `Literacy: ${detSub.literacy ?? '—'}`}</div>
-          <div>{isIrn ? `درک: ${fmt(detSub.comprehension ?? '—', true)}` : `Comp: ${detSub.comprehension ?? '—'}`}</div>
-          <div>{isIrn ? `مکالمه: ${fmt(detSub.conversation ?? '—', true)}` : `Conv: ${detSub.conversation ?? '—'}`}</div>
-          <div>{isIrn ? `تولید: ${fmt(detSub.production ?? '—', true)}` : `Prod: ${detSub.production ?? '—'}`}</div>
+          <div>{isIrn ? `سواد (Literacy): ${fmt(detSub.literacy ?? '—', true)}` : `Literacy: ${detSub.literacy ?? '—'}`}</div>
+          <div>{isIrn ? `درک (Comprehension): ${fmt(detSub.comprehension ?? '—', true)}` : `Comprehension: ${detSub.comprehension ?? '—'}`}</div>
+          <div>{isIrn ? `مکالمه (Conversation): ${fmt(detSub.conversation ?? '—', true)}` : `Conversation: ${detSub.conversation ?? '—'}`}</div>
+          <div>{isIrn ? `تولید (Production): ${fmt(detSub.production ?? '—', true)}` : `Production: ${detSub.production ?? '—'}`}</div>
         </dl>
       </section>
     </div>

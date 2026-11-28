@@ -382,7 +382,13 @@ export function MicroDrillsScreen({ initialDrillId = null, initialTrack }: Micro
           </MzCard>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {visibleDrills.map((drill) => (
+            {visibleDrills
+              .filter(
+                (drill) =>
+                  drill.drillId !== personalization?.nextRecommendedDrill?.drillId ||
+                  visibleDrills.length === 1,
+              )
+              .map((drill) => (
               <MzCard
                 key={drill.drillId}
                 variant="default"

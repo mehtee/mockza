@@ -61,6 +61,7 @@ const defaultDet = computeDetSubscores({
         id="calc-ielts-raw"
         data-testid="calc-ielts-raw"
         type="range"
+        dir="ltr"
         min="0"
         max="40"
         value="30"
@@ -70,6 +71,11 @@ const defaultDet = computeDetSubscores({
       <div dir={isIrn ? 'rtl' : 'ltr'} class="contents">
         <p data-testid="calc-ielts-result" class={`mt-2 ${isIrn ? '' : 'font-mono-exam '}text-2xl font-bold text-primary`}>
           {isIrn ? `باند ${fmt(defaultIeltsBand)}` : `Band ${defaultIeltsBand}`}
+        </p>
+        <p class="text-[11px] text-text-tertiary">
+          {isIrn
+            ? 'تخمین مرجع بر اساس جدول استاندارد (جایگزین کارنامه رسمی نیست).'
+            : 'Reference estimate only; exact cutoffs vary slightly by test form.'}
         </p>
       </div>
     </div>
@@ -91,6 +97,7 @@ const defaultDet = computeDetSubscores({
         id="calc-toefl-band"
         data-testid="calc-toefl-band"
         type="range"
+        dir="ltr"
         min="1"
         max="6"
         step="0.5"
@@ -100,7 +107,12 @@ const defaultDet = computeDetSubscores({
 
       <div dir={isIrn ? 'rtl' : 'ltr'} class="contents">
         <p data-testid="calc-toefl-result" class={`mt-2 ${isIrn ? '' : 'font-mono-exam '}text-2xl font-bold text-primary`}>
-          {isIrn ? `~${fmt(defaultToefl120)} / ۱۲۰` : `~${defaultToefl120} / 120`}
+          <bdi dir="ltr">{isIrn ? `~${fmt(defaultToefl120)} / ۱۲۰` : `~${defaultToefl120} / 120`}</bdi>
+        </p>
+        <p class="text-[11px] text-text-tertiary">
+          {isIrn
+            ? 'تخمین تطبیق مرجع؛ جایگزین کارنامه رسمی ETS نیست.'
+            : 'Approximate concordance estimate; not an official ETS score guarantee.'}
         </p>
       </div>
     </div>

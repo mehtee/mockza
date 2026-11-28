@@ -296,17 +296,6 @@ export function FullMockOrchestratorScreen({
           <h1 className="text-2xl font-bold text-text-primary">{t('fullMockOrchestratorTitle')}</h1>
           <p className="mt-1 text-sm text-text-secondary">{t('fullMockSubtitle')}</p>
         </div>
-
-        <MzSegmentedControl<'exam' | 'study'>
-          ariaLabel={t('fullMockOrchestratorTitle')}
-          fullWidth
-          value={examMode}
-          onChange={setExamMode}
-          options={[
-            { value: 'exam', label: t('workspaceExamModeBadge') },
-            { value: 'study', label: t('workspaceStudyModeBadge') },
-          ]}
-        />
       </div>
 
       <CompactPreflightHeader<'exam' | 'study'>
@@ -402,11 +391,19 @@ export function FullMockOrchestratorScreen({
                   </span>
                   <div>
                     <p className="text-sm font-bold text-text-primary">{stage.title}</p>
-                    <LtrExamBoundary>
-                      <p className="font-mono-exam text-[11px] text-text-tertiary">
-                        {stage.packId}
-                      </p>
-                    </LtrExamBoundary>
+                    <p className="text-xs text-text-secondary">
+                      {isDone
+                        ? deps.edition === 'irn'
+                          ? 'تکمیل‌شده'
+                          : 'Completed'
+                        : isNext
+                          ? deps.edition === 'irn'
+                            ? 'مرحله فعلی · آماده شروع'
+                            : 'Current stage · Ready to start'
+                          : deps.edition === 'irn'
+                            ? 'در صف مراحل بعدی'
+                            : 'Upcoming stage'}
+                    </p>
                   </div>
                 </div>
 

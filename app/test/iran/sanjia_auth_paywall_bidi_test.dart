@@ -203,7 +203,7 @@ void main() {
         find.text('انتقال نمره تاییدشده به ناویا (Navia)'),
         findsOneWidget,
       );
-      expect(find.text('ارسال نمره به ناویا (navia.ir)'), findsOneWidget);
+      expect(find.text('ارسال خلاصه شبیه‌سازی به ناویا (navia.ir)'), findsOneWidget);
     },
   );
 

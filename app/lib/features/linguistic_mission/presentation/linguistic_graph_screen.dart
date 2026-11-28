@@ -292,7 +292,26 @@ class _LinguisticGraphScreenState extends ConsumerState<LinguisticGraphScreen> {
                                 ),
                               ),
                             ),
-                            MzChip(label: _pState!.activeWeaknessPhase),
+                            MzChip(
+                              label: switch (_pState!.activeWeaknessPhase) {
+                                'favorite_topics' =>
+                                  ref.watch(editionConfigProvider).edition == AppEdition.iran
+                                      ? 'موضوعات موردعلاقه'
+                                      : 'Favorite Topics',
+                                'weakness_transfer' =>
+                                  ref.watch(editionConfigProvider).edition == AppEdition.iran
+                                      ? 'انتقال مهارت'
+                                      : 'Skill Transfer',
+                                'exam_breadth' =>
+                                  ref.watch(editionConfigProvider).edition == AppEdition.iran
+                                      ? 'پوشش کامل آزمون'
+                                      : 'Exam Breadth',
+                                _ =>
+                                  ref.watch(editionConfigProvider).edition == AppEdition.iran
+                                      ? 'موضوعات موردعلاقه'
+                                      : 'Favorite Topics',
+                              },
+                            ),
                           ],
                         ),
                         const SizedBox(height: SpacingTokens.sm),

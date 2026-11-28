@@ -34,6 +34,20 @@ export interface SpeakingSimulatorScreenProps {
 
 type TurnPhase = 'prep' | 'recording' | 'recorded';
 
+interface SpeakingTurnItem {
+  readonly turnId: string;
+  readonly sectionId: string;
+  readonly partIndex: number;
+  readonly turnNumberInPart: number;
+  readonly sectionTitle: string;
+  readonly instructions: string | null;
+  readonly promptText: string;
+  readonly prepSeconds: number;
+  readonly responseSeconds: number;
+  readonly mediaUrl: string | null;
+  readonly chartSvg: string | null;
+}
+
 interface RecordedTurnEntry {
   readonly sectionId: string;
   readonly partIndex: number;
@@ -43,29 +57,108 @@ interface RecordedTurnEntry {
   readonly mediaKey: string;
 }
 
-function resolveTurnTiming(
-  section: ExamBundlePayload['sections'][number],
+function buildSpeakingTurns(
+  bundle: ExamBundlePayload | null,
   examId: string,
-): { readonly prepSeconds: number; readonly responseSeconds: number; readonly partIndex: number } {
-  const partIndex = section.sectionIndex + 1;
-  const metaPrep = section.metadata?.['prepSeconds'];
-  const metaResp = section.metadata?.['responseSeconds'];
-
-  let defaultPrep = 0;
-  if (typeof metaPrep === 'number' && metaPrep >= 0) {
-    defaultPrep = metaPrep;
-  } else if ((examId === 'ielts_academic' || examId === 'ielts_general') && partIndex === 2) {
-    defaultPrep = 60;
+): readonly SpeakingTurnItem[] {
+  if (!bundle) return [];
+  const sortedSections = [...bundle.sections].sort((a, b) => a.sectionIndex - b.sectionIndex);
+  const questionsBySection = new Map<string, ExamBundlePayload['questions'][number][]>();
+  for (const q of bundle.questions) {
+    const list = questionsBySection.get(q.sectionId) ?? [];
+    list.push(q);
+    questionsBySection.set(q.sectionId, list);
+  }
+  for (const list of questionsBySection.values()) {
+    list.sort((a, b) => a.questionNumber - b.questionNumber);
   }
 
-  const responseSeconds =
-    typeof metaResp === 'number' && metaResp > 0
-      ? metaResp
-      : section.durationSeconds > 0
-        ? section.durationSeconds
-        : 120;
+  const turns: SpeakingTurnItem[] = [];
+  for (let sIdx = 0; sIdx < sortedSections.length; sIdx += 1) {
+    const section = sortedSections[sIdx]!;
+    // DB sectionIndex is 1-based (1, 2, 3); fall back to 1-based loop index if 0.
+    const partIndex = section.sectionIndex > 0 ? section.sectionIndex : sIdx + 1;
+    const meta = section.metadata ?? {};
+    const zeroPrep = meta['zeroPrep'] === true;
+    const metaPrep =
+      typeof meta['prepDurationSeconds'] === 'number'
+        ? meta['prepDurationSeconds']
+        : typeof meta['prepSeconds'] === 'number'
+          ? meta['prepSeconds']
+          : null;
+    const isIelts = examId === 'ielts_academic' || examId === 'ielts_general';
+    const prepSeconds = zeroPrep
+      ? 0
+      : metaPrep !== null && metaPrep >= 0
+        ? metaPrep
+        : isIelts && partIndex === 2
+          ? 60
+          : 0;
 
-  return { prepSeconds: defaultPrep, responseSeconds, partIndex };
+    const metaSpeak =
+      typeof meta['speakDurationSeconds'] === 'number'
+        ? meta['speakDurationSeconds']
+        : typeof meta['responseSeconds'] === 'number'
+          ? meta['responseSeconds']
+          : typeof meta['speakSeconds'] === 'number'
+            ? meta['speakSeconds']
+            : null;
+    const sectionSpeakSeconds =
+      metaSpeak !== null && metaSpeak > 0
+        ? metaSpeak
+        : section.durationSeconds > 0
+          ? section.durationSeconds
+          : partIndex === 2
+            ? 120
+            : 60;
+
+    const chartSvg = typeof meta['chartSvg'] === 'string' ? (meta['chartSvg'] as string) : null;
+    const secQuestions = questionsBySection.get(section.sectionId) ?? [];
+
+    if (secQuestions.length > 0) {
+      const perQuestionSpeakSeconds =
+        partIndex === 2
+          ? sectionSpeakSeconds
+          : Math.min(90, Math.max(30, Math.round(sectionSpeakSeconds / secQuestions.length)));
+      for (let qIdx = 0; qIdx < secQuestions.length; qIdx += 1) {
+        const q = secQuestions[qIdx]!;
+        const promptText =
+          (q.prompt && q.prompt.trim().length > 0
+            ? q.prompt
+            : section.contentText && section.contentText.trim().length > 0
+              ? section.contentText
+              : section.title) ?? '';
+        turns.push({
+          turnId: q.questionId,
+          sectionId: section.sectionId,
+          partIndex,
+          turnNumberInPart: qIdx + 1,
+          sectionTitle: section.title,
+          instructions: section.instructions ?? null,
+          promptText,
+          prepSeconds,
+          responseSeconds: perQuestionSpeakSeconds,
+          mediaUrl: section.mediaUrl ?? null,
+          chartSvg,
+        });
+      }
+    } else {
+      turns.push({
+        turnId: section.sectionId,
+        sectionId: section.sectionId,
+        partIndex,
+        turnNumberInPart: 1,
+        sectionTitle: section.title,
+        instructions: section.instructions ?? null,
+        promptText: section.contentText || section.title,
+        prepSeconds,
+        responseSeconds: sectionSpeakSeconds,
+        mediaUrl: section.mediaUrl ?? null,
+        chartSvg,
+      });
+    }
+  }
+  return turns;
 }
 
 export function SpeakingSimulatorScreen({
@@ -101,9 +194,10 @@ export function SpeakingSimulatorScreen({
       setAutoStartSeq((s) => s + 1);
     },
   });
-  const [recordedBySectionId, setRecordedBySectionId] = useState<
+  const [recordedByTurnId, setRecordedByTurnId] = useState<
     Record<string, RecordedTurnEntry>
   >({});
+  const everUsedStudyModeRef = useRef(initialExamMode === 'study');
   const [quota, setQuota] = useState<QuotaStatusSnapshot | null>(null);
   const [quotaBlocked, setQuotaBlocked] = useState(false);
   const [uploadProgressText, setUploadProgressText] = useState<string | null>(null);
@@ -150,24 +244,25 @@ export function SpeakingSimulatorScreen({
     };
   }, [bundle, examMode, setActiveExamLock]);
 
-  const sortedSections = useMemo(
-    () =>
-      bundle
-        ? [...bundle.sections].sort((a, b) => a.sectionIndex - b.sectionIndex)
-        : [],
-    [bundle],
+  const effectiveExamId = bundle?.pack.examId ?? profileExamId;
+  const speakingTurns = useMemo(
+    () => buildSpeakingTurns(bundle, effectiveExamId),
+    [bundle, effectiveExamId],
   );
 
-  const activeSection = sortedSections[activeTurnIndex] ?? sortedSections[0] ?? null;
-  const effectiveExamId = bundle?.pack.examId ?? profileExamId;
-  const activeTiming = activeSection
-    ? resolveTurnTiming(activeSection, effectiveExamId)
-    : { prepSeconds: 0, responseSeconds: 120, partIndex: 1 };
+  const activeTurn = speakingTurns[activeTurnIndex] ?? speakingTurns[0] ?? null;
+  const activeTiming = activeTurn
+    ? {
+        prepSeconds: activeTurn.prepSeconds,
+        responseSeconds: activeTurn.responseSeconds,
+        partIndex: activeTurn.partIndex,
+      }
+    : { prepSeconds: 0, responseSeconds: 60, partIndex: 1 };
 
   // Recompute initial phase cleanly whenever active turn changes
   useEffect(() => {
-    if (!activeSection) return;
-    const existing = recordedBySectionId[activeSection.sectionId];
+    if (!activeTurn) return;
+    const existing = recordedByTurnId[activeTurn.turnId];
     if (existing) {
       setPhase('recorded');
       resetPrepClock(0, 0);
@@ -180,7 +275,7 @@ export function SpeakingSimulatorScreen({
       setPhase('recording');
       resetPrepClock(0, 0);
     }
-  }, [activeSection, activeTiming.prepSeconds, recordedBySectionId, resetPrepClock]);
+  }, [activeTurn, activeTiming.prepSeconds, recordedByTurnId, resetPrepClock]);
 
   const handleSkipPrep = useCallback(() => {
     resetPrepClock(0, 0);
@@ -189,39 +284,39 @@ export function SpeakingSimulatorScreen({
 
   const handleRecordingComplete = useCallback(
     async (clip: RecordedClip) => {
-      if (!activeSection) return;
-      const mediaKey = `rec-${attemptIdRef.current}-p${activeTiming.partIndex}`;
+      if (!activeTurn) return;
+      const mediaKey = `rec-${attemptIdRef.current}-p${activeTurn.partIndex}-t${activeTurnIndex + 1}`;
       await deps.catalog.putUserRecording({
         clipId: mediaKey,
         blob: clip.blob,
         attemptId: attemptIdRef.current,
-        partIndex: activeTiming.partIndex,
+        partIndex: activeTurn.partIndex,
         durationMs: clip.durationMs,
         mimeType: clip.strippedContentType,
       });
 
       const entry: RecordedTurnEntry = {
-        sectionId: activeSection.sectionId,
-        partIndex: activeTiming.partIndex,
-        turnId: activeSection.sectionId,
-        promptText: activeSection.contentText || activeSection.title,
+        sectionId: activeTurn.sectionId,
+        partIndex: activeTurn.partIndex,
+        turnId: activeTurn.turnId,
+        promptText: activeTurn.promptText,
         clip,
         mediaKey,
       };
-      setRecordedBySectionId((prev) => ({
+      setRecordedByTurnId((prev) => ({
         ...prev,
-        [activeSection.sectionId]: entry,
+        [activeTurn.turnId]: entry,
       }));
       setPhase('recorded');
       setErrorMsg(null);
     },
-    [activeSection, activeTiming.partIndex, deps.catalog],
+    [activeTurn, activeTurnIndex, deps.catalog],
   );
 
   const handleSubmit = useCallback(async () => {
     if (!bundle || isSubmitting) return;
-    const turns = sortedSections
-      .map((s) => recordedBySectionId[s.sectionId])
+    const turns = speakingTurns
+      .map((turn) => recordedByTurnId[turn.turnId])
       .filter((entry): entry is RecordedTurnEntry => entry !== undefined);
 
     if (turns.length === 0) {
@@ -291,7 +386,7 @@ export function SpeakingSimulatorScreen({
         startedAtUtcMs: startedAtRef.current,
         completedAtMs: nowMs,
         durationSeconds,
-        usedStudyMode: examMode === 'study',
+        usedStudyMode: examMode === 'study' || everUsedStudyModeRef.current,
         questionCount: turns.length,
         isCalibratedFullPack: turns.length >= 2,
         contentVersion: bundle.pack.version,
@@ -446,20 +541,20 @@ export function SpeakingSimulatorScreen({
     mockStageKey,
     navigate,
     onMockStageComplete,
-    recordedBySectionId,
-    sortedSections,
+    recordedByTurnId,
+    speakingTurns,
     t,
   ]);
 
   const audioSource = useMemo(
     () =>
-      activeSection?.mediaUrl
+      activeTurn?.mediaUrl
         ? {
-            mediaKey: `${packId}:${activeSection.sectionId}`,
-            fallbackUrl: activeSection.mediaUrl,
+            mediaKey: `${packId}:${activeTurn.sectionId}`,
+            fallbackUrl: activeTurn.mediaUrl,
           }
         : null,
-    [activeSection?.mediaUrl, activeSection?.sectionId, packId],
+    [activeTurn?.mediaUrl, activeTurn?.sectionId, packId],
   );
 
   const shortcuts: readonly KeyboardShortcutHint[] = useMemo(
@@ -488,11 +583,9 @@ export function SpeakingSimulatorScreen({
       ? null
       : Math.max(0, quota.dailySpeakingLimit - quota.dailySpeakingUsed)
     : null;
-  const recordedCount = sortedSections.filter((s) => Boolean(recordedBySectionId[s.sectionId])).length;
-  const chartSvg =
-    typeof activeSection?.metadata?.['chartSvg'] === 'string'
-      ? (activeSection.metadata['chartSvg'] as string)
-      : null;
+  const recordedCount = speakingTurns.filter((turn) => Boolean(recordedByTurnId[turn.turnId])).length;
+  const chartSvg = activeTurn?.chartSvg ?? null;
+  const canToggleMode = !mockSessionId && recordedCount === 0 && !everUsedStudyModeRef.current;
 
   return (
     <div data-testid="speaking-simulator-screen" className="flex flex-col gap-3">
@@ -517,7 +610,7 @@ export function SpeakingSimulatorScreen({
 
       <SimulatorWorkspaceShell
         breadcrumb={bundle.pack.title}
-        subtitle={activeSection?.title}
+        subtitle={activeTurn?.sectionTitle}
         remainingSeconds={phase === 'prep' ? prepRemainingSec : activeTiming.responseSeconds}
         timerPhase={phase === 'prep' ? 'prep' : 'response'}
         examMode={examMode}
@@ -533,19 +626,28 @@ export function SpeakingSimulatorScreen({
                 className="inline-flex items-center gap-1 rounded-[var(--mz-radius-pill)] border border-border-subtle bg-bg-raised px-2.5 py-1 text-[11px] font-semibold text-text-secondary"
               >
                 <Sparkles className="h-3 w-3 text-primary" aria-hidden="true" />
-                <span>{`${remainingQuota}/${quota.dailySpeakingLimit}`}</span>
+                <bdi dir="ltr">
+                  {`${formatChromeNumber(remainingQuota, deps.edition)}/${formatChromeNumber(quota.dailySpeakingLimit, deps.edition)}`}
+                </bdi>
               </span>
             ) : null}
 
-            <MzSegmentedControl<'exam' | 'study'>
-              ariaLabel={t('navPractice')}
-              value={examMode}
-              onChange={setExamMode}
-              options={[
-                { value: 'exam', label: t('workspaceExamModeBadge') },
-                { value: 'study', label: t('workspaceStudyModeBadge') },
-              ]}
-            />
+            {canToggleMode ? (
+              <MzSegmentedControl<'exam' | 'study'>
+                ariaLabel={t('navPractice')}
+                value={examMode}
+                onChange={(nextMode) => {
+                  if (nextMode === 'study') {
+                    everUsedStudyModeRef.current = true;
+                  }
+                  setExamMode(nextMode);
+                }}
+                options={[
+                  { value: 'exam', label: t('workspaceExamModeBadge') },
+                  { value: 'study', label: t('workspaceStudyModeBadge') },
+                ]}
+              />
+            ) : null}
           </div>
         }
         footer={
@@ -553,7 +655,9 @@ export function SpeakingSimulatorScreen({
             <div className="flex items-center gap-2 text-xs text-text-secondary">
               <Mic className="h-4 w-4 text-primary" aria-hidden="true" />
               <span data-testid="speaking-recorded-progress">
-                {`${recordedCount} / ${sortedSections.length}`}
+                <bdi dir="ltr">
+                  {`${formatChromeNumber(recordedCount, deps.edition)} / ${formatChromeNumber(speakingTurns.length, deps.edition)}`}
+                </bdi>
               </span>
               {uploadProgressText ? (
                 <span data-testid="speaking-upload-progress" className="font-semibold text-primary">
@@ -577,18 +681,19 @@ export function SpeakingSimulatorScreen({
                 variant="secondary"
                 size="sm"
                 data-testid="speaking-next-turn-btn"
-                disabled={activeTurnIndex >= sortedSections.length - 1}
+                disabled={activeTurnIndex >= speakingTurns.length - 1}
                 onClick={() =>
-                  setActiveTurnIndex((idx) => Math.min(sortedSections.length - 1, idx + 1))
+                  setActiveTurnIndex((idx) => Math.min(speakingTurns.length - 1, idx + 1))
                 }
               >
                 <span>{t('simNextQuestionAction')}</span>
                 <ForwardChevronIcon edition={deps.edition} className="h-4 w-4" />
               </MzButton>
               <MzButton
-                variant="primary"
+                variant={recordedCount > 0 ? 'primary' : 'secondary'}
                 size="md"
                 data-testid="speaking-submit-btn"
+                disabled={recordedCount === 0 || isSubmitting}
                 isLoading={isSubmitting}
                 onClick={() => void handleSubmit()}
               >
@@ -605,13 +710,13 @@ export function SpeakingSimulatorScreen({
           rightLabel={t('splitTabRightMic')}
           leftPane={
             <div className="flex flex-col gap-4">
-              {sortedSections.length > 1 ? (
+              {speakingTurns.length > 1 ? (
                 <div className="flex flex-wrap gap-2">
-                  {sortedSections.map((section, idx) => {
-                    const isDone = Boolean(recordedBySectionId[section.sectionId]);
+                  {speakingTurns.map((turn, idx) => {
+                    const isDone = Boolean(recordedByTurnId[turn.turnId]);
                     return (
                       <button
-                        key={section.sectionId}
+                        key={turn.turnId}
                         type="button"
                         data-testid={`speaking-turn-tab-${idx}`}
                         onClick={() => setActiveTurnIndex(idx)}
@@ -623,7 +728,7 @@ export function SpeakingSimulatorScreen({
                         ].join(' ')}
                       >
                         {isDone ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> : null}
-                        <span>{t('speakingTurnTabLabel', { index: idx + 1 })}</span>
+                        <bdi dir="ltr">{`P${turn.partIndex}.${turn.turnNumberInPart}`}</bdi>
                       </button>
                     );
                   })}
@@ -634,7 +739,7 @@ export function SpeakingSimulatorScreen({
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <LtrExamBoundary>
                     <h2 className="text-base font-bold text-text-primary">
-                      {activeSection?.title}
+                      {activeTurn?.sectionTitle}
                     </h2>
                   </LtrExamBoundary>
                   <span
@@ -653,16 +758,19 @@ export function SpeakingSimulatorScreen({
                   </span>
                 </div>
 
-                {activeSection?.instructions ? (
+                {activeTurn?.instructions ? (
                   <div className="mt-2 text-xs text-text-secondary">
-                    <LtrExamBoundary>{activeSection.instructions}</LtrExamBoundary>
+                    <LtrExamBoundary>{activeTurn.instructions}</LtrExamBoundary>
                   </div>
                 ) : null}
 
-                {activeSection?.contentText ? (
+                {activeTurn?.promptText ? (
                   <LtrExamBoundary>
-                    <div className="mt-3 whitespace-pre-wrap rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised p-4 text-sm leading-relaxed text-text-primary">
-                      {activeSection.contentText}
+                    <div
+                      data-testid="speaking-turn-prompt"
+                      className="mt-3 whitespace-pre-wrap rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised p-4 text-sm leading-relaxed text-text-primary"
+                    >
+                      {activeTurn.promptText}
                     </div>
                   </LtrExamBoundary>
                 ) : null}
@@ -671,7 +779,7 @@ export function SpeakingSimulatorScreen({
               {chartSvg ? (
                 <ExamSvgChartCard
                   svgMarkup={chartSvg}
-                  altText={activeSection?.title ?? 'Speaking image stimulus'}
+                  altText={activeTurn?.sectionTitle ?? 'Speaking image stimulus'}
                 />
               ) : null}
 
@@ -682,7 +790,7 @@ export function SpeakingSimulatorScreen({
                 />
               ) : null}
 
-              {activeTiming.prepSeconds > 0 && activeSection ? (
+              {activeTiming.prepSeconds > 0 && activeTurn ? (
                 <div className="flex flex-col gap-1.5">
                   <label
                     htmlFor="speaking-cue-notes"
@@ -694,13 +802,13 @@ export function SpeakingSimulatorScreen({
                     id="speaking-cue-notes"
                     data-testid="speaking-cue-notes"
                     rows={3}
-                    value={cueNotesBySectionId[activeSection.sectionId] ?? ''}
+                    value={cueNotesBySectionId[activeTurn.sectionId] ?? ''}
                     placeholder={t('speakingCueNotesPlaceholder')}
                     onChange={(event) => {
                       const val = event.target.value;
                       setCueNotesBySectionId((prev) => ({
                         ...prev,
-                        [activeSection.sectionId]: val,
+                        [activeTurn.sectionId]: val,
                       }));
                     }}
                     className="w-full rounded-[var(--mz-radius-control)] border border-border-subtle bg-bg-raised p-3 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none"
@@ -715,7 +823,9 @@ export function SpeakingSimulatorScreen({
                 <MzCard variant="alt" data-testid="speaking-prep-stage">
                   <div className="flex flex-col items-start gap-3">
                     <p className="text-sm font-semibold text-text-primary">
-                      {t('speakingPrepPhaseBadge', { sec: prepRemainingSec })}
+                      {t('speakingPrepPhaseBadge', {
+                        sec: formatChromeNumber(prepRemainingSec, deps.edition),
+                      })}
                     </p>
                     <MzButton
                       variant="primary"
@@ -738,9 +848,9 @@ export function SpeakingSimulatorScreen({
                 </MzCard>
               )}
 
-              {activeSection ? (
+              {activeTurn ? (
                 <WaveformMicRecorder
-                  key={activeSection.sectionId}
+                  key={activeTurn.turnId}
                   maxDurationSec={activeTiming.responseSeconds}
                   disabled={phase === 'prep'}
                   allowPreviewPlayback={examMode === 'study'}
@@ -749,13 +859,16 @@ export function SpeakingSimulatorScreen({
                 />
               ) : null}
 
-              {activeSection && recordedBySectionId[activeSection.sectionId] ? (
+              {activeTurn && recordedByTurnId[activeTurn.turnId] ? (
                 <div data-testid="speaking-turn-recorded-banner">
                   <MzBanner tone="success">
                     {t('speakingTurnRecordedBadge', {
-                      sec: Math.max(
-                        1,
-                        Math.round(recordedBySectionId[activeSection.sectionId]!.clip.durationMs / 1000),
+                      sec: formatChromeNumber(
+                        Math.max(
+                          1,
+                          Math.round(recordedByTurnId[activeTurn.turnId]!.clip.durationMs / 1000),
+                        ),
+                        deps.edition,
                       ),
                     })}
                   </MzBanner>

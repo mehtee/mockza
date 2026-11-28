@@ -208,6 +208,15 @@ export function VocabHubScreen() {
       .map((item) => ({ ...item.card.entry, isWaveUnlocked: item.isUnlocked, waveNumber: item.waveNumber }));
   }, [searchQuery, showLockedWaves, vocabTab, waveResult.assigned]);
 
+  const introducedDueCount = useMemo(() => {
+    const todaySerial = deps.clock.todaySerialDay();
+    return cards.filter(
+      (c) =>
+        c.srs.dueSerialDay <= todaySerial &&
+        (c.srs.repetitions > 0 || c.card.sourceKind !== 'seeded'),
+    ).length;
+  }, [cards, deps.clock]);
+
   const masteredCount = useMemo(
     () => cards.filter((c) => c.srs.state === 'mastered').length,
     [cards],
@@ -381,7 +390,7 @@ export function VocabHubScreen() {
               <Flame className="h-3.5 w-3.5" aria-hidden="true" />
               <span>
                 {t('vocabStateDueCount', {
-                  count: formatChromeNumber(dueCount, deps.edition),
+                  count: formatChromeNumber(introducedDueCount, deps.edition),
                 })}
               </span>
             </span>

@@ -538,6 +538,14 @@ export function WritingSimulatorScreen({
       ? null
       : Math.max(0, quota.dailyWritingLimit - quota.dailyWritingUsed)
     : null;
+  const totalDraftWords = Object.values(draftsBySectionId).reduce(
+    (sum, text) => sum + countEssayWords(text),
+    0,
+  );
+  const hasAnyResponseContent =
+    totalDraftWords > 0 ||
+    Object.values(sequenceByQuestionId).some((v) => v.trim().length > 0);
+  const canToggleMode = !mockSessionId && !hasAnyResponseContent && examMode === 'exam';
 
   return (
     <div data-testid="writing-simulator-screen" className="flex flex-col gap-3">
@@ -599,15 +607,17 @@ export function WritingSimulatorScreen({
               </span>
             </span>
 
-            <MzSegmentedControl<'exam' | 'study'>
-              ariaLabel="Simulation Mode"
-              value={examMode}
-              onChange={setExamMode}
-              options={[
-                { value: 'exam', label: t('workspaceExamModeBadge') },
-                { value: 'study', label: t('workspaceStudyModeBadge') },
-              ]}
-            />
+            {canToggleMode ? (
+              <MzSegmentedControl<'exam' | 'study'>
+                ariaLabel="Simulation Mode"
+                value={examMode}
+                onChange={setExamMode}
+                options={[
+                  { value: 'exam', label: t('workspaceExamModeBadge') },
+                  { value: 'study', label: t('workspaceStudyModeBadge') },
+                ]}
+              />
+            ) : null}
           </div>
         }
         footer={
@@ -618,9 +628,10 @@ export function WritingSimulatorScreen({
             </div>
 
             <MzButton
-              variant="primary"
+              variant={hasAnyResponseContent ? 'primary' : 'secondary'}
               size="md"
               data-testid="writing-submit-btn"
+              disabled={!hasAnyResponseContent || isSubmitting}
               isLoading={isSubmitting}
               onClick={() => void handleSubmit()}
             >

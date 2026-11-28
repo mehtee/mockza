@@ -9,7 +9,7 @@ const editionConfig = getActiveEditionConfig();
 const isIrn = editionConfig.edition === 'irn';
 const copy = getPublicSiteCopyForBuild();
 
-const rows = [40, 39, 37, 35, 33, 30, 27, 23, 20, 16].map((raw) => ({
+const rows = [40, 39, 37, 35, 33, 30, 27, 23, 20, 16, 13, 10, 6, 4].map((raw) => ({
   raw,
   listening: listeningBandFor(raw).toFixed(1),
   acad: readingBandFor(raw, 'academic').toFixed(1),
@@ -43,15 +43,23 @@ const breadcrumbJsonLd = {
   showPublicNav
 >
   <main class="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-12 text-start">
-    <section class="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-6">
+    <section class="flex flex-col gap-3">
       <h1 class="text-2xl font-bold text-text-primary">
         {isIrn ? 'ماشین‌حساب نمره خام به بند آیلتس (۰.۰ تا ۹.۰)' : 'IELTS Raw-to-Band Score Calculator'}
       </h1>
-      <p class="mt-2 text-sm text-text-secondary">
+      <p class="text-sm text-text-secondary">
         {isIrn
-          ? 'جدول و ابزار تبدیل دقیق پاسخ‌های صحیح از ۴۰ پرسش بر اساس منحنی رسمی آکادمیک و جنرال.'
-          : 'Compare IELTS Listening, Academic Reading, and General Training raw score thresholds using the exact engine curve.'}
+          ? 'ابزار تخمین مرجع تبدیل پاسخ‌های صحیح از ۴۰ پرسش به بند آیلتس (لیسنینگ، ریدینگ آکادمیک و جنرال). توجه: آستانه‌های دقیق ممکن است در نسخه‌های مختلف آزمون اندکی متفاوت باشد و این ابزار جایگزین کارنامه رسمی نیست.'
+          : 'Estimate IELTS Listening, Academic Reading, and General Training band scores from raw correct answers (/40). Reference thresholds vary slightly by test form and are not an official score guarantee.'}
       </p>
+    </section>
+
+    <ScoreCalculatorsSection isIrn={isIrn} />
+
+    <section class="rounded-[var(--mz-radius-card)] border border-border-subtle bg-surface p-6">
+      <h2 class="text-lg font-bold text-text-primary">
+        {isIrn ? 'جدول مرجع تبدیل نمره خام (۴ تا ۴۰)' : 'Reference Conversion Table (4–40 / 40)'}
+      </h2>
       <div class="mt-4 overflow-x-auto">
         <table class="w-full text-xs">
           <thead>
@@ -65,17 +73,15 @@ const breadcrumbJsonLd = {
           <tbody>
             {rows.map((r) => (
               <tr class="border-b border-border-subtle/50">
-                <td class="py-2 font-mono-exam">{r.raw} / 40</td>
-                <td class="py-2 text-end font-mono-exam font-semibold text-primary">{r.listening}</td>
-                <td class="py-2 text-end font-mono-exam font-semibold text-primary">{r.acad}</td>
-                <td class="py-2 text-end font-mono-exam font-semibold text-text-secondary">{r.gt}</td>
+                <td class="py-2 font-mono-exam"><bdi dir="ltr">{r.raw} / 40</bdi></td>
+                <td class="py-2 text-end font-mono-exam font-semibold text-primary"><bdi dir="ltr">{r.listening}</bdi></td>
+                <td class="py-2 text-end font-mono-exam font-semibold text-primary"><bdi dir="ltr">{r.acad}</bdi></td>
+                <td class="py-2 text-end font-mono-exam font-semibold text-text-secondary"><bdi dir="ltr">{r.gt}</bdi></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
     </section>
-
-    <ScoreCalculatorsSection isIrn={isIrn} />
   </main>
 </BaseLayout>

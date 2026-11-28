@@ -277,8 +277,12 @@ class _SpeakingSimScreenState extends ConsumerState<SpeakingSimScreen> {
 
     if (state.isPreparing) {
       return PrimaryButton(
-        label: 'Skip Prep & Start Recording',
-        onPressed: notifier.startSpeaking,
+        label: state.hasMicPermission
+            ? 'Skip Prep & Start Recording'
+            : 'Allow Microphone to Start',
+        onPressed: state.hasMicPermission
+            ? notifier.startSpeaking
+            : notifier.retryMicPermission,
       );
     }
 
@@ -288,8 +292,12 @@ class _SpeakingSimScreenState extends ConsumerState<SpeakingSimScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           PrimaryButton(
-            label: 'Start Recording Answer',
-            onPressed: notifier.startSpeaking,
+            label: state.hasMicPermission
+                ? 'Start Recording Answer'
+                : 'Allow Microphone to Record',
+            onPressed: state.hasMicPermission
+                ? notifier.startSpeaking
+                : notifier.retryMicPermission,
           ),
           if (state.recordedTurns.isNotEmpty) ...<Widget>[
             const SizedBox(height: SpacingTokens.sm),

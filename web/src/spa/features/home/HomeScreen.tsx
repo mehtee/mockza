@@ -106,11 +106,15 @@ export function HomeScreen() {
     !personalization?.profile.bandShiftAcknowledged;
   const liveOverallBand = personalization?.liveBand.currentBand ?? estimatedSummary.overallBand;
   const confidenceBadgeText =
-    personalization?.liveBand.confidence === 'calibrated'
-      ? t('confidenceHigh')
-      : personalization?.liveBand.confidence === 'developing'
-        ? t('confidenceMedium')
-        : t('confidenceLow');
+    liveOverallBand === null
+      ? isRtl
+        ? 'هنوز ارزیابی نشده'
+        : 'Not assessed yet'
+      : personalization?.liveBand.confidence === 'calibrated'
+        ? t('confidenceHigh')
+        : personalization?.liveBand.confidence === 'developing'
+          ? t('confidenceMedium')
+          : t('confidenceLow');
   const phaseLabelText =
     personalization?.profile.activeWeaknessPhase === 'weakness_transfer'
       ? t('roadmapPhaseWeaknessTransfer')

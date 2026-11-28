@@ -299,7 +299,11 @@ export function DiagnosticResultScreen({ diagId: routeDiagId }: DiagnosticResult
                     })
                   }
                 >
-                  {t('diagRetakeSkillAction')}
+                  {outcome.status === 'insufficient_evidence' || outcome.status === 'skipped'
+                    ? deps.edition === 'irn'
+                      ? `ارزیابی ${label}`
+                      : `Assess ${label}`
+                    : t('diagRetakeSkillAction')}
                 </MzButton>
               </div>
 

@@ -149,15 +149,17 @@ export function ListeningSimulatorScreen({
                 {audioBuffered ? t('listeningAudioReadyBadge') : t('listeningPrebufferingLabel')}
               </span>
             </span>
-            <MzSegmentedControl<'exam' | 'study'>
-              ariaLabel="Simulation Mode"
-              value={examMode}
-              onChange={setExamMode}
-              options={[
-                { value: 'exam', label: t('workspaceExamModeBadge') },
-                { value: 'study', label: t('workspaceStudyModeBadge') },
-              ]}
-            />
+            {!mockSessionId && Object.keys(answersByQuestionId).length === 0 && examMode === 'exam' ? (
+              <MzSegmentedControl<'exam' | 'study'>
+                ariaLabel="Simulation Mode"
+                value={examMode}
+                onChange={setExamMode}
+                options={[
+                  { value: 'exam', label: t('workspaceExamModeBadge') },
+                  { value: 'study', label: t('workspaceStudyModeBadge') },
+                ]}
+              />
+            ) : null}
             <MzSegmentedControl<'focused' | 'all'>
               ariaLabel="Question Layout"
               value={viewMode}
@@ -307,7 +309,7 @@ export function ListeningSimulatorScreen({
                     <div className="mb-3 flex items-start justify-between gap-3">
                       <div className="text-sm font-semibold text-text-primary">
                         <LtrExamBoundary>
-                          {`${question.questionNumber}. ${question.prompt}`}
+                          {`${question.questionNumber}. ${question.prompt.replace(/\[GAP\]/gi, '________')}`}
                         </LtrExamBoundary>
                       </div>
                       <button

@@ -105,8 +105,15 @@ export function useHomeController() {
       setStudyDays(nextStudyDays);
     }
     if (dueRes.ok) {
-      nextDueCards = dueRes.value;
-      setDueCards(dueRes.value);
+      // Seeded unseen cards are not overdue reviews (`C06`); surface due reviews + today's daily new batch (max 10).
+      const activeReviews = dueRes.value.filter(
+        (c) => c.srs.repetitions > 0 || c.card.sourceKind !== 'seeded',
+      );
+      const starterNewBatch = dueRes.value
+        .filter((c) => c.srs.repetitions === 0 && c.card.sourceKind === 'seeded')
+        .slice(0, 10);
+      nextDueCards = [...activeReviews, ...starterNewBatch];
+      setDueCards(nextDueCards);
     }
     if (diagRes.ok && diagRes.value?.stateJson) {
       try {
@@ -140,12 +147,19 @@ export function useHomeController() {
     if (vocabSyncSummary && (vocabSyncSummary.insertedCount > 0 || vocabSyncSummary.updatedCount > 0)) {
       const refreshedDue = await deps.vocabStore.getDueCards(today, 200);
       if (refreshedDue.ok) {
-        setDueCards(refreshedDue.value);
+        const activeReviews = refreshedDue.value.filter(
+          (c) => c.srs.repetitions > 0 || c.card.sourceKind !== 'seeded',
+        );
+        const starterNewBatch = refreshedDue.value
+          .filter((c) => c.srs.repetitions === 0 && c.card.sourceKind === 'seeded')
+          .slice(0, 10);
+        const boundedDue = [...activeReviews, ...starterNewBatch];
+        setDueCards(boundedDue);
         writeSwrHomeSnapshot(deps.attemptStore, {
           profile: nextProfile,
           attempts: nextAttempts,
           studyDays: nextStudyDays,
-          dueCards: refreshedDue.value,
+          dueCards: boundedDue,
           latestDiagnostic: nextDiagnostic,
         });
       }

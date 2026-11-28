@@ -187,16 +187,24 @@ export function SettingsScreen({ onExternalRedirect }: SettingsScreenProps = {})
               )}
             </div>
 
-            <div className="mt-4">
-              <DeviceSlotStrip
-                mobileOccupied={mobileOccupied}
-                desktopWebOccupied={desktopOccupied}
-                mobileTitle={t('authMobileSlotTitle')}
-                desktopTitle={t('authDesktopSlotTitle')}
-                activeLabel={t('authSlotActiveBadge')}
-                openLabel={t('authSlotOpenBadge')}
-              />
-            </div>
+            {isAuthenticated ? (
+              <div className="mt-4">
+                <DeviceSlotStrip
+                  mobileOccupied={mobileOccupied}
+                  desktopWebOccupied={desktopOccupied}
+                  mobileTitle={t('authMobileSlotTitle')}
+                  desktopTitle={t('authDesktopSlotTitle')}
+                  activeLabel={t('authSlotActiveBadge')}
+                  openLabel={t('authSlotOpenBadge')}
+                />
+              </div>
+            ) : (
+              <p className="mt-3 rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised p-3 text-xs text-text-secondary">
+                {deps.edition === 'irn'
+                  ? 'در حالت مهمان، پیشرفت شما فقط روی همین مرورگر ذخیره می‌شود. برای همگام‌سازی بین موبایل و دسکتاپ وارد حساب شوید.'
+                  : 'Guest mode stores progress locally on this browser only. Sign in to sync across 1 phone + 1 desktop browser.'}
+              </p>
+            )}
 
             {isAuthenticated ? (
               <div className="mt-4 flex flex-col gap-2.5">
@@ -239,9 +247,10 @@ export function SettingsScreen({ onExternalRedirect }: SettingsScreenProps = {})
             <div className="mt-5 border-t border-border-subtle pt-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <MzButton
-                  variant="primary"
+                  variant={isAuthenticated ? 'primary' : 'secondary'}
                   size="md"
                   data-testid="settings-sync-cross-device-btn"
+                  disabled={!isAuthenticated}
                   isLoading={ctrl.isSyncingCrossDevice}
                   leadingIcon={<RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />}
                   onClick={() => void ctrl.syncAcrossDevicesNow()}
@@ -608,7 +617,9 @@ export function SettingsScreen({ onExternalRedirect }: SettingsScreenProps = {})
                 <p className="mt-1 text-xs text-text-secondary">
                   {isPro
                     ? ctrl.entitlement?.activePlanId ?? t('settingsProActiveBadge')
-                    : t('paywallAllowanceSpeakingWriting')}
+                    : deps.edition === 'irn'
+                      ? `طرح رایگان (۱ ارزیابی نمونه) · ارتقا به پرو: ${t('paywallAllowanceSpeakingWriting')}`
+                      : `Free plan (1 free sample) · Upgrade to Pro for ${t('paywallAllowanceSpeakingWriting')}`}
                 </p>
                 {formattedExpiry ? (
                   <p className="mt-1 text-xs text-text-secondary">
@@ -665,6 +676,12 @@ export function SettingsScreen({ onExternalRedirect }: SettingsScreenProps = {})
             <div className="mt-3 flex flex-col gap-2">
               {ctrl.micStatus?.permission === 'denied' ? (
                 <MzBanner tone="warning">{t('settingsMicPermissionDenied')}</MzBanner>
+              ) : (ctrl.micStatus?.devices.length ?? 0) === 0 ? (
+                <p className="text-xs text-text-secondary" data-testid="settings-mic-no-device">
+                  {deps.edition === 'irn'
+                    ? 'هنوز ورودی میکروفون شناسایی یا آزمایش نشده است. روی «آزمایش میکروفون» بزنید.'
+                    : 'No microphone input detected yet. Click Test Microphone to grant permission and check audio.'}
+                </p>
               ) : (
                 <p className="text-xs text-text-secondary">
                   {t('settingsMicReadyLabel', {

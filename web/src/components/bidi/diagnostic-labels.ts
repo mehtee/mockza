@@ -185,6 +185,10 @@ export function localizeDiagnosticObservation(
   }
   if (edition !== 'irn') return trimmed;
 
+  if (/^No responses collected yet\.?$/i.test(trimmed)) {
+    return 'هنوز پاسخی ثبت نشده است.';
+  }
+
   const skippedMatch = /^This (reading|listening|writing|speaking) check was skipped/i.exec(
     trimmed,
   );

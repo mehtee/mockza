@@ -65,8 +65,10 @@ class NaviaHandoffCard extends StatelessWidget {
           const SizedBox(height: SpacingTokens.xs),
           Text(
             reachedTarget
-                ? 'به نمره هدف خود رسیده‌اید! کارنامه شبیه‌سازی سنجیا را مستقیم برای ارزیابی پذیرش تحصیلی در ناویا استفاده کنید.'
-                : 'با رسیدن به نمره هدف، می‌توانید نمره شبیه‌سازی سنجیا را مستقیم به پلتفرم اپلای هوشمند ناویا ارسال کنید.',
+                ? 'به نمره هدف خود رسیده‌اید! می‌توانید خلاصه شبیه‌سازی داخلی سنجیا را با رضایت خود به ناویا ارسال کنید (جایگزین مدرک رسمی آزمون نیست).'
+                : estimatedScore != null
+                ? 'پس از رسیدن به نمره هدف، می‌توانید خلاصه شبیه‌سازی داخلی سنجیا را به ناویا ارسال کنید (ارزیابی تمرینی داخلی؛ جایگزین کارنامه رسمی نیست).'
+                : 'برای فعال‌سازی ارسال خلاصه به ناویا، ابتدا یک آزمون شبیه‌سازی کامل کالیبره‌شده را تکمیل کنید. این گزارش تمرینی داخلی است و جایگزین کارنامه رسمی نیست.',
             style: typography.secondary.copyWith(color: colors.textSecondary),
           ),
           const SizedBox(height: SpacingTokens.sm),
@@ -81,25 +83,27 @@ class NaviaHandoffCard extends StatelessWidget {
           ),
           const SizedBox(height: SpacingTokens.md),
           SecondaryButton(
-            label: 'ارسال نمره به ناویا (navia.ir)',
+            label: estimatedScore != null
+                ? 'ارسال خلاصه شبیه‌سازی به ناویا (navia.ir)'
+                : 'نیازمند تکمیل آزمون شبیه‌سازی کامل',
             glyph: LucideGlyph.globe,
-            onPressed: () {
-              final scoreParam = estimatedScore != null
-                  ? track.formatScore(estimatedScore!)
-                  : '';
-              final handoffUrl = Uri.parse(BrandIdentity.iran.naviaUrl)
-                  .replace(
-                    path: '/import-score',
-                    queryParameters: <String, String>{
-                      'edition': 'irn',
-                      'track': track.id,
-                      if (scoreParam.isNotEmpty) 'score': scoreParam,
-                      'target': track.formatScore(targetScore),
-                    },
-                  )
-                  .toString();
-              unawaited(openExternalUrlImpl(handoffUrl));
-            },
+            onPressed: estimatedScore == null
+                ? null
+                : () {
+                    final scoreParam = track.formatScore(estimatedScore!);
+                    final handoffUrl = Uri.parse(BrandIdentity.iran.naviaUrl)
+                        .replace(
+                          path: '/import-score',
+                          queryParameters: <String, String>{
+                            'edition': 'irn',
+                            'track': track.id,
+                            'score': scoreParam,
+                            'target': track.formatScore(targetScore),
+                          },
+                        )
+                        .toString();
+                    unawaited(openExternalUrlImpl(handoffUrl));
+                  },
           ),
         ],
       ),

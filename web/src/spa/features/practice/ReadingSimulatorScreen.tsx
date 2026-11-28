@@ -228,15 +228,17 @@ export function ReadingSimulatorScreen({
         shortcuts={shortcuts}
         headerActions={
           <div className="flex flex-wrap items-center gap-2">
-            <MzSegmentedControl<'exam' | 'study'>
-              ariaLabel="Simulation Mode"
-              value={examMode}
-              onChange={setExamMode}
-              options={[
-                { value: 'exam', label: t('workspaceExamModeBadge') },
-                { value: 'study', label: t('workspaceStudyModeBadge') },
-              ]}
-            />
+            {!mockSessionId && Object.keys(answersByQuestionId).length === 0 && examMode === 'exam' ? (
+              <MzSegmentedControl<'exam' | 'study'>
+                ariaLabel="Simulation Mode"
+                value={examMode}
+                onChange={setExamMode}
+                options={[
+                  { value: 'exam', label: t('workspaceExamModeBadge') },
+                  { value: 'study', label: t('workspaceStudyModeBadge') },
+                ]}
+              />
+            ) : null}
             <MzSegmentedControl<'focused' | 'all'>
               ariaLabel="Question Layout"
               value={viewMode}

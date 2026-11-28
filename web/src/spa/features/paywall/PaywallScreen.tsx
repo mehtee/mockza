@@ -314,6 +314,13 @@ export function PaywallScreen({
                   ? t('settingsProActiveBadge')
                   : t('paywallSubscribeAction')}
               </MzButton>
+              {!isPro && !ctrl.tosAccepted ? (
+                <p className="mt-2 text-center text-[11px] text-text-tertiary">
+                  {deps.edition === 'irn'
+                    ? 'برای ادامه، ابتدا تیک پذیرش قوانین دستگاه‌ها را فعال کنید.'
+                    : 'Accept the 1+1 device policy above to continue to checkout.'}
+                </p>
+              ) : null}
             </div>
           </MzCard>
         </div>

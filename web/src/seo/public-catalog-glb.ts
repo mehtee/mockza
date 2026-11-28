@@ -66,7 +66,7 @@ export const GLB_PUBLIC_COPY: PublicSiteCopy = {
   navCalculators: 'Score Calculators',
   navSamples: 'Sample Essays',
   navVocab: 'Academic Vocab',
-  navOpenApp: 'Open Desktop Simulator',
+  navOpenApp: 'Start Practicing',
   heroHeadline: 'Desktop-First Simulator for IELTS, TOEFL iBT 2026, PTE & DET',
   heroSubtitle:
     'Train inside authentic desktop split-pane workspaces with UTF-16 passage highlighting, studio audio locks, crash-safe essay drafting, SM-2 spaced repetition, and AI rubric span reviews.',

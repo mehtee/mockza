@@ -44,6 +44,8 @@ export function ProgressScreen() {
   const [exportNotice, setExportNotice] = useState<string | null>(null);
   const [personalization, setPersonalization] = useState<PersonalizationStateDto | null>(null);
   const [pronHistory, setPronHistory] = useState<readonly PronunciationPracticeItemDto[]>([]);
+  const [dateRangeDays, setDateRangeDays] = useState<7 | 30 | 90 | 'all'>('all');
+  const [selectedSkillFilter, setSelectedSkillFilter] = useState<SkillKind | 'all'>('all');
   const [playingTakeId, setPlayingTakeId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -105,19 +107,25 @@ export function ProgressScreen() {
     void audio.play().catch(() => setPlayingTakeId(null));
   };
 
-  const scoredAttempts = useMemo(
-    () =>
-      attempts
-        .filter((a) => typeof a.overallBand === 'number' && a.status === 'completed')
-        .map((a) => ({
-          attempt: a,
-          score: a.overallBand as number,
-          skill: a.skill,
-          completedAtUtcMs: a.completedAtMs,
-        }))
-        .sort((a, b) => a.completedAtUtcMs - b.completedAtUtcMs),
-    [attempts],
-  );
+  const scoredAttempts = useMemo(() => {
+    const nowMs = deps.clock.nowMs();
+    const minMs = dateRangeDays === 'all' ? 0 : nowMs - dateRangeDays * 86_400_000;
+    return attempts
+      .filter(
+        (a) =>
+          typeof a.overallBand === 'number' &&
+          a.status === 'completed' &&
+          a.completedAtMs >= minMs &&
+          (selectedSkillFilter === 'all' || a.skill === selectedSkillFilter),
+      )
+      .map((a) => ({
+        attempt: a,
+        score: a.overallBand as number,
+        skill: a.skill,
+        completedAtUtcMs: a.completedAtMs,
+      }))
+      .sort((a, b) => a.completedAtUtcMs - b.completedAtUtcMs);
+  }, [attempts, dateRangeDays, deps.clock, selectedSkillFilter]);
 
   const overallSummary = useMemo(
     () =>
@@ -331,11 +339,15 @@ export function ProgressScreen() {
           {personalization ? (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="rounded-[var(--mz-radius-pill)] border border-primary/30 bg-surface-alt px-2.5 py-0.5 text-[11px] font-semibold text-primary">
-                {personalization.liveBand.confidence === 'calibrated'
-                  ? t('confidenceHigh')
-                  : personalization.liveBand.confidence === 'developing'
-                    ? t('confidenceMedium')
-                    : t('confidenceLow')}
+                {personalization.liveBand.currentBand === null
+                  ? deps.edition === 'irn'
+                    ? 'هنوز ارزیابی نشده'
+                    : 'Not assessed yet'
+                  : personalization.liveBand.confidence === 'calibrated'
+                    ? t('confidenceHigh')
+                    : personalization.liveBand.confidence === 'developing'
+                      ? t('confidenceMedium')
+                      : t('confidenceLow')}
               </span>
               <Link
                 to="/roadmap"
@@ -487,14 +499,16 @@ export function ProgressScreen() {
               />
               <line x1="110" y1="38" x2="110" y2="182" stroke="currentColor" className="text-border-subtle/60" />
               <line x1="38" y1="110" x2="182" y2="110" stroke="currentColor" className="text-border-subtle/60" />
-              <polygon
-                points={radarPolygonPoints}
-                fill="currentColor"
-                fillOpacity="0.22"
-                stroke="currentColor"
-                strokeWidth="2"
-                className="text-primary"
-              />
+              {scoredAttempts.length > 0 ? (
+                <polygon
+                  points={radarPolygonPoints}
+                  fill="currentColor"
+                  fillOpacity="0.22"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  className="text-primary"
+                />
+              ) : null}
               <text x="110" y="24" textAnchor="middle" className="fill-text-secondary text-[10px]">
                 {deps.edition === 'irn' ? t('homeSkillReading') : 'R'}
               </text>
@@ -551,32 +565,89 @@ export function ProgressScreen() {
         </MzCard>
       ) : null}
 
-      {/* 4-Skill Breakdown & Weakness Priority */}
+      {/* 4-Skill Breakdown & Weakness Priority (Clickable Skill Filter + Drilldown) */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Date range">
+          {([7, 30, 90, 'all'] as const).map((range) => {
+            const active = dateRangeDays === range;
+            const label =
+              range === 'all'
+                ? deps.edition === 'irn'
+                  ? 'همه زمان‌ها'
+                  : 'All time'
+                : deps.edition === 'irn'
+                  ? `${formatChromeNumber(range, 'irn')} روز`
+                  : `${range}d`;
+            return (
+              <button
+                key={String(range)}
+                type="button"
+                data-testid={`progress-range-${range}`}
+                aria-pressed={active}
+                onClick={() => setDateRangeDays(range)}
+                className={[
+                  'rounded-[var(--mz-radius-pill)] border px-3 py-1 text-xs font-semibold transition-colors',
+                  active
+                    ? 'border-primary bg-primary text-on-primary'
+                    : 'border-border-subtle bg-bg-raised text-text-secondary hover:bg-surface-hover',
+                ].join(' ')}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        {selectedSkillFilter !== 'all' ? (
+          <button
+            type="button"
+            onClick={() => setSelectedSkillFilter('all')}
+            className="text-xs font-semibold text-primary hover:underline"
+          >
+            {deps.edition === 'irn' ? 'نمایش همه مهارت‌ها' : 'Show all skills'}
+          </button>
+        ) : null}
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {skillMetrics.map((metric) => {
           const isWeakest = weakestMetric?.skill === metric.skill;
+          const isSelected = selectedSkillFilter === metric.skill;
           return (
-            <MzCard
+            <button
               key={metric.skill}
-              variant={isWeakest ? 'raised' : 'default'}
+              type="button"
               data-testid={`progress-skill-card-${metric.skill}`}
+              aria-pressed={isSelected}
+              onClick={() =>
+                setSelectedSkillFilter((prev) => (prev === metric.skill ? 'all' : metric.skill))
+              }
+              className="text-start focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-[var(--mz-radius-card)]"
             >
-              <p className="text-xs font-semibold text-text-secondary">
-                {skillLabel(metric.skill)}
-              </p>
-              <p
-                className={`mt-1.5 ${deps.edition === 'glb' ? 'font-mono-exam ' : ''}text-xl font-bold text-text-primary`}
+              <MzCard
+                variant={isSelected || isWeakest ? 'raised' : 'default'}
+                className={isSelected ? 'ring-2 ring-primary' : ''}
               >
-                {metric.score !== null
-                  ? formatLocalizedExamScoreWithUnit(metric.score, examId, deps.edition)
-                  : '—'}
-              </p>
-              <p className="mt-1 text-[11px] text-text-tertiary">
-                {t('homeSamplesCountLabel', {
-                  count: formatChromeNumber(metric.sampleCount, deps.edition),
-                })}
-              </p>
-            </MzCard>
+                <p className="text-xs font-semibold text-text-secondary">
+                  {skillLabel(metric.skill)}
+                </p>
+                <p
+                  className={`mt-1.5 ${deps.edition === 'glb' ? 'font-mono-exam ' : ''}text-xl font-bold text-text-primary`}
+                >
+                  {metric.score !== null
+                    ? formatLocalizedExamScoreWithUnit(metric.score, examId, deps.edition)
+                    : '—'}
+                </p>
+                <p className="mt-1 text-[11px] text-text-tertiary">
+                  {metric.sampleCount === 0
+                    ? deps.edition === 'irn'
+                      ? 'هنوز ارزیابی نشده'
+                      : 'Not assessed yet'
+                    : t('homeSamplesCountLabel', {
+                        count: formatChromeNumber(metric.sampleCount, deps.edition),
+                      })}
+                </p>
+              </MzCard>
+            </button>
           );
         })}
       </div>
@@ -603,30 +674,51 @@ export function ProgressScreen() {
       ) : null}
 
       {/* Edition-specific verified admission partner handoff card (IRN only) */}
-      {deps.edition === 'irn' && import.meta.env.PUBLIC_EDITION !== 'glb' ? (
-        <MzCard variant="hero" data-testid="ecosystem-handoff-card">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-base font-bold text-text-primary">
-                {t('ecosystemHandoffTitle')}
-              </h2>
-              <p className="mt-1 text-xs text-text-secondary">
-                {t('ecosystemHandoffSubtitle')}
-              </p>
+      {deps.edition === 'irn' && import.meta.env.PUBLIC_EDITION !== 'glb' ? (() => {
+        const hasQualifyingScore =
+          overallSummary.overallBand !== null &&
+          scoredAttempts.some((s) => s.attempt.isCalibratedFullPack);
+        return (
+          <MzCard variant={hasQualifyingScore ? 'hero' : 'default'} data-testid="ecosystem-handoff-card">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-base font-bold text-text-primary">
+                  {t('ecosystemHandoffTitle')}
+                </h2>
+                <p className="mt-1 text-xs text-text-secondary">
+                  {t('ecosystemHandoffSubtitle')}
+                </p>
+                <p className="mt-1.5 text-[11px] text-text-tertiary">
+                  {hasQualifyingScore
+                    ? 'خلاصه شبیه‌سازی داخلی سنجیا (جایگزین مدرک رسمی آزمون نیست) با رضایت شما ارسال می‌شود.'
+                    : 'برای ارسال خلاصه ارزیابی به ناویا، ابتدا یک آزمون شبیه‌سازی کامل کالیبره‌شده را تکمیل کنید. این گزارش یک ارزیابی تمرینی داخلی است و جایگزین کارنامه رسمی نیست.'}
+                </p>
+              </div>
+              {hasQualifyingScore ? (
+                <a
+                  href={t('ecosystemHandoffUrl')}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid="ecosystem-handoff-link"
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--mz-radius-control)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
+                >
+                  <span>{t('ecosystemEligibilityCta')}</span>
+                  <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  data-testid="ecosystem-handoff-disabled"
+                  className="inline-flex min-h-11 cursor-not-allowed items-center gap-1.5 rounded-[var(--mz-radius-control)] border border-border-subtle bg-surface-alt px-4 text-xs font-semibold text-text-tertiary opacity-75"
+                >
+                  <span>{t('ecosystemEligibilityCta')}</span>
+                </button>
+              )}
             </div>
-            <a
-              href={t('ecosystemHandoffUrl')}
-              target="_blank"
-              rel="noopener noreferrer"
-              data-testid="ecosystem-handoff-link"
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--mz-radius-control)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
-            >
-              <span>{t('ecosystemEligibilityCta')}</span>
-              <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-            </a>
-          </div>
-        </MzCard>
-      ) : null}
+          </MzCard>
+        );
+      })() : null}
 
       {/* Recent Attempts Table */}
       {scoredAttempts.length > 0 ? (

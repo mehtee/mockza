@@ -146,7 +146,34 @@ export function CompareAttemptsScreen() {
       </div>
 
       {attempts.length < 2 ? (
-        <MzBanner tone="info">{t('compareNeedTwoAttempts')}</MzBanner>
+        <MzCard variant="default" data-testid="compare-empty-state">
+          <div className="flex flex-col items-start gap-3">
+            <div className="flex items-center gap-2 text-primary">
+              <GitCompare className="h-5 w-5" aria-hidden="true" />
+              <h2 className="text-base font-bold text-text-primary">
+                {deps.edition === 'irn'
+                  ? 'حداقل دو آزمون نمره‌دار برای مقایسه لازم است'
+                  : 'Complete at least two scored attempts to compare'}
+              </h2>
+            </div>
+            <p className="text-sm text-text-secondary">{t('compareNeedTwoAttempts')}</p>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Link
+                to="/practice"
+                data-testid="compare-start-practice-cta"
+                className="inline-flex min-h-10 items-center rounded-[var(--mz-radius-control)] bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-pressed"
+              >
+                {t('navPractice')}
+              </Link>
+              <Link
+                to="/progress"
+                className="inline-flex min-h-10 items-center rounded-[var(--mz-radius-control)] border border-border-subtle bg-canvas px-4 text-xs font-semibold text-text-primary hover:bg-surface-hover"
+              >
+                {t('navProgress')}
+              </Link>
+            </div>
+          </div>
+        </MzCard>
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-2">

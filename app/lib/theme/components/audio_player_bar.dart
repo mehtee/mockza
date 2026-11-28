@@ -170,6 +170,7 @@ class AudioPlayerBar extends StatelessWidget {
                             alignment: AlignmentDirectional.centerEnd,
                             child: Text(
                               '$posStr / $durStr',
+                              textDirection: TextDirection.ltr,
                               maxLines: 1,
                               style: typography.timerMono.copyWith(
                                 color: colors.textSecondary,
@@ -223,6 +224,7 @@ class AudioPlayerBar extends StatelessWidget {
                   if (isExam) ...<Widget>[
                     Text(
                       '$posStr / $durStr',
+                      textDirection: TextDirection.ltr,
                       maxLines: 1,
                       style: typography.timerMono.copyWith(
                         color: colors.textSecondary,
@@ -247,6 +249,7 @@ class AudioPlayerBar extends StatelessWidget {
                     Expanded(
                       child: Text(
                         '$posStr / $durStr',
+                        textDirection: TextDirection.ltr,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: typography.timerMono.copyWith(

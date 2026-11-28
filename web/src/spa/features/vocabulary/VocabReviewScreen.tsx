@@ -318,7 +318,7 @@ export function VocabReviewScreen() {
   );
 
   return (
-    <div data-testid="vocab-review-screen" className="mx-auto flex w-full max-w-6xl flex-col gap-4 py-2 text-start sm:py-4">
+    <div data-testid="vocab-review-screen" className="mx-auto flex w-full max-w-2xl flex-col gap-4 py-2 text-start sm:py-4">
       <div className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -354,7 +354,7 @@ export function VocabReviewScreen() {
 
       <MzCard variant="hero" data-testid="vocab-flashcard-stage" className="flex min-h-[340px] flex-col justify-between">
         <div className="flex w-full flex-col items-start gap-4">
-          <div className="flex w-full flex-wrap items-baseline justify-between gap-2">
+          <div className="flex w-full flex-wrap items-baseline gap-3">
             <LtrExamBoundary>
               <h2 data-testid="vocab-card-headword" className="text-3xl font-bold text-text-primary">
                 {currentEntry.card.headword}

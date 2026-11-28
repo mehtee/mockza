@@ -269,7 +269,7 @@ export const faMessages = {
   paywallProCol: 'نسخه پرو',
   paywallCompEvaluations: 'ارزیابی هوشمند اسپیکینگ و رایتینگ',
   paywallCompFreeEvaluations: 'آزمون تعیین سطح اولیه',
-  paywallCompProEvaluations: '۱۰ روزانه · ۱۲۰ ماهانه',
+  paywallCompProEvaluations: '۱۰ اسپیکینگ + ۱۰ رایتینگ روزانه (تا ۱۲۰ در ماه)',
   paywallCompOffline: 'ذخیره آفلاین بسته‌های آزمون',
   paywallCompFreeOffline: 'بسته‌های نمونه رایگان',
   paywallCompProOffline: 'دسترسی به تمام ۳۶+ بسته',

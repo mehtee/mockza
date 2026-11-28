@@ -71,7 +71,8 @@ const FAKE_IRR_PLANS: readonly BillingPlanDescriptor[] = [
     currencyKind: 'IRR',
     amountMinor: 8_900_000,
     formattedPrice: formatTomanFromRial(8_900_000),
-    badgeText: '۲۵٪ تخفیف',
+    // 390,000 × 3 = 1,170,000 vs 890,000 -> 23.93% (~24% savings)
+    badgeText: '۲۴٪ تخفیف',
   },
 ];
 

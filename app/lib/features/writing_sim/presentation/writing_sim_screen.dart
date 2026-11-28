@@ -195,6 +195,7 @@ class _WritingSimScreenState extends ConsumerState<WritingSimScreen>
                       state.taskType.defaultMaxWords != null
                           ? '${state.wordCount} / ${state.minimumWordCount}-${state.taskType.defaultMaxWords}w'
                           : '${state.wordCount} / ${state.minimumWordCount}w',
+                      textDirection: TextDirection.ltr,
                       style: typography.caption.copyWith(
                         color: state.meetsWordMinimum
                             ? colors.success
