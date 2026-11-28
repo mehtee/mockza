@@ -315,7 +315,7 @@ class VocabularyScreen extends ConsumerWidget {
           ? '${EdgeNumerals.formatChromeNumber(dueCount, edition)} واژه آماده مرور'
           : '$dueCount words due for review';
       bodyText = isIran
-          ? 'مرور یک بسته ${EdgeNumerals.formatChromeNumber(sessionCount, edition)} تایی برای تثبیت هم‌آواها در حافظه بلندمدت.'
+          ? 'مرور یک بسته ${EdgeNumerals.formatChromeNumber(sessionCount, edition)} تایی برای تثبیت همنشینی‌ها در حافظه بلندمدت.'
           : 'Review a focused batch of $sessionCount cards today to lock collocations into long-term memory.';
       ctaLabel = isIran
           ? 'شروع مرور (${EdgeNumerals.formatChromeNumber(sessionCount, edition)})'
@@ -436,52 +436,69 @@ class VocabularyScreen extends ConsumerWidget {
     final typography = AppTypography.of(context);
     final isIran = edition == AppEdition.iran;
 
-    return Row(
-      children: <Widget>[
-        Expanded(
-          child: Column(
+    final cards = <Widget>[
+      _buildMetricCard(
+        context,
+        isIran ? 'کل ذخیره‌شده' : 'Total Saved',
+        EdgeNumerals.formatChromeNumber(total, edition),
+        colors.primary,
+        typography,
+      ),
+      _buildMetricCard(
+        context,
+        isIran ? 'تثبیت‌شده' : 'Mastered',
+        EdgeNumerals.formatChromeNumber(mastered, edition),
+        colors.success,
+        typography,
+      ),
+      _buildMetricCard(
+        context,
+        isIran ? 'در حال یادگیری' : 'Learning',
+        EdgeNumerals.formatChromeNumber(learning, edition),
+        colors.warning,
+        typography,
+      ),
+      _buildMetricCard(
+        context,
+        isIran ? 'مرور امروز' : 'Due Today',
+        EdgeNumerals.formatChromeNumber(due, edition),
+        colors.error,
+        typography,
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= 600) {
+          return Row(
             children: <Widget>[
-              _buildMetricCard(
-                context,
-                isIran ? 'کل ذخیره‌شده' : 'Total Saved',
-                EdgeNumerals.formatChromeNumber(total, edition),
-                colors.primary,
-                typography,
-              ),
-              const SizedBox(height: SpacingTokens.sm),
-              _buildMetricCard(
-                context,
-                isIran ? 'در حال یادگیری' : 'Learning',
-                EdgeNumerals.formatChromeNumber(learning, edition),
-                colors.warning,
-                typography,
-              ),
+              for (var i = 0; i < cards.length; i++) ...<Widget>[
+                if (i > 0) const SizedBox(width: SpacingTokens.sm),
+                Expanded(child: cards[i]),
+              ],
             ],
-          ),
-        ),
-        const SizedBox(width: SpacingTokens.sm),
-        Expanded(
-          child: Column(
-            children: <Widget>[
-              _buildMetricCard(
-                context,
-                isIran ? 'تثبیت‌شده' : 'Mastered',
-                EdgeNumerals.formatChromeNumber(mastered, edition),
-                colors.success,
-                typography,
-              ),
-              const SizedBox(height: SpacingTokens.sm),
-              _buildMetricCard(
-                context,
-                isIran ? 'مرور امروز' : 'Due Today',
-                EdgeNumerals.formatChromeNumber(due, edition),
-                colors.error,
-                typography,
-              ),
-            ],
-          ),
-        ),
-      ],
+          );
+        }
+        return Column(
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(child: cards[0]),
+                const SizedBox(width: SpacingTokens.sm),
+                Expanded(child: cards[1]),
+              ],
+            ),
+            const SizedBox(height: SpacingTokens.sm),
+            Row(
+              children: <Widget>[
+                Expanded(child: cards[2]),
+                const SizedBox(width: SpacingTokens.sm),
+                Expanded(child: cards[3]),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -495,19 +512,24 @@ class VocabularyScreen extends ConsumerWidget {
     final colors = AppColors.of(context);
     return MzCard(
       padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            label,
-            style: typography.caption.copyWith(color: colors.textSecondary),
-          ),
-          const SizedBox(height: SpacingTokens.xs),
-          Text(
-            value,
-            style: typography.cardScore.copyWith(color: color),
-          ),
-        ],
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: typography.caption.copyWith(color: colors.textSecondary),
+            ),
+            const SizedBox(height: SpacingTokens.xs),
+            Text(
+              value,
+              style: typography.cardScore.copyWith(color: color),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -738,7 +760,17 @@ class VocabularyScreen extends ConsumerWidget {
             runSpacing: SpacingTokens.xs,
             children: <Widget>[
               Text(
-                l10n.vocabWaveTitle(summary.unlockedWave, summary.totalWaves),
+                isIran
+                    ? EdgeNumerals.toPersianDigits(
+                        l10n.vocabWaveTitle(
+                          summary.unlockedWave,
+                          summary.totalWaves,
+                        ),
+                      )
+                    : l10n.vocabWaveTitle(
+                        summary.unlockedWave,
+                        summary.totalWaves,
+                      ),
                 style: typography.cardTitle.copyWith(color: colors.textPrimary),
               ),
               MzChip(

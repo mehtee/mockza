@@ -60,12 +60,17 @@ class TrendChart extends StatelessWidget {
     final colors = AppColors.of(context);
     final typography = AppTypography.of(context);
 
+    final isFa = Localizations.localeOf(context).languageCode == 'fa';
+
     if (points.isEmpty) {
       return SizedBox(
         height: height,
         child: Center(
           child: Text(
-            'Complete your first practice attempt to see score trends.',
+            isFa
+                ? 'برای مشاهده روند پیشرفت نمرات، اولین تمرین خود را کامل کنید.'
+                : 'Complete your first practice attempt to see score trends.',
+            textAlign: TextAlign.center,
             style: typography.caption.copyWith(color: colors.textTertiary),
           ),
         ),

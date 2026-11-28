@@ -145,32 +145,34 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
     final isIrn = ref.watch(editionConfigProvider).edition == AppEdition.iran;
 
     final state = _state;
-    final rawActiveSteps =
+    final activeSteps =
         state?.steps.where((s) => s.status == 'active').toList() ??
         const <RoadmapStepDto>[];
-    final activeSteps = state?.liveBand.currentBand == null
-        ? (<RoadmapStepDto>[
-            ...rawActiveSteps.where((s) => s.stepKind != 'diagnostic'),
-            ...rawActiveSteps.where((s) => s.stepKind == 'diagnostic'),
-          ])
-        : rawActiveSteps;
     final upcomingSteps =
         state?.steps.where((s) => s.status == 'locked').toList() ??
         const <RoadmapStepDto>[];
     final completedSteps =
         state?.steps.where((s) => s.status == 'completed').toList() ??
         const <RoadmapStepDto>[];
+    final isCompactWidth = MediaQuery.sizeOf(context).width < 480;
 
     return MzScaffold(
       appBar: AppBar(
         title: Text(l10n.roadmapTitle),
         actions: <Widget>[
           if (state != null)
-            TextButton.icon(
-              onPressed: () => _openTopicsPaceSheet(context, state, isIrn),
-              icon: const AppIcon(LucideGlyph.slidersHorizontal, size: 16),
-              label: Text(l10n.roadmapEditTopicsPace),
-            ),
+            if (isCompactWidth)
+              IconButton(
+                tooltip: l10n.roadmapEditTopicsPace,
+                onPressed: () => _openTopicsPaceSheet(context, state, isIrn),
+                icon: const AppIcon(LucideGlyph.slidersHorizontal, size: 20),
+              )
+            else
+              TextButton.icon(
+                onPressed: () => _openTopicsPaceSheet(context, state, isIrn),
+                icon: const AppIcon(LucideGlyph.slidersHorizontal, size: 16),
+                label: Text(l10n.roadmapEditTopicsPace),
+              ),
           IconButton(
             tooltip: l10n.syncDevicesNow,
             onPressed: _loading ? null : () => unawaited(_load()),
@@ -355,17 +357,20 @@ class _RoadmapScreenState extends ConsumerState<RoadmapScreen> {
                                       fontWeight: FontWeight.w800,
                                     ),
                                   ),
-                                  Text(
-                                    isDone
-                                        ? '✓'
-                                        : (isIrn
-                                              ? '+${EdgeNumerals.toPersianDigits(m.targetBandDelta.toStringAsFixed(1))}'
-                                              : '+${m.targetBandDelta.toStringAsFixed(1)}'),
-                                    style: typography.caption.copyWith(
-                                      color: isDone
-                                          ? colors.success
-                                          : colors.textTertiary,
-                                      fontWeight: FontWeight.w700,
+                                  Directionality(
+                                    textDirection: TextDirection.ltr,
+                                    child: Text(
+                                      isDone
+                                          ? '✓'
+                                          : (isIrn
+                                                ? '+${EdgeNumerals.toPersianDigits(m.targetBandDelta.toStringAsFixed(1))}'
+                                                : '+${m.targetBandDelta.toStringAsFixed(1)}'),
+                                      style: typography.caption.copyWith(
+                                        color: isDone
+                                            ? colors.success
+                                            : colors.textTertiary,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                   ),
                                 ],

@@ -434,7 +434,7 @@ export const enMessages = {
   homeUnestimatedLabel: 'No scored attempts yet',
   homeTargetBadge: 'Target: {score}',
   homeMonthlyDeltaLabel: '{delta} this month',
-  homeTakeDiagnosticCta: 'Take 12m Starting-Level Check',
+  homeTakeDiagnosticCta: 'Take 10m Starting-Level Check',
   homeStudyStreakLabel: '{days}-day streak',
   homeStudyWeekTitle: 'Weekly Study Rhythm',
   homeFourSkillsTitle: '4-Skill Calibration',

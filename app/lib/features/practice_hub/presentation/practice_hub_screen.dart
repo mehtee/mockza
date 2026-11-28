@@ -242,51 +242,6 @@ class _PracticeHubScreenState extends ConsumerState<PracticeHubScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: SpacingTokens.sm),
-
-                // Track Filter Row
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: <Widget>[
-                      _FilterChip(
-                        label: isFa ? 'همه آزمون‌ها' : 'All Tracks',
-                        isSelected: state.selectedTrack == 'all',
-                        onTap: () => notifier.setTrackFilter('all'),
-                      ),
-                      const SizedBox(width: SpacingTokens.xs),
-                      _FilterChip(
-                        label: isFa ? 'آکادمیک' : 'Academic',
-                        isSelected: state.selectedTrack == 'academic',
-                        onTap: () => notifier.setTrackFilter('academic'),
-                      ),
-                      const SizedBox(width: SpacingTokens.xs),
-                      _FilterChip(
-                        label: isFa ? 'جنرال' : 'General',
-                        isSelected: state.selectedTrack == 'general',
-                        onTap: () => notifier.setTrackFilter('general'),
-                      ),
-                      const SizedBox(width: SpacingTokens.xs),
-                      _FilterChip(
-                        label: 'TOEFL',
-                        isSelected: state.selectedTrack == 'toefl',
-                        onTap: () => notifier.setTrackFilter('toefl'),
-                      ),
-                      const SizedBox(width: SpacingTokens.xs),
-                      _FilterChip(
-                        label: 'PTE',
-                        isSelected: state.selectedTrack == 'pte',
-                        onTap: () => notifier.setTrackFilter('pte'),
-                      ),
-                      const SizedBox(width: SpacingTokens.xs),
-                      _FilterChip(
-                        label: 'DET',
-                        isSelected: state.selectedTrack == 'det',
-                        onTap: () => notifier.setTrackFilter('det'),
-                      ),
-                    ],
-                  ),
-                ),
                 const SizedBox(height: SpacingTokens.md),
                 SecondaryButton(
                   label: l10n.roadmapViewFullCta,

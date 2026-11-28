@@ -132,117 +132,161 @@ class AudioPlayerBar extends StatelessWidget {
             ),
           const SizedBox(height: SpacingTokens.xs),
           // Controls and timestamps row
-          Row(
-            children: <Widget>[
-              // Play/Start button (`BF-04` / `UX-07`: Exam Mode must still expose a Start control)
-              if (!isExam)
-                IconButton(
-                  tooltip: isPlaying ? 'Pause audio' : 'Play audio',
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isFa = Localizations.localeOf(context).languageCode == 'fa';
+              final isCompact = constraints.maxWidth < 400;
+              final startBtn = Semantics(
+                button: true,
+                label: position > Duration.zero
+                    ? (isFa ? 'ادامه پخش صدا' : 'Resume exam audio')
+                    : (isFa ? 'شروع پخش صدای آزمون' : 'Start listening test audio'),
+                child: FilledButton.tonalIcon(
                   onPressed: onTapPlayPause,
-                  icon: AppIcon(
-                    isPlaying ? LucideGlyph.pause : LucideGlyph.play,
-                    size: 20,
-                    color: colors.textPrimary,
-                  ),
-                )
-              else if (!isPlaying)
-                Flexible(
-                  child: Semantics(
-                    button: true,
-                    label: position > Duration.zero
-                        ? 'Resume exam audio'
-                        : 'Start listening test audio',
-                    child: FilledButton.tonalIcon(
-                      onPressed: onTapPlayPause,
-                      icon: const AppIcon(LucideGlyph.play, size: 16),
-                      label: Text(
-                        position > Duration.zero ? 'Resume' : 'Start Audio',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: SpacingTokens.sm,
-                  ),
-                  child: AppIcon(
-                    LucideGlyph.volume2,
-                    size: 20,
-                    color: colors.speakingAccent,
-                  ),
-                ),
-              const SizedBox(width: SpacingTokens.xs),
-              if (isExam) ...<Widget>[
-                Flexible(
-                  child: Text(
-                    '$posStr / $durStr',
+                  icon: const AppIcon(LucideGlyph.play, size: 16),
+                  label: Text(
+                    position > Duration.zero
+                        ? (isFa ? 'ادامه پخش' : 'Resume')
+                        : (isFa ? 'شروع پخش' : 'Start Audio'),
                     maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: typography.timerMono.copyWith(
-                      color: colors.textSecondary,
-                      fontSize: 14,
-                    ),
+                    softWrap: false,
                   ),
                 ),
-                const SizedBox(width: SpacingTokens.xs),
-                Expanded(
-                  child: Align(
-                    alignment: AlignmentDirectional.centerEnd,
-                    child: Text(
-                      'Exam Mode · Linear',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+              );
+              final examModeLabel = isFa
+                  ? 'حالت آزمون · پخش خطی'
+                  : 'Exam Mode · Linear';
+
+              if (isExam && !isPlaying && isCompact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        startBtn,
+                        const SizedBox(width: SpacingTokens.sm),
+                        Expanded(
+                          child: Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: Text(
+                              '$posStr / $durStr',
+                              maxLines: 1,
+                              style: typography.timerMono.copyWith(
+                                color: colors.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: SpacingTokens.xs),
+                    Text(
+                      examModeLabel,
                       style: typography.caption.copyWith(
                         color: colors.textTertiary,
                       ),
                     ),
-                  ),
-                ),
-              ] else ...<Widget>[
-                Expanded(
-                  child: Text(
-                    '$posStr / $durStr',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: typography.timerMono.copyWith(
-                      color: colors.textSecondary,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                if (onTapSpeed != null) ...<Widget>[
-                  const SizedBox(width: SpacingTokens.xs),
-                  InkWell(
-                    onTap: onTapSpeed,
-                    borderRadius: shapes.pillRadius,
-                    child: Container(
+                  ],
+                );
+              }
+
+              return Row(
+                children: <Widget>[
+                  // Play/Start button (`BF-04` / `UX-07`: Exam Mode must still expose a Start control)
+                  if (!isExam)
+                    IconButton(
+                      tooltip: isPlaying
+                          ? (isFa ? 'توقف صدا' : 'Pause audio')
+                          : (isFa ? 'پخش صدا' : 'Play audio'),
+                      onPressed: onTapPlayPause,
+                      icon: AppIcon(
+                        isPlaying ? LucideGlyph.pause : LucideGlyph.play,
+                        size: 20,
+                        color: colors.textPrimary,
+                      ),
+                    )
+                  else if (!isPlaying)
+                    startBtn
+                  else
+                    Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: SpacingTokens.sm,
-                        vertical: SpacingTokens.xs,
                       ),
-                      decoration: BoxDecoration(
-                        color: colors.surface,
-                        borderRadius: shapes.pillRadius,
-                        border: Border.all(
-                          color: colors.borderSubtle,
-                          width: shapes.strokeWidth,
-                        ),
+                      child: AppIcon(
+                        LucideGlyph.volume2,
+                        size: 20,
+                        color: colors.speakingAccent,
                       ),
-                      child: Text(
-                        '${playbackSpeed}x',
-                        style: typography.caption.copyWith(
-                          color: colors.textPrimary,
-                          fontWeight: FontWeight.w600,
+                    ),
+                  const SizedBox(width: SpacingTokens.xs),
+                  if (isExam) ...<Widget>[
+                    Text(
+                      '$posStr / $durStr',
+                      maxLines: 1,
+                      style: typography.timerMono.copyWith(
+                        color: colors.textSecondary,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(width: SpacingTokens.xs),
+                    Expanded(
+                      child: Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: Text(
+                          examModeLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: typography.caption.copyWith(
+                            color: colors.textTertiary,
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ] else ...<Widget>[
+                    Expanded(
+                      child: Text(
+                        '$posStr / $durStr',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: typography.timerMono.copyWith(
+                          color: colors.textSecondary,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    if (onTapSpeed != null) ...<Widget>[
+                      const SizedBox(width: SpacingTokens.xs),
+                      InkWell(
+                        onTap: onTapSpeed,
+                        borderRadius: shapes.pillRadius,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: SpacingTokens.sm,
+                            vertical: SpacingTokens.xs,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.surface,
+                            borderRadius: shapes.pillRadius,
+                            border: Border.all(
+                              color: colors.borderSubtle,
+                              width: shapes.strokeWidth,
+                            ),
+                          ),
+                          child: Text(
+                            '${playbackSpeed}x',
+                            style: typography.caption.copyWith(
+                              color: colors.textPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ],
-              ],
-            ],
+              );
+            },
           ),
         ],
       ),

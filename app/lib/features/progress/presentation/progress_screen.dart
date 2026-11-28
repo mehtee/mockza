@@ -388,14 +388,22 @@ class ProgressScreen extends ConsumerWidget {
           if (isIran)
             Text(
               scoreText,
-              style: typography.heroScore.copyWith(color: colors.textPrimary),
+              style:
+                  (summary.overallBand != null
+                          ? typography.heroScore
+                          : typography.sectionHeading)
+                      .copyWith(color: colors.textPrimary),
             )
           else
             LtrExamBoundary(
               useLatinFont: summary.overallBand != null,
               child: Text(
                 scoreText,
-                style: typography.heroScore.copyWith(color: colors.textPrimary),
+                style:
+                    (summary.overallBand != null
+                            ? typography.heroScore
+                            : typography.sectionHeading)
+                        .copyWith(color: colors.textPrimary),
               ),
             ),
           const SizedBox(height: SpacingTokens.sm),

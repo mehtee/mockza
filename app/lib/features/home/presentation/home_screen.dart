@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mockza/core/config/edition_config.dart';
 import 'package:mockza/core/exams/exam_descriptor.dart';
-import 'package:mockza/core/exams/exam_spec.dart';
 import 'package:mockza/core/formatting/edge_numerals.dart';
 import 'package:mockza/core/localization/edition_copy.dart';
 import 'package:mockza/core/models/attempt_status.dart';
@@ -24,7 +23,6 @@ import 'package:mockza/theme/components/icon_well.dart';
 import 'package:mockza/theme/components/linguistic_cards.dart';
 import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/metric_hero.dart';
-import 'package:mockza/theme/components/mz_bottom_sheet.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/components/mz_chip.dart';
@@ -130,12 +128,6 @@ class HomeScreen extends ConsumerWidget {
         children: <Widget>[
           BrandHeader(
             selectedExam: state.track.displayName,
-            onTapExamSelector: () => _openTrackPicker(
-              context,
-              ref,
-              activeTrack: state.track,
-              isIran: isIran,
-            ),
             onTapSettings: () => context.push(AppRoutes.settings),
           ),
           Expanded(
@@ -514,76 +506,6 @@ class HomeScreen extends ConsumerWidget {
       return 'کمترین نمره شما در $skill ($score) است. با تقویت آن به نمره هدف نزدیک‌تر شوید.';
     }
     return raw;
-  }
-
-  void _openTrackPicker(
-    BuildContext context,
-    WidgetRef ref, {
-    required ExamTrack activeTrack,
-    required bool isIran,
-  }) {
-    final colors = AppColors.of(context);
-    final typography = AppTypography.of(context);
-
-    unawaited(
-      showMzBottomSheet<void>(
-        context: context,
-        title: isIran ? 'تغییر آزمون هدف' : 'Switch Exam Track',
-        child: Builder(
-          builder: (sheetCtx) => SingleChildScrollView(
-            padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                for (final track in ExamTrack.values) ...<Widget>[
-                  GestureDetector(
-                    onTap: () {
-                      ref.read(homeNotifierProvider.notifier).setTrack(track);
-                      Navigator.of(sheetCtx).pop();
-                    },
-                    child: MzCard(
-                      child: Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: <Widget>[
-                                Text(
-                                  track.displayName,
-                                  style: typography.cardTitle,
-                                ),
-                                Text(
-                                  ExamDescriptor.forTrack(track).subtitle,
-                                  style: typography.caption.copyWith(
-                                    color: colors.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          AppIcon(
-                            track == activeTrack
-                                ? LucideGlyph.checkCircle2
-                                : LucideGlyph.chevronRight,
-                            color: track == activeTrack
-                                ? colors.primary
-                                : colors.textTertiary,
-                            size: 20,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: SpacingTokens.sm),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
 

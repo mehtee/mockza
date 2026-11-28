@@ -338,7 +338,7 @@ export function HomeScreen() {
                   to="/mission/$missionId"
                   params={{ missionId: 'today' }}
                   data-testid="home-daily-mission-cta"
-                  className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary"
+                  className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] border border-primary/40 bg-surface-alt px-4 text-xs font-semibold text-primary hover:bg-surface-hover"
                 >
                   {t('homeDailyMissionStartCta')}
                 </Link>
@@ -494,7 +494,7 @@ export function HomeScreen() {
                   to="/mission/$missionId"
                   params={{ missionId: 'today' }}
                   data-testid="home-daily-mission-cta"
-                  className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary"
+                  className="inline-flex min-h-11 items-center rounded-[var(--mz-radius-compact)] border border-primary/40 bg-surface-alt px-4 text-xs font-semibold text-primary hover:bg-surface-hover"
                 >
                   {t('homeDailyMissionStartCta')}
                 </Link>
@@ -549,7 +549,10 @@ export function HomeScreen() {
                   <Target className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                   <span data-testid="home-target-score-pill">
                     {t('homeTargetBadge', {
-                      score: formatExamScore(targetScore, activeTrack),
+                      score: formatChromeNumber(
+                        formatExamScore(targetScore, activeTrack),
+                        deps.edition,
+                      ),
                     })}
                   </span>
                 </span>
@@ -612,7 +615,7 @@ export function HomeScreen() {
                 to="/diagnostic/intro"
                 data-testid="home-diagnostic-cta"
                 search={{ track: activeTrack }}
-                className="inline-flex h-10 items-center gap-2 rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary transition-colors hover:bg-primary-pressed"
+                className="inline-flex h-10 items-center gap-2 rounded-[var(--mz-radius-compact)] border border-primary/40 bg-surface-alt px-4 text-xs font-semibold text-primary transition-colors hover:bg-surface-hover"
               >
                 <Rocket className="h-4 w-4" aria-hidden="true" />
                 <span>{t('homeTakeDiagnosticCta')}</span>
@@ -808,7 +811,11 @@ export function HomeScreen() {
             <Link
               to="/vocabulary/review"
               data-testid="home-vocab-review-cta"
-              className="inline-flex min-h-11 items-center justify-center rounded-[var(--mz-radius-compact)] bg-primary px-4 text-xs font-semibold text-on-primary transition-colors hover:bg-primary-pressed"
+              className={
+                dueCards.length > 0
+                  ? 'inline-flex min-h-11 items-center justify-center rounded-[var(--mz-radius-compact)] border border-primary/40 bg-surface-alt px-4 text-xs font-semibold text-primary transition-colors hover:bg-surface-hover'
+                  : 'inline-flex min-h-11 items-center justify-center rounded-[var(--mz-radius-compact)] border border-border-subtle bg-bg-raised px-4 text-xs font-semibold text-text-secondary transition-colors hover:bg-surface-hover'
+              }
             >
               {t('homeStartReviewCta')}
             </Link>

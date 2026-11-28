@@ -87,7 +87,7 @@ export function ScoreCalculatorsIsland({ isIrn = false }: ScoreCalculatorsIsland
 
           <p
             data-testid="calc-ielts-result"
-            className="mt-2 font-mono-exam text-2xl font-bold text-primary"
+            className={`mt-2 ${isIrn ? '' : 'font-mono-exam '}text-2xl font-bold text-primary`}
           >
             {isIrn ? `باند ${fmt(ieltsBand.toFixed(1), true)}` : `Band ${ieltsBand.toFixed(1)}`}
           </p>
@@ -119,7 +119,7 @@ export function ScoreCalculatorsIsland({ isIrn = false }: ScoreCalculatorsIsland
 
           <p
             data-testid="calc-toefl-result"
-            className="mt-2 font-mono-exam text-2xl font-bold text-primary"
+            className={`mt-2 ${isIrn ? '' : 'font-mono-exam '}text-2xl font-bold text-primary`}
           >
             {isIrn ? `~${fmt(toefl120, true)} / ۱۲۰` : `~${toefl120} / 120`}
           </p>

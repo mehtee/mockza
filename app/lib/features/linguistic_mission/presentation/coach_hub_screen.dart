@@ -329,13 +329,18 @@ class _CoachToolTile extends StatelessWidget {
           ),
           ?extraContent,
           const SizedBox(height: SpacingTokens.sm),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: SecondaryButton(
-              label: ctaLabel,
-              isFullWidth: false,
-              onPressed: onTap,
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final fullWidth = constraints.maxWidth < 520;
+              return Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: SecondaryButton(
+                  label: ctaLabel,
+                  isFullWidth: fullWidth,
+                  onPressed: onTap,
+                ),
+              );
+            },
           ),
         ],
       ),

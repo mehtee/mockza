@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:mockza/core/config/brand_identity.dart';
 import 'package:mockza/core/exams/exam_spec.dart';
+import 'package:mockza/core/localization/edition_copy.dart';
 import 'package:mockza/services/external_link_platform.dart';
 import 'package:mockza/theme/app_colors.dart';
 import 'package:mockza/theme/app_icons.dart';
 import 'package:mockza/theme/app_typography.dart';
-import 'package:mockza/theme/components/ltr_exam_boundary.dart';
 import 'package:mockza/theme/components/mz_buttons.dart';
 import 'package:mockza/theme/components/mz_card.dart';
 import 'package:mockza/theme/primitives.dart';
@@ -70,15 +70,13 @@ class NaviaHandoffCard extends StatelessWidget {
             style: typography.secondary.copyWith(color: colors.textSecondary),
           ),
           const SizedBox(height: SpacingTokens.sm),
-          LtrExamBoundary(
-            child: Text(
-              estimatedScore != null
-                  ? '${track.shortName}: ${track.formatScore(estimatedScore!)} / Target ${track.formatScore(targetScore)}'
-                  : '${track.shortName} · Target ${track.formatScore(targetScore)}',
-              style: typography.caption.copyWith(
-                color: colors.primary,
-                fontWeight: FontWeight.w700,
-              ),
+          Text(
+            estimatedScore != null
+                ? '${track.shortName} · ${EditionCopy.formatScoreFor(track, estimatedScore!, isIran: true)} / هدف ${EditionCopy.formatScoreFor(track, targetScore, isIran: true)}'
+                : '${track.shortName} · هدف ${EditionCopy.formatScoreFor(track, targetScore, isIran: true)}',
+            style: typography.caption.copyWith(
+              color: colors.primary,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: SpacingTokens.md),

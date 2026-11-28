@@ -277,6 +277,9 @@ class _ReadingSimScreenState extends ConsumerState<ReadingSimScreen> {
                           );
                         }
 
+                        final isFa =
+                            Localizations.localeOf(context).languageCode ==
+                            'fa';
                         return Column(
                           children: <Widget>[
                             Padding(
@@ -288,7 +291,7 @@ class _ReadingSimScreenState extends ConsumerState<ReadingSimScreen> {
                                 children: <Widget>[
                                   Expanded(
                                     child: _ViewTabButton(
-                                      label: 'Passage',
+                                      label: isFa ? 'متن ریدینگ' : 'Passage',
                                       glyph: LucideGlyph.bookOpen,
                                       isSelected: state.activeTab == 0,
                                       onTap: () => notifier.selectTab(0),
@@ -297,8 +300,9 @@ class _ReadingSimScreenState extends ConsumerState<ReadingSimScreen> {
                                   const SizedBox(width: SpacingTokens.sm),
                                   Expanded(
                                     child: _ViewTabButton(
-                                      label:
-                                          'Questions (${state.answeredCount}/$totalQuestions)',
+                                      label: isFa
+                                          ? 'پرسش‌ها (${state.answeredCount}/$totalQuestions)'
+                                          : 'Questions (${state.answeredCount}/$totalQuestions)',
                                       glyph: LucideGlyph.checkCircle2,
                                       isSelected: state.activeTab == 1,
                                       onTap: () => notifier.selectTab(1),
@@ -348,8 +352,14 @@ class _ReadingSimScreenState extends ConsumerState<ReadingSimScreen> {
                     ..selectQuestion(qNum)
                     ..selectTab(1);
                 },
-                submitLabel: 'Submit Test',
-                submittingLabel: 'Grading...',
+                submitLabel:
+                    Localizations.localeOf(context).languageCode == 'fa'
+                        ? 'ثبت و تصحیح آزمون'
+                        : 'Submit Test',
+                submittingLabel:
+                    Localizations.localeOf(context).languageCode == 'fa'
+                        ? 'در حال تصحیح...'
+                        : 'Grading...',
                 isSubmitting: state.isSubmitting,
                 onSubmit: () async {
                   final attemptId = await notifier.submitReading();

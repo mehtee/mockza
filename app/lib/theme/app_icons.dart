@@ -268,62 +268,70 @@ class _SanjiaMarkPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
-    final outerRect = Rect.fromLTWH(w * 0.04, h * 0.04, w * 0.92, h * 0.92);
-    final outerRRect = RRect.fromRectAndRadius(
-      outerRect,
-      Radius.circular(w * 0.24),
-    );
+    final sx = w / 32.0;
+    final sy = h / 32.0;
 
+    canvas.save();
+    canvas.scale(sx, sy);
+
+    final outerRRect = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(1, 1, 30, 30),
+      const Radius.circular(8.5),
+    );
     final bgPaint = Paint()
-      ..shader = gradient.createShader(outerRect)
+      ..color = borderColor.withValues(alpha: 0.12)
       ..style = PaintingStyle.fill;
     canvas.drawRRect(outerRRect, bgPaint);
 
-    final strokePaint = Paint()
-      ..color = borderColor.withValues(alpha: 0.35)
+    final borderPaint = Paint()
+      ..color = borderColor.withValues(alpha: 0.28)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = (w * 0.04).clamp(1.0, 2.5);
-    canvas.drawRRect(outerRRect, strokePaint);
+      ..strokeWidth = 1.25;
+    canvas.drawRRect(outerRRect, borderPaint);
 
-    // Asymmetric 2x2 Sanjia geometric prism (representing 4 exam skills + calibration step)
-    final blockPaint = Paint()
+    final crownStroke = Paint()
+      ..color = borderColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.1
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    // Stylized calligraphic scale-crown echoing Persian letter «س» (matches Web BrandMark.tsx)
+    final crownPath = Path()
+      ..moveTo(8.5, 11.25)
+      ..lineTo(8.5, 14.25)
+      ..arcToPoint(
+        const Offset(11.75, 17.5),
+        radius: const Radius.circular(3.25),
+        clockwise: false,
+      )
+      ..lineTo(20.25, 17.5)
+      ..arcToPoint(
+        const Offset(23.5, 14.25),
+        radius: const Radius.circular(3.25),
+        clockwise: false,
+      )
+      ..lineTo(23.5, 11.25);
+    canvas.drawPath(crownPath, crownStroke);
+    canvas.drawLine(const Offset(16, 9.5), const Offset(16, 17.5), crownStroke);
+
+    // Precision assessment nib base
+    final nibFill = Paint()
+      ..color = borderColor
+      ..style = PaintingStyle.fill;
+    final nibPath = Path()
+      ..moveTo(12.25, 20.5)
+      ..lineTo(19.75, 20.5)
+      ..lineTo(16, 26.25)
+      ..close();
+    canvas.drawPath(nibPath, nibFill);
+
+    final dotPaint = Paint()
       ..color = highlightColor
       ..style = PaintingStyle.fill;
-    final radius = Radius.circular(w * 0.09);
-    const gap = 0.07;
-    const cell = 0.25;
-    const start = 0.215;
+    canvas.drawCircle(const Offset(16, 22.15), 0.95, dotPaint);
 
-    final tl = RRect.fromRectAndRadius(
-      Rect.fromLTWH(w * start, h * start, w * cell, h * cell),
-      radius,
-    );
-    final tr = RRect.fromRectAndRadius(
-      Rect.fromLTWH(w * (start + cell + gap), h * start, w * cell, h * cell),
-      radius,
-    );
-    final bl = RRect.fromRectAndRadius(
-      Rect.fromLTWH(w * start, h * (start + cell + gap), w * cell, h * cell),
-      radius,
-    );
-    final br = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        w * (start + cell + gap),
-        h * (start + cell + gap),
-        w * cell,
-        h * cell,
-      ),
-      Radius.circular(w * 0.14),
-    );
-
-    canvas.drawRRect(tl, blockPaint);
-    canvas.drawRRect(tr, blockPaint);
-    canvas.drawRRect(bl, blockPaint);
-
-    final accentPaint = Paint()
-      ..color = highlightColor.withValues(alpha: 0.52)
-      ..style = PaintingStyle.fill;
-    canvas.drawRRect(br, accentPaint);
+    canvas.restore();
   }
 
   @override

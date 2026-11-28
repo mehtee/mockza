@@ -52,6 +52,8 @@ class AudioLevelMeter extends StatelessWidget {
     final shapes = AppShapes.of(context);
     final typography = AppTypography.of(context);
 
+    final isFa = Localizations.localeOf(context).languageCode == 'fa';
+
     if (!hasPermission) {
       return Container(
         padding: const EdgeInsetsDirectional.all(SpacingTokens.md),
@@ -69,7 +71,9 @@ class AudioLevelMeter extends StatelessWidget {
             const SizedBox(width: SpacingTokens.sm),
             Expanded(
               child: Text(
-                'Microphone permission required for Speaking practice.',
+                isFa
+                    ? 'برای تمرین اسپیکینگ، دسترسی میکروفون لازم است.'
+                    : 'Microphone permission required for Speaking practice.',
                 style: typography.caption.copyWith(
                   color: colors.warning,
                   fontWeight: FontWeight.w600,

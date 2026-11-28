@@ -248,18 +248,11 @@ export function RoadmapScreen() {
   const activeSteps = useMemo(() => {
     const primary = allSteps.filter((s) => s.status === 'active');
     if (primary.length > 0) {
-      const ordered =
-        state?.liveBand.currentBand === null
-          ? [
-              ...primary.filter((s) => s.stepKind !== 'diagnostic'),
-              ...primary.filter((s) => s.stepKind === 'diagnostic'),
-            ]
-          : primary;
-      return ordered.slice(0, 3);
+      return [...primary].sort((a, b) => a.stepOrder - b.stepOrder).slice(0, 3);
     }
     if (state?.roadmap.currentStep) return [state.roadmap.currentStep];
     return [];
-  }, [allSteps, state?.liveBand.currentBand, state?.roadmap.currentStep]);
+  }, [allSteps, state?.roadmap.currentStep]);
 
   const upcomingSteps = useMemo(() => {
     const activeIds = new Set(activeSteps.map((s) => s.stepId));
