@@ -103,7 +103,7 @@ final class ContentSyncService {
       _crashLog.info('Catalog sync skipped/offline: ${e.message}');
       return Err(
         NetworkFailure(
-          'Unable to sync catalog: ${e.message ?? 'offline'}',
+          _friendlyDioError(e, context: 'Catalog sync'),
           statusCode: e.response?.statusCode,
         ),
       );
@@ -216,7 +216,7 @@ final class ContentSyncService {
         } on DioException catch (e) {
           return Err(
             NetworkFailure(
-              'Failed to download required media asset ($url) for $packId: ${e.message ?? 'offline'}',
+              _friendlyDioError(e, context: 'Media download for "$packId"'),
               statusCode: e.response?.statusCode,
             ),
           );
@@ -237,13 +237,38 @@ final class ContentSyncService {
     } on DioException catch (e) {
       return Err(
         NetworkFailure(
-          'Failed to download exam $packId: ${e.message ?? 'offline'}',
+          _friendlyDioError(e, context: 'Exam pack "$packId"'),
           statusCode: e.response?.statusCode,
         ),
       );
     } on Object catch (e) {
       return Err(UnexpectedFailure('Unable to cache exam $packId: $e'));
     }
+  }
+
+  static String _friendlyDioError(DioException e, {required String context}) {
+    final code = e.response?.statusCode;
+    if (code == 404) {
+      return '$context is not available on the server (404).';
+    }
+    if (code == 429) {
+      return 'Too many requests. Please wait a few seconds and try again.';
+    }
+    if (code == 401 || code == 403) {
+      return 'Session expired. Please refresh or sign in again.';
+    }
+    if (code != null && code >= 500) {
+      return 'Server temporarily unavailable ($code). Please try again shortly.';
+    }
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.sendTimeout) {
+      return 'Connection timed out while loading $context. Please retry.';
+    }
+    if (e.type == DioExceptionType.connectionError) {
+      return 'Unable to reach the server. Check your internet connection.';
+    }
+    return '$context could not be loaded (${code != null ? 'HTTP $code' : 'offline'}).';
   }
 
   /// Ensures [packId] JSON bundle is available locally and matches latest manifest version/hash.

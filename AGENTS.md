@@ -6,6 +6,7 @@ This host has ~7.7 GiB total RAM and 1 GiB swap shared with live Docker stacks. 
 
 1. **Always check RAM first (`free -m`)** before running ANY build, test suite, analyzer, or container restart.
    - If `available` RAM is `< 900 MiB`, DO NOT start builds or test suites — stop, inspect what is holding memory, and report to the user.
+   - **NEVER run `flutter build web` directly on this 7.7 GiB host** (dart2js peaks RAM and crashes/restarts the VM). Build Flutter web only on a larger machine or inside a strictly memory-capped environment.
 2. **Never run heavy builds or tests in parallel:**
    - NEVER run `flutter test`, `flutter analyze`, `astro build`, `tsc`, or `vitest` concurrently. Run strictly one command at a time.
 3. **Cap Node.js heaps & Vitest workers explicitly:**

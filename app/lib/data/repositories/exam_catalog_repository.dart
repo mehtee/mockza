@@ -663,14 +663,35 @@ final class ExamCatalogRepository {
         .toLowerCase();
     final qType = ObjectiveQuestionType.fromWire(rawType);
 
-    final rawEv = qItem['evidence'] as Map<String, dynamic>?;
+    final rawEvRoot = qItem['evidence'];
+    final rawEvMap = rawEvRoot is Map<String, dynamic> ? rawEvRoot : null;
+    final nestedEv = rawEvMap?['exactQuote'] is Map<String, dynamic>
+        ? rawEvMap!['exactQuote'] as Map<String, dynamic>
+        : null;
+    final rawEv = nestedEv ?? rawEvMap;
+    int parseParagraphIndex(Map<String, dynamic>? m) {
+      if (m == null) return 1;
+      final idx = m['paragraphIndex'];
+      if (idx is num) return idx.toInt();
+      final letter = m['paragraph'];
+      if (letter is String && letter.trim().isNotEmpty) {
+        final code = letter.trim().toUpperCase().codeUnitAt(0);
+        if (code >= 65 && code <= 90) return code - 64;
+      }
+      return 1;
+    }
+
+    final exactQuoteVal = rawEv?['exactQuote'];
+    final omissionReasonVal = rawEv?['notGivenOmissionReason'];
     final evidenceSpan = rawEv != null
         ? EvidenceSpanSpec(
-            paragraphIndex: (rawEv['paragraphIndex'] as num?)?.toInt() ?? 1,
+            paragraphIndex: parseParagraphIndex(rawEv),
             startOffset: (rawEv['startOffset'] as num?)?.toInt() ?? 0,
             endOffset: (rawEv['endOffset'] as num?)?.toInt() ?? 0,
-            exactQuote: (rawEv['exactQuote'] as String?) ?? '',
-            notGivenOmissionReason: rawEv['notGivenOmissionReason'] as String?,
+            exactQuote: exactQuoteVal is String ? exactQuoteVal : '',
+            notGivenOmissionReason: omissionReasonVal is String
+                ? omissionReasonVal
+                : null,
           )
         : null;
 
